@@ -8,6 +8,7 @@ import { DatabaseModule } from './infrastructure/database/database.module';
 import { ObservabilityLoggerModule } from './infrastructure/observability/logger.module';
 import { CatalogoModule } from './modules/catalogo/catalogo.module';
 import { CuentaModule } from './modules/cuenta/cuenta.module';
+import { EquipoModule } from './modules/equipo/equipo.module';
 import { SaludModule } from './modules/salud/salud.module';
 import { SesionModule } from './modules/sesion/sesion.module';
 import { CabeceraPaseLibreMiddleware } from './shared/middleware/cabecera-paselibre.middleware';
@@ -28,6 +29,7 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     SesionModule,
     CuentaModule,
     CatalogoModule,
+    EquipoModule,
     SaludModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

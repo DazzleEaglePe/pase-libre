@@ -5,7 +5,8 @@ import { useState } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 
-export function BotonSalir() {
+/** `oscuro` para la barra negra del panel del equipo. */
+export function BotonSalir({ oscuro = false }: { oscuro?: boolean }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
 
@@ -22,7 +23,11 @@ export function BotonSalir() {
           setSaliendo(false);
         }
       }}
-      className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium"
+      className={
+        oscuro
+          ? 'h-10 text-apoyo font-medium text-white underline'
+          : 'flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium'
+      }
     >
       {saliendo ? 'Saliendo…' : 'Cerrar sesión'}
     </button>

@@ -5,6 +5,7 @@
 import { normalizarTexto, slugDe } from '@paselibre/contracts';
 import type { Condicion, Moneda, PrismaClient, Rol } from '@prisma/client';
 
+import { RESPUESTAS_RAPIDAS_INICIALES } from '../src/modules/cuenta/respuestas-rapidas';
 import { cifrarClave } from '../src/modules/sesion/clave';
 
 /**
@@ -292,8 +293,6 @@ const PRODUCTOS: ProductoDemo[] = [
   },
 ];
 
-const RESPUESTAS_RAPIDAS = ['¿Sigue disponible?', 'Te lo separo', 'Paso a recoger', 'Ya no tengo'];
-
 const DIA = 24 * 60 * 60 * 1000;
 
 export async function sembrarDemo(prisma: PrismaClient): Promise<void> {
@@ -365,7 +364,7 @@ export async function sembrarDemo(prisma: PrismaClient): Promise<void> {
           debeCambiarClave: Boolean(u.sinPrimerIngreso),
           primerIngresoEn: u.sinPrimerIngreso ? null : new Date(ahora - 5 * DIA),
           respuestasRapidas: {
-            create: RESPUESTAS_RAPIDAS.map((texto, orden) => ({ texto, orden })),
+            create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
           },
         },
       });

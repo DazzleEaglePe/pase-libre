@@ -256,6 +256,7 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | | `POST /equipo/cuentas/:id/clave-temporal` | Nueva clave; obliga a cambiarla al entrar | 50 |
 | | `PATCH /equipo/cuentas/:id` | Suspender o reactivar | 28 |
 | | `POST /equipo/cuentas/:id/traspasar` | Pasar ofertas e hilos a otro usuario de la tienda | 71 |
+| | `GET /equipo/tiendas` | Tiendas activas, para elegir la de un asesor | 35 |
 | | `POST /equipo/cargas`, `POST /equipo/cargas/:id/confirmar` | Carga por planilla con vista previa | 34 |
 | | `GET /equipo/duplicados`, `POST /equipo/productos/:id/unir` | Unir productos | 54 |
 | Operación | `GET /salud` | Estado de la API, la base y Redis | RNF-39 |
@@ -410,9 +411,9 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
 
 **Avance al 26/10:**
 - **Día 1 (listo):** monorepo, esquema, semilla, sesión, primer ingreso y la pantalla de acceso de la web.
-- **Día 2:**
-  - **Listo en la API:** portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
-  - **Falta:** el panel del equipo para crear cuentas.
+- **Día 2 (listo):**
+  - En la API: portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
+  - El panel del equipo (`/equipo/cuentas`) en la API y en la web: crear cuentas, reenviar acceso o dar una contraseña temporal nueva, y suspender o reactivar. Falta traspasar ofertas y conversaciones entre usuarios (A-11), que llega con los mensajes.
 - *Staging* espera a que se decida el servidor.
 
 ## 13. Pruebas (RNF-32)

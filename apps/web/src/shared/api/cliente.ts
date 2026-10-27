@@ -6,6 +6,7 @@ export class ErrorApi extends Error {
     readonly estado: number,
     readonly codigo: CodigoError | 'SIN_CONEXION',
     mensaje: string,
+    readonly detalles?: Record<string, unknown>,
   ) {
     super(mensaje);
   }
@@ -46,6 +47,7 @@ export async function llamarApi<T>(
       respuesta.status,
       error?.codigo ?? 'ERROR_INTERNO',
       error?.mensaje ?? 'Algo falló de nuestro lado. Vuelve a intentarlo.',
+      error?.detalles,
     );
   }
   return datos as T;

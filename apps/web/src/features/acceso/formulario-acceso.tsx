@@ -9,6 +9,11 @@ import { enlaceWhatsappEquipo } from '@/shared/whatsapp-equipo';
 
 type Pestana = 'ingresar' | 'crear';
 
+/** El equipo entra directo a su panel; las tiendas, a la portada. */
+function inicioPara(yo: RespuestaYo): string {
+  return yo.usuario.rol === 'EQUIPO' ? '/equipo/cuentas' : '/';
+}
+
 const campo =
   'h-12 rounded-xl border border-borde px-3.5 text-cuerpo font-normal text-tinta placeholder:text-detalle';
 const botonPrincipal =
@@ -35,9 +40,18 @@ export function FormularioAcceso({
     primerIngreso ? 'primer' : 'login',
   );
   const [usuarioPrimer, setUsuarioPrimer] = useState(primerIngreso ?? '');
+  const [destino, setDestino] = useState('/');
 
   if (paso === 'primer') {
-    return <CrearClave usuario={usuarioPrimer} alTerminar={() => setPaso('listo')} />;
+    return (
+      <CrearClave
+        usuario={usuarioPrimer}
+        alTerminar={(yo) => {
+          setDestino(inicioPara(yo));
+          setPaso('listo');
+        }}
+      />
+    );
   }
   if (paso === 'listo') {
     return (
@@ -61,7 +75,7 @@ export function FormularioAcceso({
           Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración ›
           Seguridad.
         </p>
-        <button type="button" className={botonPrincipal} onClick={() => router.replace('/')}>
+        <button type="button" className={botonPrincipal} onClick={() => router.replace(destino)}>
           Ir al inicio
         </button>
       </div>
@@ -75,7 +89,7 @@ export function FormularioAcceso({
           setUsuarioPrimer(yo.usuario.usuario);
           setPaso('primer');
         } else {
-          router.replace('/');
+          router.replace(inicioPara(yo));
           router.refresh();
         }
       }}
@@ -282,7 +296,13 @@ function Ingreso({
   );
 }
 
-function CrearClave({ usuario, alTerminar }: { usuario: string; alTerminar: () => void }) {
+function CrearClave({
+  usuario,
+  alTerminar,
+}: {
+  usuario: string;
+  alTerminar: (yo: RespuestaYo) => void;
+}) {
   const [nueva, setNueva] = useState('');
   const [repite, setRepite] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -300,11 +320,11 @@ function CrearClave({ usuario, alTerminar }: { usuario: string; alTerminar: () =
     setEnviando(true);
     setError(null);
     try {
-      await llamarApi<RespuestaYo>('/sesion/clave', {
+      const yo = await llamarApi<RespuestaYo>('/sesion/clave', {
         metodo: 'POST',
         cuerpo: { clave_nueva: nueva },
       });
-      alTerminar();
+      alTerminar(yo);
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No pudimos guardar la contraseña.');
       setEnviando(false);

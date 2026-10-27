@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { buscarSchema } from './catalogo/catalogo.schemas';
 import { claveEtiqueta, normalizarTexto, slugDe } from './catalogo/normalizar';
 import { formatearPrecio, precioDe } from './comun/dinero';
+import { crearCuentaSchema, whatsappSchema } from './equipo/equipo.schemas';
 import { cambiarClaveSchema, ingresarSchema } from './sesion/sesion.schemas';
 
 describe('normalizarTexto', () => {
@@ -86,5 +87,47 @@ describe('precios', () => {
     expect(precioDe(25000, 'USD')).toEqual({ moneda: 'USD', centimos: 25000, monto: '250.00' });
     expect(formatearPrecio(precioDe(25000, 'USD'))).toBe('US$ 250');
     expect(formatearPrecio(precioDe(169999, 'PEN'))).toBe('S/ 1,699.99');
+  });
+});
+
+describe('crearCuentaSchema', () => {
+  const dueno = {
+    tipo: 'DUENO',
+    nombre: 'Rosa M.',
+    usuario: ' TiendaF ',
+    tienda: {
+      nombre: 'Tienda F',
+      galeria: 'cyberplaza',
+      stand: '118',
+      whatsapp: '+51 987 654 321',
+    },
+  };
+
+  it('normaliza el usuario y el WhatsApp', () => {
+    const cuenta = crearCuentaSchema.parse(dueno);
+    expect(cuenta.usuario).toBe('tiendaf');
+    expect(cuenta.tienda?.whatsapp).toBe('987654321');
+  });
+
+  it('pide galería al dueño de tienda, pero no al independiente', () => {
+    const sinGaleria = { ...dueno, tienda: { ...dueno.tienda, galeria: null } };
+    expect(crearCuentaSchema.safeParse(sinGaleria).success).toBe(false);
+    expect(crearCuentaSchema.safeParse({ ...sinGaleria, tipo: 'INDEPENDIENTE' }).success).toBe(
+      true,
+    );
+  });
+
+  it('el asesor se suma a una tienda existente', () => {
+    const asesor = { tipo: 'ASESOR', nombre: 'Kevin S.', usuario: 'tiendaf.kevin' };
+    expect(crearCuentaSchema.safeParse(asesor).success).toBe(false);
+    expect(
+      crearCuentaSchema.safeParse({ ...asesor, tienda_id: '7b0f3c62-8d2a-4c1b-9e7f-1a2b3c4d5e6f' })
+        .success,
+    ).toBe(true);
+  });
+
+  it('rechaza celulares que no son de Perú', () => {
+    expect(whatsappSchema.safeParse('12345').success).toBe(false);
+    expect(whatsappSchema.safeParse('51987654321').data).toBe('987654321');
   });
 });

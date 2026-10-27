@@ -40,6 +40,11 @@ export default async function Portada() {
                     .join(' · ') || 'Independiente'
                 : 'Equipo de PaseLibre'}
             </p>
+            {sesion.usuario.rol === 'EQUIPO' && (
+              <Link href="/equipo/cuentas" className="mt-3 text-apoyo font-medium">
+                Ir al panel del equipo
+              </Link>
+            )}
           </section>
         ) : (
           <section className="flex max-w-[560px] flex-col gap-2">

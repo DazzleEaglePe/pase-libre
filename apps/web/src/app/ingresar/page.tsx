@@ -20,7 +20,9 @@ export default async function PaginaIngresar({
 }) {
   const sesion = await obtenerSesion();
   // Con sesión y clave propia no hay nada que hacer aquí.
-  if (sesion && !sesion.usuario.debe_cambiar_clave) redirect('/');
+  if (sesion && !sesion.usuario.debe_cambiar_clave) {
+    redirect(sesion.usuario.rol === 'EQUIPO' ? '/equipo/cuentas' : '/');
+  }
   const { pestana } = await searchParams;
 
   return (
