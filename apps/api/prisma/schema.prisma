@@ -1,0 +1,612 @@
+// Esquema de la primera salida (docs/05-arquitectura.md §4).
+// Las reglas que Prisma no expresa (los CHECK) están al final de la migración inicial.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [citext, pgcrypto, pg_trgm, unaccent, fuzzystrmatch]
+}
+
+enum Rol {
+  DUENO
+  ASESOR
+  EQUIPO
+
+  @@map("rol")
+}
+
+enum EstadoUsuario {
+  ACTIVO
+  SUSPENDIDO
+
+  @@map("estado_usuario")
+}
+
+enum TipoTienda {
+  TIENDA
+  INDEPENDIENTE
+
+  @@map("tipo_tienda")
+}
+
+enum EstadoTienda {
+  ACTIVA
+  SUSPENDIDA
+
+  @@map("estado_tienda")
+}
+
+enum Moneda {
+  USD
+  PEN
+
+  @@map("moneda")
+}
+
+enum Condicion {
+  NUEVO
+  USADO
+
+  @@map("condicion")
+}
+
+/// «Sin stock» no es un estado: sale de `stock = 0`.
+enum EstadoOferta {
+  ACTIVA
+  PAUSADA
+  ELIMINADA
+
+  @@map("estado_oferta")
+}
+
+enum TipoMensaje {
+  TEXTO
+  FOTO
+  SISTEMA
+
+  @@map("tipo_mensaje")
+}
+
+enum TipoAviso {
+  MENSAJE
+  SEGURIDAD
+  RECORDATORIO
+  SISTEMA
+
+  @@map("tipo_aviso")
+}
+
+enum ObjetoDenuncia {
+  OFERTA
+  CONVERSACION
+  TIENDA
+
+  @@map("objeto_denuncia")
+}
+
+enum EstadoDenuncia {
+  ABIERTA
+  REVISADA
+  DESCARTADA
+
+  @@map("estado_denuncia")
+}
+
+enum CanalContacto {
+  CHAT
+  WHATSAPP
+
+  @@map("canal_contacto")
+}
+
+enum EstadoCarga {
+  BORRADOR
+  CARGADA
+  DESCARTADA
+
+  @@map("estado_carga")
+}
+
+// ── Cuentas ────────────────────────────────────────────────────────────────
+
+/// La galería es un dato, no una constante (RNF-29).
+model Galeria {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String  @unique @db.VarChar(80)
+  slug     String  @unique @db.Citext
+  activa   Boolean @default(true)
+  orden    Int     @default(0) @db.SmallInt
+  creadaEn DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  tiendas Tienda[]
+
+  @@map("galeria")
+}
+
+/// Quien vende: una tienda de galería o un independiente (sin galería).
+model Tienda {
+  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo                 TipoTienda
+  nombre               String       @db.VarChar(120)
+  galeriaId            String?      @map("galeria_id") @db.Uuid
+  stand                String?      @db.VarChar(20)
+  whatsapp             String       @db.VarChar(20)
+  horario              String?      @db.VarChar(120)
+  descripcion          String?      @db.VarChar(500)
+  logo                 String?      @db.VarChar(300)
+  /// Valores por defecto al publicar (D-37): precio oculto y en dólares.
+  precioVisibleDefecto Boolean      @default(false) @map("precio_visible_defecto")
+  monedaDefecto        Moneda       @default(USD) @map("moneda_defecto")
+  /// Fase 2 (RF-41). Se crea ahora para no migrar después.
+  perfilPrivado        Boolean      @default(false) @map("perfil_privado")
+  estado               EstadoTienda @default(ACTIVA)
+  creadaEn             DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
+  actualizadaEn        DateTime     @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
+
+  galeria               Galeria?        @relation(fields: [galeriaId], references: [id])
+  usuarios              Usuario[]
+  ofertas               Oferta[]
+  productosCreados      Producto[]      @relation("ProductoCreadoPor")
+  conversacionesCompra  Conversacion[]  @relation("TiendaCompradora")
+  conversacionesVenta   Conversacion[]  @relation("TiendaVendedora")
+  bloqueos              Bloqueo[]
+  comprasRegistradas    Venta[]         @relation("VentaTiendaCompradora")
+  cargas                CargaPlanilla[]
+
+  @@index([galeriaId])
+  @@map("tienda")
+}
+
+model Usuario {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Nula solo para el equipo de PaseLibre (CHECK en la migración).
+  tiendaId         String?       @map("tienda_id") @db.Uuid
+  rol              Rol
+  usuario          String        @unique @db.Citext
+  correo           String?       @unique @db.Citext
+  nombre           String        @db.VarChar(120)
+  whatsapp         String?       @db.VarChar(20)
+  claveHash        String        @map("clave_hash") @db.VarChar(255)
+  /// La clave que entrega el equipo es temporal: el primer ingreso obliga a cambiarla.
+  debeCambiarClave Boolean       @default(true) @map("debe_cambiar_clave")
+  primerIngresoEn  DateTime?     @map("primer_ingreso_en") @db.Timestamptz(6)
+  estado           EstadoUsuario @default(ACTIVO)
+  intentosFallidos Int           @default(0) @map("intentos_fallidos") @db.SmallInt
+  intentosDesde    DateTime?     @map("intentos_desde") @db.Timestamptz(6)
+  bloqueadoHasta   DateTime?     @map("bloqueado_hasta") @db.Timestamptz(6)
+  ultimoIngresoEn  DateTime?     @map("ultimo_ingreso_en") @db.Timestamptz(6)
+  /// «No molestar» (RF-59), en minutos desde la medianoche, hora de Lima.
+  noMolestarDesde  Int?          @map("no_molestar_desde") @db.SmallInt
+  noMolestarHasta  Int?          @map("no_molestar_hasta") @db.SmallInt
+  /// El «Visto» se puede desactivar (RF-57).
+  mostrarVisto     Boolean       @default(true) @map("mostrar_visto")
+  creadoEn         DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn    DateTime      @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  tienda               Tienda?            @relation(fields: [tiendaId], references: [id])
+  sesiones             Sesion[]
+  ofertasResponsable   Oferta[]
+  conversacionesCompra Conversacion[]     @relation("Comprador")
+  conversacionesVenta  Conversacion[]     @relation("Vendedor")
+  participaciones      Participacion[]
+  mensajes             Mensaje[]
+  respuestasRapidas    RespuestaRapida[]
+  bloqueos             Bloqueo[]
+  denuncias            Denuncia[]
+  ventasRegistradas    Venta[]            @relation("VentaRegistradaPor")
+  compras              Venta[]            @relation("VentaComprador")
+  avisos               Aviso[]
+  preferenciasAviso    PreferenciaAviso[]
+  busquedas            Busqueda[]
+  contactos            Contacto[]
+  cargas               CargaPlanilla[]
+  auditorias           Auditoria[]
+
+  @@index([tiendaId])
+  @@map("usuario")
+}
+
+/// Token opaco en una cookie httpOnly; aquí solo se guarda su hash (A-05).
+model Sesion {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash") @db.Char(64)
+  recordar   Boolean   @default(false)
+  creadaEn   DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
+  usadaEn    DateTime  @default(now()) @map("usada_en") @db.Timestamptz(6)
+  expiraEn   DateTime  @map("expira_en") @db.Timestamptz(6)
+  revocadaEn DateTime? @map("revocada_en") @db.Timestamptz(6)
+  agente     String?   @db.VarChar(300)
+  ip         String?   @db.VarChar(45)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("sesion")
+}
+
+// ── Catálogo: producto y oferta (D-43) ─────────────────────────────────────
+
+model Categoria {
+  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String  @db.VarChar(80)
+  slug     String  @unique @db.Citext
+  orden    Int     @default(0) @db.SmallInt
+  padreId  String? @map("padre_id") @db.Uuid
+
+  padre     Categoria?  @relation("Subcategorias", fields: [padreId], references: [id])
+  hijas     Categoria[] @relation("Subcategorias")
+  productos Producto[]
+
+  @@map("categoria")
+}
+
+model Marca {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre String @unique @db.Citext
+  slug   String @unique @db.Citext
+
+  productos Producto[]
+
+  @@map("marca")
+}
+
+/// El modelo que existe en el mercado, una sola vez en el catálogo.
+model Producto {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoriaId       String   @map("categoria_id") @db.Uuid
+  marcaId           String?  @map("marca_id") @db.Uuid
+  titulo            String   @db.VarChar(200)
+  modelo            String?  @db.VarChar(120)
+  slug              String   @unique @db.Citext
+  caracteristicas   Json     @default("{}")
+  /// Título, marca, modelo y etiquetas pasados por `normalizarTexto` (índice trigram).
+  textoBusqueda     String   @default("") @map("texto_busqueda")
+  /// Lo creó un vendedor y el equipo aún no revisó si está repetido.
+  revisado          Boolean  @default(false)
+  creadoPorTiendaId String?  @map("creado_por_tienda_id") @db.Uuid
+  /// Si se unió a otro producto (RF-54), su dirección redirige allí.
+  fusionadoEnId     String?  @map("fusionado_en_id") @db.Uuid
+  creadoEn          DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn     DateTime @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  categoria       Categoria           @relation(fields: [categoriaId], references: [id])
+  marca           Marca?              @relation(fields: [marcaId], references: [id])
+  creadoPorTienda Tienda?             @relation("ProductoCreadoPor", fields: [creadoPorTiendaId], references: [id])
+  fusionadoEn     Producto?           @relation("Fusiones", fields: [fusionadoEnId], references: [id])
+  fusionados      Producto[]          @relation("Fusiones")
+  fotos           ProductoFoto[]
+  etiquetas       ProductoEtiqueta[]
+  ofertas         Oferta[]
+
+  @@index([categoriaId])
+  @@index([marcaId])
+  @@index([textoBusqueda(ops: raw("gin_trgm_ops"))], type: Gin, map: "producto_texto_busqueda_trgm_idx")
+  @@map("producto")
+}
+
+model ProductoFoto {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId String @map("producto_id") @db.Uuid
+  ruta       String @db.VarChar(300)
+  orden      Int    @default(0) @db.SmallInt
+  ancho      Int?
+  alto       Int?
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@index([productoId])
+  @@map("producto_foto")
+}
+
+model Etiqueta {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre String @db.VarChar(60)
+  /// «RTX3070», «rtx 3070» y «RTX-3070» comparten la clave «rtx 3070» (RNF-26).
+  clave  String @unique @db.Citext
+
+  productos ProductoEtiqueta[]
+
+  @@map("etiqueta")
+}
+
+model ProductoEtiqueta {
+  productoId String @map("producto_id") @db.Uuid
+  etiquetaId String @map("etiqueta_id") @db.Uuid
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+  etiqueta Etiqueta @relation(fields: [etiquetaId], references: [id], onDelete: Cascade)
+
+  @@id([productoId, etiquetaId])
+  @@index([etiquetaId])
+  @@map("producto_etiqueta")
+}
+
+/// Lo que una tienda tiene de un producto. Única por producto, tienda y condición
+/// mientras no esté eliminada (ver `vigente`).
+model Oferta {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId      String       @map("producto_id") @db.Uuid
+  tiendaId        String       @map("tienda_id") @db.Uuid
+  /// Quien recibe los mensajes de esta oferta (A-11): por defecto, quien la publicó.
+  responsableId   String       @map("responsable_id") @db.Uuid
+  condicion       Condicion
+  stock           Int          @default(1)
+  /// Céntimos enteros: US$ 250 → 25000. Nulo = sin precio cargado («Al interno»).
+  precioCentimos  BigInt?      @map("precio_centimos")
+  moneda          Moneda       @default(USD)
+  precioVisible   Boolean      @default(false) @map("precio_visible")
+  descripcion     String?      @db.VarChar(500)
+  estado          EstadoOferta @default(ACTIVA)
+  /// `true` mientras no esté eliminada y nulo al eliminarla. Con él, el índice único
+  /// deja una sola oferta vigente por producto, tienda y condición sin índice parcial,
+  /// que Prisma no sabe mantener. Un CHECK lo ata a `estado`.
+  vigente         Boolean?     @default(true)
+  /// Cambia con stock, precio, visibilidad o «Siguen igual» (RF-09, RF-10).
+  actualizadaEn   DateTime     @default(now()) @map("actualizada_en") @db.Timestamptz(6)
+  creadaEn        DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  producto       Producto       @relation(fields: [productoId], references: [id])
+  tienda         Tienda         @relation(fields: [tiendaId], references: [id])
+  responsable    Usuario        @relation(fields: [responsableId], references: [id])
+  fotos          OfertaFoto[]
+  conversaciones Conversacion[]
+  ventas         Venta[]
+  contactos      Contacto[]
+
+  @@unique([productoId, tiendaId, condicion, vigente], map: "oferta_vigente_key")
+  @@index([productoId, estado])
+  @@index([tiendaId, estado])
+  @@index([responsableId])
+  @@map("oferta")
+}
+
+model OfertaFoto {
+  id       String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ofertaId String @map("oferta_id") @db.Uuid
+  ruta     String @db.VarChar(300)
+  orden    Int    @default(0) @db.SmallInt
+
+  oferta Oferta @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+
+  @@index([ofertaId])
+  @@map("oferta_foto")
+}
+
+/// Palabras conocidas del catálogo, para corregir «3370» → «3070» (docs/05 §7).
+model Termino {
+  /// Ya normalizada con `normalizarTexto`.
+  palabra String @id
+  veces   Int    @default(1)
+
+  @@index([palabra(ops: raw("gin_trgm_ops"))], type: Gin, map: "termino_palabra_trgm_idx")
+  @@map("termino")
+}
+
+// ── Mensajes y avisos (bandeja por persona, A-11) ──────────────────────────
+
+model Conversacion {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ofertaId           String   @map("oferta_id") @db.Uuid
+  compradorId        String   @map("comprador_id") @db.Uuid
+  vendedorId         String   @map("vendedor_id") @db.Uuid
+  tiendaCompradoraId String   @map("tienda_compradora_id") @db.Uuid
+  tiendaVendedoraId  String   @map("tienda_vendedora_id") @db.Uuid
+  ultimoMensajeEn    DateTime @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
+  creadaEn           DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  oferta           Oferta          @relation(fields: [ofertaId], references: [id])
+  comprador        Usuario         @relation("Comprador", fields: [compradorId], references: [id])
+  vendedor         Usuario         @relation("Vendedor", fields: [vendedorId], references: [id])
+  tiendaCompradora Tienda          @relation("TiendaCompradora", fields: [tiendaCompradoraId], references: [id])
+  tiendaVendedora  Tienda          @relation("TiendaVendedora", fields: [tiendaVendedoraId], references: [id])
+  participaciones  Participacion[]
+  mensajes         Mensaje[]
+  ventas           Venta[]
+  avisos           Aviso[]
+
+  @@unique([ofertaId, compradorId])
+  @@index([compradorId, ultimoMensajeEn])
+  @@index([vendedorId, ultimoMensajeEn])
+  @@map("conversacion")
+}
+
+/// Estado de cada persona en el hilo: archivar, silenciar, no leída y «Visto».
+model Participacion {
+  conversacionId String    @map("conversacion_id") @db.Uuid
+  usuarioId      String    @map("usuario_id") @db.Uuid
+  archivada      Boolean   @default(false)
+  silenciada     Boolean   @default(false)
+  noLeidaManual  Boolean   @default(false) @map("no_leida_manual")
+  leidoHasta     DateTime? @map("leido_hasta") @db.Timestamptz(6)
+
+  conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@id([conversacionId, usuarioId])
+  @@index([usuarioId])
+  @@map("participacion")
+}
+
+model Mensaje {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversacionId String      @map("conversacion_id") @db.Uuid
+  /// Nulo en los mensajes del sistema («Marcaste 1 unidad como vendida…»).
+  autorId        String?     @map("autor_id") @db.Uuid
+  tipo           TipoMensaje
+  texto          String?     @db.VarChar(2000)
+  foto           String?     @db.VarChar(300)
+  creadoEn       DateTime    @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  autor        Usuario?     @relation(fields: [autorId], references: [id])
+
+  @@index([conversacionId, creadoEn])
+  @@map("mensaje")
+}
+
+model RespuestaRapida {
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String @map("usuario_id") @db.Uuid
+  texto     String @db.VarChar(120)
+  orden     Int    @default(0) @db.SmallInt
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("respuesta_rapida")
+}
+
+/// Quien bloquea, bloquea a la tienda entera (docs/05 §8).
+model Bloqueo {
+  usuarioId         String   @map("usuario_id") @db.Uuid
+  tiendaBloqueadaId String   @map("tienda_bloqueada_id") @db.Uuid
+  creadoEn          DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario         Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tiendaBloqueada Tienda  @relation(fields: [tiendaBloqueadaId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, tiendaBloqueadaId])
+  @@map("bloqueo")
+}
+
+model Denuncia {
+  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  denuncianteId String         @map("denunciante_id") @db.Uuid
+  objeto        ObjetoDenuncia
+  objetoId      String         @map("objeto_id") @db.Uuid
+  motivo        String         @db.VarChar(500)
+  estado        EstadoDenuncia @default(ABIERTA)
+  creadaEn      DateTime       @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  denunciante Usuario @relation(fields: [denuncianteId], references: [id])
+
+  @@index([estado, creadaEn])
+  @@map("denuncia")
+}
+
+/// Cada «Vendido» (RF-47), con el stock antes y después.
+model Venta {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ofertaId           String   @map("oferta_id") @db.Uuid
+  compradorId        String?  @map("comprador_id") @db.Uuid
+  tiendaCompradoraId String?  @map("tienda_compradora_id") @db.Uuid
+  conversacionId     String?  @map("conversacion_id") @db.Uuid
+  stockAntes         Int      @map("stock_antes")
+  stockDespues       Int      @map("stock_despues")
+  registradaPorId    String   @map("registrada_por_id") @db.Uuid
+  creadaEn           DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  oferta           Oferta        @relation(fields: [ofertaId], references: [id])
+  comprador        Usuario?      @relation("VentaComprador", fields: [compradorId], references: [id])
+  tiendaCompradora Tienda?       @relation("VentaTiendaCompradora", fields: [tiendaCompradoraId], references: [id])
+  conversacion     Conversacion? @relation(fields: [conversacionId], references: [id])
+  registradaPor    Usuario       @relation("VentaRegistradaPor", fields: [registradaPorId], references: [id])
+
+  @@index([ofertaId])
+  @@map("venta")
+}
+
+/// Campanita (RF-40). Un aviso por conversación con mensajes sin leer: se actualiza, no se apila.
+model Aviso {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId      String    @map("usuario_id") @db.Uuid
+  tipo           TipoAviso
+  titulo         String    @db.VarChar(160)
+  extracto       String?   @db.VarChar(240)
+  enlace         String?   @db.VarChar(300)
+  conversacionId String?   @map("conversacion_id") @db.Uuid
+  /// Con «No molestar», el aviso aparece al terminar el horario.
+  visibleDesde   DateTime  @default(now()) @map("visible_desde") @db.Timestamptz(6)
+  leidoEn        DateTime? @map("leido_en") @db.Timestamptz(6)
+  creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn  DateTime  @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+
+  usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  conversacion Conversacion? @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, conversacionId])
+  @@index([usuarioId, leidoEn, visibleDesde])
+  @@map("aviso")
+}
+
+model PreferenciaAviso {
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tipo      TipoAviso
+  campanita Boolean   @default(true)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@id([usuarioId, tipo])
+  @@map("preferencia_aviso")
+}
+
+// ── Métricas y operación ───────────────────────────────────────────────────
+
+/// Incluye las búsquedas sin resultados (RF-32).
+model Busqueda {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  texto          String   @db.VarChar(200)
+  textoCorregido String?  @map("texto_corregido") @db.VarChar(200)
+  resultados     Int
+  usuarioId      String?  @map("usuario_id") @db.Uuid
+  creadaEn       DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([creadaEn])
+  @@map("busqueda")
+}
+
+/// Clics en «Enviar mensaje» y «WhatsApp» (RF-23).
+model Contacto {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ofertaId  String        @map("oferta_id") @db.Uuid
+  usuarioId String        @map("usuario_id") @db.Uuid
+  canal     CanalContacto
+  creadoEn  DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  oferta  Oferta  @relation(fields: [ofertaId], references: [id])
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@index([ofertaId])
+  @@index([creadoEn])
+  @@map("contacto")
+}
+
+/// Carga por planilla (RF-34): vista previa antes de crear las ofertas.
+model CargaPlanilla {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId    String      @map("tienda_id") @db.Uuid
+  creadaPorId String      @map("creada_por_id") @db.Uuid
+  archivo     String      @db.VarChar(200)
+  filas       Json        @default("[]")
+  estado      EstadoCarga @default(BORRADOR)
+  creadaEn    DateTime    @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  tienda    Tienda  @relation(fields: [tiendaId], references: [id])
+  creadaPor Usuario @relation(fields: [creadaPorId], references: [id])
+
+  @@map("carga_planilla")
+}
+
+/// Acciones del equipo: crear cuenta, nueva clave, suspender, traspasar, unir productos.
+model Auditoria {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId  String?  @map("actor_id") @db.Uuid
+  accion   String   @db.VarChar(60)
+  objeto   String   @db.VarChar(40)
+  objetoId String?  @map("objeto_id") @db.Uuid
+  datos    Json     @default("{}")
+  creadaEn DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  actor Usuario? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([creadaEn])
+  @@map("auditoria")
+}

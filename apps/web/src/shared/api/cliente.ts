@@ -1,0 +1,52 @@
+import { CABECERA_PASELIBRE, type CodigoError, type RespuestaError } from '@paselibre/contracts';
+
+/** Error de la API con el código y el mensaje en español listo para mostrar. */
+export class ErrorApi extends Error {
+  constructor(
+    readonly estado: number,
+    readonly codigo: CodigoError | 'SIN_CONEXION',
+    mensaje: string,
+  ) {
+    super(mensaje);
+  }
+}
+
+/**
+ * Llamadas desde el navegador. Van al mismo origen (`/v1`, ver next.config) con la
+ * cookie de sesión y la cabecera `X-PaseLibre` que exige la API en los cambios.
+ */
+export async function llamarApi<T>(
+  ruta: string,
+  opciones: { metodo?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; cuerpo?: unknown } = {},
+): Promise<T> {
+  let respuesta: Response;
+  try {
+    respuesta = await fetch(`/v1${ruta}`, {
+      method: opciones.metodo ?? 'GET',
+      credentials: 'same-origin',
+      headers: {
+        [CABECERA_PASELIBRE]: '1',
+        ...(opciones.cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
+    });
+  } catch {
+    throw new ErrorApi(
+      0,
+      'SIN_CONEXION',
+      'No hay conexión. Revisa tu internet y vuelve a intentarlo.',
+    );
+  }
+
+  if (respuesta.status === 204) return undefined as T;
+  const datos: unknown = await respuesta.json().catch(() => null);
+  if (!respuesta.ok) {
+    const error = (datos as RespuestaError | null)?.error;
+    throw new ErrorApi(
+      respuesta.status,
+      error?.codigo ?? 'ERROR_INTERNO',
+      error?.mensaje ?? 'Algo falló de nuestro lado. Vuelve a intentarlo.',
+    );
+  }
+  return datos as T;
+}

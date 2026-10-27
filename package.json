@@ -1,0 +1,35 @@
+{
+  "name": "paselibre",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.28.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:api": "pnpm --filter @paselibre/api dev",
+    "dev:web": "pnpm --filter @paselibre/web dev",
+    "db:generate": "pnpm --filter @paselibre/api db:generate",
+    "db:migrate": "pnpm --filter @paselibre/api db:migrate",
+    "db:deploy": "pnpm --filter @paselibre/api db:deploy",
+    "db:seed": "pnpm --filter @paselibre/api db:seed",
+    "db:validate": "pnpm --filter @paselibre/api db:validate",
+    "cuenta:equipo": "pnpm --filter @paselibre/api cuenta:equipo",
+    "docker:up": "docker compose -f tools/docker/compose.dev.yml up -d",
+    "docker:down": "docker compose -f tools/docker/compose.dev.yml down",
+    "docker:logs": "docker compose -f tools/docker/compose.dev.yml logs -f"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "2.10.12",
+    "typescript": "5.9.3"
+  }
+}

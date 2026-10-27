@@ -1,0 +1,24 @@
+# Dependencias y compilados
+node_modules/
+.next/
+dist/
+coverage/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Fotos subidas en desarrollo
+apps/api/media/
+
+# Registros y herramientas
+*.log
+.DS_Store
+.idea/
+.vscode/

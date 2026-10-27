@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-white font-sans text-cuerpo text-tinta antialiased;
+  }
+
+  a {
+    @apply text-tinta;
+  }
+
+  /* Foco visible en todo control (RNF-07). */
+  :focus-visible {
+    @apply outline outline-2 outline-offset-2 outline-tinta;
+  }
+}
