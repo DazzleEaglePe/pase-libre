@@ -371,6 +371,8 @@ model OfertaFoto {
   ofertaId String @map("oferta_id") @db.Uuid
   ruta     String @db.VarChar(300)
   orden    Int    @default(0) @db.SmallInt
+  ancho    Int?
+  alto     Int?
 
   oferta Oferta @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
 

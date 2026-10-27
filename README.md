@@ -2,7 +2,7 @@
 
 > Marketplace básico y liviano para que las tiendas de **Galería Wilson** (Lima) encuentren productos de PC entre ellas, sin intermediar la venta.
 
-**Estado:** Fase 1 — construcción de la primera salida. Día 1 del plan listo: monorepo, base de datos, semilla e inicio de sesión (API y pantalla de acceso).
+**Estado:** Fase 1 — construcción de la primera salida. Día 1 listo (monorepo, base de datos, semilla e inicio de sesión). Día 2: el catálogo, la búsqueda con corrección y la ficha por audiencia ya responden en la API.
 **Versión de la documentación:** 0.8 (borrador, 26/10/2026), armada a partir del chat del grupo «PaseLibre compra y ventas» del 22 al 24/10/2026, las respuestas del equipo a las preguntas abiertas y las decisiones de arquitectura de Dazz.
 
 ---
@@ -55,14 +55,14 @@ pnpm db:seed          # galerías, categorías y marcas; con SEMILLA_DEMO=true, 
 pnpm dev              # API en http://localhost:3001 y web en http://localhost:3000
 ```
 
-- **Cuentas de demostración:** las crea la semilla con los usuarios del lienzo (`tiendaa`, `tiendab`, `tiendad`…, y `equipo`). La clave está en `apps/api/prisma/seed.ts` (`CLAVE_DEMO`). `tiendad` y `jorge.r` entran por primera vez y deben crear su contraseña. Volver a correr la semilla deja las cuentas demo como al inicio.
+- **Cuentas de demostración:** las crea la semilla con los usuarios del lienzo (`tiendaa`, `tiendab`, `tiendad`…, y `equipo`). La clave está en `apps/api/prisma/semilla.ts` (`CLAVE_DEMO`). `tiendad` y `jorge.r` entran por primera vez y deben crear su contraseña. Volver a correr la semilla deja las cuentas demo como al inicio.
 - **Primera cuenta del equipo en staging o producción** (sin semilla demo): `pnpm cuenta:equipo -- --usuario dazz --nombre "Dazz"`. Muestra una clave temporal una sola vez.
 - **Pruebas:** `pnpm test`. Las de la API usan `TEST_DATABASE_URL` (la base `paselibre_test`), nunca la de desarrollo.
 - **Revisión completa:** `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build`.
 
 | Carpeta | Qué hay |
 | --- | --- |
-| `apps/api` | API NestJS: `prisma/` (esquema, migraciones y semilla), `src/modules/` (sesion, cuenta, salud), `test/` (e2e) |
+| `apps/api` | API NestJS: `prisma/` (esquema, migraciones y semilla), `src/modules/` (sesion, cuenta, catalogo, salud), `test/` (e2e, incluida la prueba de contrato público) |
 | `apps/web` | Web Next.js: `src/app/` (rutas), `src/features/` (una carpeta por pantalla), `src/shared/` (API y componentes comunes) |
 | `packages/contracts` | Esquemas Zod, tipos de respuesta y la normalización de texto que comparten la web, la API y la futura app |
 | `packages/ui` | Tokens de la línea final del lienzo (colores y escala tipográfica), que usa Tailwind |

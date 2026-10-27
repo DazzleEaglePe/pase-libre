@@ -1,6 +1,6 @@
 # 05 · Arquitectura
 
-**Versión:** 0.2 (borrador) · **Fecha:** 26/10/2026 · **Responsable:** Dazz
+**Versión:** 0.3 (borrador) · **Fecha:** 26/10/2026 · **Responsable:** Dazz
 
 **Decidido el 26/10:** se reutiliza el stack de Yallegó (A-01) y la bandeja de mensajes es **por persona** (A-11). El servidor se elige al final (A-10).
 
@@ -196,6 +196,10 @@ erDiagram
 - Cada audiencia tiene su propio `select` de Prisma y su propio contrato Zod (`OfertaPublica`, `OfertaVendedor`, `OfertaPropia`).
 - La prueba `contrato-publico.spec` pide como visitante la portada, la búsqueda y la ficha, y falla si el JSON contiene `precio`, `tienda`, `stand` o `whatsapp`.
 - La API responde `Cache-Control: private, no-store` a toda petición con sesión. nginx no cachea respuestas que lleven cookie.
+- **Tampoco se deja deducir el precio:**
+  - Para el visitante, las ofertas de la ficha van por fecha, no por precio.
+  - Al visitante se le ignoran el filtro y el orden por precio de la búsqueda; si no, podría adivinar precios probando rangos.
+- **Clave temporal:** quien todavía no creó su contraseña ve el catálogo como visitante, para que nadie vea precios con una clave que conoce el equipo.
 
 ## 6. Rutas de la web y de la API
 
@@ -283,6 +287,8 @@ Al reconectar, la interfaz pide `GET /yo` y los mensajes posteriores al último 
 4. **Volver a buscar** con la consulta corregida y responder `{ "correccion": { "buscaste": "rtx 3370", "mostramos": "rtx 3070" } }`.
 5. **Agrupar por producto:** cuántas ofertas tiene, en qué galerías, stock total, si hay nuevos o usados y, solo con sesión, el menor precio visible.
 6. **Facetas** (galería, marca, condición, stock) con conteos, y **ordenar** por más recientes o por precio. El orden por precio solo se ofrece con sesión.
+   - **Monedas:** no hay tipo de cambio, así que no se mezclan. El orden por precio va primero por el menor precio visible en dólares y después en soles.
+   - **Filtro de precio:** se aplica a los precios visibles en la moneda elegida. Las ofertas al interno siempre se muestran, como dice el lienzo.
 7. **Registrar** la búsqueda en `busqueda`, incluidas las que no tuvieron resultados (RF-32).
 
 **Cuándo pasar a un buscador dedicado:** si con más de 50 000 ofertas la búsqueda supera 1 s en el 95 % de los casos, o si hacen falta sinónimos y orden por relevancia más finos. Entonces se suma Meilisearch, alimentado desde la cola, sin cambiar el contrato de `/v1/buscar`.
@@ -401,6 +407,13 @@ paselibre/
 | **Sáb 31/10** | Despliegue a producción, prueba de humo y monitoreo | Ajustes finales | PaseLibre en línea |
 
 Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la fecha.
+
+**Avance al 26/10:**
+- **Día 1 (listo):** monorepo, esquema, semilla, sesión, primer ingreso y la pantalla de acceso de la web.
+- **Día 2:**
+  - **Listo en la API:** portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
+  - **Falta:** el panel del equipo para crear cuentas.
+- *Staging* espera a que se decida el servidor.
 
 ## 13. Pruebas (RNF-32)
 

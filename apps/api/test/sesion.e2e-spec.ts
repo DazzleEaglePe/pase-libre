@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import {
   CABECERAS,
   CLAVE_PRUEBA,
+  cookieDe,
   crearApp,
   crearTiendaConDueno,
   usarBaseDePruebas,
@@ -14,13 +15,6 @@ import {
 
 const url = usarBaseDePruebas();
 const prisma = new PrismaClient({ datasources: { db: { url } } });
-
-function cookieDe(respuesta: request.Response): string {
-  const cookies = respuesta.headers['set-cookie'] as unknown as string[] | undefined;
-  const sesion = cookies?.find((c) => c.startsWith('pl_sesion='));
-  if (!sesion) throw new Error('La respuesta no trae la cookie de sesión.');
-  return sesion.split(';')[0] as string;
-}
 
 describe('Sesión (RF-02, RF-50, RF-60)', () => {
   let app: INestApplication;

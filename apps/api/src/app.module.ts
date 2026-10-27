@@ -6,6 +6,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validateEnvironment } from './config/env.schema';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { ObservabilityLoggerModule } from './infrastructure/observability/logger.module';
+import { CatalogoModule } from './modules/catalogo/catalogo.module';
 import { CuentaModule } from './modules/cuenta/cuenta.module';
 import { SaludModule } from './modules/salud/salud.module';
 import { SesionModule } from './modules/sesion/sesion.module';
@@ -26,6 +27,7 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     DatabaseModule,
     SesionModule,
     CuentaModule,
+    CatalogoModule,
     SaludModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

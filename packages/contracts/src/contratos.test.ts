@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { buscarSchema } from './catalogo/catalogo.schemas';
 import { claveEtiqueta, normalizarTexto, slugDe } from './catalogo/normalizar';
+import { formatearPrecio, precioDe } from './comun/dinero';
 import { cambiarClaveSchema, ingresarSchema } from './sesion/sesion.schemas';
 
 describe('normalizarTexto', () => {
@@ -45,5 +47,44 @@ describe('cambiarClaveSchema', () => {
     expect(cambiarClaveSchema.safeParse({ clave_nueva: 'corta1' }).success).toBe(false);
     expect(cambiarClaveSchema.safeParse({ clave_nueva: 'sinnumeros' }).success).toBe(false);
     expect(cambiarClaveSchema.safeParse({ clave_nueva: 'galeria2026' }).success).toBe(true);
+  });
+});
+
+describe('buscarSchema', () => {
+  it('acepta listas repetidas o separadas por comas y pone valores por defecto', () => {
+    expect(
+      buscarSchema.parse({
+        q: ' rtx 3370 ',
+        galeria: ['Maxiplaza', 'cyberplaza'],
+        condicion: 'usado,nuevo',
+      }),
+    ).toEqual({
+      q: 'rtx 3370',
+      galeria: ['maxiplaza', 'cyberplaza'],
+      marca: [],
+      condicion: ['usado', 'nuevo'],
+      stock: false,
+      moneda: 'USD',
+      orden: 'recientes',
+      pagina: 1,
+    });
+  });
+
+  it('convierte los números y el «solo con stock» de la URL', () => {
+    const consulta = buscarSchema.parse({ stock: 'true', precio_max: '300', pagina: '2' });
+    expect(consulta).toMatchObject({ stock: true, precio_max: 300, pagina: 2 });
+  });
+
+  it('rechaza valores fuera de la lista', () => {
+    expect(buscarSchema.safeParse({ condicion: 'roto' }).success).toBe(false);
+    expect(buscarSchema.safeParse({ orden: 'azar' }).success).toBe(false);
+  });
+});
+
+describe('precios', () => {
+  it('se arman desde céntimos y se escriben como en el lienzo', () => {
+    expect(precioDe(25000, 'USD')).toEqual({ moneda: 'USD', centimos: 25000, monto: '250.00' });
+    expect(formatearPrecio(precioDe(25000, 'USD'))).toBe('US$ 250');
+    expect(formatearPrecio(precioDe(169999, 'PEN'))).toBe('S/ 1,699.99');
   });
 });

@@ -1,6 +1,5 @@
+import type { Moneda } from '../comun/dinero.js';
 import type { TipoTienda } from '../sesion/sesion.types.js';
-
-export type Moneda = 'USD' | 'PEN';
 
 /** `GET /v1/cuenta`: Configuración · Datos de la cuenta (RF-58). */
 export interface RespuestaCuenta {

@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import type { INestApplication } from '@nestjs/common';
+import type { Response } from 'supertest';
 import { Test } from '@nestjs/testing';
 import { CABECERA_PASELIBRE } from '@paselibre/contracts';
 import type { PrismaClient } from '@prisma/client';
@@ -77,4 +78,12 @@ export async function crearTiendaConDueno(
     },
   });
   return { tienda, usuario };
+}
+
+/** La cookie de sesión (`pl_sesion=…`) de una respuesta de ingreso. */
+export function cookieDe(respuesta: Response): string {
+  const cookies = respuesta.headers['set-cookie'] as unknown as string[] | undefined;
+  const sesion = cookies?.find((c) => c.startsWith('pl_sesion='));
+  if (!sesion) throw new Error('La respuesta no trae la cookie de sesión.');
+  return sesion.split(';')[0] as string;
 }
