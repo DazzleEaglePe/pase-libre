@@ -10,9 +10,11 @@ import { ArchivosModule } from './modules/archivos/archivos.module';
 import { CatalogoModule } from './modules/catalogo/catalogo.module';
 import { CuentaModule } from './modules/cuenta/cuenta.module';
 import { EquipoModule } from './modules/equipo/equipo.module';
+import { MensajesModule } from './modules/mensajes/mensajes.module';
 import { OfertasModule } from './modules/ofertas/ofertas.module';
 import { SaludModule } from './modules/salud/salud.module';
 import { SesionModule } from './modules/sesion/sesion.module';
+import { TiempoRealModule } from './modules/tiempo-real/tiempo-real.module';
 import { CabeceraPaseLibreMiddleware } from './shared/middleware/cabecera-paselibre.middleware';
 import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
 
@@ -28,11 +30,13 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     // Límite general por IP; las rutas sensibles ponen el suyo (docs/05 §9).
     ThrottlerModule.forRoot([{ name: 'default', limit: 120, ttl: 60_000 }]),
     DatabaseModule,
+    TiempoRealModule,
     SesionModule,
     CuentaModule,
     CatalogoModule,
     ArchivosModule,
     OfertasModule,
+    MensajesModule,
     EquipoModule,
     SaludModule,
   ],

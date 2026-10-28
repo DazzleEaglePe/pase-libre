@@ -11,6 +11,8 @@ export const CODIGOS_ERROR = [
   'CUENTA_BLOQUEADA_TEMPORALMENTE',
   'DEBE_CAMBIAR_CLAVE',
   'CLAVE_ACTUAL_INCORRECTA',
+  /** La otra persona bloqueó a tu tienda: no puedes escribirle ni contactarla (RF-57). */
+  'BLOQUEADO',
   'FALTA_CABECERA_PASELIBRE',
   'SERVICIO_NO_DISPONIBLE',
   'ERROR_INTERNO',

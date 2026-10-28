@@ -64,7 +64,7 @@ pnpm dev              # API en http://localhost:3001 y web en http://localhost:3
 
 | Carpeta | Qué hay |
 | --- | --- |
-| `apps/api` | API NestJS: `prisma/` (esquema, migraciones y semilla), `src/modules/` (sesion, cuenta, catalogo, ofertas, archivos, equipo, salud), `test/` (e2e, incluida la prueba de contrato público) |
+| `apps/api` | API NestJS: `prisma/` (esquema, migraciones y semilla), `src/modules/` (sesion, cuenta, catalogo, ofertas, archivos, mensajes, tiempo-real, equipo, salud), `test/` (e2e, incluida la prueba de contrato público) |
 | `apps/web` | Web Next.js: `src/app/` (rutas), `src/features/` (una carpeta por pantalla), `src/shared/` (API y componentes comunes) |
 | `packages/contracts` | Esquemas Zod, tipos de respuesta y la normalización de texto que comparten la web, la API y la futura app |
 | `packages/ui` | Tokens de la línea final del lienzo (colores y escala tipográfica), que usa Tailwind |

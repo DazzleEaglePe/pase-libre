@@ -10,6 +10,7 @@ import type {
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 import {
   cifrarClave,
   esClaveComprometida,
@@ -71,7 +72,10 @@ const credencialesInvalidas = () =>
 
 @Injectable()
 export class SesionService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
+  ) {}
 
   /**
    * Ingresar con usuario o correo (RF-02). Después de 5 intentos fallidos en
@@ -177,6 +181,7 @@ export class SesionService {
       where: { id: sesionId, revocadaEn: null },
       data: { revocadaEn: new Date() },
     });
+    this.tiempoReal.desconectarSesion(sesionId);
   }
 
   /**
@@ -232,6 +237,7 @@ export class SesionService {
         data: { revocadaEn: ahora },
       }),
     ]);
+    await this.tiempoReal.desconectarUsuario(usuario.id, sesion.sesionId);
     return actualizado;
   }
 

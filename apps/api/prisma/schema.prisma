@@ -181,6 +181,9 @@ model Usuario {
   intentosDesde    DateTime?     @map("intentos_desde") @db.Timestamptz(6)
   bloqueadoHasta   DateTime?     @map("bloqueado_hasta") @db.Timestamptz(6)
   ultimoIngresoEn  DateTime?     @map("ultimo_ingreso_en") @db.Timestamptz(6)
+  /// Última vez que tuvo el chat abierto (se conectó o se desconectó del tiempo real), para
+  /// «Activo hace 2 h» (RF-47).
+  ultimaConexionEn DateTime?     @map("ultima_conexion_en") @db.Timestamptz(6)
   /// «No molestar» (RF-59), en minutos desde la medianoche, hora de Lima.
   noMolestarDesde  Int?          @map("no_molestar_desde") @db.SmallInt
   noMolestarHasta  Int?          @map("no_molestar_hasta") @db.SmallInt

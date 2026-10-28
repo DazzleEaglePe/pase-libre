@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  EVENTOS,
   formatearPrecio,
   type EditarOfertaEntrada,
   type OfertaPropia,
@@ -13,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
+import { useEvento } from '@/shared/tiempo-real';
 import { Contador } from '@/shared/ui/contador';
 import { botonPeligro, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
@@ -258,6 +260,8 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
   useEffect(() => {
     void cargar(1);
   }, [cargar]);
+  // Un «Vendido» en un chat baja el stock: la lista se pone al día sola (docs/05 §6.3).
+  useEvento(EVENTOS.ofertaStock, () => void cargar(pagina));
 
   async function cambiar(oferta: OfertaPropia, cambios: EditarOfertaEntrada) {
     setMenu(null);

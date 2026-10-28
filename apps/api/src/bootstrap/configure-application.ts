@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import type { Express } from 'express';
 import helmet from 'helmet';
 
+import { AdaptadorTiempoReal } from '../modules/tiempo-real/adaptador-tiempo-real';
 import { ApiExceptionFilter } from '../shared/filters/api-exception.filter';
 
 export interface OpcionesDeAplicacion {
@@ -29,6 +30,8 @@ export function configureApplication(
   app.use(helmet());
   // En producción la web y la API comparten dominio (nginx); CORS solo cubre el desarrollo.
   app.enableCors({ credentials: true, origin: [webUrl] });
+  // Socket del chat y la campanita en /tiempo-real (fuera del prefijo /v1).
+  app.useWebSocketAdapter(new AdaptadorTiempoReal(app, webUrl));
   if (carpetaMedia) {
     // Cada foto tiene un nombre único que no se reutiliza: se puede cachear para siempre.
     (app as NestExpressApplication).useStaticAssets(resolve(carpetaMedia), {

@@ -1,6 +1,7 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import type { RespuestaCuenta } from '@paselibre/contracts';
+import { Controller, Get, Header, Inject, UseGuards } from '@nestjs/common';
+import type { RespuestaCuenta, RespuestaRapida } from '@paselibre/contracts';
 
+import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import type { SesionActiva } from '../sesion/sesion.types';
 
@@ -8,6 +9,8 @@ import type { SesionActiva } from '../sesion/sesion.types';
 @Controller('cuenta')
 @UseGuards(SesionGuard)
 export class CuentaController {
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+
   @Get()
   cuenta(@SesionActual() { usuario }: SesionActiva): RespuestaCuenta {
     const { tienda } = usuario;
@@ -32,5 +35,16 @@ export class CuentaController {
           }
         : null,
     };
+  }
+
+  /** Respuestas rápidas sobre la caja de texto del chat (RF-56). Se editan el 30/10. */
+  @Get('respuestas-rapidas')
+  @Header('Cache-Control', 'no-store')
+  respuestasRapidas(@SesionActual() { usuario }: SesionActiva): Promise<RespuestaRapida[]> {
+    return this.prisma.respuestaRapida.findMany({
+      where: { usuarioId: usuario.id },
+      orderBy: { orden: 'asc' },
+      select: { id: true, texto: true },
+    });
   }
 }

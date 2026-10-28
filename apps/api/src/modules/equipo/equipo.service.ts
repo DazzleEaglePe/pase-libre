@@ -16,6 +16,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { RESPUESTAS_RAPIDAS_INICIALES } from '../cuenta/respuestas-rapidas';
 import { cifrarClave, generarClaveTemporal } from '../sesion/clave';
+import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
 const INCLUIR_TIENDA = { tienda: { include: { galeria: true } } } as const;
 type UsuarioConTienda = Prisma.UsuarioGetPayload<{ include: typeof INCLUIR_TIENDA }>;
@@ -67,6 +68,7 @@ export class EquipoService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly config: ConfigService<Environment, true>,
+    @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
   ) {}
 
   async cuentas(filtro: FiltroCuentas): Promise<RespuestaCuentas> {
@@ -260,6 +262,7 @@ export class EquipoService {
         data: { actorId, accion: 'clave_temporal', objeto: 'usuario', objetoId: id, datos: {} },
       }),
     ]);
+    await this.tiempoReal.desconectarUsuario(id);
     return this.acceso(actualizado, clave, usuario.primerIngresoEn ? 'cambio' : 'nueva');
   }
 
@@ -298,6 +301,7 @@ export class EquipoService {
       }),
       ...operaciones,
     ]);
+    if (estado === 'SUSPENDIDA') await this.tiempoReal.desconectarUsuario(id);
     return aCuenta(actualizado as UsuarioConTienda);
   }
 

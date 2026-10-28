@@ -1,6 +1,6 @@
 # 05 · Arquitectura
 
-**Versión:** 0.4 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
+**Versión:** 0.5 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
 
 **Decidido el 26/10:** se reutiliza el stack de Yallegó (A-01) y la bandeja de mensajes es **por persona** (A-11). El servidor se elige al final (A-10).
 
@@ -232,7 +232,7 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | Sesión | `POST /sesion` | Ingresar con usuario o correo | 02 |
 | | `DELETE /sesion` | Salir | |
 | | `POST /sesion/clave` | Primer ingreso o cambio de contraseña | 50, 60 |
-| | `GET /yo` | Usuario, tienda, contadores de mensajes y avisos | |
+| | `GET /yo` | Usuario y tienda, con sus valores por defecto al publicar | |
 | Vendedor | `GET /catalogo/sugerencias?q=` o `?producto=` | «Ya está en PaseLibre» al publicar, con la misma búsqueda tolerante; con `producto`, uno solo para «Publicar uno igual» desde la ficha | 53 |
 | | `POST /ofertas` | Publicar: «uno igual» con `producto_id`, o producto nuevo con `producto_nuevo`. El producto y la oferta se crean en una sola transacción, para que no queden productos sin oferta | 05, 06, 38 |
 | | `GET /ofertas/:id` | Una oferta propia, para editarla | 08 |
@@ -240,19 +240,21 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | | `PATCH /ofertas/:id` | Stock, precio, visibilidad, pausar o reactivar | 06, 08, 09 |
 | | `DELETE /ofertas/:id` | Eliminar (lógico) | 08 |
 | | `POST /ofertas/confirmar` | «Siguen igual» para las de más de 7 días | 10 |
-| | `POST /ofertas/:id/contacto` | Abre conversación o devuelve el enlace de WhatsApp, y registra el clic | 21, 23 |
-| | `GET /ofertas/:id/interesados` | Quiénes escribieron por esa oferta, para «Vendido» | 47 |
+| | `POST /ofertas/:id/contacto` | Abre conversación o devuelve el enlace de WhatsApp, y registra el clic. No se contacta a la propia tienda ni a quien te bloqueó | 21, 23 |
+| | `GET /ofertas/:id/interesados` | Quiénes escribieron por esa oferta en los hilos de quien vende, para «Vendido» | 47 |
 | | `POST /ofertas/:id/vendido` | Descuenta 1 de stock y deja el aviso en el chat | 47 |
 | | `POST /archivos` | Subir una foto (campo `foto`, multipart). Devuelve la ruta para usarla en una oferta, un producto o el chat | 05, 39 |
 | Mensajes | `GET /conversaciones?filtro=&q=` | Lista con filtros y buscador | 55 |
 | | `GET /conversaciones/:id/mensajes?antes=` | Historial por páginas | 39 |
 | | `POST /conversaciones/:id/mensajes` | Enviar texto o foto | 39 |
 | | `PATCH /conversaciones/:id` | Leer, no leída, silenciar, archivar | 57 |
-| | `POST /conversaciones/:id/bloqueo`, `POST /denuncias` | Bloquear y denunciar | 57 |
+| | `GET /conversaciones/:id` | El hilo con el producto fijo arriba, si el otro está activo y si se puede marcar «Vendido» | 55, 47 |
+| | `POST` y `DELETE /conversaciones/:id/bloqueo`, `POST /denuncias` | Bloquear, desbloquear y denunciar | 57 |
 | | `GET /avisos`, `POST /avisos/leidos` | Campanita | 40 |
+| | `GET /contadores` | Las insignias de Mensajes y de la campanita | 40, 55 |
 | Cuenta | `GET/PATCH /cuenta` | Datos de la tienda (usuario, galería y stand solo los cambia el equipo) | 58 |
 | | `GET/PUT /cuenta/avisos` | Preferencias y «No molestar» | 59 |
-| | `GET/PUT /cuenta/respuestas-rapidas` | Respuestas rápidas | 56 |
+| | `GET/PUT /cuenta/respuestas-rapidas` | Respuestas rápidas (el `GET` ya está; el `PUT` llega con Configuración) | 56 |
 | Equipo | `GET/POST /equipo/cuentas` | Listar y crear cuentas con clave temporal | 35, 49 |
 | | `POST /equipo/cuentas/:id/clave-temporal` | Nueva clave; obliga a cambiarla al entrar | 50 |
 | | `PATCH /equipo/cuentas/:id` | Suspender o reactivar | 28 |
@@ -266,16 +268,23 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 
 ### 6.3 Tiempo real
 
-El navegador abre un socket en `/tiempo-real` con su cookie. La API lo une a la sala de su usuario (`usuario:<id>`), por donde llegan sus mensajes y avisos, y a la de su tienda (`tienda:<id>`), por donde llegan los cambios de stock.
+El navegador abre un socket en `/tiempo-real` con su cookie. La API lo une a la sala de su usuario (`usuario:<id>`), por donde llegan sus mensajes y avisos, a la de su tienda (`tienda:<id>`), por donde llegan los cambios de stock, y a la de su sesión (`sesion:<id>`).
+
+- **Quién entra:** solo una sesión vigente con contraseña propia. El handshake revisa además el origen: CORS no protege a un WebSocket, y sin esto otro sitio podría abrir el socket con la cookie del vendedor.
+- **Cortes:** al salir se cortan los sockets de esa sesión; al suspender una cuenta o darle una clave nueva, todos los suyos.
+- **En local** la web se conecta directo a la API (`localhost:3001`), porque el rewrite de Next no pasa WebSockets; en producción va por el mismo dominio y nginx hace el `upgrade`.
+- **Presencia** («Activo ahora»): se lleva en memoria y alcanza con un solo proceso de API. Si se escala a varios, hace falta el adaptador de Redis. Al conectarse y al desconectarse se guarda `usuario.ultima_conexion_en` para «Activo hace 2 h».
 
 | Evento | Va a | Para qué |
 | --- | --- | --- |
+| `tiempo-real:listo` | El socket que entra | Ya está en sus salas: desde aquí no se pierde nada |
 | `mensaje:nuevo` | Las dos personas del hilo | Pintar el mensaje y subir el contador |
 | `mensaje:visto` | La persona que escribió | «Visto», si el otro lado no lo desactivó |
 | `aviso:nuevo` | El usuario | Campanita |
 | `oferta:stock` | La tienda dueña | Refrescar Mis publicaciones tras un «Vendido» |
+| `contadores:cambio` | El usuario | Se leyó algo en otra pestaña: volver a pedir las insignias |
 
-Al reconectar, la interfaz pide `GET /yo` y los mensajes posteriores al último que tiene. No se pierde nada si el socket se cae.
+Al reconectar, la interfaz vuelve a pedir la lista, la conversación abierta y los contadores. No se pierde nada si el socket se cae.
 
 ## 7. Búsqueda tolerante a errores
 
@@ -301,7 +310,10 @@ Al reconectar, la interfaz pide `GET /yo` y los mensajes posteriores al último 
 - **Bandeja por persona (A-11).** El hilo es entre quien escribe y el responsable de la oferta. El dueño no ve los hilos de sus asesores ni al revés.
 - **Hilos sin dueño:** si un asesor deja la tienda o su cuenta se suspende, el equipo pasa sus ofertas y sus hilos a otro usuario de la misma tienda (`POST /equipo/cuentas/:id/traspasar`). En la fase 2 lo hará el dueño desde Mis publicaciones.
 - **Bloqueo:** quien bloquea, bloquea a la tienda entera. Antes de guardar un mensaje, la API revisa la tabla `bloqueo`; el bloqueado recibe el error `BLOQUEADO` y no se le avisa al otro.
-- **Fotos en el chat:** se suben con `POST /archivos` y el mensaje lleva la referencia. Una foto por mensaje y nada de archivos (D-30).
+- **Fotos en el chat:** se suben con `POST /archivos` y el mensaje lleva la referencia. Una foto por mensaje (con texto opcional) y nada de archivos (D-30).
+- **La lista** solo muestra hilos con al menos un mensaje: abrir el chat desde la ficha y no escribir no le llena la bandeja a nadie. Un mensaje nuevo saca el hilo de Archivados.
+- **La campanita** tiene un aviso por conversación: «Tienes 2 mensajes sin leer de Tienda C», con el último mensaje como extracto. Si el hilo está silenciado o la persona apagó los avisos de mensajes no hay aviso, pero el chat se actualiza igual. Con «No molestar» (hora de Lima, también de noche a la mañana), el aviso aparece al terminar el horario.
+- **Desde la ficha:** «Enviar mensaje» es un enlace a `/mensajes?oferta=<id>`, que abre el hilo y lleva a él.
 
 ```mermaid
 sequenceDiagram
@@ -320,7 +332,9 @@ sequenceDiagram
 1. Se bloquea la fila de la oferta.
 2. Se valida que `stock > 0`.
 3. Se resta 1 y se inserta la `venta` con el stock antes y después.
-4. Se agrega un mensaje `SISTEMA` al hilo y se emite `oferta:stock`.
+4. Se agrega un mensaje `SISTEMA` al hilo («1 unidad vendida a Tienda B · stock 2 → 1») y se emite `oferta:stock`.
+
+Solo se vende a alguien que escribió por esa oferta en un hilo de quien vende.
 
 Así, dos «Vendido» al mismo tiempo no dejan el stock en negativo. Si se recorta (documento 04, recorte 1), el vendedor usa el − de Mis publicaciones, que llama al mismo `PATCH`.
 
@@ -348,6 +362,7 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
   - Búsqueda pública: 60 por minuto por IP.
   - Mensajes: 30 por minuto por usuario.
   - Subidas: 30 por hora por usuario.
+  - Los de mensajes y subidas se cuentan por persona y no por IP: en una galería muchas tiendas comparten la misma IP.
 - **Entradas:** todo cuerpo y consulta pasa por su esquema Zod. El texto del chat y de las descripciones se guarda plano y se escapa al pintarlo; no se acepta HTML.
 - **Fotos (RNF-20):**
   - Solo JPEG, PNG o WebP, hasta 8 MB, revisando el contenido y no solo la extensión.
@@ -414,7 +429,7 @@ paselibre/
 
 Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la fecha.
 
-**Avance al 27/10:**
+**Avance al 27/10 (noche):**
 - **Día 1 (listo):** monorepo, esquema, semilla, sesión, primer ingreso y la pantalla de acceso de la web.
 - **Día 2 (listo):**
   - En la API: portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
@@ -423,7 +438,11 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
   - En la API: sugerencias «Ya está en PaseLibre», publicar uno igual, producto nuevo en el mismo paso, fotos (`POST /archivos`), Mis publicaciones con pestañas y buscador, editar, pausar, reactivar, eliminar y «Siguen igual».
   - En la web: `/publicar` (también `?igual=` y `?editar=`) y `/mis-publicaciones`, como F_Publicar y F_MisPublicaciones del lienzo, revisadas en computadora y celular.
   - «Ver publicación» y «Ver en la ficha» llevan a `/p/:producto`, que llega con la ficha de la web.
-- *Staging* espera a que se decida el servidor.
+- **Día 4 (listo):**
+  - En la API: tiempo real con socket.io, contactar por chat o WhatsApp, conversaciones con filtros y buscador, historial por páginas, texto y fotos, leer y «Visto», silenciar, archivar, no leída, bloquear, denunciar, campanita con «No molestar», contadores y «Vendido» con bloqueo de fila.
+  - En la web: `/mensajes` y `/mensajes/:conversacion` como C_Mensajes y F_MovilChat, la ventana de «Vendido», la campanita y el contador de Mensajes en la barra. Revisado en computadora y celular con dos tiendas conversando.
+  - Falta traspasar ofertas y conversaciones entre usuarios (A-11, RF-71), en el panel del equipo.
+- *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local, falta repetirlo en *staging*.
 
 ## 13. Pruebas (RNF-32)
 

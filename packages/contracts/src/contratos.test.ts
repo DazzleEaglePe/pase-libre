@@ -4,6 +4,7 @@ import { buscarSchema } from './catalogo/catalogo.schemas';
 import { claveEtiqueta, normalizarTexto, slugDe, tituloDeProducto } from './catalogo/normalizar';
 import { centimosDeMonto, formatearPrecio, montoParaCampo, precioDe } from './comun/dinero';
 import { crearCuentaSchema, whatsappSchema } from './equipo/equipo.schemas';
+import { enviarMensajeSchema, historialSchema } from './mensajes/mensajes.schemas';
 import { editarOfertaSchema, publicarSchema } from './ofertas/ofertas.schemas';
 import { cambiarClaveSchema, ingresarSchema } from './sesion/sesion.schemas';
 
@@ -217,5 +218,33 @@ describe('publicarSchema', () => {
     expect(editarOfertaSchema.safeParse({}).success).toBe(false);
     expect(editarOfertaSchema.parse({ stock: 0 })).toEqual({ stock: 0 });
     expect(editarOfertaSchema.parse({ precio: '' })).toEqual({ precio: null });
+  });
+});
+
+describe('enviarMensajeSchema', () => {
+  const ruta = '2026/10/0b6c3d2e-8f7a-4b1c-9d0e-1f2a3b4c5d6e.webp';
+
+  it('acepta texto, foto o foto con texto, y quita espacios', () => {
+    expect(enviarMensajeSchema.parse({ texto: '  ¿Sigue disponible?  ' })).toEqual({
+      texto: '¿Sigue disponible?',
+      foto: undefined,
+    });
+    expect(enviarMensajeSchema.parse({ foto: ruta, texto: '' })).toEqual({
+      texto: undefined,
+      foto: ruta,
+    });
+  });
+
+  it('no deja mandar un mensaje vacío ni archivos que no son fotos subidas', () => {
+    expect(enviarMensajeSchema.safeParse({ texto: '   ' }).error?.issues[0]?.message).toBe(
+      'Escribe un mensaje o elige una foto.',
+    );
+    expect(enviarMensajeSchema.safeParse({ foto: 'contrato.pdf' }).success).toBe(false);
+  });
+
+  it('pide el historial por fecha con zona horaria', () => {
+    expect(historialSchema.parse({})).toEqual({ limite: 50 });
+    expect(historialSchema.safeParse({ antes: '2026-10-27T15:00:00.000Z' }).success).toBe(true);
+    expect(historialSchema.safeParse({ antes: 'ayer' }).success).toBe(false);
   });
 });
