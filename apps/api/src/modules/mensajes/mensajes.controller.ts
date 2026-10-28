@@ -43,11 +43,13 @@ import {
   type RespuestaVendido,
   type Vendido,
 } from '@paselibre/contracts';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { z } from 'zod';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { LIMITE_PERSONA } from '../../shared/limites';
 import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
@@ -95,8 +97,12 @@ export class MensajesController {
     @Inject(AvisosService) private readonly avisos: AvisosService,
   ) {}
 
-  /** «Enviar mensaje» o «WhatsApp» en la ficha (RF-21, RF-23). */
+  /**
+   * «Enviar mensaje» o «WhatsApp» en la ficha (RF-21, RF-23). 30 por minuto por persona:
+   * el enlace de WhatsApp trae el número, y no se debe poder cosechar números (RNF-21).
+   */
   @Post('ofertas/:id/contacto')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   contactar(
@@ -176,6 +182,7 @@ export class MensajesController {
   }
 
   @Post('denuncias')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 10, ttl: 60 * 60_000 } })
   @Header('Cache-Control', 'no-store')
   denunciar(
     @Body(new ZodValidationPipe(denunciaSchema)) datos: DenunciaDatos,

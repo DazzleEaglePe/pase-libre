@@ -26,7 +26,7 @@ describe('Sesión (RF-02, RF-50, RF-60)', () => {
       .set(CABECERAS)
       .send({ usuario, clave, ...extra });
 
-  // Una API nueva por prueba: así el límite de 20 ingresos por IP no se arrastra entre pruebas.
+  // Una API nueva por prueba: así el límite de ingresos por IP no se arrastra entre pruebas.
   beforeEach(async () => {
     await vaciarBase(prisma);
     app = await crearApp();
@@ -40,9 +40,9 @@ describe('Sesión (RF-02, RF-50, RF-60)', () => {
     await prisma.$disconnect();
   });
 
-  it('frena a la misma IP después de 20 ingresos en 15 minutos', async () => {
+  it('frena a la misma IP después de 60 ingresos en 15 minutos', async () => {
     await crearTiendaConDueno(prisma, { usuario: 'tiendaa' });
-    for (let intento = 0; intento < 20; intento += 1) {
+    for (let intento = 0; intento < 60; intento += 1) {
       await ingresar('nadie', 'otra-clave-1').expect(401);
     }
     await ingresar('tiendaa').expect(429);

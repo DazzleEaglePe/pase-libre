@@ -29,6 +29,7 @@ import {
   SesionGuard,
   opcionesCookieSesion,
 } from '../../shared/guards/sesion.guard';
+import { LIMITE_IP, LIMITE_PERSONA } from '../../shared/limites';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { SesionService, respuestaYo } from './sesion.service';
 import { COOKIE_SESION, type SesionActiva } from './sesion.types';
@@ -40,10 +41,14 @@ export class SesionController {
     @Inject(ConfigService) private readonly config: ConfigService<Environment, true>,
   ) {}
 
-  /** Ingresar (RF-02). Además del límite por cuenta, 20 intentos por IP cada 15 minutos. */
+  /**
+   * Ingresar (RF-02). Además del límite por cuenta (5 fallidos en 15 minutos), 60 intentos
+   * por IP cada 15 minutos: alcanza para que toda una galería entre a la vez con el mismo
+   * wifi y frena el relleno de credenciales.
+   */
   @Post()
   @HttpCode(HttpStatus.OK)
-  @Throttle({ default: { limit: 20, ttl: 15 * 60_000 } })
+  @Throttle({ [LIMITE_IP]: { limit: 60, ttl: 15 * 60_000 } })
   async ingresar(
     @Body(new ZodValidationPipe(ingresarSchema)) entrada: IngresarDatos,
     @Req() request: Request,
@@ -78,7 +83,7 @@ export class SesionController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(SesionGuard)
   @PermitirClaveTemporal()
-  @Throttle({ default: { limit: 10, ttl: 15 * 60_000 } })
+  @Throttle({ [LIMITE_PERSONA]: { limit: 10, ttl: 15 * 60_000 } })
   async cambiarClave(
     @SesionActual() sesion: SesionActiva,
     @Body(new ZodValidationPipe(cambiarClaveSchema)) entrada: CambiarClaveEntrada,

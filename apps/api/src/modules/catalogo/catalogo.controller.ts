@@ -30,6 +30,7 @@ import {
   type Mirada,
 } from '../../shared/guards/sesion-opcional.guard';
 import { CachePorAudienciaInterceptor } from '../../shared/interceptors/cache-por-audiencia.interceptor';
+import { LIMITE_PERSONA } from '../../shared/limites';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { BusquedaService } from './busqueda.service';
 import { CatalogoService } from './catalogo.service';
@@ -65,9 +66,9 @@ export class CatalogoController {
     return this.catalogo.galerias();
   }
 
-  /** Búsqueda pública: 60 por minuto por IP (docs/05 §9). */
+  /** Búsqueda: 60 por minuto por persona (o por IP, sin sesión), contra el scraping (docs/05 §9). */
   @Get('buscar')
-  @Throttle({ default: { limit: 60, ttl: 60_000 } })
+  @Throttle({ [LIMITE_PERSONA]: { limit: 60, ttl: 60_000 } })
   buscar(
     @Query(new ZodValidationPipe(buscarSchema)) consulta: BuscarConsulta,
     @MiradaActual() mirada: Mirada,

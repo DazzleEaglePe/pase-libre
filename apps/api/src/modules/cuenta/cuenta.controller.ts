@@ -1,50 +1,130 @@
-import { Controller, Get, Header, Inject, UseGuards } from '@nestjs/common';
-import type { RespuestaCuenta, RespuestaRapida } from '@paselibre/contracts';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Header,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Param,
+  Patch,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  actualizarCuentaSchema,
+  avisosCuentaSchema,
+  respuestasRapidasSchema,
+  type ActualizarCuentaDatos,
+  type AvisosCuentaDatos,
+  type RespuestaAvisosCuenta,
+  type RespuestaCuenta,
+  type RespuestaRapida,
+  type RespuestasRapidasDatos,
+  type SesionAbierta,
+  type TiendaBloqueada,
+} from '@paselibre/contracts';
+import { z } from 'zod';
 
-import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { CuentaService } from './cuenta.service';
 
-/** Configuración de la cuenta (RF-58). Por ahora solo lectura; la edición llega el 30/10. */
+const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
+
+/**
+ * Configuración (docs/05 §6.2): datos de la cuenta, avisos, respuestas rápidas, sesiones
+ * abiertas y bloqueados. Todo es de quien tiene la sesión; nada se cachea.
+ */
 @Controller('cuenta')
 @UseGuards(SesionGuard)
 export class CuentaController {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(@Inject(CuentaService) private readonly cuentas: CuentaService) {}
 
   @Get()
-  cuenta(@SesionActual() { usuario }: SesionActiva): RespuestaCuenta {
-    const { tienda } = usuario;
-    return {
-      usuario: {
-        usuario: usuario.usuario,
-        nombre: usuario.nombre,
-        correo: usuario.correo,
-        whatsapp: usuario.whatsapp,
-      },
-      tienda: tienda
-        ? {
-            nombre: tienda.nombre,
-            tipo: tienda.tipo,
-            galeria: tienda.galeria?.nombre ?? null,
-            stand: tienda.stand,
-            whatsapp: tienda.whatsapp,
-            horario: tienda.horario,
-            descripcion: tienda.descripcion,
-            precio_visible_defecto: tienda.precioVisibleDefecto,
-            moneda_defecto: tienda.monedaDefecto,
-          }
-        : null,
-    };
+  @Header('Cache-Control', 'no-store')
+  cuenta(@SesionActual() { usuario }: SesionActiva): Promise<RespuestaCuenta> {
+    return this.cuentas.cuenta(usuario.id);
   }
 
-  /** Respuestas rápidas sobre la caja de texto del chat (RF-56). Se editan el 30/10. */
+  @Patch()
+  @Header('Cache-Control', 'no-store')
+  actualizar(
+    @Body(new ZodValidationPipe(actualizarCuentaSchema)) cambios: ActualizarCuentaDatos,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<RespuestaCuenta> {
+    return this.cuentas.actualizar(usuario.id, cambios);
+  }
+
+  @Get('avisos')
+  @Header('Cache-Control', 'no-store')
+  avisos(@SesionActual() { usuario }: SesionActiva): Promise<RespuestaAvisosCuenta> {
+    return this.cuentas.avisos(usuario.id);
+  }
+
+  @Put('avisos')
+  @Header('Cache-Control', 'no-store')
+  guardarAvisos(
+    @Body(new ZodValidationPipe(avisosCuentaSchema)) datos: AvisosCuentaDatos,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<RespuestaAvisosCuenta> {
+    return this.cuentas.guardarAvisos(usuario.id, datos);
+  }
+
+  /** Sobre la caja de texto del chat (RF-56). */
   @Get('respuestas-rapidas')
   @Header('Cache-Control', 'no-store')
   respuestasRapidas(@SesionActual() { usuario }: SesionActiva): Promise<RespuestaRapida[]> {
-    return this.prisma.respuestaRapida.findMany({
-      where: { usuarioId: usuario.id },
-      orderBy: { orden: 'asc' },
-      select: { id: true, texto: true },
-    });
+    return this.cuentas.respuestasRapidas(usuario.id);
+  }
+
+  @Put('respuestas-rapidas')
+  @Header('Cache-Control', 'no-store')
+  guardarRespuestasRapidas(
+    @Body(new ZodValidationPipe(respuestasRapidasSchema)) { textos }: RespuestasRapidasDatos,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<RespuestaRapida[]> {
+    return this.cuentas.guardarRespuestasRapidas(usuario.id, textos);
+  }
+
+  @Get('sesiones')
+  @Header('Cache-Control', 'no-store')
+  sesiones(@SesionActual() sesion: SesionActiva): Promise<SesionAbierta[]> {
+    return this.cuentas.sesiones(sesion);
+  }
+
+  /** «Cerrar todas las demás». Va antes de `sesiones/:id` para que no se lea como id. */
+  @Post('sesiones/cerrar-otras')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  cerrarOtras(@SesionActual() sesion: SesionActiva): Promise<{ cerradas: number }> {
+    return this.cuentas.cerrarOtras(sesion);
+  }
+
+  @Delete('sesiones/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  cerrarSesion(
+    @Param('id', id('Esa sesión ya está cerrada.')) sesionId: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<void> {
+    return this.cuentas.cerrarSesion(sesion, sesionId);
+  }
+
+  @Get('bloqueados')
+  @Header('Cache-Control', 'no-store')
+  bloqueados(@SesionActual() { usuario }: SesionActiva): Promise<TiendaBloqueada[]> {
+    return this.cuentas.bloqueados(usuario.id);
+  }
+
+  @Delete('bloqueados/:tienda')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  desbloquear(
+    @Param('tienda', id('Esa tienda no existe.')) tiendaId: string,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<void> {
+    return this.cuentas.desbloquear(usuario.id, tiendaId);
   }
 }

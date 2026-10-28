@@ -6,6 +6,7 @@ export * from './catalogo/catalogo.schemas.js';
 export * from './catalogo/catalogo.types.js';
 export * from './sesion/sesion.schemas.js';
 export * from './sesion/sesion.types.js';
+export * from './cuenta/cuenta.schemas.js';
 export * from './cuenta/cuenta.types.js';
 export * from './equipo/equipo.schemas.js';
 export * from './equipo/equipo.types.js';

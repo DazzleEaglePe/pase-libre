@@ -4,9 +4,10 @@ import type { RespuestaSalud, RespuestaSaludLista } from '@paselibre/contracts';
 import type { Response } from 'express';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { SIN_LIMITES } from '../../shared/limites';
 
 @Controller('salud')
-@SkipThrottle()
+@SkipThrottle(SIN_LIMITES)
 export class SaludController {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 

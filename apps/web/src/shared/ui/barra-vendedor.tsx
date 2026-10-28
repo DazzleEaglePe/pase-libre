@@ -4,10 +4,9 @@ import type { TiendaDeSesion } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { BotonSalir } from '@/features/acceso/boton-salir';
-
 import { Campanita, useContadores } from './campanita';
 import { Marca } from './marca';
+import { MenuCuenta } from './menu-cuenta';
 
 const SECCIONES = [
   { href: '/publicar', texto: 'Publicar' },
@@ -17,8 +16,8 @@ const SECCIONES = [
 
 /**
  * Barra de las páginas del vendedor. Es la parte de C_Header que ya tiene páginas
- * («¡Hola, Tienda A!», Publicar, Mis publicaciones, Mensajes y la campanita); el buscador
- * se suma con la portada.
+ * (Publicar, Mis publicaciones, Mensajes, la campanita y «Mi cuenta»); el buscador se
+ * suma con la portada.
  */
 export function BarraVendedor({ tienda }: { tienda: TiendaDeSesion }) {
   const ruta = usePathname();
@@ -59,15 +58,9 @@ export function BarraVendedor({ tienda }: { tienda: TiendaDeSesion }) {
             })}
           </nav>
         </div>
-        <div className="flex items-center gap-3 text-apoyo">
-          <span className="flex flex-col leading-tight">
-            <span>
-              ¡Hola, <b className="font-semibold">{tienda.nombre}</b>!
-            </span>
-            {lugar && <span className="text-nota text-detalle">{lugar}</span>}
-          </span>
+        <div className="flex items-center gap-2">
           <Campanita sinLeer={contadores.avisos} />
-          <BotonSalir />
+          <MenuCuenta tienda={tienda} lugar={lugar} />
         </div>
       </div>
     </header>

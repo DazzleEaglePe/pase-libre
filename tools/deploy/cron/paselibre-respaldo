@@ -1,0 +1,9 @@
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Respaldo diario a las 03:00 de Lima (08:00 UTC): base, semanales y copia a B2.
+0 8 * * * root /opt/paselibre/app/tools/deploy/scripts/respaldar.sh /opt/paselibre/config/respaldo.env >> /var/log/paselibre-respaldo.log 2>&1
+
+# Ensayo de restauración los domingos a las 04:00 de Lima: restaura el último respaldo en
+# una base aparte, la compara y revisa las fotos. Si falla, queda en el registro.
+0 9 * * 0 root /opt/paselibre/app/tools/deploy/scripts/ensayar-restauracion.sh /opt/paselibre/config/respaldo.env >> /var/log/paselibre-respaldo.log 2>&1

@@ -1,6 +1,6 @@
 # 05 · Arquitectura
 
-**Versión:** 0.5 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
+**Versión:** 0.6 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
 
 **Decidido el 26/10:** se reutiliza el stack de Yallegó (A-01) y la bandeja de mensajes es **por persona** (A-11). El servidor se elige al final (A-10).
 
@@ -252,9 +252,11 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | | `POST` y `DELETE /conversaciones/:id/bloqueo`, `POST /denuncias` | Bloquear, desbloquear y denunciar | 57 |
 | | `GET /avisos`, `POST /avisos/leidos` | Campanita | 40 |
 | | `GET /contadores` | Las insignias de Mensajes y de la campanita | 40, 55 |
-| Cuenta | `GET/PATCH /cuenta` | Datos de la tienda (usuario, galería y stand solo los cambia el equipo) | 58 |
-| | `GET/PUT /cuenta/avisos` | Preferencias y «No molestar» | 59 |
-| | `GET/PUT /cuenta/respuestas-rapidas` | Respuestas rápidas (el `GET` ya está; el `PUT` llega con Configuración) | 56 |
+| Cuenta | `GET/PATCH /cuenta` | Datos de la persona y de la tienda, logo, «Visto» y valores por defecto al publicar. Usuario, galería y stand solo los cambia el equipo | 48, 57, 58 |
+| | `GET/PUT /cuenta/avisos` | Campanita por tipo de aviso y «No molestar» (hora de Lima) | 59 |
+| | `GET/PUT /cuenta/respuestas-rapidas` | Respuestas rápidas: hasta 8, en orden y sin repetir | 56 |
+| | `GET /cuenta/sesiones`, `DELETE /cuenta/sesiones/:id`, `POST /cuenta/sesiones/cerrar-otras` | Sesiones abiertas, por navegador | 60 |
+| | `GET /cuenta/bloqueados`, `DELETE /cuenta/bloqueados/:tienda` | Tiendas bloqueadas, para desbloquearlas | 57 |
 | Equipo | `GET/POST /equipo/cuentas` | Listar y crear cuentas con clave temporal | 35, 49 |
 | | `POST /equipo/cuentas/:id/clave-temporal` | Nueva clave; obliga a cambiarla al entrar | 50 |
 | | `PATCH /equipo/cuentas/:id` | Suspender o reactivar | 28 |
@@ -357,12 +359,23 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
   - Dura 12 horas, o 30 días renovables con «Mantener la sesión».
   - La cookie va con `Secure`, `HttpOnly` y `SameSite=Lax`, y las peticiones que cambian datos exigen además la cabecera `X-PaseLibre`, como defensa contra CSRF.
   - Suspender una cuenta revoca todas sus sesiones.
-- **Límites (RNF-19):**
-  - Ingreso: 5 intentos fallidos por cuenta cada 15 minutos y 20 por IP.
-  - Búsqueda pública: 60 por minuto por IP.
-  - Mensajes: 30 por minuto por usuario.
-  - Subidas: 30 por hora por usuario.
-  - Los de mensajes y subidas se cuentan por persona y no por IP: en una galería muchas tiendas comparten la misma IP.
+- **Límites (RNF-19).** En una galería muchas tiendas salen a internet con la misma IP, así que cada petición pasa por dos contadores (`apps/api/src/shared/limites.ts`):
+  - Por IP, un techo alto: 600 por minuto.
+  - Por persona: 120 por minuto, contado por su sesión, o por IP si no tiene sesión.
+  - Los límites de cada ruta:
+
+    | Ruta | Límite | Se cuenta por |
+    | --- | --- | --- |
+    | Ingreso | 5 intentos fallidos cada 15 minutos | Cuenta |
+    | Ingreso | 60 intentos cada 15 minutos | IP |
+    | Cambio de contraseña | 10 cada 15 minutos | Persona |
+    | Búsqueda | 60 por minuto | Persona (sin sesión, IP) |
+    | Contactar, que da el WhatsApp | 30 por minuto | Persona |
+    | Mensajes | 30 por minuto | Persona |
+    | Subidas | 30 por hora | Persona |
+    | Denuncias | 10 por hora | Persona |
+
+  - *Cambio del 27/10:* antes había un único límite general de 120 por minuto por IP y el ingreso permitía 20 por IP; el día del piloto toda una galería con el mismo wifi se hubiera frenado entre sí. El contador por cuenta sigue frenando a quien prueba claves.
 - **Entradas:** todo cuerpo y consulta pasa por su esquema Zod. El texto del chat y de las descripciones se guarda plano y se escapa al pintarlo; no se acepta HTML.
 - **Fotos (RNF-20):**
   - Solo JPEG, PNG o WebP, hasta 8 MB, revisando el contenido y no solo la extensión.
@@ -384,9 +397,10 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
   3. Correr las migraciones.
   4. Cambiar las imágenes en el `.env`.
   5. Hacer una prueba de humo.
-- **Respaldos (RNF-13):**
-  - `pg_dump` cada noche, con 7 diarios y 4 semanales.
-  - Las fotos se copian a B2 cada noche.
+- **Respaldos (RNF-13):** ver [`tools/deploy/RESPALDOS.md`](../tools/deploy/RESPALDOS.md).
+  - `pg_dump` cada noche, con 7 diarios y 4 semanales, validado antes de publicarse.
+  - Los respaldos y las fotos se copian a B2 con `rclone`.
+  - Los domingos, un ensayo restaura el último respaldo en una base aparte, lo compara y revisa que existan las fotos.
   - Antes de salir se prueba una restauración completa en *staging*.
 - **Observabilidad (RNF-38, RNF-39):**
   - Logs JSON con pino.
@@ -442,6 +456,11 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
   - En la API: tiempo real con socket.io, contactar por chat o WhatsApp, conversaciones con filtros y buscador, historial por páginas, texto y fotos, leer y «Visto», silenciar, archivar, no leída, bloquear, denunciar, campanita con «No molestar», contadores y «Vendido» con bloqueo de fila.
   - En la web: `/mensajes` y `/mensajes/:conversacion` como C_Mensajes y F_MovilChat, la ventana de «Vendido», la campanita y el contador de Mensajes en la barra. Revisado en computadora y celular con dos tiendas conversando.
   - Falta traspasar ofertas y conversaciones entre usuarios (A-11, RF-71), en el panel del equipo.
+- **Día 5 (listo, la parte de código):**
+  - Configuración (`/cuenta/configuracion`) en la API y la web: datos de la persona y de la tienda con logo, contraseña y sesiones abiertas, avisos con «No molestar», «Visto», bloqueados, valores por defecto al publicar y respuestas rápidas. Queda para la fase 2 lo que el lienzo C también trae: perfil privado, «Quién puede escribirte», respuesta automática, idioma y aviso por correo.
+  - Límites por IP y por persona (§9).
+  - Respaldos: scripts para respaldar, restaurar y ensayar, probados en local (§10).
+  - Falta, porque depende de personas o del servidor: que Fabrizio y el equipo carguen el piloto, la copia a B2, el cron y el ensayo en *staging*.
 - *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local, falta repetirlo en *staging*.
 
 ## 13. Pruebas (RNF-32)

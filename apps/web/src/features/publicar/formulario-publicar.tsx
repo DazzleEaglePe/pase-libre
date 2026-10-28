@@ -377,7 +377,10 @@ export function FormularioPublicar({
             derecha={
               <span className="text-nota text-detalle">
                 Por defecto: {tienda.precio_visible_defecto ? 'visible' : 'oculto'} y en{' '}
-                {SIMBOLO[tienda.moneda_defecto]} · se cambia en Configuración
+                {SIMBOLO[tienda.moneda_defecto]} ·{' '}
+                <Link href="/cuenta/configuracion?seccion=preferencias" className="text-secundario">
+                  cambiar en Configuración
+                </Link>
               </span>
             }
           >

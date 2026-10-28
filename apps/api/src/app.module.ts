@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { validateEnvironment } from './config/env.schema';
+import { LIMITES } from './shared/limites';
 import { DatabaseModule } from './infrastructure/database/database.module';
 import { ObservabilityLoggerModule } from './infrastructure/observability/logger.module';
 import { ArchivosModule } from './modules/archivos/archivos.module';
@@ -27,8 +28,8 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
       validate: validateEnvironment,
     }),
     ObservabilityLoggerModule,
-    // Límite general por IP; las rutas sensibles ponen el suyo (docs/05 §9).
-    ThrottlerModule.forRoot([{ name: 'default', limit: 120, ttl: 60_000 }]),
+    // Por IP y por persona; las rutas sensibles ajustan el suyo (shared/limites.ts).
+    ThrottlerModule.forRoot(LIMITES),
     DatabaseModule,
     TiempoRealModule,
     SesionModule,

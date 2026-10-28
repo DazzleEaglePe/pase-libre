@@ -677,7 +677,7 @@ export function Conversacion({ id }: { id: string }) {
       >
         <p className="text-secundario">
           Nadie de {otro.tienda.nombre} podrá escribirte ni contactarte. No se le avisa. Puedes
-          desbloquearla desde esta misma conversación.
+          desbloquearla aquí mismo o en Configuración › Privacidad.
         </p>
         <div className="flex flex-wrap gap-2.5">
           <button
