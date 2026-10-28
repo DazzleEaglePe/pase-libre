@@ -1,6 +1,6 @@
 # 05 · Arquitectura
 
-**Versión:** 0.6 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
+**Versión:** 0.7 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
 
 **Decidido el 26/10:** se reutiliza el stack de Yallegó (A-01) y la bandeja de mensajes es **por persona** (A-11). El servidor se elige al final (A-10).
 
@@ -260,7 +260,7 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | Equipo | `GET/POST /equipo/cuentas` | Listar y crear cuentas con clave temporal | 35, 49 |
 | | `POST /equipo/cuentas/:id/clave-temporal` | Nueva clave; obliga a cambiarla al entrar | 50 |
 | | `PATCH /equipo/cuentas/:id` | Suspender o reactivar | 28 |
-| | `POST /equipo/cuentas/:id/traspasar` | Pasar ofertas e hilos a otro usuario de la tienda | 71 |
+| | `POST /equipo/cuentas/:id/traspasar` | Pasar publicaciones e hilos a otra cuenta activa de la misma tienda. La lista (`GET /equipo/cuentas`, también `?tienda=`) muestra qué tiene cada cuenta a su nombre | 71 |
 | | `GET /equipo/tiendas` | Tiendas activas, para elegir la de un asesor | 35 |
 | | `POST /equipo/cargas`, `POST /equipo/cargas/:id/confirmar` | Carga por planilla con vista previa | 34 |
 | | `GET /equipo/duplicados`, `POST /equipo/productos/:id/unir` | Unir productos | 54 |
@@ -310,7 +310,10 @@ Al reconectar, la interfaz vuelve a pedir la lista, la conversación abierta y l
 
 - **Un hilo por oferta y por persona que pregunta.** «Enviar mensaje» desde la ficha abre el hilo existente o crea uno nuevo con el responsable de la oferta, con el producto fijo arriba.
 - **Bandeja por persona (A-11).** El hilo es entre quien escribe y el responsable de la oferta. El dueño no ve los hilos de sus asesores ni al revés.
-- **Hilos sin dueño:** si un asesor deja la tienda o su cuenta se suspende, el equipo pasa sus ofertas y sus hilos a otro usuario de la misma tienda (`POST /equipo/cuentas/:id/traspasar`). En la fase 2 lo hará el dueño desde Mis publicaciones.
+- **Hilos sin dueño:** si un asesor deja la tienda o su cuenta se suspende, el equipo pasa sus publicaciones y sus hilos a otra cuenta activa de la misma tienda (`POST /equipo/cuentas/:id/traspasar`), en una transacción y con registro en `auditoria`. En la fase 2 lo hará el dueño desde Mis publicaciones.
+  - Pasan las publicaciones no eliminadas y los hilos donde era el vendedor, con su estado de lectura y su aviso de la campanita.
+  - Los hilos donde preguntó como comprador también pasan, salvo que la cuenta que recibe ya tenga uno por la misma publicación (un hilo por publicación y persona). Esos quedan donde estaban y el panel lo avisa.
+  - Los bloqueos son de la persona: no se traspasan.
 - **Bloqueo:** quien bloquea, bloquea a la tienda entera. Antes de guardar un mensaje, la API revisa la tabla `bloqueo`; el bloqueado recibe el error `BLOQUEADO` y no se le avisa al otro.
 - **Fotos en el chat:** se suben con `POST /archivos` y el mensaje lleva la referencia. Una foto por mensaje (con texto opcional) y nada de archivos (D-30).
 - **La lista** solo muestra hilos con al menos un mensaje: abrir el chat desde la ficha y no escribir no le llena la bandeja a nadie. Un mensaje nuevo saca el hilo de Archivados.
@@ -447,7 +450,7 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
 - **Día 1 (listo):** monorepo, esquema, semilla, sesión, primer ingreso y la pantalla de acceso de la web.
 - **Día 2 (listo):**
   - En la API: portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
-  - El panel del equipo (`/equipo/cuentas`) en la API y en la web: crear cuentas, reenviar acceso o dar una contraseña temporal nueva, y suspender o reactivar. Falta traspasar ofertas y conversaciones entre usuarios (A-11), que llega con los mensajes.
+  - El panel del equipo (`/equipo/cuentas`) en la API y en la web: crear cuentas, reenviar acceso o dar una contraseña temporal nueva, y suspender o reactivar. Traspasar llegó el 27/10, después del día 5.
 - **Día 3 (listo):**
   - En la API: sugerencias «Ya está en PaseLibre», publicar uno igual, producto nuevo en el mismo paso, fotos (`POST /archivos`), Mis publicaciones con pestañas y buscador, editar, pausar, reactivar, eliminar y «Siguen igual».
   - En la web: `/publicar` (también `?igual=` y `?editar=`) y `/mis-publicaciones`, como F_Publicar y F_MisPublicaciones del lienzo, revisadas en computadora y celular.
@@ -455,11 +458,11 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
 - **Día 4 (listo):**
   - En la API: tiempo real con socket.io, contactar por chat o WhatsApp, conversaciones con filtros y buscador, historial por páginas, texto y fotos, leer y «Visto», silenciar, archivar, no leída, bloquear, denunciar, campanita con «No molestar», contadores y «Vendido» con bloqueo de fila.
   - En la web: `/mensajes` y `/mensajes/:conversacion` como C_Mensajes y F_MovilChat, la ventana de «Vendido», la campanita y el contador de Mensajes en la barra. Revisado en computadora y celular con dos tiendas conversando.
-  - Falta traspasar ofertas y conversaciones entre usuarios (A-11, RF-71), en el panel del equipo.
 - **Día 5 (listo, la parte de código):**
   - Configuración (`/cuenta/configuracion`) en la API y la web: datos de la persona y de la tienda con logo, contraseña y sesiones abiertas, avisos con «No molestar», «Visto», bloqueados, valores por defecto al publicar y respuestas rápidas. Queda para la fase 2 lo que el lienzo C también trae: perfil privado, «Quién puede escribirte», respuesta automática, idioma y aviso por correo.
   - Límites por IP y por persona (§9).
   - Respaldos: scripts para respaldar, restaurar y ensayar, probados en local (§10).
+  - Traspasar (A-11, RF-71) en el panel del equipo: «Traspasar» aparece en las cuentas que tienen algo a su nombre y comparten tienda con otra.
   - Falta, porque depende de personas o del servidor: que Fabrizio y el equipo carguen el piloto, la copia a B2, el cron y el ensayo en *staging*.
 - *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local, falta repetirlo en *staging*.
 

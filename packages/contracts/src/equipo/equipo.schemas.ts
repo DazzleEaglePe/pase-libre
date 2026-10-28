@@ -100,6 +100,8 @@ export const crearCuentaSchema = z
 export const filtroCuentasSchema = z.object({
   estado: z.enum(['todas', 'activa', 'sin_primer_ingreso', 'suspendida']).default('todas'),
   galeria: z.string().trim().max(80).optional(),
+  /** Las cuentas de una tienda: para elegir a quién traspasar. */
+  tienda: z.uuid('Esa tienda no existe.').optional(),
   q: z.string().trim().max(80).default(''),
 });
 
@@ -107,7 +109,16 @@ export const cambiarEstadoCuentaSchema = z.strictObject({
   estado: z.enum(['ACTIVA', 'SUSPENDIDA']),
 });
 
+/**
+ * `POST /v1/equipo/cuentas/:id/traspasar` (RF-71, A-11): las publicaciones y conversaciones
+ * de una cuenta pasan a otra de la misma tienda.
+ */
+export const traspasarSchema = z.strictObject({
+  a_usuario_id: z.uuid('Elige la cuenta que recibe.'),
+});
+
 export type CrearCuentaEntrada = z.input<typeof crearCuentaSchema>;
 export type CrearCuentaDatos = z.output<typeof crearCuentaSchema>;
 export type FiltroCuentas = z.output<typeof filtroCuentasSchema>;
 export type CambiarEstadoCuenta = z.infer<typeof cambiarEstadoCuentaSchema>;
+export type Traspasar = z.infer<typeof traspasarSchema>;

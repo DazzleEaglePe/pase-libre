@@ -24,6 +24,15 @@ export interface CuentaEquipo {
     tipo: TipoTienda;
     galeria: string | null;
     stand: string | null;
+    /** Cuentas de la tienda, contando esta: con una sola no hay a quién traspasar. */
+    cuentas: number;
+  };
+  /** Lo que está a su nombre: si se suspende, conviene traspasarlo (RF-71). */
+  a_cargo: {
+    /** Publicaciones no eliminadas de las que es responsable. */
+    publicaciones: number;
+    /** Conversaciones con mensajes, como vendedor o como comprador. */
+    conversaciones: number;
   };
   ultimo_ingreso_en: string | null;
   creada_en: string;
@@ -45,6 +54,19 @@ export interface RespuestaAcceso {
   mensaje: string;
   /** `wa.me` con el mensaje armado, o nulo si la cuenta no tiene WhatsApp. */
   enlace_whatsapp: string | null;
+}
+
+/** `POST /v1/equipo/cuentas/:id/traspasar`. */
+export interface RespuestaTraspaso {
+  publicaciones: number;
+  conversaciones: number;
+  /**
+   * Conversaciones en las que preguntó como comprador y que no se pudieron pasar porque la
+   * cuenta que recibe ya tenía una por la misma publicación. Siguen a nombre de quien entrega.
+   */
+  omitidas: number;
+  desde: CuentaEquipo;
+  hacia: CuentaEquipo;
 }
 
 /** Para elegir la tienda de un asesor. */

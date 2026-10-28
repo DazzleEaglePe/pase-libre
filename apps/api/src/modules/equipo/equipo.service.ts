@@ -1,13 +1,15 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type {
-  CrearCuentaDatos,
-  CuentaEquipo,
-  EstadoCuenta,
-  FiltroCuentas,
-  RespuestaAcceso,
-  RespuestaCuentas,
-  TiendaParaEquipo,
+import {
+  EVENTOS,
+  type CrearCuentaDatos,
+  type CuentaEquipo,
+  type EstadoCuenta,
+  type FiltroCuentas,
+  type RespuestaAcceso,
+  type RespuestaCuentas,
+  type RespuestaTraspaso,
+  type TiendaParaEquipo,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -18,7 +20,17 @@ import { RESPUESTAS_RAPIDAS_INICIALES } from '../cuenta/respuestas-rapidas';
 import { cifrarClave, generarClaveTemporal } from '../sesion/clave';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
-const INCLUIR_TIENDA = { tienda: { include: { galeria: true } } } as const;
+/** La tienda y lo que la cuenta tiene a su nombre (publicaciones y conversaciones). */
+const INCLUIR_TIENDA = {
+  tienda: { include: { galeria: true, _count: { select: { usuarios: true } } } },
+  _count: {
+    select: {
+      ofertasResponsable: { where: { estado: { not: 'ELIMINADA' } } },
+      conversacionesVenta: { where: { mensajes: { some: {} } } },
+      conversacionesCompra: { where: { mensajes: { some: {} } } },
+    },
+  },
+} satisfies Prisma.UsuarioInclude;
 type UsuarioConTienda = Prisma.UsuarioGetPayload<{ include: typeof INCLUIR_TIENDA }>;
 
 /** Las cuentas del equipo no se administran desde el panel: se crean con `pnpm cuenta:equipo`. */
@@ -52,6 +64,11 @@ function aCuenta(usuario: UsuarioConTienda): CuentaEquipo {
       tipo: tienda.tipo,
       galeria: tienda.galeria?.nombre ?? null,
       stand: tienda.stand,
+      cuentas: tienda._count.usuarios,
+    },
+    a_cargo: {
+      publicaciones: usuario._count.ofertasResponsable,
+      conversaciones: usuario._count.conversacionesVenta + usuario._count.conversacionesCompra,
     },
     ultimo_ingreso_en: usuario.ultimoIngresoEn?.toISOString() ?? null,
     creada_en: usuario.creadoEn.toISOString(),
@@ -78,6 +95,7 @@ export class EquipoService {
       condiciones.push({ estado: 'ACTIVO', primerIngresoEn: { not: null } });
     if (filtro.estado === 'sin_primer_ingreso')
       condiciones.push({ estado: 'ACTIVO', primerIngresoEn: null });
+    if (filtro.tienda) condiciones.push({ tiendaId: filtro.tienda });
     if (filtro.galeria) {
       condiciones.push({
         tienda:
@@ -303,6 +321,117 @@ export class EquipoService {
     ]);
     if (estado === 'SUSPENDIDA') await this.tiempoReal.desconectarUsuario(id);
     return aCuenta(actualizado as UsuarioConTienda);
+  }
+
+  /**
+   * Traspasar (RF-71, A-11): cuando alguien deja la tienda o se suspende su cuenta, sus
+   * publicaciones y conversaciones pasan a otra cuenta de la misma tienda, para que los
+   * mensajes no se pierdan. Viajan con cada hilo su estado de lectura y su aviso.
+   *
+   * Las conversaciones donde preguntó como comprador también pasan, salvo que quien recibe
+   * ya tenga una por la misma publicación (un hilo por publicación y persona): esas quedan
+   * donde estaban y se informan como omitidas.
+   */
+  async traspasar(id: string, aId: string, actorId: string): Promise<RespuestaTraspaso> {
+    if (id === aId) {
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'Elige otra cuenta de la tienda.',
+      );
+    }
+    const desde = await this.buscar(id);
+    const hacia = await this.prisma.usuario.findFirst({
+      where: { id: aId, ...SOLO_VENDEDORES },
+      select: { tiendaId: true, estado: true },
+    });
+    if (!hacia) {
+      throw new ApiHttpException(
+        HttpStatus.NOT_FOUND,
+        'NO_ENCONTRADO',
+        'No encontramos la cuenta que recibe.',
+      );
+    }
+    if (hacia.tiendaId !== desde.tiendaId) {
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'Solo se puede traspasar a otra cuenta de la misma tienda.',
+      );
+    }
+    if (hacia.estado === 'SUSPENDIDO') {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Esa cuenta está suspendida. Reactívala o elige otra.',
+      );
+    }
+
+    const resultado = await this.prisma.$transaction(async (tx) => {
+      const { count: publicaciones } = await tx.oferta.updateMany({
+        where: { responsableId: id, estado: { not: 'ELIMINADA' } },
+        data: { responsableId: aId },
+      });
+
+      const comoVendedor = await tx.conversacion.findMany({
+        where: { vendedorId: id },
+        select: { id: true, mensajes: { select: { id: true }, take: 1 } },
+      });
+      await tx.conversacion.updateMany({ where: { vendedorId: id }, data: { vendedorId: aId } });
+
+      const comoComprador = await tx.conversacion.findMany({
+        where: { compradorId: id },
+        select: { id: true, ofertaId: true, mensajes: { select: { id: true }, take: 1 } },
+      });
+      const yaTiene = new Set(
+        (
+          await tx.conversacion.findMany({
+            where: { compradorId: aId, ofertaId: { in: comoComprador.map((c) => c.ofertaId) } },
+            select: { ofertaId: true },
+          })
+        ).map((c) => c.ofertaId),
+      );
+      const pasan = comoComprador.filter((c) => !yaTiene.has(c.ofertaId));
+      const omitidas = comoComprador.length - pasan.length;
+      await tx.conversacion.updateMany({
+        where: { id: { in: pasan.map((c) => c.id) } },
+        data: { compradorId: aId },
+      });
+
+      const movidas = [...comoVendedor, ...pasan].map((c) => c.id);
+      await tx.participacion.updateMany({
+        where: { conversacionId: { in: movidas }, usuarioId: id },
+        data: { usuarioId: aId },
+      });
+      await tx.aviso.updateMany({
+        where: { conversacionId: { in: movidas }, usuarioId: id },
+        data: { usuarioId: aId },
+      });
+
+      // Para el resumen cuentan los hilos con mensajes, como en la bandeja.
+      const conversaciones = [...comoVendedor, ...pasan].filter(
+        (c) => c.mensajes.length > 0,
+      ).length;
+      await tx.auditoria.create({
+        data: {
+          actorId,
+          accion: 'traspasar',
+          objeto: 'usuario',
+          objetoId: id,
+          datos: { a: aId, publicaciones, conversaciones, omitidas },
+        },
+      });
+      return { publicaciones, conversaciones, omitidas };
+    });
+
+    for (const usuarioId of [id, aId]) {
+      this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.contadores);
+    }
+    return {
+      ...resultado,
+      desde: aCuenta(await this.buscar(id)),
+      hacia: aCuenta(await this.buscar(aId)),
+    };
   }
 
   private async buscar(id: string): Promise<UsuarioConTienda> {

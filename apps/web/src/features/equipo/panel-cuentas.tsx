@@ -21,6 +21,7 @@ import { Ventana } from '@/shared/ui/ventana';
 
 import { AccesoEnviado } from './acceso-enviado';
 import { FormularioCuenta } from './formulario-cuenta';
+import { mensajeDeTraspaso, resumenACargo, Traspasar } from './traspasar';
 
 type Filtro = 'todas' | 'activa' | 'sin_primer_ingreso' | 'suspendida';
 
@@ -35,7 +36,7 @@ const TIPO_DE_CUENTA = { DUENO: 'Dueño de tienda', ASESOR: 'Asesor' } as const;
 type Confirmacion = { cuenta: CuentaEquipo; accion: 'clave' | 'suspender' };
 
 const columnas =
-  'lg:grid lg:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_130px_110px_150px_minmax(260px,auto)] lg:items-center lg:gap-x-4';
+  'xl:grid xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_130px_110px_150px_minmax(260px,auto)] xl:items-center xl:gap-x-4';
 
 /** Cuentas del piloto (RF-49), con las acciones de la fila según su estado. */
 export function PanelCuentas() {
@@ -50,6 +51,8 @@ export function PanelCuentas() {
   const [acceso, setAcceso] = useState<RespuestaAcceso | null>(null);
   const [confirmar, setConfirmar] = useState<Confirmacion | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);
+  const [traspasando, setTraspasando] = useState<CuentaEquipo | null>(null);
+  const [hecho, setHecho] = useState<string | null>(null);
 
   // Espera a que se termine de escribir antes de buscar.
   useEffect(() => {
@@ -183,6 +186,17 @@ export function PanelCuentas() {
           {error}
         </p>
       )}
+      {hecho && (
+        <p
+          role="status"
+          className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-ok-fondo px-3.5 py-3 text-apoyo text-ok"
+        >
+          <span className="flex-1">{hecho}</span>
+          <button type="button" onClick={() => setHecho(null)} className="font-medium underline">
+            Cerrar
+          </button>
+        </p>
+      )}
 
       <div role="table" aria-label="Cuentas" className="-mt-2 flex flex-col">
         <div
@@ -206,11 +220,29 @@ export function PanelCuentas() {
             <div
               key={cuenta.id}
               role="row"
-              className={`flex flex-col gap-2 border-b border-linea py-4 lg:min-h-[68px] lg:py-2 ${columnas}`}
+              className={`flex flex-col gap-2 border-b border-linea py-4 xl:min-h-[68px] xl:py-2 ${columnas}`}
             >
               <span role="cell" className="flex min-w-0 flex-col">
                 <span className="text-cuerpo font-medium">{cuenta.tienda.nombre}</span>
                 <span className="text-nota text-detalle">{cuenta.nombre}</span>
+                {resumenACargo(cuenta) && (
+                  <span className="text-nota text-detalle">
+                    A su nombre: {resumenACargo(cuenta)}
+                    {cuenta.tienda.cuentas > 1 && (
+                      <>
+                        {' · '}
+                        <button
+                          type="button"
+                          disabled={ocupado}
+                          onClick={() => setTraspasando(cuenta)}
+                          className="font-medium text-tinta underline"
+                        >
+                          Traspasar
+                        </button>
+                      </>
+                    )}
+                  </span>
+                )}
               </span>
               <span role="cell" className="text-apoyo text-secundario">
                 {cuenta.tienda.tipo === 'INDEPENDIENTE'
@@ -240,7 +272,7 @@ export function PanelCuentas() {
               </span>
               <span
                 role="cell"
-                className="flex flex-wrap items-center gap-x-4 gap-y-2 lg:justify-end"
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 xl:justify-end"
               >
                 {cuenta.estado === 'SUSPENDIDA' ? (
                   <button
@@ -251,7 +283,8 @@ export function PanelCuentas() {
                   >
                     Reactivar
                   </button>
-                ) : (
+                ) : null}
+                {cuenta.estado === 'SUSPENDIDA' ? null : (
                   <>
                     <button
                       type="button"
@@ -328,6 +361,24 @@ export function PanelCuentas() {
       </Ventana>
 
       <Ventana
+        titulo="Traspasar publicaciones y conversaciones"
+        abierta={traspasando !== null}
+        alCerrar={() => setTraspasando(null)}
+      >
+        {traspasando && (
+          <Traspasar
+            cuenta={traspasando}
+            alCancelar={() => setTraspasando(null)}
+            alTerminar={(traspaso) => {
+              setTraspasando(null);
+              setHecho(mensajeDeTraspaso(traspaso));
+              void cargar();
+            }}
+          />
+        )}
+      </Ventana>
+
+      <Ventana
         titulo={
           confirmar?.accion === 'suspender'
             ? '¿Suspender esta cuenta?'
@@ -340,7 +391,11 @@ export function PanelCuentas() {
           <div className="flex flex-col gap-4">
             <p className="text-secundario">
               {confirmar.accion === 'suspender'
-                ? `${confirmar.cuenta.nombre} (${confirmar.cuenta.tienda.nombre}) no podrá entrar y se cerrarán sus sesiones. Sus publicaciones siguen a la vista; puedes reactivarla cuando quieras.`
+                ? `${confirmar.cuenta.nombre} (${confirmar.cuenta.tienda.nombre}) no podrá entrar y se cerrarán sus sesiones. Sus publicaciones siguen a la vista; puedes reactivarla cuando quieras.${
+                    resumenACargo(confirmar.cuenta)
+                      ? ' Sus mensajes le siguen llegando a esta cuenta: si dejó la tienda, usa «Traspasar» para pasarlos a otra cuenta.'
+                      : ''
+                  }`
                 : `La contraseña actual de ${confirmar.cuenta.nombre} deja de servir y se cierran sus sesiones. Le enviarás una temporal por WhatsApp.`}
             </p>
             <div className="flex justify-end gap-3">

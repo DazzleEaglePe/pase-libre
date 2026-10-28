@@ -16,13 +16,16 @@ import {
   cambiarEstadoCuentaSchema,
   crearCuentaSchema,
   filtroCuentasSchema,
+  traspasarSchema,
   type CambiarEstadoCuenta,
   type CrearCuentaDatos,
   type CuentaEquipo,
   type FiltroCuentas,
   type RespuestaAcceso,
   type RespuestaCuentas,
+  type RespuestaTraspaso,
   type TiendaParaEquipo,
+  type Traspasar,
 } from '@paselibre/contracts';
 import { z } from 'zod';
 
@@ -72,6 +75,18 @@ export class EquipoController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<RespuestaAcceso> {
     return this.equipo.claveTemporal(id, sesion.usuario.id);
+  }
+
+  /** Pasar publicaciones y conversaciones a otra cuenta de la misma tienda (RF-71, A-11). */
+  @Post('cuentas/:id/traspasar')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  traspasar(
+    @Param('id', idDeCuenta) id: string,
+    @Body(new ZodValidationPipe(traspasarSchema)) { a_usuario_id }: Traspasar,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaTraspaso> {
+    return this.equipo.traspasar(id, a_usuario_id, sesion.usuario.id);
   }
 
   @Patch('cuentas/:id')
