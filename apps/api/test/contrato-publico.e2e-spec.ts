@@ -103,7 +103,9 @@ describe('Contrato público: el visitante no recibe precio, tienda, stand ni Wha
 
   it('la ficha de cada producto', async () => {
     for (const slug of await slugs()) {
-      const respuesta = await http().get(`/v1/productos/${slug}`).expect(200);
+      const respuesta = await http().get(`/v1/productos/${slug}`);
+      // Si falla, el mensaje trae lo que respondió la API: así una falla rara de la CI se puede diagnosticar.
+      expect(respuesta.status, `${slug}: ${respuesta.text}`).toBe(200);
       expect(respuesta.body.audiencia).toBe('visitante');
       expect(fugas(respuesta.body, textosProhibidos), slug).toEqual([]);
     }

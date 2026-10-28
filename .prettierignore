@@ -4,3 +4,7 @@ dist
 node_modules
 pnpm-lock.yaml
 .claude/worktrees/**
+
+# Los documentos se escriben a mano: Prettier rellena cada tabla de Markdown y ensucia
+# todos los cambios. El código sí pasa por Prettier (y lo revisa la CI).
+*.md

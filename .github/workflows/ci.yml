@@ -1,0 +1,79 @@
+name: CI
+
+# En cada push a main y en cada pull request: formato, lint, tipos, pruebas y build.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Si llega otro push a la misma rama, la corrida anterior ya no importa.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    name: Formato, lint, tipos, pruebas y build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Las pruebas de la API usan una base real (TEST_DATABASE_URL), como en local:
+    # las extensiones citext, pg_trgm, unaccent y fuzzystrmatch vienen con la imagen.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: paselibre
+          POSTGRES_PASSWORD: paselibre_ci
+          POSTGRES_DB: paselibre_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U paselibre -d paselibre_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://paselibre:paselibre_ci@localhost:5432/paselibre_test
+      TEST_DATABASE_URL: postgresql://paselibre:paselibre_ci@localhost:5432/paselibre_test
+      # Next no manda datos de uso desde la CI.
+      NEXT_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Traer el código
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm (la versión de packageManager)
+        uses: pnpm/action-setup@v4
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar el cliente de Prisma
+        run: pnpm db:generate
+
+      - name: Formato
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Pruebas (contratos y API con Postgres)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
