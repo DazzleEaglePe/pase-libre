@@ -9,8 +9,7 @@ import {
 import { useEffect, useId, useState, type FormEvent } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
-
-import { botonPrincipal, botonSecundario, campo, etiqueta } from './estilos';
+import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
 
 type Tipo = 'DUENO' | 'ASESOR' | 'INDEPENDIENTE';
 

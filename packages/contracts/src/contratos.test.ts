@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { buscarSchema } from './catalogo/catalogo.schemas';
-import { claveEtiqueta, normalizarTexto, slugDe } from './catalogo/normalizar';
-import { formatearPrecio, precioDe } from './comun/dinero';
+import { claveEtiqueta, normalizarTexto, slugDe, tituloDeProducto } from './catalogo/normalizar';
+import { centimosDeMonto, formatearPrecio, montoParaCampo, precioDe } from './comun/dinero';
 import { crearCuentaSchema, whatsappSchema } from './equipo/equipo.schemas';
+import { editarOfertaSchema, publicarSchema } from './ofertas/ofertas.schemas';
 import { cambiarClaveSchema, ingresarSchema } from './sesion/sesion.schemas';
 
 describe('normalizarTexto', () => {
@@ -24,6 +25,17 @@ describe('normalizarTexto', () => {
     expect(slugDe('MSI GeForce RTX 3070 Ventus 3X OC 8 GB')).toBe(
       'msi-geforce-rtx-3070-ventus-3-x-oc-8-gb',
     );
+  });
+});
+
+describe('tituloDeProducto', () => {
+  it('une marca y modelo sin repetir la marca', () => {
+    expect(tituloDeProducto('Zotac', 'Gaming GeForce RTX 3070 AMP Holo 8 GB')).toBe(
+      'Zotac Gaming GeForce RTX 3070 AMP Holo 8 GB',
+    );
+    expect(tituloDeProducto('zotac', 'Zotac Gaming RTX 3070')).toBe('Zotac Gaming RTX 3070');
+    // «MSI» no es el comienzo de «MSIX»: ahí sí se antepone.
+    expect(tituloDeProducto('MSI', 'MSIX Pro')).toBe('MSI MSIX Pro');
   });
 });
 
@@ -129,5 +141,81 @@ describe('crearCuentaSchema', () => {
   it('rechaza celulares que no son de Perú', () => {
     expect(whatsappSchema.safeParse('12345').success).toBe(false);
     expect(whatsappSchema.safeParse('51987654321').data).toBe('987654321');
+  });
+});
+
+describe('centimosDeMonto', () => {
+  it('lee los montos como los escribe un vendedor', () => {
+    expect(centimosDeMonto('250')).toBe(25000);
+    expect(centimosDeMonto(' 1699.9 ')).toBe(169990);
+    expect(centimosDeMonto('1,699.90')).toBe(169990);
+    expect(centimosDeMonto('1.699,90')).toBe(169990);
+    expect(centimosDeMonto('250,50')).toBe(25050);
+    expect(centimosDeMonto('1,699')).toBe(169900);
+    expect(centimosDeMonto('1 699')).toBe(169900);
+  });
+
+  it('rechaza lo que no es un monto válido', () => {
+    expect(centimosDeMonto('')).toBeNull();
+    expect(centimosDeMonto('0')).toBeNull();
+    expect(centimosDeMonto('-5')).toBeNull();
+    expect(centimosDeMonto('US$ 250')).toBeNull();
+    expect(centimosDeMonto('2.5e3')).toBeNull();
+    expect(centimosDeMonto('99999999999')).toBeNull();
+  });
+
+  it('devuelve el monto al campo sin decimales de más', () => {
+    expect(montoParaCampo(25000)).toBe('250');
+    expect(montoParaCampo(169990)).toBe('1699.90');
+  });
+});
+
+describe('publicarSchema', () => {
+  const igual = {
+    producto_id: '6f1c2b8e-1d2a-4c3b-9e4f-5a6b7c8d9e0f',
+    condicion: 'USADO',
+    stock: 2,
+  };
+
+  it('publica uno igual con lo mínimo y deja la visibilidad a la tienda', () => {
+    expect(publicarSchema.parse({ ...igual, precio: '250' })).toEqual({
+      ...igual,
+      precio: 25000,
+      descripcion: null,
+      fotos: [],
+    });
+  });
+
+  it('pide un producto del catálogo o uno nuevo, nunca los dos ni ninguno', () => {
+    const sinProducto = publicarSchema.safeParse({ condicion: 'NUEVO', stock: 1 });
+    expect(sinProducto.error?.issues[0]?.message).toBe(
+      'Elige un producto del catálogo o crea uno nuevo para publicar.',
+    );
+    const ambos = publicarSchema.safeParse({
+      ...igual,
+      producto_nuevo: { categoria: 'graficas', marca: 'Zotac', modelo: 'RTX 3070 AMP Holo' },
+    });
+    expect(ambos.success).toBe(false);
+  });
+
+  it('no deja mostrar un precio sin monto', () => {
+    const resultado = publicarSchema.safeParse({ ...igual, precio_visible: true });
+    expect(resultado.error?.issues[0]?.message).toBe('Para mostrar el precio, escribe el monto.');
+  });
+
+  it('solo acepta fotos subidas a PaseLibre, sin repetir', () => {
+    const ruta = '2026/10/0b6c3d2e-8f7a-4b1c-9d0e-1f2a3b4c5d6e.webp';
+    expect(publicarSchema.safeParse({ ...igual, fotos: [ruta] }).success).toBe(true);
+    expect(publicarSchema.safeParse({ ...igual, fotos: [ruta, ruta] }).success).toBe(false);
+    expect(publicarSchema.safeParse({ ...igual, fotos: ['../../.env'] }).success).toBe(false);
+    expect(
+      publicarSchema.safeParse({ ...igual, fotos: ['https://otro.sitio/foto.webp'] }).success,
+    ).toBe(false);
+  });
+
+  it('al editar exige al menos un cambio y permite dejar el stock en 0', () => {
+    expect(editarOfertaSchema.safeParse({}).success).toBe(false);
+    expect(editarOfertaSchema.parse({ stock: 0 })).toEqual({ stock: 0 });
+    expect(editarOfertaSchema.parse({ precio: '' })).toEqual({ precio: null });
   });
 });

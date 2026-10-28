@@ -10,11 +10,17 @@ import type {
 import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import {
+  botonLista,
+  botonPeligro,
+  botonPrincipal,
+  botonSecundario,
+  enlaceBoton,
+} from '@/shared/ui/estilos';
+import { Ventana } from '@/shared/ui/ventana';
 
 import { AccesoEnviado } from './acceso-enviado';
-import { botonLista, botonPeligro, botonPrincipal, botonSecundario, enlaceBoton } from './estilos';
 import { FormularioCuenta } from './formulario-cuenta';
-import { Ventana } from './ventana';
 
 type Filtro = 'todas' | 'activa' | 'sin_primer_ingreso' | 'suspendida';
 

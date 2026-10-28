@@ -1,3 +1,5 @@
+import type { Moneda } from '../comun/dinero.js';
+
 export type Rol = 'DUENO' | 'ASESOR' | 'EQUIPO';
 export type TipoTienda = 'TIENDA' | 'INDEPENDIENTE';
 
@@ -7,6 +9,9 @@ export interface TiendaDeSesion {
   tipo: TipoTienda;
   galeria: string | null;
   stand: string | null;
+  /** Valores por defecto al publicar (D-37, RF-48): por ahora, precio oculto y en US$. */
+  precio_visible_defecto: boolean;
+  moneda_defecto: Moneda;
 }
 
 /** Respuesta de `GET /v1/yo` y de `POST /v1/sesion`. */

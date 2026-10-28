@@ -3,7 +3,7 @@
 import type { RespuestaAcceso } from '@paselibre/contracts';
 import { useState } from 'react';
 
-import { botonPrincipal, botonSecundario } from './estilos';
+import { botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 
 /**
  * Lo que el equipo envía por WhatsApp después de crear una cuenta o darle una clave

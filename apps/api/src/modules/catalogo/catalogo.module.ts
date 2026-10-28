@@ -8,5 +8,6 @@ import { CatalogoService } from './catalogo.service';
 @Module({
   controllers: [CatalogoController],
   providers: [CatalogoService, BusquedaService, SesionOpcionalGuard],
+  exports: [BusquedaService],
 })
 export class CatalogoModule {}

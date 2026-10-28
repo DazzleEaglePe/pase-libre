@@ -20,6 +20,11 @@ export const envSchema = z
     /** En producción la cookie de sesión solo viaja por HTTPS. */
     SESION_COOKIE_SEGURA: z.stringbool().optional(),
     /**
+     * Carpeta de las fotos subidas. En local, `apps/api/media` (fuera de git); en producción,
+     * un volumen que nginx sirve en `/media` y que se copia a B2 cada noche (docs/05 §10).
+     */
+    MEDIA_DIR: z.string().min(1).default('media'),
+    /**
      * Saltos de proxy cuya `X-Forwarded-For` se acepta para saber la IP real
      * (límites por IP). Solo `loopback` o IPs del nginx propio.
      */

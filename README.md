@@ -57,12 +57,14 @@ pnpm dev              # API en http://localhost:3001 y web en http://localhost:3
 
 - **Cuentas de demostración:** las crea la semilla con los usuarios del lienzo (`tiendaa`, `tiendab`, `tiendad`…, y `equipo`). La clave está en `apps/api/prisma/semilla.ts` (`CLAVE_DEMO`). `tiendad` y `jorge.r` entran por primera vez y deben crear su contraseña. Volver a correr la semilla deja las cuentas demo como al inicio.
 - **Primera cuenta del equipo en staging o producción** (sin semilla demo): `pnpm cuenta:equipo -- --usuario dazz --nombre "Dazz"`. Muestra una clave temporal una sola vez. Con esa cuenta se entra a `/equipo/cuentas` y desde ahí se crean las cuentas de las tiendas.
-- **Pruebas:** `pnpm test`. Las de la API usan `TEST_DATABASE_URL` (la base `paselibre_test`), nunca la de desarrollo.
+- **Fotos:** las que se suben en local quedan en `apps/api/media` (fuera de git); la web las muestra en `/media`. Se cambia con `MEDIA_DIR`.
+- **Pruebas:** `pnpm test`. Las de la API usan `TEST_DATABASE_URL` (la base `paselibre_test`), nunca la de desarrollo, y guardan sus fotos en una carpeta temporal.
+- **No correr `pnpm build` con `pnpm dev` encendido:** el build pisa `apps/web/.next` y el servidor de desarrollo se rompe. Si pasa, borrar `apps/web/.next` y volver a levantarlo.
 - **Revisión completa:** `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build`.
 
 | Carpeta | Qué hay |
 | --- | --- |
-| `apps/api` | API NestJS: `prisma/` (esquema, migraciones y semilla), `src/modules/` (sesion, cuenta, catalogo, equipo, salud), `test/` (e2e, incluida la prueba de contrato público) |
+| `apps/api` | API NestJS: `prisma/` (esquema, migraciones y semilla), `src/modules/` (sesion, cuenta, catalogo, ofertas, archivos, equipo, salud), `test/` (e2e, incluida la prueba de contrato público) |
 | `apps/web` | Web Next.js: `src/app/` (rutas), `src/features/` (una carpeta por pantalla), `src/shared/` (API y componentes comunes) |
 | `packages/contracts` | Esquemas Zod, tipos de respuesta y la normalización de texto que comparten la web, la API y la futura app |
 | `packages/ui` | Tokens de la línea final del lienzo (colores y escala tipográfica), que usa Tailwind |

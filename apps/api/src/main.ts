@@ -13,11 +13,11 @@ async function bootstrap(): Promise<void> {
   const config = app.get<ConfigService<Environment, true>>(ConfigService);
 
   app.useLogger(app.get(Logger));
-  configureApplication(
-    app,
-    config.get('WEB_URL', { infer: true }),
-    config.get('PROXIES_DE_CONFIANZA', { infer: true }),
-  );
+  configureApplication(app, {
+    webUrl: config.get('WEB_URL', { infer: true }),
+    proxiesDeConfianza: config.get('PROXIES_DE_CONFIANZA', { infer: true }),
+    carpetaMedia: config.get('MEDIA_DIR', { infer: true }),
+  });
 
   await app.listen(config.get('PORT', { infer: true }), '0.0.0.0');
 }

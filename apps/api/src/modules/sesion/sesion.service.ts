@@ -1,7 +1,12 @@
 import { createHash, randomBytes } from 'node:crypto';
 
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type { CambiarClaveEntrada, IngresarDatos, RespuestaYo } from '@paselibre/contracts';
+import type {
+  CambiarClaveEntrada,
+  IngresarDatos,
+  RespuestaYo,
+  TiendaDeSesion,
+} from '@paselibre/contracts';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
@@ -30,6 +35,18 @@ export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
 
+export function tiendaDeSesion(tienda: NonNullable<UsuarioConTienda['tienda']>): TiendaDeSesion {
+  return {
+    id: tienda.id,
+    nombre: tienda.nombre,
+    tipo: tienda.tipo,
+    galeria: tienda.galeria?.nombre ?? null,
+    stand: tienda.stand,
+    precio_visible_defecto: tienda.precioVisibleDefecto,
+    moneda_defecto: tienda.monedaDefecto,
+  };
+}
+
 export function respuestaYo(usuario: UsuarioConTienda): RespuestaYo {
   const { tienda } = usuario;
   return {
@@ -41,15 +58,7 @@ export function respuestaYo(usuario: UsuarioConTienda): RespuestaYo {
       rol: usuario.rol,
       debe_cambiar_clave: usuario.debeCambiarClave,
     },
-    tienda: tienda
-      ? {
-          id: tienda.id,
-          nombre: tienda.nombre,
-          tipo: tienda.tipo,
-          galeria: tienda.galeria?.nombre ?? null,
-          stand: tienda.stand,
-        }
-      : null,
+    tienda: tienda ? tiendaDeSesion(tienda) : null,
   };
 }
 

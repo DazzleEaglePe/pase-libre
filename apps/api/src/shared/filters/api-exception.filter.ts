@@ -17,6 +17,7 @@ const statusToCode: Partial<Record<number, CodigoError>> = {
   [HttpStatus.FORBIDDEN]: 'PROHIBIDO',
   [HttpStatus.NOT_FOUND]: 'NO_ENCONTRADO',
   [HttpStatus.CONFLICT]: 'CONFLICTO',
+  [HttpStatus.PAYLOAD_TOO_LARGE]: 'DATOS_INVALIDOS',
   [HttpStatus.TOO_MANY_REQUESTS]: 'DEMASIADAS_SOLICITUDES',
   [HttpStatus.SERVICE_UNAVAILABLE]: 'SERVICIO_NO_DISPONIBLE',
 };
@@ -25,6 +26,8 @@ const statusToMessage: Partial<Record<number, string>> = {
   [HttpStatus.UNAUTHORIZED]: 'Inicia sesión para continuar.',
   [HttpStatus.FORBIDDEN]: 'No tienes permiso para hacer esto.',
   [HttpStatus.NOT_FOUND]: 'No encontramos lo que buscabas.',
+  // Multer (fotos de más de 8 MB) o un cuerpo JSON demasiado grande.
+  [HttpStatus.PAYLOAD_TOO_LARGE]: 'Lo que enviaste pesa demasiado. Las fotos llegan hasta 8 MB.',
   [HttpStatus.TOO_MANY_REQUESTS]:
     'Demasiados intentos seguidos. Espera un momento y vuelve a probar.',
   [HttpStatus.SERVICE_UNAVAILABLE]: 'El servicio no está disponible por ahora.',

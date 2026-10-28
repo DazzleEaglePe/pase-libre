@@ -30,9 +30,13 @@ const nextConfig = {
     return [{ source: '/(.*)', headers: securityHeaders }];
   },
   // La web y la API comparten origen: la cookie de sesión es del mismo sitio.
-  // En producción nginx manda /v1 directo a la API; en local lo hace este rewrite.
+  // En producción nginx manda /v1 a la API y sirve /media desde el volumen de fotos;
+  // en local lo hacen estos rewrites.
   async rewrites() {
-    return [{ source: '/v1/:ruta*', destination: `${apiInterna}/v1/:ruta*` }];
+    return [
+      { source: '/v1/:ruta*', destination: `${apiInterna}/v1/:ruta*` },
+      { source: '/media/:ruta*', destination: `${apiInterna}/media/:ruta*` },
+    ];
   },
 };
 

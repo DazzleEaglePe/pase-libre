@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { RespuestaYo } from '@paselibre/contracts';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
 const API_INTERNA = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
 
@@ -17,12 +18,15 @@ async function llamarApiServidor(ruta: string): Promise<Response> {
   });
 }
 
-/** La sesión de quien mira la página, o nula si es visitante (o la API no responde). */
-export async function obtenerSesion(): Promise<RespuestaYo | null> {
+/**
+ * La sesión de quien mira la página, o nula si es visitante (o la API no responde).
+ * Se pide una sola vez por página aunque la usen el layout y la página.
+ */
+export const obtenerSesion = cache(async (): Promise<RespuestaYo | null> => {
   try {
     const respuesta = await llamarApiServidor('/yo');
     return respuesta.ok ? ((await respuesta.json()) as RespuestaYo) : null;
   } catch {
     return null;
   }
-}
+});

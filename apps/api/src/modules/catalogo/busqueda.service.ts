@@ -113,7 +113,8 @@ export class BusquedaService {
     };
   }
 
-  private palabras(q: string): string[] {
+  /** Palabras normalizadas y sin repetir de lo que se escribió (también para «Ya está en PaseLibre»). */
+  palabras(q: string): string[] {
     const normalizado = normalizarTexto(q);
     return normalizado ? [...new Set(normalizado.split(' '))].slice(0, 12) : [];
   }
@@ -238,7 +239,7 @@ export class BusquedaService {
    * distancia de Levenshtein 1 («3370» → «3070»): la similitud por trigramas falla con
    * números cortos. Con letras se acepta distancia 1 o 2 según el largo, o similitud ≥ 0,4.
    */
-  private async corregir(palabras: string[]): Promise<string[]> {
+  async corregir(palabras: string[]): Promise<string[]> {
     const conocidas = await this.prisma.termino.findMany({
       where: { palabra: { in: palabras } },
       select: { palabra: true },

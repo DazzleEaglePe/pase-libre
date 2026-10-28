@@ -9,3 +9,5 @@ export * from './sesion/sesion.types.js';
 export * from './cuenta/cuenta.types.js';
 export * from './equipo/equipo.schemas.js';
 export * from './equipo/equipo.types.js';
+export * from './ofertas/ofertas.schemas.js';
+export * from './ofertas/ofertas.types.js';

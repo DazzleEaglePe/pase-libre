@@ -11,6 +11,12 @@ import { AppModule } from '../src/app.module';
 import { configureApplication } from '../src/bootstrap/configure-application';
 import { cifrarClave } from '../src/modules/sesion/clave';
 
+/** Las fotos de las pruebas van a una carpeta temporal (ver vitest.config.ts). */
+export const CARPETA_MEDIA_PRUEBAS = process.env.MEDIA_DIR ?? '';
+if (!CARPETA_MEDIA_PRUEBAS.includes('paselibre-media-pruebas')) {
+  throw new Error('Las pruebas necesitan MEDIA_DIR en una carpeta temporal (vitest.config.ts).');
+}
+
 /** Siempre la base de pruebas: nunca la de desarrollo. */
 export function usarBaseDePruebas(): string {
   const rootEnvFile = resolve(__dirname, '../../../.env');
@@ -29,7 +35,10 @@ export function usarBaseDePruebas(): string {
 export async function crearApp(): Promise<INestApplication> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
   const app = moduleRef.createNestApplication({ logger: false });
-  configureApplication(app, 'http://localhost:3000');
+  configureApplication(app, {
+    webUrl: 'http://localhost:3000',
+    carpetaMedia: CARPETA_MEDIA_PRUEBAS,
+  });
   await app.init();
   return app;
 }

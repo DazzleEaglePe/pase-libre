@@ -26,3 +26,18 @@ export function claveEtiqueta(nombre: string): string {
 export function slugDe(texto: string): string {
   return normalizarTexto(texto).replace(/ /g, '-');
 }
+
+/**
+ * Título de un producto nuevo: la marca y el modelo, sin repetir la marca si el modelo ya
+ * la trae («Zotac» + «Gaming GeForce RTX 3070 AMP Holo 8 GB»). Lo usan la API y la vista
+ * previa de Publicar, para que el vendedor vea el mismo título que se guarda.
+ */
+export function tituloDeProducto(marca: string, modelo: string): string {
+  const marcaLimpia = marca.trim();
+  const modeloLimpio = modelo.trim();
+  if (!marcaLimpia) return modeloLimpio;
+  const conMarca = `${normalizarTexto(modeloLimpio)} `.startsWith(
+    `${normalizarTexto(marcaLimpia)} `,
+  );
+  return conMarca ? modeloLimpio : `${marcaLimpia} ${modeloLimpio}`.trim();
+}

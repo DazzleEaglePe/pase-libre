@@ -1,6 +1,6 @@
 # 05 · Arquitectura
 
-**Versión:** 0.3 (borrador) · **Fecha:** 26/10/2026 · **Responsable:** Dazz
+**Versión:** 0.4 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
 
 **Decidido el 26/10:** se reutiliza el stack de Yallegó (A-01) y la bandeja de mensajes es **por persona** (A-11). El servidor se elige al final (A-10).
 
@@ -158,6 +158,7 @@ erDiagram
 | `etiqueta` + `producto_etiqueta` | Etiquetas (RF-07) | `nombre` y `clave` normalizada única: «RTX3070», «rtx 3070» y «RTX-3070» dan la misma clave `rtx 3070` (RNF-26) |
 | `oferta` | Lo que publica cada tienda | Ver diagrama. `responsable_id` es el usuario que recibe los mensajes de esa oferta. Única por (`producto_id`, `tienda_id`, `condicion`) mientras no esté eliminada. Borrar es `estado = ELIMINADA`, para conservar las conversaciones |
 | `oferta_foto` | Fotos propias, opcionales | Hasta 8 por oferta |
+| `archivo` | Fotos subidas que todavía no se usan | `usuario_id`, `tienda_id`, `ruta` (única), `ancho`, `alto`, `bytes`, `usado_en`. Una foto solo la usa alguien de la misma tienda y una sola vez; las que nunca se usan se podrán limpiar con una tarea nocturna |
 | `conversacion` | Un hilo por oferta y persona que pregunta | `oferta_id`, `comprador_id` y `vendedor_id` (usuarios), las tiendas de cada uno, `ultimo_mensaje_en`. Única por (`oferta_id`, `comprador_id`) |
 | `participacion` | Estado de cada persona en el hilo | `conversacion_id`, `usuario_id`, `archivada`, `silenciada`, `no_leida_manual`, `leido_hasta` (para el «Visto») |
 | `mensaje` | Texto, foto o aviso del sistema | `autor_usuario_id`, `tipo` (TEXTO, FOTO, SISTEMA), `texto`, `foto` |
@@ -212,8 +213,8 @@ erDiagram
 | `/c/:categoria` | Resultados con la categoría puesta | Todos | Servidor | `GET /v1/buscar` |
 | `/p/:producto` y `?oferta=:id` | Ficha | Todos | Servidor | `GET /v1/productos/:slug` |
 | `/ingresar` | Acceso y primer ingreso | Sin sesión | Cliente | `POST /v1/sesion`, `POST /v1/sesion/clave` |
-| `/publicar` y `?igual=:producto` | Publicar uno igual | Vendedor | Cliente | `GET /v1/catalogo/sugerencias`, `POST /v1/ofertas` |
-| `/mis-publicaciones` | Mis publicaciones | Vendedor | Cliente | `GET /v1/mis-ofertas`, `PATCH /v1/ofertas/:id` |
+| `/publicar`, `?igual=:producto` y `?editar=:oferta` | Publicar uno igual (y editar una oferta) | Vendedor | Cliente | `GET /v1/catalogo/sugerencias`, `POST /v1/archivos`, `POST /v1/ofertas`, `GET` y `PATCH /v1/ofertas/:id` |
+| `/mis-publicaciones` | Mis publicaciones | Vendedor | Cliente | `GET /v1/mis-ofertas`, `PATCH` y `DELETE /v1/ofertas/:id`, `POST /v1/ofertas/confirmar` |
 | `/mensajes` y `/mensajes/:conversacion` | Mensajes (página C) | Vendedor | Cliente + tiempo real | `/v1/conversaciones…` |
 | `/cuenta/configuracion` | Configuración (página C) | Vendedor | Cliente | `/v1/cuenta…` |
 | `/equipo/cuentas`, `/equipo/carga`, `/equipo/catalogo` | Panel del equipo | Equipo | Cliente | `/v1/equipo…` |
@@ -232,9 +233,9 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | | `DELETE /sesion` | Salir | |
 | | `POST /sesion/clave` | Primer ingreso o cambio de contraseña | 50, 60 |
 | | `GET /yo` | Usuario, tienda, contadores de mensajes y avisos | |
-| Vendedor | `GET /catalogo/sugerencias?q=` | «Ya está en PaseLibre» al publicar | 53 |
-| | `POST /productos` | Producto nuevo, si no existe | 05 |
-| | `POST /ofertas` | Publicar (también «uno igual») | 05, 06, 38 |
+| Vendedor | `GET /catalogo/sugerencias?q=` o `?producto=` | «Ya está en PaseLibre» al publicar, con la misma búsqueda tolerante; con `producto`, uno solo para «Publicar uno igual» desde la ficha | 53 |
+| | `POST /ofertas` | Publicar: «uno igual» con `producto_id`, o producto nuevo con `producto_nuevo`. El producto y la oferta se crean en una sola transacción, para que no queden productos sin oferta | 05, 06, 38 |
+| | `GET /ofertas/:id` | Una oferta propia, para editarla | 08 |
 | | `GET /mis-ofertas?estado=&q=` | Activas, sin stock, pausadas | 08 |
 | | `PATCH /ofertas/:id` | Stock, precio, visibilidad, pausar o reactivar | 06, 08, 09 |
 | | `DELETE /ofertas/:id` | Eliminar (lógico) | 08 |
@@ -242,7 +243,7 @@ Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) 
 | | `POST /ofertas/:id/contacto` | Abre conversación o devuelve el enlace de WhatsApp, y registra el clic | 21, 23 |
 | | `GET /ofertas/:id/interesados` | Quiénes escribieron por esa oferta, para «Vendido» | 47 |
 | | `POST /ofertas/:id/vendido` | Descuenta 1 de stock y deja el aviso en el chat | 47 |
-| | `POST /archivos` | Subir una foto (oferta o chat) | 05, 39 |
+| | `POST /archivos` | Subir una foto (campo `foto`, multipart). Devuelve la ruta para usarla en una oferta, un producto o el chat | 05, 39 |
 | Mensajes | `GET /conversaciones?filtro=&q=` | Lista con filtros y buscador | 55 |
 | | `GET /conversaciones/:id/mensajes?antes=` | Historial por páginas | 39 |
 | | `POST /conversaciones/:id/mensajes` | Enviar texto o foto | 39 |
@@ -348,7 +349,11 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
   - Mensajes: 30 por minuto por usuario.
   - Subidas: 30 por hora por usuario.
 - **Entradas:** todo cuerpo y consulta pasa por su esquema Zod. El texto del chat y de las descripciones se guarda plano y se escapa al pintarlo; no se acepta HTML.
-- **Fotos (RNF-20):** solo JPEG, PNG o WebP, hasta 8 MB, revisando el contenido y no solo la extensión. Se quitan los metadatos EXIF, que pueden traer la ubicación.
+- **Fotos (RNF-20):**
+  - Solo JPEG, PNG o WebP, hasta 8 MB, revisando el contenido y no solo la extensión.
+  - Cada foto se vuelve a guardar en WebP, enderezada y con el lado mayor en 1600 px como máximo. Así se quitan los metadatos EXIF, que pueden traer la ubicación.
+  - Se guardan en `MEDIA_DIR` con un nombre único (`2026/10/<uuid>.webp`) y se sirven en `/media`, con caché larga.
+  - El límite de 30 subidas por hora se cuenta por persona y no por IP: en una galería muchas tiendas comparten la misma IP.
 - **Permisos (RNF-17):** cada ruta de vendedor comprueba que la oferta, el hilo o la tienda sean de la tienda de la sesión. Las rutas del equipo exigen `rol = EQUIPO`.
 - **Datos personales (RNF-21 a 24):**
   - El WhatsApp se pide con consentimiento al crear la cuenta.
@@ -357,7 +362,7 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
 
 ## 10. Infraestructura, despliegue y operación
 
-- **Servicios** (un `compose.yml` por entorno): `web`, `api` (con la cola de BullMQ dentro), `migraciones` (corre y termina), `postgres:16-alpine` y `redis:7-alpine`. nginx del host con Let's Encrypt.
+- **Servicios** (un `compose.yml` por entorno): `web`, `api` (con la cola de BullMQ dentro), `migraciones` (corre y termina), `postgres:16-alpine` y `redis:7-alpine`. nginx del host con Let's Encrypt. Las fotos van en un volumen que la API escribe y nginx sirve en `/media`.
 - **Entornos:** *staging* y producción, con bases separadas (RNF-33). El despliegue sigue el patrón de Yallegó:
   1. Construir las imágenes.
   2. Respaldar la base.
@@ -409,11 +414,15 @@ paselibre/
 
 Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la fecha.
 
-**Avance al 26/10:**
+**Avance al 27/10:**
 - **Día 1 (listo):** monorepo, esquema, semilla, sesión, primer ingreso y la pantalla de acceso de la web.
 - **Día 2 (listo):**
   - En la API: portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
   - El panel del equipo (`/equipo/cuentas`) en la API y en la web: crear cuentas, reenviar acceso o dar una contraseña temporal nueva, y suspender o reactivar. Falta traspasar ofertas y conversaciones entre usuarios (A-11), que llega con los mensajes.
+- **Día 3 (listo):**
+  - En la API: sugerencias «Ya está en PaseLibre», publicar uno igual, producto nuevo en el mismo paso, fotos (`POST /archivos`), Mis publicaciones con pestañas y buscador, editar, pausar, reactivar, eliminar y «Siguen igual».
+  - En la web: `/publicar` (también `?igual=` y `?editar=`) y `/mis-publicaciones`, como F_Publicar y F_MisPublicaciones del lienzo, revisadas en computadora y celular.
+  - «Ver publicación» y «Ver en la ficha» llevan a `/p/:producto`, que llega con la ficha de la web.
 - *Staging* espera a que se decida el servidor.
 
 ## 13. Pruebas (RNF-32)

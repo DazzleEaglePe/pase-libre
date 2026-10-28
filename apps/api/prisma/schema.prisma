@@ -157,6 +157,7 @@ model Tienda {
   bloqueos              Bloqueo[]
   comprasRegistradas    Venta[]         @relation("VentaTiendaCompradora")
   cargas                CargaPlanilla[]
+  archivos              Archivo[]
 
   @@index([galeriaId])
   @@map("tienda")
@@ -206,6 +207,7 @@ model Usuario {
   contactos            Contacto[]
   cargas               CargaPlanilla[]
   auditorias           Auditoria[]
+  archivos             Archivo[]
 
   @@index([tiendaId])
   @@map("usuario")
@@ -595,6 +597,28 @@ model CargaPlanilla {
   creadaPor Usuario @relation(fields: [creadaPorId], references: [id])
 
   @@map("carga_planilla")
+}
+
+/// Foto subida con `POST /archivos` (RNF-20): ya revisada, sin EXIF y en WebP. Queda
+/// pendiente hasta que una oferta, un producto o un mensaje la usa; solo la puede usar
+/// alguien de la misma tienda, y una sola vez.
+model Archivo {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tiendaId  String?   @map("tienda_id") @db.Uuid
+  ruta      String    @unique @db.VarChar(300)
+  ancho     Int
+  alto      Int
+  bytes     Int
+  usadoEn   DateTime? @map("usado_en") @db.Timestamptz(6)
+  creadoEn  DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+  tienda  Tienda? @relation(fields: [tiendaId], references: [id])
+
+  @@index([usuarioId, creadoEn])
+  @@index([tiendaId])
+  @@map("archivo")
 }
 
 /// Acciones del equipo: crear cuenta, nueva clave, suspender, traspasar, unir productos.

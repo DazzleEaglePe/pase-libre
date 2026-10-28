@@ -1,4 +1,9 @@
-import { CABECERA_PASELIBRE, type CodigoError, type RespuestaError } from '@paselibre/contracts';
+import {
+  CABECERA_PASELIBRE,
+  type ArchivoSubido,
+  type CodigoError,
+  type RespuestaError,
+} from '@paselibre/contracts';
 
 /** Error de la API con el código y el mensaje en español listo para mostrar. */
 export class ErrorApi extends Error {
@@ -18,7 +23,12 @@ export class ErrorApi extends Error {
  */
 export async function llamarApi<T>(
   ruta: string,
-  opciones: { metodo?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; cuerpo?: unknown } = {},
+  opciones: {
+    metodo?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+    cuerpo?: unknown;
+    /** Para subir archivos: el navegador pone el `Content-Type` con su separador. */
+    formulario?: FormData;
+  } = {},
 ): Promise<T> {
   let respuesta: Response;
   try {
@@ -29,7 +39,9 @@ export async function llamarApi<T>(
         [CABECERA_PASELIBRE]: '1',
         ...(opciones.cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
-      body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
+      body:
+        opciones.formulario ??
+        (opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo)),
     });
   } catch {
     throw new ErrorApi(
@@ -51,4 +63,11 @@ export async function llamarApi<T>(
     );
   }
   return datos as T;
+}
+
+/** Sube una foto (`POST /v1/archivos`). La API la revisa, le quita el EXIF y la pasa a WebP. */
+export function subirFoto(archivo: File): Promise<ArchivoSubido> {
+  const formulario = new FormData();
+  formulario.append('foto', archivo);
+  return llamarApi<ArchivoSubido>('/archivos', { metodo: 'POST', formulario });
 }

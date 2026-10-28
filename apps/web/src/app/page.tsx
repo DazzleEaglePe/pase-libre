@@ -40,10 +40,15 @@ export default async function Portada() {
                     .join(' · ') || 'Independiente'
                 : 'Equipo de PaseLibre'}
             </p>
-            {sesion.usuario.rol === 'EQUIPO' && (
+            {sesion.usuario.rol === 'EQUIPO' ? (
               <Link href="/equipo/cuentas" className="mt-3 text-apoyo font-medium">
                 Ir al panel del equipo
               </Link>
+            ) : (
+              <span className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-apoyo font-medium">
+                <Link href="/publicar">Publicar</Link>
+                <Link href="/mis-publicaciones">Mis publicaciones</Link>
+              </span>
             )}
           </section>
         ) : (
