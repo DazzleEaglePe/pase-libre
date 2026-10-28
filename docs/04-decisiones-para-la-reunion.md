@@ -28,8 +28,9 @@ Lo respondió Dazz o salió del lienzo de diseño. Falta validarlo con el equipo
 | **Galerías** | Filtro por galería desde el inicio, con **piloto** de vendedores conocidos. Maxiplaza es una galería (D-28, D-33) | |
 | **Fase 2** | Pedir pase con bandeja, preguntas públicas, reputación, favoritos y seguir tiendas, tienda pública, página de notificaciones, sesiones abiertas, respuesta automática, publicar paso a paso, precio por rol y requerimientos (D-31, D-47) | El modelo de datos puede dejarlos previstos |
 | **Stack** | El de Yallegó: monorepo pnpm con Next.js, NestJS, Prisma, PostgreSQL, Redis y socket.io (D-50) | Detalle y plan día por día en el [documento 05](05-arquitectura.md) |
+| **Línea gráfica** | **Hielo:** azul noche, azul pase y grises fríos (D-52) | Elegida entre 4 propuestas; los archivos están en `branding/` |
 | **Bandeja de mensajes** | **Por persona:** cada conversación es entre quien escribe y quien publicó la oferta (D-51) | El equipo puede pasar ofertas y conversaciones de un usuario a otro de la misma tienda |
-| **Tipografía** | **Inter** en toda la interfaz, con una sola escala (D-49) | Reemplaza Space Grotesk y Plus Jakarta Sans |
+| **Tipografía** | **Figtree** en toda la interfaz, con una sola escala (D-49, D-52) | Reemplaza a Inter (D-49) y antes a Space Grotesk y Plus Jakarta Sans |
 
 ## Pendiente de decidir
 

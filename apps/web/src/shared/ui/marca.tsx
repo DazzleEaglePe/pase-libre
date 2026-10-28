@@ -1,21 +1,33 @@
+import { color } from '@paselibre/ui';
 import Link from 'next/link';
 
-/** Logo de PaseLibre: el cuadro lima con las dos flechas del pase. */
-export function Marca({ href = '/' }: { href?: string }) {
+import { LOGO_HORIZONTAL as logo } from './marca-trazos';
+
+/**
+ * Logo de PaseLibre (branding/): la entrada con la flecha y la palabra. La palabra toma el
+ * color del texto, así sirve en la barra clara y en la oscura del equipo; el símbolo va en
+ * azul pase y, sobre fondo oscuro, en el acento.
+ */
+export function Marca({
+  href = '/',
+  sobreOscuro = false,
+}: {
+  href?: string;
+  sobreOscuro?: boolean;
+}) {
   return (
-    <Link href={href} className="flex items-center gap-2.5 no-underline">
-      <svg width="36" height="36" viewBox="0 0 32 32" aria-hidden="true">
-        <rect width="32" height="32" rx="9" fill="#C8F03C" />
-        <path
-          d="M9 12h13l-3.5-3.5M23 20H10l3.5 3.5"
-          fill="none"
-          stroke="#14161A"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+    <Link
+      href={href}
+      aria-label="PaseLibre, ir al inicio"
+      className="flex items-center no-underline"
+    >
+      <svg viewBox={`0 0 ${logo.ancho} ${logo.alto}`} aria-hidden="true" className="h-6 w-auto">
+        <path fill={sobreOscuro ? color.acento : color.pase} fillRule="evenodd" d={logo.simbolo} />
+        <g transform={`translate(${logo.palabra.x} ${logo.palabra.y})`} fill="currentColor">
+          <path d={logo.palabra.pase} />
+          <path d={logo.palabra.libre} />
+        </g>
       </svg>
-      <span className="text-[22px] font-semibold leading-7 tracking-[-0.02em]">PaseLibre</span>
     </Link>
   );
 }

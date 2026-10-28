@@ -8,3 +8,8 @@ pnpm-lock.yaml
 # Los documentos se escriben a mano: Prettier rellena cada tabla de Markdown y ensucia
 # todos los cambios. El código sí pasa por Prettier (y lo revisa la CI).
 *.md
+
+# Los generan branding/generar.mjs y branding/propuestas/generar.mjs; no se formatean a mano.
+branding/hoja-de-marca.html
+branding/propuestas/index.html
+apps/web/src/shared/ui/marca-trazos.ts

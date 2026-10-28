@@ -26,13 +26,13 @@ export function useContadores(): Contadores {
   return contadores;
 }
 
-/** Insignia lima del lienzo; «9+» para no romper el círculo. */
+/** Insignia azul del contador; «9+» para no romper el círculo. */
 export function Insignia({ cantidad }: { cantidad: number }) {
   if (cantidad <= 0) return null;
   return (
     <span
       aria-hidden="true"
-      className="absolute right-[3px] top-[3px] min-w-[17px] rounded-full bg-lima px-1 text-center text-[10px] font-semibold leading-[17px] text-tinta"
+      className="absolute right-[3px] top-[3px] min-w-[17px] rounded-full bg-pase px-1 text-center text-[10px] font-semibold leading-[17px] text-white"
     >
       {cantidad > 9 ? '9+' : cantidad}
     </span>
@@ -87,7 +87,7 @@ export function Campanita({ sinLeer }: { sinLeer: number }) {
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"

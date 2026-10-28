@@ -270,8 +270,8 @@ export function FormularioPublicar({
           height="36"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#2E4A00"
-          strokeWidth="2"
+          stroke="#0B6B4A"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
@@ -510,7 +510,7 @@ export function FormularioPublicar({
               type="submit"
               disabled={enviando || cargando}
               className={`inline-flex h-12 items-center rounded-full px-8 text-cuerpo font-semibold text-white ${
-                listo && !subiendo ? 'bg-tinta' : 'bg-borde-control'
+                listo && !subiendo ? 'bg-pase' : 'bg-borde-control'
               }`}
             >
               {enviando

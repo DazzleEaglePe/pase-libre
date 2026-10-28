@@ -48,7 +48,7 @@ export function BarraVendedor({ tienda }: { tienda: TiendaDeSesion }) {
                 >
                   {texto}
                   {pendientes > 0 && (
-                    <span className="min-w-5 rounded-full bg-lima px-1.5 text-center text-[11px] font-semibold leading-5 text-tinta">
+                    <span className="min-w-5 rounded-full bg-pase px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
                       {pendientes > 9 ? '9+' : pendientes}
                       <span className="sr-only"> sin leer</span>
                     </span>

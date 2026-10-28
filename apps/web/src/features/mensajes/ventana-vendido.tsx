@@ -116,7 +116,7 @@ export function VentanaVendido({
         type="button"
         disabled={enviando || !interesados?.length}
         onClick={confirmar}
-        className="h-[52px] w-full rounded-full bg-tinta text-tarjeta text-white disabled:bg-borde-control"
+        className="h-[52px] w-full rounded-full bg-pase text-tarjeta text-white disabled:bg-borde-control"
       >
         {enviando ? 'Registrando…' : 'Confirmar venta'}
       </button>

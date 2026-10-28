@@ -17,7 +17,7 @@ function inicioPara(yo: RespuestaYo): string {
 const campo =
   'h-12 rounded-xl border border-borde px-3.5 text-cuerpo font-normal text-tinta placeholder:text-detalle';
 const botonPrincipal =
-  'h-12 rounded-full bg-tinta text-cuerpo font-semibold text-white disabled:bg-borde-control';
+  'h-12 rounded-full bg-pase text-cuerpo font-semibold text-white disabled:bg-borde-control';
 const botonSecundario =
   'flex h-12 items-center justify-center rounded-full border border-borde text-cuerpo font-semibold no-underline';
 const enlaceBoton = 'h-9 self-start text-apoyo font-medium underline';
@@ -61,8 +61,8 @@ export function FormularioAcceso({
           height="32"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#2E4A00"
-          strokeWidth="2"
+          stroke="#0B6B4A"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"

@@ -423,7 +423,7 @@ paselibre/
 │     └─ src/modules/      sesion · catalogo · busqueda · ofertas · mensajes · avisos · cuenta · equipo · archivos
 ├─ packages/
 │  ├─ contracts/           esquemas Zod compartidos por web, API y la futura app
-│  ├─ ui/                  tokens del lienzo (Inter 400/500/600, tinta, lima, escala 28/20/16/15/14/13) y componentes
+│  ├─ ui/                  tokens de la línea Hielo (Figtree 400/500/600, azul noche, azul pase, escala 28/20/16/15/14/13) y componentes
 │  └─ config/              ESLint y TypeScript
 ├─ tools/deploy/           compose, nginx y scripts (copiados de Yallegó)
 └─ docs/

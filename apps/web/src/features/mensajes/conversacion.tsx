@@ -60,7 +60,7 @@ function Burbuja({ m, alCargarFoto }: { m: MensajeChat; alCargarFoto: () => void
     return (
       <div
         role="status"
-        className="max-w-[85%] self-center rounded-full bg-lima-suave px-3.5 py-1.5 text-center text-nota font-semibold text-ok"
+        className="max-w-[85%] self-center rounded-full bg-ok-fondo px-3.5 py-1.5 text-center text-nota font-semibold text-ok"
       >
         {m.texto}
       </div>
@@ -70,7 +70,7 @@ function Burbuja({ m, alCargarFoto }: { m: MensajeChat; alCargarFoto: () => void
     <div
       className={`max-w-[80%] px-3.5 py-2.5 sm:max-w-[70%] ${
         m.mio
-          ? 'self-end rounded-[18px_18px_6px_18px] bg-tinta text-white'
+          ? 'self-end rounded-[18px_18px_6px_18px] bg-pase text-white'
           : 'self-start rounded-[18px_18px_18px_6px] bg-superficie'
       }`}
     >
@@ -353,7 +353,7 @@ export function Conversacion({ id }: { id: string }) {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2.2"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -367,7 +367,7 @@ export function Conversacion({ id }: { id: string }) {
         >
           {inicial(otro.tienda.nombre)}
           {otro.en_linea && (
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-[#4C8A00]" />
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-ok" />
           )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
@@ -473,7 +473,7 @@ export function Conversacion({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 border-b border-linea bg-[#FAFAF7] px-3 py-3 sm:px-4">
+      <div className="flex flex-wrap items-center gap-3 border-b border-linea bg-superficie px-3 py-3 sm:px-4">
         <Miniatura
           ruta={oferta.producto.foto}
           categoria={oferta.producto.categoria.slug}
@@ -618,7 +618,7 @@ export function Conversacion({ id }: { id: string }) {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"
@@ -641,7 +641,7 @@ export function Conversacion({ id }: { id: string }) {
               type="submit"
               aria-label="Enviar"
               disabled={enviando || !borrador.trim()}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-lima disabled:bg-superficie disabled:text-borde-control"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pase text-white disabled:bg-superficie disabled:text-borde-control"
             >
               <svg
                 width="20"
@@ -649,7 +649,7 @@ export function Conversacion({ id }: { id: string }) {
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.2"
+                strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"

@@ -24,7 +24,7 @@ function IconoCamara({ tamano }: { tamano: number }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -184,7 +184,7 @@ export function SelectorFotos({
             <div
               {...arrastre}
               className={`flex h-[132px] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed text-center ${
-                encima ? 'border-tinta bg-lima-suave' : 'border-borde-control'
+                encima ? 'border-tinta bg-pase-suave' : 'border-borde-control'
               }`}
             >
               <span className="text-secundario">
@@ -208,7 +208,7 @@ export function SelectorFotos({
               type="button"
               onClick={abrir}
               className={`flex h-[88px] w-[104px] flex-col items-center justify-center gap-1 rounded-xl border border-dashed text-nota font-medium ${
-                encima ? 'border-tinta bg-lima-suave' : 'border-borde-control bg-white'
+                encima ? 'border-tinta bg-pase-suave' : 'border-borde-control bg-white'
               }`}
             >
               <IconoCamara tamano={22} />

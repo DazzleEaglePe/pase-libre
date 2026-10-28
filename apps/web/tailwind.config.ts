@@ -7,7 +7,7 @@ export default {
     extend: {
       colors: color,
       fontFamily: {
-        sans: ['var(--fuente-inter)', 'system-ui', 'sans-serif'],
+        sans: ['var(--fuente-base)', 'system-ui', 'sans-serif'],
       },
       fontSize: tipografia as unknown as Record<string, [string, Record<string, string>]>,
     },

@@ -1,22 +1,24 @@
 /**
- * Tokens de la línea final del lienzo (D-49, RNF-51): página «Mapa de pantallas,
- * rutas y escala». La web los usa como tema de Tailwind; la app del celular podrá
- * leer los mismos valores.
+ * Tokens de la línea gráfica Hielo (D-52): azul noche para el texto, azul pase para actuar
+ * y grises fríos para todo lo demás. Los nombres de uso se mantienen desde la línea del
+ * lienzo (D-49, RNF-51); cambiaron los valores. La web los usa como tema de Tailwind y la
+ * app del celular podrá leer los mismos.
  */
 export const color = {
-  tinta: '#14161A',
-  lima: '#C8F03C',
-  'lima-suave': '#F1F6E2',
-  superficie: '#F3F4F0',
-  linea: '#E1E3DC',
-  borde: '#C9CDC3',
-  'borde-control': '#6F746B',
-  secundario: '#3E423B',
-  detalle: '#5A5F57',
-  ok: '#2E4A00',
-  'ok-fondo': '#E9F7C4',
-  aviso: '#6B4500',
-  'aviso-fondo': '#FFF4D6',
+  tinta: '#0A1633',
+  pase: '#2F5BFF',
+  'pase-suave': '#EAF0FF',
+  acento: '#8FA9FF',
+  superficie: '#F2F4F8',
+  linea: '#E3E7EF',
+  borde: '#C8CFDD',
+  'borde-control': '#66728F',
+  secundario: '#2E3A5A',
+  detalle: '#5A6785',
+  ok: '#0B6B4A',
+  'ok-fondo': '#DDF4EA',
+  aviso: '#8A3F00',
+  'aviso-fondo': '#FFF0E3',
   error: '#8A1C12',
   'error-fondo': '#FDECEA',
 } as const;

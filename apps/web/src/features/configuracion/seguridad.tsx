@@ -15,7 +15,7 @@ function IconoDispositivo({ celular }: { celular: boolean }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -183,7 +183,7 @@ export function SeccionSeguridad({ alAvisar }: { alAvisar: (mensaje: string) => 
                   </span>
                 </span>
                 {sesion.actual ? (
-                  <span className="rounded-full bg-lima-suave px-2.5 text-[12px] font-semibold leading-6 text-ok">
+                  <span className="rounded-full bg-ok-fondo px-2.5 text-[12px] font-semibold leading-6 text-ok">
                     Esta sesión
                   </span>
                 ) : (

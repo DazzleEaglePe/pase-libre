@@ -145,7 +145,7 @@ function Fila({
           <button
             type="button"
             onClick={() => alCambiar({ stock: 1 })}
-            className={`${botonFila} bg-tinta text-white`}
+            className={`${botonFila} bg-pase text-white`}
           >
             Reponer stock
           </button>
@@ -351,7 +351,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
       {porRevisar > 0 && (
         <section
           aria-label="Publicaciones por revisar"
-          className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl bg-aviso-fondo px-[18px] py-3.5 text-[#4A3100]"
+          className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-xl bg-aviso-fondo px-[18px] py-3.5 text-[#5C2A00]"
         >
           <svg
             width="20"
@@ -359,7 +359,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -379,7 +379,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
             type="button"
             disabled={confirmando}
             onClick={confirmarTodas}
-            className="h-10 rounded-full border border-[#4A3100] px-4 text-apoyo font-medium"
+            className="h-10 rounded-full border border-[#5C2A00] px-4 text-apoyo font-medium"
           >
             {confirmando ? 'Confirmando…' : 'Siguen igual'}
           </button>
@@ -424,8 +424,8 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#3E423B"
-            strokeWidth="2"
+            stroke="#2E3A5A"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"

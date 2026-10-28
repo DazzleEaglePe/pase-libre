@@ -71,7 +71,7 @@ export function GlifoCategoria({
       height={(ancho * 72) / 120}
       viewBox="0 0 120 72"
       fill="none"
-      stroke="#3E423B"
+      stroke="#2E3A5A"
       strokeWidth={grosor}
       strokeLinecap="round"
       strokeLinejoin="round"

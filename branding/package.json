@@ -1,0 +1,28 @@
+{
+  "name": "paselibre-branding",
+  "private": true,
+  "type": "module",
+  "description": "Genera los archivos de la marca de PaseLibre (logo, íconos, hoja de marca) a partir de una sola fuente.",
+  "scripts": {
+    "generar": "node generar.mjs",
+    "propuestas": "node propuestas/generar.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/archivo": "5.3.0",
+    "@fontsource/bricolage-grotesque": "5.3.0",
+    "@fontsource/dm-sans": "5.3.0",
+    "@fontsource/figtree": "5.3.0",
+    "@fontsource/geist-mono": "5.3.0",
+    "@fontsource/geist-sans": "5.3.0",
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/ibm-plex-sans": "5.3.0",
+    "@fontsource/instrument-sans": "5.3.0",
+    "@fontsource/instrument-serif": "5.3.0",
+    "@fontsource/inter": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/manrope": "5.3.0",
+    "@fontsource/space-grotesk": "5.3.0",
+    "opentype.js": "2.0.0",
+    "sharp": "0.35.5"
+  }
+}

@@ -78,7 +78,7 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
                 aria-selected={elegida}
                 onClick={() => elegir(clave)}
                 className={`flex shrink-0 flex-col rounded-2xl px-3.5 py-2.5 text-left md:py-3 ${
-                  elegida ? 'bg-lima-suave' : 'hover:bg-superficie'
+                  elegida ? 'bg-pase-suave' : 'hover:bg-superficie'
                 }`}
               >
                 <b className="text-apoyo font-semibold">{SECCIONES[clave].titulo}</b>

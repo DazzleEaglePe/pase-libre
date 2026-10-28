@@ -40,7 +40,7 @@ function Renglon({ c, activa }: { c: ConversacionEnLista; activa: boolean }) {
       <Link
         href={`/mensajes/${c.id}`}
         aria-current={activa ? 'page' : undefined}
-        className={`flex gap-3 rounded-2xl p-3 no-underline ${activa ? 'bg-lima-suave' : 'hover:bg-superficie'}`}
+        className={`flex gap-3 rounded-2xl p-3 no-underline ${activa ? 'bg-pase-suave' : 'hover:bg-superficie'}`}
       >
         <span
           aria-hidden="true"
@@ -66,7 +66,7 @@ function Renglon({ c, activa }: { c: ConversacionEnLista; activa: boolean }) {
               <span className="shrink-0 text-[11px] font-semibold text-detalle">Silenciado</span>
             ) : (
               sinLeer && (
-                <span className="min-w-5 shrink-0 rounded-full bg-lima px-1.5 text-center text-[11px] font-semibold leading-5">
+                <span className="min-w-5 shrink-0 rounded-full bg-pase px-1.5 text-center text-[11px] font-semibold leading-5 text-white">
                   {c.no_leidos > 0 ? c.no_leidos : ''}
                   <span className="sr-only"> sin leer</span>
                 </span>
@@ -142,7 +142,7 @@ export function Bandeja({ children }: { children: ReactNode }) {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
