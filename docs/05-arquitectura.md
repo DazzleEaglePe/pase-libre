@@ -464,6 +464,11 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
   - Respaldos: scripts para respaldar, restaurar y ensayar, probados en local (§10).
   - Traspasar (A-11, RF-71) en el panel del equipo: «Traspasar» aparece en las cuentas que tienen algo a su nombre y comparten tienda con otra.
   - Falta, porque depende de personas o del servidor: que Fabrizio y el equipo carguen el piloto, la copia a B2, el cron y el ensayo en *staging*.
+- **Parte pública de la web (27/10 noche, adelantada):**
+  - Portada (`/`), resultados (`/buscar`) y ficha (`/p/:producto`) como F_Portada, F_Resultados y F_Ficha del lienzo, para quien mira sin sesión y para quien tiene cuenta. Los filtros, el orden y la página viven en la dirección, así que una búsqueda se comparte y funciona sin JavaScript.
+  - La barra suma el buscador (también en el celular, en su propia fila). La búsqueda con corrección avisa «Mostramos resultados para …».
+  - En la ficha, «Enviar mensaje» abre el chat con la tienda y «WhatsApp» abre el enlace con el mensaje ya escrito (RF-21, RF-23). Un producto unido a otro (RF-54) redirige con 301 a su dirección nueva.
+  - La API manda ahora la categoría en cada tarjeta de «Recién publicado», para dibujar su ícono cuando el producto no tiene fotos.
 - *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local, falta repetirlo en *staging*.
 
 ## 13. Pruebas (RNF-32)

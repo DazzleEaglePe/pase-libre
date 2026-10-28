@@ -137,7 +137,12 @@ export interface RespuestaRedireccion {
 
 export interface TarjetaOferta {
   oferta_id: string;
-  producto: { slug: string; titulo: string; foto: string | null };
+  producto: {
+    slug: string;
+    titulo: string;
+    categoria: { slug: string; nombre: string };
+    foto: string | null;
+  };
   condicion: Condicion;
   stock: number;
   galeria: string | null;

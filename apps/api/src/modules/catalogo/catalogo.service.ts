@@ -59,7 +59,12 @@ const SELECT_OFERTA_CON_VENDEDOR = {
 } satisfies Prisma.OfertaSelect;
 
 const PRODUCTO_TARJETA = {
-  select: { slug: true, titulo: true, fotos: { ...FOTOS, take: 1 } },
+  select: {
+    slug: true,
+    titulo: true,
+    categoria: { select: { slug: true, nombre: true } },
+    fotos: { ...FOTOS, take: 1 },
+  },
 } as const;
 
 type OfertaPublicaFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_PUBLICA }>;
@@ -185,6 +190,7 @@ export class CatalogoService {
           producto: {
             slug: o.producto.slug,
             titulo: o.producto.titulo,
+            categoria: o.producto.categoria,
             foto: o.producto.fotos[0]?.ruta ?? null,
           },
           condicion: o.condicion,
@@ -209,6 +215,7 @@ export class CatalogoService {
         producto: {
           slug: o.producto.slug,
           titulo: o.producto.titulo,
+          categoria: o.producto.categoria,
           foto: o.producto.fotos[0]?.ruta ?? null,
         },
         condicion: o.condicion,

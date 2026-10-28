@@ -264,6 +264,13 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       ]);
       expect(respuesta.body.totales).toEqual({ productos: 13, tiendas: 6, galerias: 2 });
       expect(respuesta.body.recien_publicado).toHaveLength(8);
+      // La web dibuja el ícono de la categoría cuando el producto aún no tiene fotos.
+      for (const tarjeta of respuesta.body.recien_publicado) {
+        expect(tarjeta.producto.categoria).toEqual({
+          slug: expect.any(String),
+          nombre: expect.any(String),
+        });
+      }
     });
 
     it('con sesión suma la tienda y el precio, y filtra por galería', async () => {
