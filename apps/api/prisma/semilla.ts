@@ -10,9 +10,10 @@ import { cifrarClave } from '../src/modules/sesion/clave';
 
 /**
  * Clave de las cuentas de demostración. Solo existe en desarrollo y staging;
- * la semilla se niega a crear estas cuentas en producción.
+ * la semilla se niega a crear estas cuentas en producción. El repositorio es público: en
+ * staging se pone otra con la variable `CLAVE_DEMO` (tools/deploy/scripts/semilla-demo.sh la exige).
  */
-export const CLAVE_DEMO = 'pase-demo-2026';
+export const CLAVE_DEMO = process.env.CLAVE_DEMO || 'pase-demo-2026';
 
 const GALERIAS = [
   { nombre: 'Maxiplaza', slug: 'maxiplaza', orden: 1 },

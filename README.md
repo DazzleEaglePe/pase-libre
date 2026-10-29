@@ -55,13 +55,14 @@ pnpm db:seed          # galerías, categorías y marcas; con SEMILLA_DEMO=true, 
 pnpm dev              # API en http://localhost:3001 y web en http://localhost:3000
 ```
 
-- **Cuentas de demostración:** las crea la semilla con los usuarios del lienzo (`tiendaa`, `tiendab`, `tiendad`…, y `equipo`). La clave está en `apps/api/prisma/semilla.ts` (`CLAVE_DEMO`). `tiendad` y `jorge.r` entran por primera vez y deben crear su contraseña. Volver a correr la semilla deja las cuentas demo como al inicio.
+- **Cuentas de demostración:** las crea la semilla con los usuarios del lienzo (`tiendaa`, `tiendab`, `tiendad`…, y `equipo`). La clave está en `apps/api/prisma/semilla.ts` (`CLAVE_DEMO`) y se cambia con la variable de entorno del mismo nombre: en *staging* hay que cambiarla, porque el repositorio es público. `tiendad` y `jorge.r` entran por primera vez y deben crear su contraseña. Volver a correr la semilla deja las cuentas demo como al inicio.
 - **Primera cuenta del equipo en staging o producción** (sin semilla demo): `pnpm cuenta:equipo -- --usuario dazz --nombre "Dazz"`. Muestra una clave temporal una sola vez. Con esa cuenta se entra a `/equipo/cuentas` y desde ahí se crean las cuentas de las tiendas.
 - **Fotos:** las que se suben en local quedan en `apps/api/media` (fuera de git); la web las muestra en `/media`. Se cambia con `MEDIA_DIR`.
 - **Pruebas:** `pnpm test`. Las de la API usan `TEST_DATABASE_URL` (la base `paselibre_test`), nunca la de desarrollo, y guardan sus fotos en una carpeta temporal.
 - **No correr `pnpm build` con `pnpm dev` encendido:** el build pisa `apps/web/.next` y el servidor de desarrollo se rompe. Si pasa, borrar `apps/web/.next` y volver a levantarlo.
 - **Revisión completa:** `pnpm lint`, `pnpm typecheck`, `pnpm test` y `pnpm build`.
 - **Respaldos:** `tools/deploy/scripts/respaldar.sh`, `restaurar.sh` y `ensayar-restauracion.sh`; cómo usarlos en [tools/deploy/RESPALDOS.md](tools/deploy/RESPALDOS.md).
+- **Despliegue en un servidor:** Dockerfiles de la API y la web, `tools/deploy/compose.yml`, nginx y `tools/deploy/scripts/desplegar.sh` (construye, respalda, migra, cambia las imágenes y hace la prueba de humo). Cómo preparar el servidor y usarlo, en [tools/deploy/DESPLIEGUE.md](tools/deploy/DESPLIEGUE.md).
 
 | Carpeta | Qué hay |
 | --- | --- |
@@ -71,7 +72,7 @@ pnpm dev              # API en http://localhost:3001 y web en http://localhost:3
 | `packages/ui` | Tokens de la línea gráfica Hielo (colores y escala tipográfica), que usa Tailwind |
 | `branding` | La marca: el símbolo, los logos, los íconos y la hoja de marca (`cd branding && npm install && npm run generar`), y la hoja de propuestas de línea gráfica (`npm run propuestas`). Va aparte del workspace, con npm |
 | `tools/docker` | Postgres y Redis para desarrollo |
-| `tools/deploy` | Respaldos: scripts, cron y guía |
+| `tools/deploy` | Despliegue (compose, nginx, scripts) y respaldos (scripts, cron y guías) |
 
 ## Equipo y roles
 

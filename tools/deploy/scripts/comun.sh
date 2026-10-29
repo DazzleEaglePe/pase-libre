@@ -13,12 +13,17 @@ cargar_entorno() {
   : "${RESPALDO_DIR:=./respaldos}"
   : "${MEDIA_DIR:=}"
   : "${RCLONE_DESTINO:=}"
+  : "${COMPOSE_ENV_FILE:=}"
   [ -f "$COMPOSE_FILE" ] || { echo "No existe el compose: $COMPOSE_FILE" >&2; exit 1; }
 }
 
 # Comando dentro del contenedor de Postgres. -T: sin terminal, para poder redirigir.
 en_postgres() {
-  docker compose -f "$COMPOSE_FILE" exec -T "$COMPOSE_SERVICIO" "$@"
+  if [ -n "$COMPOSE_ENV_FILE" ]; then
+    docker compose --env-file "$COMPOSE_ENV_FILE" -f "$COMPOSE_FILE" exec -T "$COMPOSE_SERVICIO" "$@"
+  else
+    docker compose -f "$COMPOSE_FILE" exec -T "$COMPOSE_SERVICIO" "$@"
+  fi
 }
 
 # Un valor de una consulta, sin cabeceras ni espacios.

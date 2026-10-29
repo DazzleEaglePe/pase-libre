@@ -1,0 +1,20 @@
+# Lo que no entra al contexto de las imágenes: dependencias, compilados, secretos y lo que no se ejecuta.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+**/*.tsbuildinfo
+**/.DS_Store
+
+.git
+.github
+.env
+.env.*
+!.env.example
+
+apps/api/media
+apps/api/test
+branding
+docs
+tools

@@ -1,0 +1,100 @@
+# nginx del servidor para un entorno de PaseLibre. Copiar a /etc/nginx/sites-available/paselibre-<entorno>,
+# cambiar lo marcado con CAMBIAR y activarlo (ver DESPLIEGUE.md §4).
+#
+#   - /v1 y /tiempo-real van a la API; /media sale directo de la carpeta de fotos; el resto, a la web.
+#   - La web y la API comparten dominio: la cookie de sesión es del mismo sitio y no hace falta CORS.
+#   - Los certificados los pide certbot (webroot en /var/www/certbot).
+
+map $http_upgrade $paselibre_conexion {
+    default upgrade;
+    ''      close;
+}
+
+# CAMBIAR: staging.paselibre.example → el dominio del entorno. Los puertos son WEB_HOST_PORT y API_HOST_PORT.
+upstream paselibre_web { server 127.0.0.1:3100; keepalive 16; }
+upstream paselibre_api { server 127.0.0.1:3101; keepalive 16; }
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name staging.paselibre.example;
+    server_tokens off;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name staging.paselibre.example;
+    server_tokens off;
+
+    ssl_certificate     /etc/letsencrypt/live/staging.paselibre.example/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/staging.paselibre.example/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Una foto pesa hasta 8 MB (MAX_BYTES_FOTO); lo demás sobra.
+    client_max_body_size 9m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    # Las cabeceras de seguridad (HSTS, nosniff, frame) las pone cada aplicación.
+
+    # Las fotos: cada una tiene un nombre único que no se reutiliza, así que se guardan para siempre.
+    # CAMBIAR: la carpeta es el MEDIA_DIR del archivo de entorno.
+    location ^~ /media/ {
+        alias /var/lib/paselibre/staging/media/;
+        autoindex off;
+        access_log off;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header X-Content-Type-Options nosniff always;
+        try_files $uri =404;
+    }
+
+    # El chat y la campanita: WebSocket de socket.io. Quedan abiertos horas.
+    location ^~ /tiempo-real {
+        proxy_pass http://paselibre_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $paselibre_conexion;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    location ^~ /v1/ {
+        proxy_pass http://paselibre_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        # Se pisa en vez de sumar: un cliente no puede inventar su IP para saltarse los límites.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    location / {
+        proxy_pass http://paselibre_web;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_read_timeout 60s;
+    }
+}

@@ -1,0 +1,95 @@
+# PaseLibre en un servidor: Postgres, migraciones, API y web (docs/05 §10).
+#
+# nginx del host (con Let's Encrypt) recibe el tráfico y lo lleva a 127.0.0.1: la web en
+# WEB_HOST_PORT, la API en API_HOST_PORT. Nada más se publica, ni siquiera Postgres.
+#
+# Un mismo servidor puede llevar staging y producción: cada uno con su ENTORNO, sus puertos,
+# su carpeta de fotos y su archivo de entorno (el proyecto de compose se llama
+# paselibre-<ENTORNO>, así que los volúmenes y los contenedores no se mezclan).
+#
+# Se usa con `scripts/desplegar.sh <despliegue.env>`; ver DESPLIEGUE.md.
+name: paselibre-${ENTORNO:?Define ENTORNO en el archivo de entorno}
+
+x-registro: &registro
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: '5'
+
+# La contraseña forma parte de la dirección de la base: tiene que ser segura para una URL
+# (por ejemplo `openssl rand -hex 24`).
+x-base: &direccion-base postgresql://${POSTGRES_USER:?Define POSTGRES_USER}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-paselibre}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-paselibre}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    mem_limit: ${POSTGRES_MEMORIA:-768m}
+    shm_size: 128m
+    logging: *registro
+
+  # Aplica las migraciones y termina. La API no arranca si falla.
+  migrate:
+    image: paselibre-migraciones:${IMAGEN_TAG:-local}
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: *direccion-base
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    logging: *registro
+
+  api:
+    image: paselibre-api:${IMAGEN_TAG:-local}
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: *direccion-base
+      # Dirección pública de la web: CORS, origen del socket y enlace del mensaje de acceso.
+      WEB_URL: ${PUBLIC_URL:?Define PUBLIC_URL}
+      SESION_COOKIE_SEGURA: 'true'
+      MEDIA_DIR: /data/media
+      # La API ve a nginx por la puerta de enlace de la red de compose. Con `uniquelocal`
+      # acepta X-Forwarded-For de cualquier IP privada (solo nginx y la web llegan hasta ahí) y
+      # saca la IP real del cliente para los límites por IP.
+      PROXIES_DE_CONFIANZA: ${PROXIES_DE_CONFIANZA:-uniquelocal}
+    volumes:
+      # La carpeta del servidor donde viven las fotos: nginx la sirve en /media y el respaldo la copia.
+      - ${MEDIA_DIR:?Define MEDIA_DIR}:/data/media
+    ports:
+      - '127.0.0.1:${API_HOST_PORT:-3101}:3001'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: ${API_MEMORIA:-512m}
+    logging: *registro
+
+  web:
+    image: paselibre-web:${IMAGEN_TAG:-local}
+    environment:
+      API_INTERNAL_URL: http://api:3001
+    ports:
+      - '127.0.0.1:${WEB_HOST_PORT:-3100}:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: ${WEB_MEMORIA:-512m}
+    logging: *registro
+
+volumes:
+  postgres-data:

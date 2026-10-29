@@ -393,13 +393,15 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
 
 ## 10. Infraestructura, despliegue y operación
 
-- **Servicios** (un `compose.yml` por entorno): `web`, `api` (con la cola de BullMQ dentro), `migraciones` (corre y termina), `postgres:16-alpine` y `redis:7-alpine`. nginx del host con Let's Encrypt. Las fotos van en un volumen que la API escribe y nginx sirve en `/media`.
+- **Servicios** (un `tools/deploy/compose.yml` que se parametriza por entorno): `web`, `api`, `migrate` (corre y termina) y `postgres:16-alpine`. nginx del host con Let's Encrypt. Las fotos van en una carpeta del servidor que la API escribe y nginx sirve en `/media`. Redis no se despliega todavía: la API no lo usa (no hay cola de tareas ni más de un proceso); se agrega cuando haga falta.
 - **Entornos:** *staging* y producción, con bases separadas (RNF-33). El despliegue sigue el patrón de Yallegó:
   1. Construir las imágenes.
   2. Respaldar la base.
   3. Correr las migraciones.
-  4. Cambiar las imágenes en el `.env`.
+  4. Cambiar las imágenes en el archivo de entorno (`IMAGEN_TAG`).
   5. Hacer una prueba de humo.
+
+  Todo eso lo hace `tools/deploy/scripts/desplegar.sh`; cómo se prepara el servidor y se usa, en [`tools/deploy/DESPLIEGUE.md`](../tools/deploy/DESPLIEGUE.md).
 - **Respaldos (RNF-13):** ver [`tools/deploy/RESPALDOS.md`](../tools/deploy/RESPALDOS.md).
   - `pg_dump` cada noche, con 7 diarios y 4 semanales, validado antes de publicarse.
   - Los respaldos y las fotos se copian a B2 con `rclone`.
@@ -425,7 +427,7 @@ paselibre/
 │  ├─ contracts/           esquemas Zod compartidos por web, API y la futura app
 │  ├─ ui/                  tokens de la línea Hielo (Figtree 400/500/600, azul noche, azul pase, escala 28/20/16/15/14/13) y componentes
 │  └─ config/              ESLint y TypeScript
-├─ tools/deploy/           compose, nginx y scripts (copiados de Yallegó)
+├─ tools/deploy/           compose, nginx, scripts de despliegue y de respaldo (según el patrón de Yallegó)
 └─ docs/
 ```
 
@@ -469,7 +471,8 @@ Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la f
   - La barra suma el buscador (también en el celular, en su propia fila). La búsqueda con corrección avisa «Mostramos resultados para …».
   - En la ficha, «Enviar mensaje» abre el chat con la tienda y «WhatsApp» abre el enlace con el mensaje ya escrito (RF-21, RF-23). Un producto unido a otro (RF-54) redirige con 301 a su dirección nueva.
   - La API manda ahora la categoría en cada tarjeta de «Recién publicado», para dibujar su ícono cuando el producto no tiene fotos.
-- *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local, falta repetirlo en *staging*.
+- **Kit de despliegue (28/10):** Dockerfiles de la API y la web, `tools/deploy/compose.yml`, plantilla de nginx y los scripts `desplegar.sh` (construir, respaldar, migrar, cambiar las imágenes, humo y revertir), `humo.sh`, `cuenta-equipo.sh` y `semilla-demo.sh`. Probado en local de punta a punta, con nginx, WebSocket, fotos, respaldo y reversión; el detalle está en [`tools/deploy/DESPLIEGUE.md`](../tools/deploy/DESPLIEGUE.md). La web suma `/salud` para el healthcheck de su imagen, y `CLAVE_DEMO` se puede cambiar con una variable porque el repositorio es público.
+- *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local y el kit de despliegue ya está probado; falta repetirlo en *staging*.
 
 ## 13. Pruebas (RNF-32)
 
