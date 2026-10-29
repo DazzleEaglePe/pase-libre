@@ -77,6 +77,8 @@ El estado HTTP de cada código es el habitual; para decidir qué mostrar, la web
 | `GET /galerias` | Todos | Las galerías activas | 17 |
 | `GET /mapa-del-sitio` | Todos | Cada producto con una oferta vigente y la fecha de la más reciente, para el `sitemap.xml` de la web | RNF-42 |
 | `GET /buscar` | Todos | Productos con el resumen de sus ofertas, las facetas y la corrección | 12–18 |
+| `GET /buscar/sugerencias?q=&categoria=` | Todos | El desplegable del buscador: hasta 5 productos y la corrección, **sin registrar la búsqueda** y sin precios ni tiendas aunque haya sesión. 120 por minuto | 13, 14 |
+| `GET /buscar/populares` | Todos | «Lo más buscado»: hasta 4 búsquedas de los últimos 30 días que encontraron algo y se repitieron, como más se escribieron | 32 |
 | `GET /productos/:slug` | Todos | El producto y sus ofertas, según la audiencia. Si el producto se unió a otro, responde `{ "redirigir_a": "<slug>" }` y la web redirige con 301 | 19, 52 |
 
 **`GET /buscar` recibe:**

@@ -44,7 +44,12 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
   4. **Franja de ventajas en azul suave** (desde tablet): «Pases entre tiendas de Wilson · Gratis para el piloto · Precios solo con sesión · Busca aunque escribas mal · Chat y WhatsApp · El trato es entre vendedores».
 - **En Mensajes** la barra va sin banda ni franja, para que el chat entre en la pantalla.
 - **En el celular** queda como F_MovilPortada: logo con los iconos, buscador y banda.
-- **Fuera, a propósito:** el menú grande de «Comprar por categoría» (con 7 categorías sin subcategorías, la banda las muestra todas) y «Avanzada» (los filtros están en `/buscar`).
+- **«Comprar por categoría»** (desde computadora, junto al logo): abre un panel a todo el ancho con las categorías a la izquierda y, para la que se señala, sus marcas, su estado y sus galerías con cuántas ofertas hay de cada una, más «Ver todo en …».
+- **El desplegable del buscador:**
+  - Con el campo vacío: las **búsquedas recientes** (se guardan en el navegador, hasta 5, y cada una se quita con ×) y **«Lo más buscado»** (lo que se buscó al menos dos veces en 30 días y encontró algo).
+  - Mientras se escribe: **«¿Quisiste decir…?»** cuando corrige, hasta **5 productos** con su foto o ícono, categoría, ofertas y galerías, y al final «Ver los N resultados» o «Buscar «…»».
+  - Se maneja con las flechas, Enter y Escape. Lo que se va escribiendo no cuenta como búsqueda en las métricas.
+- **Fuera, a propósito:** «Avanzada» (los filtros están en `/buscar`).
 - **Equipo:** su propia barra oscura, con el logo y su panel.
 - **Pie:** el claro con columnas del lienzo (C_Footer, elegido el 28/10): la marca, las columnas PaseLibre, Ayuda y Legal, y «El trato es entre vendedores: PaseLibre no interviene en las ventas». Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat. «Escríbenos por WhatsApp» aparece cuando exista el número, y «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
 

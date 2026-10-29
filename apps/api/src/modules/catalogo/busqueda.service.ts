@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
+  buscarSchema,
   normalizarTexto,
   precioDe,
   type BuscarConsulta,
@@ -9,6 +10,9 @@ import {
   type ProductoEnLista,
   type ProductoEnListaConPrecio,
   type RespuestaBuscar,
+  type RespuestaMasBuscado,
+  type RespuestaSugerenciasBusqueda,
+  type SugerenciasBusquedaConsulta,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -18,6 +22,10 @@ import { INDEPENDIENTES } from './catalogo.service';
 import { conSesion } from './visibilidad';
 
 export const POR_PAGINA = 24;
+/** Productos del desplegable del buscador. */
+export const SUGERENCIAS = 5;
+/** Términos de «Lo más buscado». */
+export const MAS_BUSCADOS = 4;
 
 interface FilaProducto {
   slug: string;
@@ -113,6 +121,72 @@ export class BusquedaService {
     };
   }
 
+  /**
+   * El desplegable del buscador de la barra: los primeros productos de la misma búsqueda,
+   * con su corrección. No se registra (lo que se va escribiendo no es una búsqueda) y va
+   * siempre como para un visitante: el desplegable no muestra precios ni tiendas.
+   */
+  async sugerencias(consulta: SugerenciasBusquedaConsulta): Promise<RespuestaSugerenciasBusqueda> {
+    const palabras = this.palabras(consulta.q);
+    if (palabras.length === 0) return { correccion: null, total_productos: 0, productos: [] };
+    const base = buscarSchema.parse({ q: consulta.q, categoria: consulta.categoria });
+
+    let resultado = await this.ejecutar(palabras, base, false, SUGERENCIAS);
+    let correccion: RespuestaSugerenciasBusqueda['correccion'] = null;
+    if (resultado.totalProductos === 0) {
+      const corregidas = await this.corregir(palabras);
+      if (corregidas.join(' ') !== palabras.join(' ')) {
+        const intento = await this.ejecutar(corregidas, base, false, SUGERENCIAS);
+        if (intento.totalProductos > 0) {
+          resultado = intento;
+          correccion = { buscaste: consulta.q, mostramos: corregidas.join(' ') };
+        }
+      }
+    }
+    return {
+      correccion,
+      total_productos: resultado.totalProductos,
+      productos: resultado.filas.map((f) => this.productoEnLista(f)),
+    };
+  }
+
+  /**
+   * «Lo más buscado» del buscador: lo que se buscó al menos dos veces en los últimos 30 días
+   * y encontró algo. «RTX3070» y «rtx 3070» cuentan juntos (misma forma normalizada), y se
+   * muestra como más se escribió.
+   */
+  async masBuscado(): Promise<RespuestaMasBuscado> {
+    const filas = await this.prisma.$queryRaw<Array<{ texto: string; veces: number }>>`
+      SELECT regexp_replace(lower(trim(coalesce(texto_corregido, texto))), '[[:space:]]+', ' ', 'g') AS texto,
+             count(*)::int AS veces
+      FROM busqueda
+      WHERE resultados > 0 AND creada_en > now() - interval '30 days'
+      GROUP BY 1
+      ORDER BY 2 DESC, 1
+      LIMIT 200`;
+    const grupos = new Map<string, { veces: number; forma: string; vecesForma: number }>();
+    for (const fila of filas) {
+      const clave = normalizarTexto(fila.texto);
+      if (!clave) continue;
+      const grupo = grupos.get(clave);
+      if (!grupo) {
+        grupos.set(clave, { veces: fila.veces, forma: fila.texto, vecesForma: fila.veces });
+      } else {
+        grupo.veces += fila.veces;
+        if (fila.veces > grupo.vecesForma) {
+          grupo.forma = fila.texto;
+          grupo.vecesForma = fila.veces;
+        }
+      }
+    }
+    const terminos = [...grupos.values()]
+      .filter((grupo) => grupo.veces >= 2)
+      .sort((a, b) => b.veces - a.veces || a.forma.localeCompare(b.forma, 'es'))
+      .slice(0, MAS_BUSCADOS)
+      .map((grupo) => grupo.forma);
+    return { terminos };
+  }
+
   /** Palabras normalizadas y sin repetir de lo que se escribió (también para «Ya está en PaseLibre»). */
   palabras(q: string): string[] {
     const normalizado = normalizarTexto(q);
@@ -189,6 +263,7 @@ export class BusquedaService {
     palabras: string[],
     consulta: BuscarConsulta,
     conPrecio: boolean,
+    limite = POR_PAGINA,
   ): Promise<Resultado> {
     const filtradas = this.filtradas(palabras, consulta, conPrecio);
     const agregadosPrecio = conPrecio
@@ -222,7 +297,7 @@ export class BusquedaService {
         LEFT JOIN marca m ON m.id = p.marca_id
         GROUP BY p.id, c.slug, c.nombre, m.nombre
         ORDER BY ${orden}
-        LIMIT ${POR_PAGINA} OFFSET ${(consulta.pagina - 1) * POR_PAGINA}`,
+        LIMIT ${limite} OFFSET ${(consulta.pagina - 1) * limite}`,
       this.prisma.$queryRaw<Array<{ productos: number; ofertas: number }>>`
         WITH f AS (${filtradas})
         SELECT count(DISTINCT producto_id)::int AS productos, count(*)::int AS ofertas FROM f`,

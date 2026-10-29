@@ -16,6 +16,7 @@ import { enlaceWhatsappEquipo } from '@/shared/whatsapp-equipo';
 import { Buscador } from './buscador';
 import { Campanita, Insignia, useContadores } from './campanita';
 import { Marca } from './marca';
+import { MenuCategorias } from './menu-categorias';
 import { MenuCuenta } from './menu-cuenta';
 
 const VENTAJAS = [
@@ -278,29 +279,33 @@ export function Cabecera({
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-8 gap-y-3 px-4 py-3.5 sm:px-8">
-        <div className="order-1">
-          <Marca conFrase />
-        </div>
-        <Buscador
-          categorias={categorias}
-          className="order-3 basis-full md:order-2 md:max-w-[760px] md:flex-1 md:basis-auto"
-        />
-        <div className="order-2 ml-auto flex items-center gap-2 md:order-3">
-          {tienda ? (
-            <AccionesVendedor tienda={tienda} />
-          ) : sesion ? (
-            <Link href="/equipo/cuentas" className={`${enlaceFuerte} text-apoyo md:hidden`}>
-              Panel del equipo
-            </Link>
-          ) : (
-            <Link
-              href="/ingresar"
-              className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium no-underline md:hidden"
-            >
-              Ingresar
-            </Link>
-          )}
+      {/* `relative`: el panel de «Comprar por categoría» se abre a todo el ancho, debajo. */}
+      <div className="relative">
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:gap-x-6 sm:px-8">
+          <div className="order-1 flex items-center gap-4">
+            <Marca conFrase />
+            <MenuCategorias categorias={categorias} />
+          </div>
+          <Buscador
+            categorias={categorias}
+            className="order-3 basis-full md:order-2 md:max-w-[720px] md:flex-1 md:basis-auto"
+          />
+          <div className="order-2 ml-auto flex items-center gap-2 md:order-3">
+            {tienda ? (
+              <AccionesVendedor tienda={tienda} />
+            ) : sesion ? (
+              <Link href="/equipo/cuentas" className={`${enlaceFuerte} text-apoyo md:hidden`}>
+                Panel del equipo
+              </Link>
+            ) : (
+              <Link
+                href="/ingresar"
+                className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium no-underline md:hidden"
+              >
+                Ingresar
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 

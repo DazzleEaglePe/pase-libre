@@ -127,7 +127,7 @@ erDiagram
 
 | Tabla | Para qué | Columnas clave |
 | --- | --- | --- |
-| `busqueda` | Métricas y búsquedas sin resultados (RF-31, RF-32) | `texto`, `texto_corregido`, `resultados`, `usuario_id`, `creada_en` |
+| `busqueda` | Métricas, búsquedas sin resultados y «Lo más buscado» del buscador (RF-31, RF-32). Las sugerencias mientras se escribe no se guardan | `texto`, `texto_corregido`, `resultados`, `usuario_id`, `creada_en` |
 | `contacto` | Clics en «Enviar mensaje» y «WhatsApp» (RF-23) | `oferta_id`, `usuario_id`, `canal` (CHAT, WHATSAPP), `creado_en` |
 | `auditoria` | Acciones del equipo: crear cuenta, nueva clave, suspender, traspasar, unir productos | `actor_id`, `accion`, `objeto`, `objeto_id`, `datos` |
 | `carga_planilla` | Carga por planilla con vista previa (RF-34) | `tienda_id`, `creada_por_id`, `archivo`, `filas`, `estado` (BORRADOR, CARGADA, DESCARTADA). **La tabla existe, pero la carga pasó a la fase 2:** nada la usa todavía |

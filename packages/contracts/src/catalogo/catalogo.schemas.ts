@@ -38,5 +38,15 @@ export const portadaSchema = z.object({
   galeria: slug.optional(),
 });
 
+/**
+ * Consulta de `GET /v1/buscar/sugerencias`: lo que se va escribiendo en el buscador de la
+ * barra, para sugerir productos antes de buscar. No se registra como búsqueda.
+ */
+export const sugerenciasBusquedaSchema = z.object({
+  q: z.string().trim().max(100).default(''),
+  categoria: slug.optional(),
+});
+
 export type BuscarConsulta = z.output<typeof buscarSchema>;
 export type PortadaConsulta = z.output<typeof portadaSchema>;
+export type SugerenciasBusquedaConsulta = z.output<typeof sugerenciasBusquedaSchema>;

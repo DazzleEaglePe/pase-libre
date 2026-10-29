@@ -158,7 +158,8 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | Componente | Qué es |
 | --- | --- |
 | `cabecera` | La barra de arriba (C_Header): fila del saludo y la galería, logo con frase, buscador, banda de categorías y franja de ventajas; igual con sesión y sin ella |
-| `buscador` | El buscador de la barra, con el selector de categoría desde tablet; en el celular, en su propia fila |
+| `buscador` | El buscador de la barra: campo, selector de categoría desde tablet y «Buscar» aparte; su desplegable trae recientes, lo más buscado y productos sugeridos |
+| `menu-categorias` | «Comprar por categoría»: el panel con las categorías y sus marcas, estado y galerías |
 | `campanita` y `contador` | Los avisos y las insignias |
 | `menu-cuenta` | El menú del avatar |
 | `marca` | El logo |

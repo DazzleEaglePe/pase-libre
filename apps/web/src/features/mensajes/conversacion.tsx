@@ -339,7 +339,7 @@ export function Conversacion({ id }: { id: string }) {
   return (
     <section
       aria-label={`Conversación con ${otro.tienda.nombre}`}
-      className="relative flex h-[calc(100dvh-126px)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-3xl border-[1.5px] border-linea lg:h-auto lg:min-h-0"
+      className="relative flex h-[calc(100dvh-130px)] min-h-[480px] flex-1 flex-col overflow-hidden rounded-3xl border-[1.5px] border-linea lg:h-auto lg:min-h-0"
     >
       <div className="flex items-center gap-3 border-b border-linea px-3 py-3 sm:px-4">
         <Link

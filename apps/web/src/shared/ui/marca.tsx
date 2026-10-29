@@ -27,7 +27,7 @@ export function Marca({
       <svg
         viewBox={`0 0 ${logo.ancho} ${logo.alto}`}
         aria-hidden="true"
-        className={conFrase ? 'h-7 w-auto' : 'h-6 w-auto'}
+        className={conFrase ? 'h-7 w-auto sm:h-8' : 'h-6 w-auto'}
       >
         <path fill={sobreOscuro ? color.acento : color.pase} fillRule="evenodd" d={logo.simbolo} />
         <g transform={`translate(${logo.palabra.x} ${logo.palabra.y})`} fill="currentColor">

@@ -245,6 +245,58 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
     });
   });
 
+  describe('buscador de la barra', () => {
+    it('sugiere productos mientras se escribe, sin precio aunque haya sesión', async () => {
+      const cookie = await como('tiendab');
+      const respuesta = await http()
+        .get('/v1/buscar/sugerencias?q=rtx%2030')
+        .set('Cookie', cookie)
+        .expect(200);
+      expect(respuesta.body.correccion).toBeNull();
+      expect(respuesta.body.productos.length).toBeGreaterThan(0);
+      expect(respuesta.body.productos.length).toBeLessThanOrEqual(5);
+      expect(respuesta.body.productos.map((p: Producto) => p.slug)).toContain(VENTUS);
+      for (const producto of respuesta.body.productos) {
+        expect(producto.ofertas.precios_desde).toBeUndefined();
+      }
+    });
+
+    it('corrige «rtx 3370», filtra por categoría y no registra lo que se escribe', async () => {
+      const antes = await prisma.busqueda.count();
+      const corregida = await http().get('/v1/buscar/sugerencias?q=rtx%203370').expect(200);
+      expect(corregida.body.correccion).toEqual({ buscaste: 'rtx 3370', mostramos: 'rtx 3070' });
+
+      const enOtraCategoria = await http()
+        .get('/v1/buscar/sugerencias?q=rtx&categoria=procesadores')
+        .expect(200);
+      expect(enOtraCategoria.body.total_productos).toBe(0);
+
+      const vacia = await http().get('/v1/buscar/sugerencias?q=').expect(200);
+      expect(vacia.body).toEqual({ correccion: null, total_productos: 0, productos: [] });
+      expect(await prisma.busqueda.count()).toBe(antes);
+    });
+
+    it('«Lo más buscado» junta lo que se repitió y encontró algo', async () => {
+      await prisma.busqueda.deleteMany();
+      await prisma.busqueda.createMany({
+        data: [
+          { texto: 'RTX3070', resultados: 3 },
+          { texto: 'rtx 3070', resultados: 3 },
+          { texto: 'rtx 3370', textoCorregido: 'rtx 3070', resultados: 3 },
+          { texto: 'i5 14400f', resultados: 1 },
+          { texto: 'i5 14400F', resultados: 1 },
+          { texto: 'SSD 1TB', resultados: 1 },
+          { texto: 'ssd   1tb', resultados: 1 },
+          { texto: 'una sola vez', resultados: 2 },
+          { texto: 'no existe', resultados: 0 },
+          { texto: 'no existe', resultados: 0 },
+        ],
+      });
+      const respuesta = await http().get('/v1/buscar/populares').expect(200);
+      expect(respuesta.body).toEqual({ terminos: ['rtx 3070', 'i5 14400f', 'ssd 1tb'] });
+    });
+  });
+
   describe('mapa del sitio (RNF-42)', () => {
     it('lista los productos que ve un visitante, sin los unidos ni los sin oferta vigente', async () => {
       const respuesta = await http().get('/v1/mapa-del-sitio').expect(200);

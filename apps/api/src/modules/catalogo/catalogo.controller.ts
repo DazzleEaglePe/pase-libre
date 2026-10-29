@@ -13,6 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import {
   buscarSchema,
   portadaSchema,
+  sugerenciasBusquedaSchema,
   type BuscarConsulta,
   type CategoriaResumen,
   type GaleriaResumen,
@@ -20,8 +21,11 @@ import {
   type RespuestaBuscar,
   type RespuestaFicha,
   type RespuestaMapaDelSitio,
+  type RespuestaMasBuscado,
+  type RespuestaSugerenciasBusqueda,
   type RespuestaPortada,
   type RespuestaRedireccion,
+  type SugerenciasBusquedaConsulta,
 } from '@paselibre/contracts';
 import type { Response } from 'express';
 
@@ -81,6 +85,24 @@ export class CatalogoController {
     @MiradaActual() mirada: Mirada,
   ): Promise<RespuestaBuscar> {
     return this.busqueda.buscar(consulta, mirada);
+  }
+
+  /**
+   * El desplegable del buscador de la barra, mientras se escribe. La web espera a que se
+   * deje de teclear, pero el límite es más alto que el de la búsqueda.
+   */
+  @Get('buscar/sugerencias')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 120, ttl: 60_000 } })
+  sugerencias(
+    @Query(new ZodValidationPipe(sugerenciasBusquedaSchema)) consulta: SugerenciasBusquedaConsulta,
+  ): Promise<RespuestaSugerenciasBusqueda> {
+    return this.busqueda.sugerencias(consulta);
+  }
+
+  /** «Lo más buscado», para el buscador vacío. */
+  @Get('buscar/populares')
+  masBuscado(): Promise<RespuestaMasBuscado> {
+    return this.busqueda.masBuscado();
   }
 
   @Get('productos/:slug')

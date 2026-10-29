@@ -74,7 +74,7 @@ La ruta crítica es **VPS y dominio → *staging* → ensayo → piloto → prod
 | **Unitarias** | `packages/contracts`, `apps/api` y `apps/web` | Normalización y corrección de la búsqueda (con casos del chat: «3370», «rtx3070», «ventsu»), contratos, «No molestar» y la consulta de la búsqueda en la web |
 | **Humo** | `tools/deploy/scripts/humo.sh` | Después de cada despliegue, desde afuera: salud, portada, búsqueda, visitante sin precio, socket y, con una cuenta, ingresar y salir |
 
-La última corrida completa (28/10): 165 pruebas pasando, 133 de la API, 26 de los contratos y 6 de la web.
+La última corrida completa (29/10): 168 pruebas pasando, 136 de la API, 26 de los contratos y 6 de la web.
 
 **Lo que falta:**
 

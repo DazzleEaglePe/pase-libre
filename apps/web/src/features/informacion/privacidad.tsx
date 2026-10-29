@@ -141,6 +141,10 @@ export function Privacidad() {
           PaseLibre usa una sola cookie, necesaria para mantener tu sesión abierta después de
           ingresar. No usamos cookies de publicidad ni de seguimiento.
         </p>
+        <p>
+          Tu navegador guarda tus últimas búsquedas para mostrártelas en el buscador. Se quedan en
+          tu equipo, no nos llegan, y las borras con la × de cada una.
+        </p>
       </Seccion>
 
       <Seccion titulo="9. Menores de edad">

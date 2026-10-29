@@ -76,6 +76,10 @@ describe('Contrato público: el visitante no recibe precio, tienda, stand ni Wha
       '/v1/portada?galeria=independientes',
       '/v1/categorias',
       '/v1/galerias',
+      '/v1/mapa-del-sitio',
+      '/v1/buscar/populares',
+      '/v1/buscar/sugerencias?q=rtx',
+      '/v1/buscar/sugerencias?q=rtx%203370',
     ]) {
       const respuesta = await http().get(ruta).expect(200);
       expect(fugas(respuesta.body, textosProhibidos), ruta).toEqual([]);

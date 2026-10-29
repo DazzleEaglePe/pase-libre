@@ -134,6 +134,24 @@ export interface RespuestaRedireccion {
 }
 
 /**
+ * `GET /v1/buscar/sugerencias`: hasta 5 productos para el desplegable del buscador, con la
+ * misma búsqueda tolerante (y su corrección) pero sin precios ni tiendas, aunque haya sesión.
+ */
+export interface RespuestaSugerenciasBusqueda {
+  correccion: { buscaste: string; mostramos: string } | null;
+  total_productos: number;
+  productos: ProductoEnLista[];
+}
+
+/**
+ * `GET /v1/buscar/populares`: «Lo más buscado» del buscador. Búsquedas de los últimos 30
+ * días que encontraron algo y se repitieron, ya normalizadas.
+ */
+export interface RespuestaMasBuscado {
+  terminos: string[];
+}
+
+/**
  * `GET /v1/mapa-del-sitio`: los productos que ve un visitante, para el `sitemap.xml` de la
  * web (RNF-42). La fecha es la de su oferta vigente más reciente.
  */

@@ -127,7 +127,7 @@ export function Bandeja({ children }: { children: ReactNode }) {
   useEvento(EVENTOS.contadores, () => void cargar());
 
   return (
-    <div className="flex gap-5 lg:h-[calc(100dvh-221px)] lg:min-h-[560px]">
+    <div className="flex gap-5 lg:h-[calc(100dvh-225px)] lg:min-h-[560px]">
       <section
         aria-label="Conversaciones"
         className={`min-w-0 flex-col gap-2.5 overflow-hidden rounded-3xl border-[1.5px] border-linea p-3.5 lg:flex lg:w-[380px] lg:shrink-0 ${
