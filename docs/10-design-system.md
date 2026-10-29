@@ -158,7 +158,7 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | Componente | Qué es |
 | --- | --- |
 | `barra-visitante` y `barra-vendedor` | La barra de arriba, sin sesión y con sesión |
-| `buscador` | El buscador de la barra; en el celular, en su propia fila |
+| `buscador` | El buscador de la barra, con el selector de categoría desde tablet; en el celular, en su propia fila |
 | `campanita` y `contador` | Los avisos y las insignias |
 | `menu-cuenta` | El menú del avatar |
 | `marca` | El logo |
@@ -166,7 +166,9 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | `miniatura` | La foto pequeña de un producto |
 | `interruptor` y `segmentado` | Controles de sí o no y de opciones |
 | `ventana` | Las ventanas de confirmación («Vendido», bloquear, eliminar) |
-| `pie-compacto` | El pie de página |
+| `fila-categorias` | La fila de categorías bajo la barra del catálogo |
+| `pie-pagina` | El pie con columnas (C_Footer), en el catálogo y en las páginas del vendedor |
+| `pie-compacto` | El pie de una línea (C_FooterCompacto), en Mensajes y en el panel del equipo |
 
 ## 8. Cómo se cambia
 

@@ -1,6 +1,6 @@
 'use client';
 
-import type { TiendaDeSesion } from '@paselibre/contracts';
+import type { CategoriaResumen, TiendaDeSesion } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -19,7 +19,13 @@ const SECCIONES = [
  * Barra de quien tiene tienda: C_Header con el buscador, Publicar, Mis publicaciones,
  * Mensajes, la campanita y «Mi cuenta». En el celular el buscador baja a su propia fila.
  */
-export function BarraVendedor({ tienda }: { tienda: TiendaDeSesion }) {
+export function BarraVendedor({
+  tienda,
+  categorias,
+}: {
+  tienda: TiendaDeSesion;
+  categorias?: CategoriaResumen[];
+}) {
   const ruta = usePathname();
   const contadores = useContadores();
   const lugar = [tienda.galeria, tienda.stand && `Stand ${tienda.stand}`]
@@ -32,7 +38,10 @@ export function BarraVendedor({ tienda }: { tienda: TiendaDeSesion }) {
         <div className="order-1">
           <Marca />
         </div>
-        <Buscador className="order-3 my-1 basis-full lg:order-2 lg:max-w-[440px] lg:flex-1 lg:basis-auto" />
+        <Buscador
+          categorias={categorias}
+          className="order-3 my-1 basis-full lg:order-2 lg:max-w-[440px] lg:flex-1 lg:basis-auto"
+        />
         <nav aria-label="Tu tienda" className="order-4 flex gap-6 lg:order-3 lg:ml-auto">
           {SECCIONES.map(({ href, texto }) => {
             const activa = ruta === href || ruta.startsWith(`${href}/`);

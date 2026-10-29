@@ -7,7 +7,7 @@ import { GlifoCategoria } from '@/shared/ui/glifo-categoria';
 import { botonLista, botonPrincipal } from '@/shared/ui/estilos';
 
 /**
- * La portada (F_Portada): categorías, la bienvenida o «Tu cuenta», lo recién publicado con
+ * La portada (F_Portada): la bienvenida o «Tu cuenta», lo recién publicado con
  * pestañas por galería (`?galeria=`) y las categorías en grande. Sin sesión, la API no manda
  * precios ni tiendas, así que aquí tampoco hay de dónde sacarlos.
  */
@@ -31,25 +31,6 @@ export default async function Portada({
 
   return (
     <div className="flex flex-col gap-12">
-      <nav aria-label="Categorías" className="-mt-1 flex flex-wrap items-center gap-x-5 gap-y-2">
-        <span className="text-nota font-semibold uppercase tracking-[0.06em] text-detalle">
-          Categorías
-        </span>
-        {portada.categorias.map((categoria) => (
-          <Link
-            key={categoria.slug}
-            href={`/buscar?categoria=${categoria.slug}`}
-            className="flex items-center gap-1.5 text-apoyo font-medium text-secundario no-underline hover:text-tinta"
-          >
-            {categoria.nombre}
-            <span className="text-nota font-normal text-detalle">{categoria.productos}</span>
-          </Link>
-        ))}
-        <Link href="/buscar" className="text-apoyo font-medium">
-          Ver todo
-        </Link>
-      </nav>
-
       {sesion ? (
         <section
           aria-label="Tu cuenta"

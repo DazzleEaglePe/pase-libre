@@ -37,10 +37,12 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 
 **Barras y pie:**
 
-- **Visitante:** logo, buscador (en el celular, en su propia fila) e «Ingresar».
+- **Visitante:** logo, buscador (en el celular, en su propia fila) e «Iniciar sesión».
 - **Vendedor:** logo, buscador, «Publicar», «Mis publicaciones» y «Mensajes» con su contador, la campanita y el menú de la cuenta (Configuración, Mis publicaciones, Mensajes y Salir).
+- **El buscador es el mismo con sesión y sin ella:** texto y, desde tablet, el selector de categoría, como C_Header. En los resultados conserva lo que se buscó y la categoría.
+- **Fila de categorías:** debajo de la barra en todo el catálogo (portada, resultados, ficha y ayuda), con sesión o sin ella: «Todas las categorías», cada categoría con su número de productos y «Ayuda». En el celular se desliza de lado. No va en las páginas del vendedor, para no restarle alto al chat.
 - **Equipo:** su propia barra oscura, con el logo y su panel.
-- **Pie:** Ayuda, Términos y Privacidad, con sus páginas. «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
+- **Pie:** el claro con columnas del lienzo (C_Footer, elegido el 28/10): la marca, las columnas PaseLibre, Ayuda y Legal, y «El trato es entre vendedores: PaseLibre no interviene en las ventas». Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat. «Escríbenos por WhatsApp» aparece cuando exista el número, y «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
 
 **Quién entra a qué:**
 

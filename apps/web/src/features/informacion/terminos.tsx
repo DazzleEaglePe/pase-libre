@@ -22,7 +22,7 @@ export function Terminos() {
         </p>
       </Seccion>
 
-      <Seccion titulo="2. PaseLibre no vende ni intermedia">
+      <Seccion titulo="2. PaseLibre no vende ni intermedia" id="no-intermedia">
         <p>
           PaseLibre solo pone en contacto a quien busca con quien tiene. El precio, el pago, la
           entrega, la garantía y cualquier otro acuerdo son entre ustedes. PaseLibre no cobra

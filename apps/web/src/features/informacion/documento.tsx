@@ -56,9 +56,21 @@ export function Documento({
   );
 }
 
-export function Seccion({ titulo, children }: { titulo: string; children: ReactNode }) {
+export function Seccion({
+  titulo,
+  id,
+  children,
+}: {
+  titulo: string;
+  /** Para enlazar directo a la sección, como «Cómo evitar estafas» desde el pie. */
+  id?: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="flex flex-col gap-3 text-cuerpo [&_li]:pl-1 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:pl-5">
+    <section
+      id={id}
+      className="flex flex-col gap-3 text-cuerpo [&_li]:pl-1 [&_ul]:flex [&_ul]:list-disc [&_ul]:flex-col [&_ul]:gap-1.5 [&_ul]:pl-5"
+    >
       <h2 className="text-seccion">{titulo}</h2>
       {children}
     </section>
