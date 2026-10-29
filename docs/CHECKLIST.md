@@ -56,9 +56,14 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 
 ## 4. Documentos
 
+**Hechos el 28/10**
+
+- [x] **06 a 12:** modelo de datos, contrato de la API, seguridad y autenticación, UX y flujos, design system, plan de desarrollo y estructura del proyecto, revisados contra el código
+- [x] **05 · Arquitectura** queda como resumen, con enlaces a los documentos nuevos y A-03, A-04 y A-08 corregidas (Redis y cola no se usan; fotos en una sola versión)
+- [x] **README:** estado al 28/10, tabla de documentos y próximos pasos
+
 **Para actualizar**
 
-- [ ] **README:** el estado dice «Día 2 listo» y los próximos pasos son del 26/10
 - [ ] **04 · Decisiones y pendientes:** sigue en v0.6 («hoy es domingo 25/10»). Pasar a «Ya decidido» lo que ya se resolvió (marca, bandeja por persona, plazo) y revisar la tabla de pendientes
 - [ ] **01 · Contexto §9.2:** varias de las 14 preguntas abiertas ya se cerraron (plan B, recortes, perfil privado, aviso por correo)
 - [ ] **05 · Arquitectura §14:** las decisiones pendientes (servidor, dominio, maquetación) se actualizan al decidir

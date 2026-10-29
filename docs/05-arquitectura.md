@@ -1,8 +1,10 @@
 # 05 · Arquitectura
 
-**Versión:** 0.7 (borrador) · **Fecha:** 27/10/2026 · **Responsable:** Dazz
+**Versión:** 0.8 (borrador) · **Fecha:** 28/10/2026 · **Responsable:** Dazz
 
 **Decidido el 26/10:** se reutiliza el stack de Yallegó (A-01) y la bandeja de mensajes es **por persona** (A-11). El servidor se elige al final (A-10).
+
+**Desde el 28/10 este documento es el resumen de la arquitectura.** El modelo de datos, la API, la seguridad, los flujos, el design system, el plan y la estructura tienen su propio documento, del [06](06-modelo-de-datos.md) al [12](12-estructura-del-proyecto.md), revisados contra el código. Aquí quedan los principios, las decisiones (A-xx), la vista general, la búsqueda, los mensajes, la infraestructura y los riesgos. Los números de sección se conservan porque el código los cita («docs/05 §9»).
 
 ## Cómo leer este documento
 
@@ -41,6 +43,12 @@ Esta es la propuesta técnica para construir la primera salida antes del 31/10. 
 | A-10 | **Docker Compose en un VPS** con nginx, Let's Encrypt, y entornos de *staging* y producción. *Se decide al final si es un VPS nuevo o el de Yallegó*; el mismo `compose.yml` sirve para los dos | Vercel + base administrada | Costo fijo y bajo (RNF-34), el mismo flujo de despliegue que Yallegó y sin límites de WebSocket |
 | A-11 | **Bandeja de mensajes por persona.** Cada hilo es entre dos personas: quien escribe y el **responsable** de la oferta, que es quien la publicó. Los demás usuarios de la tienda no lo ven | Bandeja compartida por tienda | Decisión de Dazz (26/10). Cada asesor responde lo suyo. Para que no queden hilos sin dueño, el equipo puede cambiar el responsable de una oferta y de sus hilos (sección 8) |
 
+**Cómo quedaron al construirlas (28/10):**
+
+- **A-01:** `packages/config` se partió en `config-eslint` y `config-typescript`.
+- **A-03 y A-04: Redis todavía no se usa.** Con un solo proceso de API alcanzan los límites en memoria y la presencia en memoria, y no hay colas. Redis sigue en el entorno de desarrollo, pero no se despliega (sección 10). Se suma con el adaptador de socket.io cuando haga falta más de un proceso, o con la cola cuando llegue el aviso por correo.
+- **A-08: las fotos se procesan en la misma petición,** sin cola: una sola versión WebP de 1600 px como máximo, sin EXIF, en la carpeta `MEDIA_DIR` que nginx sirve en `/media`. No hay interfaz `Almacen`. La copia a B2 la hace el respaldo nocturno con `rclone` ([RESPALDOS.md](../tools/deploy/RESPALDOS.md)).
+
 ## 3. Vista general
 
 ```mermaid
@@ -53,10 +61,8 @@ flowchart LR
   N[nginx + TLS]
   W["apps/web · Next.js<br/>páginas y SEO"]
   A["apps/api · NestJS<br/>REST /v1 + socket.io"]
-  Q[["Trabajos en cola<br/>(fotos, avisos)"]]
   P[(PostgreSQL 16)]
-  R[(Redis 7)]
-  F[(Almacén de fotos<br/>disco + copia B2)]
+  F[(Carpeta de fotos<br/>MEDIA_DIR, copia a B2)]
   WA([WhatsApp])
 
   V & S & E --> N
@@ -65,8 +71,7 @@ flowchart LR
   N -->|/media| F
   W -->|"lee con la cookie del usuario"| A
   A --> P
-  A --> R
-  A --> Q --> F
+  A -->|"guarda las fotos en WebP"| F
   S -.->|enlace wa.me que entrega la API| WA
 ```
 
@@ -75,218 +80,45 @@ flowchart LR
 | **nginx** | TLS, compresión, sirve `/media` con caché larga, pasa `/v1` y el WebSocket a la API y el resto a la web | No guarda en caché nada con cookie de sesión |
 | **Web (Next.js)** | Pantallas del lienzo, SEO, formularios. En el servidor llama a la API con la cookie del usuario | No habla con la base de datos ni decide permisos |
 | **API (NestJS)** | Reglas de negocio, permisos, contratos por audiencia, búsqueda, chat en tiempo real y avisos | No arma HTML |
-| **Cola (BullMQ en la API)** | Procesa fotos y, en la fase 2, el aviso por correo | |
 | **PostgreSQL** | Datos, búsqueda tolerante y métricas de uso | |
-| **Redis** | socket.io entre procesos, límites de peticiones, colas | No guarda datos que no se puedan perder |
+| **Carpeta de fotos** | Las fotos ya procesadas, que nginx entrega sin pasar por la API | No guarda originales: cada foto se vuelve a codificar al subirla |
+| **Redis y cola** *(previstos, A-03)* | Todavía no se usan | Se suman al pasar a más de un proceso de API o al llegar el aviso por correo |
 
 ## 4. Modelo de datos
 
+El detalle completo, revisado contra el esquema, está en el **[documento 06 · Modelo de datos](06-modelo-de-datos.md)**.
+
 ### 4.1 La idea central: producto y oferta
 
-- Un **producto** es el modelo que existe en el mercado, una sola vez en el catálogo. Por ejemplo, «MSI GeForce RTX 3070 Ventus 3X OC 8 GB», con su categoría, marca, fotos base, etiquetas y características.
-- Una **oferta** es lo que una tienda tiene de ese producto: condición (nuevo o usado), stock, precio, moneda, si el precio es visible y una descripción propia. La ficha del producto lista sus ofertas, de menor a mayor precio.
-- **«Publicar uno igual»** crea una oferta sobre un producto que ya existe; no copia el producto.
-- Un **producto nuevo** lo crea el vendedor cuando no lo encuentra. El equipo une los duplicados (RF-54).
-
-```mermaid
-erDiagram
-  GALERIA ||--o{ TIENDA : "agrupa"
-  TIENDA ||--o{ USUARIO : "tiene"
-  CATEGORIA ||--o{ PRODUCTO : "clasifica"
-  MARCA ||--o{ PRODUCTO : "fabrica"
-  PRODUCTO ||--o{ PRODUCTO_FOTO : "fotos base"
-  PRODUCTO }o--o{ ETIQUETA : "producto_etiqueta"
-  PRODUCTO ||--o{ OFERTA : "se ofrece en"
-  TIENDA ||--o{ OFERTA : "publica"
-  OFERTA ||--o{ OFERTA_FOTO : "fotos propias"
-  OFERTA ||--o{ CONVERSACION : "se consulta en"
-  USUARIO ||--o{ CONVERSACION : "escribe o responde"
-  USUARIO ||--o{ OFERTA : "es responsable de"
-  CONVERSACION ||--o{ MENSAJE : "contiene"
-  OFERTA ||--o{ VENTA : "«Vendido»"
-  USUARIO ||--o{ AVISO : "recibe"
-  USUARIO ||--o{ SESION : "abre"
-
-  PRODUCTO {
-    uuid id PK
-    uuid categoria_id FK
-    uuid marca_id FK
-    text titulo
-    text modelo
-    citext slug UK
-    jsonb caracteristicas
-    text texto_busqueda "normalizado, índice trigram"
-    uuid fusionado_en_id FK "si se unió a otro"
-  }
-  OFERTA {
-    uuid id PK
-    uuid producto_id FK
-    uuid tienda_id FK
-    uuid responsable_id FK "quien la publicó"
-    enum condicion "NUEVO, USADO"
-    int stock "mayor o igual a 0"
-    bigint precio_centimos "puede ser nulo"
-    enum moneda "USD, PEN"
-    bool precio_visible "falso por defecto"
-    enum estado "ACTIVA, PAUSADA, ELIMINADA"
-    timestamptz actualizada_en
-  }
-  TIENDA {
-    uuid id PK
-    enum tipo "TIENDA, INDEPENDIENTE"
-    text nombre
-    uuid galeria_id FK "nulo si es independiente"
-    text stand
-    text whatsapp
-    bool precio_visible_defecto
-    enum moneda_defecto
-  }
-```
+Un **producto** es el modelo que existe en el mercado, una sola vez en el catálogo; una **oferta** es lo que una tienda tiene de ese producto (condición, stock, precio, moneda y si el precio se ve). «Publicar uno igual» crea una oferta sobre un producto existente. Es lo único que no se recorta (D-43). Diagrama en el [documento 06 §1](06-modelo-de-datos.md#1-la-idea-central-producto-y-oferta).
 
 ### 4.2 Tablas de la primera salida
 
-| Tabla | Para qué | Columnas clave y reglas |
-| --- | --- | --- |
-| `galeria` | Maxiplaza, Cyberplaza y las que vengan (RNF-29) | `nombre`, `slug`, `activa` |
-| `tienda` | Quien vende: tienda o independiente | `tipo`, `nombre`, `galeria_id` (nulo para independientes), `stand`, `whatsapp`, `horario`, `descripcion`, `logo`, `precio_visible_defecto` (falso), `moneda_defecto` (USD), `estado` (ACTIVA, SUSPENDIDA). `perfil_privado` queda creada para la fase 2 |
-| `usuario` | Personas que entran | `tienda_id` (nulo para el equipo), `rol` (DUENO, ASESOR, EQUIPO), `usuario` (citext único), `correo` (citext único, opcional), `nombre`, `clave_hash` (argon2id), `debe_cambiar_clave`, `primer_ingreso_en`, `estado` (ACTIVO, SUSPENDIDO), preferencias de «No molestar» |
-| `sesion` | Sesiones abiertas | `usuario_id`, `token_hash`, `expira_en`, `revocada_en`, `agente`, `ip` |
-| `categoria` | Las 7 categorías iniciales (RF-11), ampliables sin código (RNF-27) | `nombre`, `slug`, `orden`, `padre_id` |
-| `marca` | Para el filtro por marca | `nombre`, `slug` |
-| `producto` | Catálogo único | Ver diagrama. `texto_busqueda` se recalcula con un *trigger* a partir del título, la marca, el modelo y las etiquetas |
-| `producto_foto` | Fotos base | `orden`, `ruta`, `ancho`, `alto` |
-| `etiqueta` + `producto_etiqueta` | Etiquetas (RF-07) | `nombre` y `clave` normalizada única: «RTX3070», «rtx 3070» y «RTX-3070» dan la misma clave `rtx 3070` (RNF-26) |
-| `oferta` | Lo que publica cada tienda | Ver diagrama. `responsable_id` es el usuario que recibe los mensajes de esa oferta. Única por (`producto_id`, `tienda_id`, `condicion`) mientras no esté eliminada. Borrar es `estado = ELIMINADA`, para conservar las conversaciones |
-| `oferta_foto` | Fotos propias, opcionales | Hasta 8 por oferta |
-| `archivo` | Fotos subidas que todavía no se usan | `usuario_id`, `tienda_id`, `ruta` (única), `ancho`, `alto`, `bytes`, `usado_en`. Una foto solo la usa alguien de la misma tienda y una sola vez; las que nunca se usan se podrán limpiar con una tarea nocturna |
-| `conversacion` | Un hilo por oferta y persona que pregunta | `oferta_id`, `comprador_id` y `vendedor_id` (usuarios), las tiendas de cada uno, `ultimo_mensaje_en`. Única por (`oferta_id`, `comprador_id`) |
-| `participacion` | Estado de cada persona en el hilo | `conversacion_id`, `usuario_id`, `archivada`, `silenciada`, `no_leida_manual`, `leido_hasta` (para el «Visto») |
-| `mensaje` | Texto, foto o aviso del sistema | `autor_usuario_id`, `tipo` (TEXTO, FOTO, SISTEMA), `texto`, `foto` |
-| `respuesta_rapida` | Editables en Configuración (RF-56) | `usuario_id`, `texto`, `orden` |
-| `bloqueo` | Quién bloqueó a quién (RF-57) | `usuario_id` (quien bloquea) y `tienda_bloqueada_id`: se bloquea a la tienda entera para que no vuelva a escribir desde otra cuenta |
-| `denuncia` | Para moderación (RNF-53) | `denunciante_id`, `objeto` (OFERTA, CONVERSACION, TIENDA), `objeto_id`, `motivo`, `estado` |
-| `venta` | Cada «Vendido» (RF-47) | `oferta_id`, `comprador_id`, `tienda_compradora_id`, `conversacion_id`, `stock_antes`, `stock_despues`, `registrada_por` |
-| `aviso` | La campanita (RF-40) | `usuario_id`, `tipo`, `titulo`, `extracto`, `enlace`, `visible_desde` (para «No molestar»), `leido_en`. Un aviso por conversación con mensajes sin leer: se actualiza, no se apila |
-| `preferencia_aviso` | Configuración · Avisos (RF-59) | `usuario_id`, `tipo`, `campanita`. La columna `correo` llega con RF-42 |
-| `busqueda` | Métricas y búsquedas sin resultados (RF-31, RF-32) | `texto`, `texto_corregido`, `resultados`, `usuario_id`, `creada_en` |
-| `contacto` | Clics en «Enviar mensaje» y «WhatsApp» (RF-23) | `oferta_id`, `usuario_id`, `canal`, `creado_en` |
-| `auditoria` | Acciones del equipo: crear cuenta, nueva clave, suspender, unir productos | `actor_id`, `accion`, `objeto`, `datos` |
+Las 27 tablas, con sus columnas clave: [documento 06 §2](06-modelo-de-datos.md#2-tablas).
 
 ### 4.3 Reglas que cuida la base de datos
 
-- **Dinero en enteros:** `precio_centimos` (US$ 250 → 25000) y `moneda`; nunca decimales flotantes. Si no hay precio, se muestra «Al interno».
-- **Stock nunca negativo** (`CHECK stock >= 0`). «Sin stock» se deriva de `stock = 0`, no es otro estado.
-- **`actualizada_en`** cambia con cualquier cambio de stock, precio o visibilidad, y con «Siguen igual». De ahí salen la fecha que se muestra (RF-09) y el aviso de los 7 días (RF-10).
-- **Unir productos** mueve las ofertas al producto que se queda, marca el otro con `fusionado_en_id` y su dirección vieja redirige con 301.
-- **Valores por defecto de la tienda:** al publicar, la oferta toma `precio_visible_defecto` y `moneda_defecto`, y el vendedor puede cambiarlos (D-37).
-- **Fase 2 prevista, no construida:** `pedido_pase`, `pregunta`, `favorito`, `seguimiento`, `precio_rol` y `perfil_privado` se agregan con migraciones aditivas, sin tocar las tablas de arriba.
+Dinero en céntimos enteros, stock nunca negativo, una oferta vigente por producto, tienda y condición, borrar sin borrar y «Vendido» que resta exactamente uno: [documento 06 §3](06-modelo-de-datos.md#3-reglas-que-cuida-la-base).
 
 ## 5. Quién ve qué
 
-| Dato | Visitante | Vendedor con sesión | Dueño de la oferta | Equipo |
-| --- | --- | --- | --- | --- |
-| Producto, fotos, etiquetas, características | Sí | Sí | Sí | Sí |
-| Condición, stock, galería, fecha de actualización | Sí | Sí | Sí | Sí |
-| Nombre de la tienda y stand | **No** («Tienda de Maxiplaza») | Sí | Sí | Sí |
-| Precio visible | **No** («Precio con sesión») | Sí | Sí | Sí |
-| Precio oculto | **No** | **No** («Al interno · consultar») | Sí | Sí |
-| WhatsApp | **No** | Solo al pulsar el botón (A-07) | Sí | Sí |
-| Mensajes | **No** | Solo los suyos | Solo los suyos (es el responsable) | **No** (RNF-44) |
-
-**Cómo se garantiza:**
-- Cada audiencia tiene su propio `select` de Prisma y su propio contrato Zod (`OfertaPublica`, `OfertaVendedor`, `OfertaPropia`).
-- La prueba `contrato-publico.spec` pide como visitante la portada, la búsqueda y la ficha, y falla si el JSON contiene `precio`, `tienda`, `stand` o `whatsapp`.
-- La API responde `Cache-Control: private, no-store` a toda petición con sesión. nginx no cachea respuestas que lleven cookie.
-- **Tampoco se deja deducir el precio:**
-  - Para el visitante, las ofertas de la ficha van por fecha, no por precio.
-  - Al visitante se le ignoran el filtro y el orden por precio de la búsqueda; si no, podría adivinar precios probando rangos.
-- **Clave temporal:** quien todavía no creó su contraseña ve el catálogo como visitante, para que nadie vea precios con una clave que conoce el equipo.
+El visitante ve el producto, la condición, el stock, la galería y la fecha, pero **nunca** el precio, la tienda, el stand ni el WhatsApp: el servidor no se los manda (A-06) y una prueba lo vigila. La tabla completa y cómo se garantiza, en el [documento 08 §2](08-seguridad-y-autenticacion.md#2-quién-ve-qué).
 
 ## 6. Rutas de la web y de la API
 
+Las rutas pasaron a sus propios documentos, revisadas contra el código.
+
 ### 6.1 Rutas de la web (las del mapa del lienzo)
 
-| Ruta | Pantalla en el lienzo | Quién | Cómo se arma | Llama a |
-| --- | --- | --- | --- | --- |
-| `/` | Portada (visitante) / Inicio con sesión | Todos | Servidor; con caché solo sin sesión | `GET /v1/portada` |
-| `/buscar?q=&categoria=&galeria=&marca=&condicion=&stock=&orden=` | Resultados | Todos | Servidor | `GET /v1/buscar` |
-| `/c/:categoria` | Resultados con la categoría puesta | Todos | Servidor | `GET /v1/buscar` |
-| `/p/:producto` y `?oferta=:id` | Ficha | Todos | Servidor | `GET /v1/productos/:slug` |
-| `/ingresar` | Acceso y primer ingreso | Sin sesión | Cliente | `POST /v1/sesion`, `POST /v1/sesion/clave` |
-| `/publicar`, `?igual=:producto` y `?editar=:oferta` | Publicar uno igual (y editar una oferta) | Vendedor | Cliente | `GET /v1/catalogo/sugerencias`, `POST /v1/archivos`, `POST /v1/ofertas`, `GET` y `PATCH /v1/ofertas/:id` |
-| `/mis-publicaciones` | Mis publicaciones | Vendedor | Cliente | `GET /v1/mis-ofertas`, `PATCH` y `DELETE /v1/ofertas/:id`, `POST /v1/ofertas/confirmar` |
-| `/mensajes` y `/mensajes/:conversacion` | Mensajes (página C) | Vendedor | Cliente + tiempo real | `/v1/conversaciones…` |
-| `/cuenta/configuracion` | Configuración (página C) | Vendedor | Cliente | `/v1/cuenta…` |
-| `/equipo/cuentas`, `/equipo/carga`, `/equipo/catalogo` | Panel del equipo | Equipo | Cliente | `/v1/equipo…` |
-
-Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) ya tienen nombre en el mapa para no chocar después.
+Las pantallas, quién entra a cada una y los recorridos: [documento 09 · UX y flujos](09-ux-y-flujos.md#2-mapa-de-pantallas).
 
 ### 6.2 API `/v1`
 
-| Grupo | Método y ruta | Qué hace | RF |
-| --- | --- | --- | --- |
-| Público | `GET /portada?galeria=` | Recién publicado y conteos por categoría | 44 |
-| | `GET /buscar` | Productos con resumen de sus ofertas, facetas y corrección («Buscaste…») | 12–18 |
-| | `GET /productos/:slug` | Producto y sus ofertas, según la audiencia | 19, 52 |
-| | `GET /categorias`, `GET /galerias` | Listas para menús y filtros | 11, 17 |
-| Sesión | `POST /sesion` | Ingresar con usuario o correo | 02 |
-| | `DELETE /sesion` | Salir | |
-| | `POST /sesion/clave` | Primer ingreso o cambio de contraseña | 50, 60 |
-| | `GET /yo` | Usuario y tienda, con sus valores por defecto al publicar | |
-| Vendedor | `GET /catalogo/sugerencias?q=` o `?producto=` | «Ya está en PaseLibre» al publicar, con la misma búsqueda tolerante; con `producto`, uno solo para «Publicar uno igual» desde la ficha | 53 |
-| | `POST /ofertas` | Publicar: «uno igual» con `producto_id`, o producto nuevo con `producto_nuevo`. El producto y la oferta se crean en una sola transacción, para que no queden productos sin oferta | 05, 06, 38 |
-| | `GET /ofertas/:id` | Una oferta propia, para editarla | 08 |
-| | `GET /mis-ofertas?estado=&q=` | Activas, sin stock, pausadas | 08 |
-| | `PATCH /ofertas/:id` | Stock, precio, visibilidad, pausar o reactivar | 06, 08, 09 |
-| | `DELETE /ofertas/:id` | Eliminar (lógico) | 08 |
-| | `POST /ofertas/confirmar` | «Siguen igual» para las de más de 7 días | 10 |
-| | `POST /ofertas/:id/contacto` | Abre conversación o devuelve el enlace de WhatsApp, y registra el clic. No se contacta a la propia tienda ni a quien te bloqueó | 21, 23 |
-| | `GET /ofertas/:id/interesados` | Quiénes escribieron por esa oferta en los hilos de quien vende, para «Vendido» | 47 |
-| | `POST /ofertas/:id/vendido` | Descuenta 1 de stock y deja el aviso en el chat | 47 |
-| | `POST /archivos` | Subir una foto (campo `foto`, multipart). Devuelve la ruta para usarla en una oferta, un producto o el chat | 05, 39 |
-| Mensajes | `GET /conversaciones?filtro=&q=` | Lista con filtros y buscador | 55 |
-| | `GET /conversaciones/:id/mensajes?antes=` | Historial por páginas | 39 |
-| | `POST /conversaciones/:id/mensajes` | Enviar texto o foto | 39 |
-| | `PATCH /conversaciones/:id` | Leer, no leída, silenciar, archivar | 57 |
-| | `GET /conversaciones/:id` | El hilo con el producto fijo arriba, si el otro está activo y si se puede marcar «Vendido» | 55, 47 |
-| | `POST` y `DELETE /conversaciones/:id/bloqueo`, `POST /denuncias` | Bloquear, desbloquear y denunciar | 57 |
-| | `GET /avisos`, `POST /avisos/leidos` | Campanita | 40 |
-| | `GET /contadores` | Las insignias de Mensajes y de la campanita | 40, 55 |
-| Cuenta | `GET/PATCH /cuenta` | Datos de la persona y de la tienda, logo, «Visto» y valores por defecto al publicar. Usuario, galería y stand solo los cambia el equipo | 48, 57, 58 |
-| | `GET/PUT /cuenta/avisos` | Campanita por tipo de aviso y «No molestar» (hora de Lima) | 59 |
-| | `GET/PUT /cuenta/respuestas-rapidas` | Respuestas rápidas: hasta 8, en orden y sin repetir | 56 |
-| | `GET /cuenta/sesiones`, `DELETE /cuenta/sesiones/:id`, `POST /cuenta/sesiones/cerrar-otras` | Sesiones abiertas, por navegador | 60 |
-| | `GET /cuenta/bloqueados`, `DELETE /cuenta/bloqueados/:tienda` | Tiendas bloqueadas, para desbloquearlas | 57 |
-| Equipo | `GET/POST /equipo/cuentas` | Listar y crear cuentas con clave temporal | 35, 49 |
-| | `POST /equipo/cuentas/:id/clave-temporal` | Nueva clave; obliga a cambiarla al entrar | 50 |
-| | `PATCH /equipo/cuentas/:id` | Suspender o reactivar | 28 |
-| | `POST /equipo/cuentas/:id/traspasar` | Pasar publicaciones e hilos a otra cuenta activa de la misma tienda. La lista (`GET /equipo/cuentas`, también `?tienda=`) muestra qué tiene cada cuenta a su nombre | 71 |
-| | `GET /equipo/tiendas` | Tiendas activas, para elegir la de un asesor | 35 |
-| | `POST /equipo/cargas`, `POST /equipo/cargas/:id/confirmar` | Carga por planilla con vista previa | 34 |
-| | `GET /equipo/duplicados`, `POST /equipo/productos/:id/unir` | Unir productos | 54 |
-| Operación | `GET /salud` | Estado de la API, la base y Redis | RNF-39 |
-
-**Errores:** todos con la forma `{ "error": { "codigo": "OFERTA_NO_ENCONTRADA", "mensaje": "…", "detalles": [...] } }`. Los mensajes van en español para mostrarlos tal cual.
+Todas las rutas, los errores y lo que todavía no está construido (carga por planilla y unir duplicados): [documento 07 §2](07-contrato-de-la-api.md#2-rutas).
 
 ### 6.3 Tiempo real
 
-El navegador abre un socket en `/tiempo-real` con su cookie. La API lo une a la sala de su usuario (`usuario:<id>`), por donde llegan sus mensajes y avisos, a la de su tienda (`tienda:<id>`), por donde llegan los cambios de stock, y a la de su sesión (`sesion:<id>`).
-
-- **Quién entra:** solo una sesión vigente con contraseña propia. El handshake revisa además el origen: CORS no protege a un WebSocket, y sin esto otro sitio podría abrir el socket con la cookie del vendedor.
-- **Cortes:** al salir se cortan los sockets de esa sesión; al suspender una cuenta o darle una clave nueva, todos los suyos.
-- **En local** la web se conecta directo a la API (`localhost:3001`), porque el rewrite de Next no pasa WebSockets; en producción va por el mismo dominio y nginx hace el `upgrade`.
-- **Presencia** («Activo ahora»): se lleva en memoria y alcanza con un solo proceso de API. Si se escala a varios, hace falta el adaptador de Redis. Al conectarse y al desconectarse se guarda `usuario.ultima_conexion_en` para «Activo hace 2 h».
-
-| Evento | Va a | Para qué |
-| --- | --- | --- |
-| `tiempo-real:listo` | El socket que entra | Ya está en sus salas: desde aquí no se pierde nada |
-| `mensaje:nuevo` | Las dos personas del hilo | Pintar el mensaje y subir el contador |
-| `mensaje:visto` | La persona que escribió | «Visto», si el otro lado no lo desactivó |
-| `aviso:nuevo` | El usuario | Campanita |
-| `oferta:stock` | La tienda dueña | Refrescar Mis publicaciones tras un «Vendido» |
-| `contadores:cambio` | El usuario | Se leyó algo en otra pestaña: volver a pedir las insignias |
-
-Al reconectar, la interfaz vuelve a pedir la lista, la conversación abierta y los contadores. No se pierde nada si el socket se cae.
+El socket en `/tiempo-real`, sus salas y sus eventos: [documento 07 §3](07-contrato-de-la-api.md#3-tiempo-real).
 
 ## 7. Búsqueda tolerante a errores
 
@@ -347,49 +179,7 @@ Así, dos «Vendido» al mismo tiempo no dejan el stock en negativo. Si se recor
 
 ## 9. Cuentas, sesiones y seguridad
 
-| Rol | Puede |
-| --- | --- |
-| Visitante | Ver y buscar el catálogo público |
-| Dueño, asesor e independiente | Lo anterior, más ver precios y tiendas, contactar, publicar, gestionar las ofertas de **su** tienda, **sus** mensajes y su configuración |
-| Equipo | Panel del equipo. No ve mensajes |
-
-En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferencia (el dueño crea asesores, con límite por plan) llega con RF-36.
-
-- **Ingreso:** usuario o correo (sin distinguir mayúsculas) y contraseña.
-  - La clave temporal que entrega el equipo marca `debe_cambiar_clave` y el primer ingreso obliga a cambiarla (pantalla «Crea tu contraseña» del lienzo).
-  - Reglas: al menos 8 caracteres y un número.
-- **Sesión:**
-  - Dura 12 horas, o 30 días renovables con «Mantener la sesión».
-  - La cookie va con `Secure`, `HttpOnly` y `SameSite=Lax`, y las peticiones que cambian datos exigen además la cabecera `X-PaseLibre`, como defensa contra CSRF.
-  - Suspender una cuenta revoca todas sus sesiones.
-- **Límites (RNF-19).** En una galería muchas tiendas salen a internet con la misma IP, así que cada petición pasa por dos contadores (`apps/api/src/shared/limites.ts`):
-  - Por IP, un techo alto: 600 por minuto.
-  - Por persona: 120 por minuto, contado por su sesión, o por IP si no tiene sesión.
-  - Los límites de cada ruta:
-
-    | Ruta | Límite | Se cuenta por |
-    | --- | --- | --- |
-    | Ingreso | 5 intentos fallidos cada 15 minutos | Cuenta |
-    | Ingreso | 60 intentos cada 15 minutos | IP |
-    | Cambio de contraseña | 10 cada 15 minutos | Persona |
-    | Búsqueda | 60 por minuto | Persona (sin sesión, IP) |
-    | Contactar, que da el WhatsApp | 30 por minuto | Persona |
-    | Mensajes | 30 por minuto | Persona |
-    | Subidas | 30 por hora | Persona |
-    | Denuncias | 10 por hora | Persona |
-
-  - *Cambio del 27/10:* antes había un único límite general de 120 por minuto por IP y el ingreso permitía 20 por IP; el día del piloto toda una galería con el mismo wifi se hubiera frenado entre sí. El contador por cuenta sigue frenando a quien prueba claves.
-- **Entradas:** todo cuerpo y consulta pasa por su esquema Zod. El texto del chat y de las descripciones se guarda plano y se escapa al pintarlo; no se acepta HTML.
-- **Fotos (RNF-20):**
-  - Solo JPEG, PNG o WebP, hasta 8 MB, revisando el contenido y no solo la extensión.
-  - Cada foto se vuelve a guardar en WebP, enderezada y con el lado mayor en 1600 px como máximo. Así se quitan los metadatos EXIF, que pueden traer la ubicación.
-  - Se guardan en `MEDIA_DIR` con un nombre único (`2026/10/<uuid>.webp`) y se sirven en `/media`, con caché larga.
-  - El límite de 30 subidas por hora se cuenta por persona y no por IP: en una galería muchas tiendas comparten la misma IP.
-- **Permisos (RNF-17):** cada ruta de vendedor comprueba que la oferta, el hilo o la tienda sean de la tienda de la sesión. Las rutas del equipo exigen `rol = EQUIPO`.
-- **Datos personales (RNF-21 a 24):**
-  - El WhatsApp se pide con consentimiento al crear la cuenta.
-  - Hay un procedimiento para borrar una cuenta a pedido: anonimiza al usuario, elimina las ofertas y conserva las ventas sin datos personales.
-- **Cabeceras:** CSP, HSTS, `X-Content-Type-Options` y `Referrer-Policy`, como en Yallegó.
+Roles, ingreso con argon2id, sesión con cookie y token opaco, cabecera `X-PaseLibre` contra CSRF, límites por IP y por persona, fotos sin EXIF y lo que falta (términos, consentimiento, borrar una cuenta, CSP en la web): **[documento 08 · Seguridad y autenticación](08-seguridad-y-autenticacion.md)**.
 
 ## 10. Infraestructura, despliegue y operación
 
@@ -415,76 +205,15 @@ En el MVP el dueño y el asesor pueden lo mismo dentro de su tienda. La diferenc
 
 ## 11. Estructura del código y reparto
 
-```text
-paselibre/
-├─ apps/
-│  ├─ web/                 Next.js · pantallas del lienzo
-│  │  └─ src/features/     catalogo · ficha · acceso · publicar · mis-publicaciones · mensajes · configuracion · equipo
-│  └─ api/                 NestJS
-│     ├─ prisma/           esquema, migraciones y semilla (categorías, galerías, productos del piloto)
-│     └─ src/modules/      sesion · catalogo · busqueda · ofertas · mensajes · avisos · cuenta · equipo · archivos
-├─ packages/
-│  ├─ contracts/           esquemas Zod compartidos por web, API y la futura app
-│  ├─ ui/                  tokens de la línea Hielo (Figtree 400/500/600, azul noche, azul pase, escala 28/20/16/15/14/13) y componentes
-│  └─ config/              ESLint y TypeScript
-├─ tools/deploy/           compose, nginx, scripts de despliegue y de respaldo (según el patrón de Yallegó)
-└─ docs/
-```
-
-- **Dazz:** API, base de datos, contratos, despliegue y la integración del tiempo real en la web.
-- **Grimm y My:** `apps/web/src/features/*` y `packages/ui`, una carpeta por pantalla para no pisarse (RNF-30). Mientras la API no esté, trabajan contra datos de ejemplo que cumplen los mismos contratos de `packages/contracts`.
-- Los componentes de `packages/ui` se sacan del lienzo; el mapa de pantallas trae la escala tipográfica, los botones y los estados.
+Las carpetas del monorepo, los módulos de la API, las pantallas de la web, dónde va cada cosa nueva y los comandos: **[documento 12 · Estructura del proyecto](12-estructura-del-proyecto.md)**.
 
 ## 12. Plan de construcción al 31/10
 
-| Día | Dazz (API e infraestructura) | Grimm y My (web) | Listo cuando |
-| --- | --- | --- | --- |
-| **Lun 26/10** | Monorepo desde la plantilla de Yallegó, esquema, migraciones, semilla, sesión y primer ingreso. *Staging* en línea | `packages/ui` con tokens y componentes base; barra, pie y acceso | Se entra a *staging* con una cuenta de prueba y se cambia la clave |
-| **Mar 27/10** | Catálogo, búsqueda con corrección, ficha por audiencia, prueba de contrato público. Panel del equipo: crear cuentas | Portada, resultados y ficha contra la API | Un visitante busca «rtx 3370» y ve la 3070 sin precio ni tienda |
-| **Mié 28/10** | Publicar (sugerencias, uno igual, producto nuevo), fotos, Mis publicaciones | Publicar y Mis publicaciones | Un vendedor publica en menos de 2 minutos (RNF-03) |
-| **Jue 29/10** | Mensajes en tiempo real, campanita, bloqueo, «Vendido». **Punto de control del plan B** | Mensajes (página C) y campanita | Dos tiendas conversan en *staging*. Si no está estable: se sale sin chat (documento 04) |
-| **Vie 30/10** | Configuración, límites, respaldos y restauración probada. Fabrizio y el equipo cargan el piloto | Configuración y repaso en celular | El piloto tiene sus productos cargados y todo pasa en celular |
-| **Sáb 31/10** | Despliegue a producción, prueba de humo y monitoreo | Ajustes finales | PaseLibre en línea |
-
-Si un día se atrasa, se recorta en el orden del documento 04 y no se mueve la fecha.
-
-**Avance al 27/10 (noche):**
-- **Día 1 (listo):** monorepo, esquema, semilla, sesión, primer ingreso y la pantalla de acceso de la web.
-- **Día 2 (listo):**
-  - En la API: portada, categorías, galerías, búsqueda con corrección y facetas, ficha por audiencia y la prueba de contrato público.
-  - El panel del equipo (`/equipo/cuentas`) en la API y en la web: crear cuentas, reenviar acceso o dar una contraseña temporal nueva, y suspender o reactivar. Traspasar llegó el 27/10, después del día 5.
-- **Día 3 (listo):**
-  - En la API: sugerencias «Ya está en PaseLibre», publicar uno igual, producto nuevo en el mismo paso, fotos (`POST /archivos`), Mis publicaciones con pestañas y buscador, editar, pausar, reactivar, eliminar y «Siguen igual».
-  - En la web: `/publicar` (también `?igual=` y `?editar=`) y `/mis-publicaciones`, como F_Publicar y F_MisPublicaciones del lienzo, revisadas en computadora y celular.
-  - «Ver publicación» y «Ver en la ficha» llevan a `/p/:producto`, que llega con la ficha de la web.
-- **Día 4 (listo):**
-  - En la API: tiempo real con socket.io, contactar por chat o WhatsApp, conversaciones con filtros y buscador, historial por páginas, texto y fotos, leer y «Visto», silenciar, archivar, no leída, bloquear, denunciar, campanita con «No molestar», contadores y «Vendido» con bloqueo de fila.
-  - En la web: `/mensajes` y `/mensajes/:conversacion` como C_Mensajes y F_MovilChat, la ventana de «Vendido», la campanita y el contador de Mensajes en la barra. Revisado en computadora y celular con dos tiendas conversando.
-- **Día 5 (listo, la parte de código):**
-  - Configuración (`/cuenta/configuracion`) en la API y la web: datos de la persona y de la tienda con logo, contraseña y sesiones abiertas, avisos con «No molestar», «Visto», bloqueados, valores por defecto al publicar y respuestas rápidas. Queda para la fase 2 lo que el lienzo C también trae: perfil privado, «Quién puede escribirte», respuesta automática, idioma y aviso por correo.
-  - Límites por IP y por persona (§9).
-  - Respaldos: scripts para respaldar, restaurar y ensayar, probados en local (§10).
-  - Traspasar (A-11, RF-71) en el panel del equipo: «Traspasar» aparece en las cuentas que tienen algo a su nombre y comparten tienda con otra.
-  - Falta, porque depende de personas o del servidor: que Fabrizio y el equipo carguen el piloto, la copia a B2, el cron y el ensayo en *staging*.
-- **Parte pública de la web (27/10 noche, adelantada):**
-  - Portada (`/`), resultados (`/buscar`) y ficha (`/p/:producto`) como F_Portada, F_Resultados y F_Ficha del lienzo, para quien mira sin sesión y para quien tiene cuenta. Los filtros, el orden y la página viven en la dirección, así que una búsqueda se comparte y funciona sin JavaScript.
-  - La barra suma el buscador (también en el celular, en su propia fila). La búsqueda con corrección avisa «Mostramos resultados para …».
-  - En la ficha, «Enviar mensaje» abre el chat con la tienda y «WhatsApp» abre el enlace con el mensaje ya escrito (RF-21, RF-23). Un producto unido a otro (RF-54) redirige con 301 a su dirección nueva.
-  - La API manda ahora la categoría en cada tarjeta de «Recién publicado», para dibujar su ícono cuando el producto no tiene fotos.
-- **Kit de despliegue (28/10):** Dockerfiles de la API y la web, `tools/deploy/compose.yml`, plantilla de nginx y los scripts `desplegar.sh` (construir, respaldar, migrar, cambiar las imágenes, humo y revertir), `humo.sh`, `cuenta-equipo.sh` y `semilla-demo.sh`. Probado en local de punta a punta, con nginx, WebSocket, fotos, respaldo y reversión; el detalle está en [`tools/deploy/DESPLIEGUE.md`](../tools/deploy/DESPLIEGUE.md). La web suma `/salud` para el healthcheck de su imagen, y `CLAVE_DEMO` se puede cambiar con una variable porque el repositorio es público.
-- *Staging* espera a que se decida el servidor: el punto de control del plan B se cumple en local y el kit de despliegue ya está probado; falta repetirlo en *staging*.
+El plan día por día, cómo va y lo que queda hasta el sábado: **[documento 11 · Plan de desarrollo](11-plan-de-desarrollo.md)**. Al 28/10 el código de los días 1 al 5 está hecho y el plan B no hace falta; *staging* está atrasado porque espera el VPS y el dominio ([documento 11 §2](11-plan-de-desarrollo.md#2-cómo-va-2810)).
 
 ## 13. Pruebas (RNF-32)
 
-- **Unitarias:** normalización y corrección de la búsqueda (con casos reales del chat: «3370», «rtx3070», «ventsu»), reglas de stock y reglas de visibilidad.
-- **De contrato:** el JSON de visitante no trae `precio`, `tienda`, `stand` ni `whatsapp`; los contratos Zod coinciden con lo que responde la API.
-- **De extremo a extremo** (en *staging*):
-  - Ingresar y cambiar la clave.
-  - Publicar uno igual.
-  - Contactar por mensaje y por WhatsApp.
-  - Marcar «Vendido».
-  - Que un bloqueado no pueda escribir.
-- **Humo después de cada despliegue:** `/v1/salud`, la portada, una búsqueda y el ingreso con una cuenta de prueba.
+Qué pruebas hay, qué corre la CI y qué falta: [documento 11 §4](11-plan-de-desarrollo.md#4-pruebas-rnf-32).
 
 ## 14. Decisiones pendientes
 

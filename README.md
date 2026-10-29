@@ -2,8 +2,8 @@
 
 > Marketplace básico y liviano para que las tiendas de **Galería Wilson** (Lima) encuentren productos de PC entre ellas, sin intermediar la venta.
 
-**Estado:** Fase 1 — construcción de la primera salida. Día 1 listo (monorepo, base de datos, semilla e inicio de sesión). Día 2 listo (catálogo, búsqueda con corrección y ficha por audiencia en la API, y el panel del equipo para crear cuentas en `/equipo/cuentas`).
-**Versión de la documentación:** 0.8 (borrador, 26/10/2026), armada a partir del chat del grupo «PaseLibre compra y ventas» del 22 al 24/10/2026, las respuestas del equipo a las preguntas abiertas y las decisiones de arquitectura de Dazz.
+**Estado (28/10/2026):** Fase 1 — primera salida. El código de los días 1 al 5 está hecho en la API y la web (catálogo, publicar, mensajes en tiempo real, configuración y panel del equipo), con la CI en verde y el kit de despliegue probado en local. Falta el servidor: *staging* espera el VPS y el dominio. Lo pendiente está en el [checklist](docs/CHECKLIST.md).
+**Versión de la documentación:** 0.8 (borrador), armada a partir del chat del grupo «PaseLibre compra y ventas» del 22 al 24/10/2026, las respuestas del equipo a las preguntas abiertas y las decisiones de arquitectura de Dazz. Los documentos 06 a 12 (28/10) salen de la arquitectura y del código.
 
 ---
 
@@ -91,14 +91,23 @@ pnpm dev              # API en http://localhost:3001 y web en http://localhost:3
 | [`docs/02-requerimientos-funcionales.md`](docs/02-requerimientos-funcionales.md) | Qué debe hacer el sistema |
 | [`docs/03-requerimientos-no-funcionales.md`](docs/03-requerimientos-no-funcionales.md) | Cómo debe comportarse: rendimiento, seguridad, usabilidad, costos |
 | [`docs/04-decisiones-para-la-reunion.md`](docs/04-decisiones-para-la-reunion.md) | Lo ya decidido, lo pendiente con recomendación y el plan para llegar a Halloween |
-| [`docs/05-arquitectura.md`](docs/05-arquitectura.md) | Stack, modelo de productos y ofertas, quién ve qué, rutas y API, búsqueda, mensajes, seguridad, despliegue y plan día por día al 31/10 |
+| [`docs/05-arquitectura.md`](docs/05-arquitectura.md) | Resumen de la arquitectura: principios, decisiones (A-xx), vista general, búsqueda, mensajes, infraestructura y riesgos |
+| [`docs/06-modelo-de-datos.md`](docs/06-modelo-de-datos.md) | Tablas, reglas que cuida la base, índices y migraciones |
+| [`docs/07-contrato-de-la-api.md`](docs/07-contrato-de-la-api.md) | Rutas de `/v1`, errores, tiempo real y cómo se cambia un contrato |
+| [`docs/08-seguridad-y-autenticacion.md`](docs/08-seguridad-y-autenticacion.md) | Roles, quién ve qué, ingreso, sesiones, límites y lo que falta |
+| [`docs/09-ux-y-flujos.md`](docs/09-ux-y-flujos.md) | Pantallas, quién entra a cada una y los recorridos principales |
+| [`docs/10-design-system.md`](docs/10-design-system.md) | Línea gráfica Hielo: color, tipografía, medidas, íconos, logo, componentes y voz |
+| [`docs/11-plan-de-desarrollo.md`](docs/11-plan-de-desarrollo.md) | Plan al 31/10, cómo va, pruebas y orden de la fase 2 |
+| [`docs/12-estructura-del-proyecto.md`](docs/12-estructura-del-proyecto.md) | Carpetas, dónde va cada cosa nueva y comandos |
+| [`docs/CHECKLIST.md`](docs/CHECKLIST.md) | Lo que falta para salir, con casillas y responsable |
+| [`tools/deploy/DESPLIEGUE.md`](tools/deploy/DESPLIEGUE.md) y [`RESPALDOS.md`](tools/deploy/RESPALDOS.md) | Servidor, despliegue, respaldos y restauración |
 | [Lienzo de diseño](https://claude.ai/artifact/H9iqh18AbknFVzzuRZPK1A) | Flujos y pantallas: versión A, versión B (eBay y Mercado Libre), cuenta, mensajes y configuración (con ideas de AliExpress) y la **línea final**, con las 13 pantallas de la primera salida y el mapa de rutas. Privado hasta que se comparta |
 
 ## Próximos pasos
 
-1. Validar la [arquitectura](docs/05-arquitectura.md) y decidir el servidor (VPS nuevo o el de Yallegó) y el dominio.
-2. Preguntarle a Grimm en qué está hecha su maquetación, para saber qué se reutiliza.
-3. Arrancar el lunes 26/10 con el monorepo y *staging*, según el plan día por día del documento 05.
-4. Fabrizio confirma los vendedores del piloto y su stock, para cargarlo el 30/10.
+1. Elegir el VPS y comprar el dominio, para poner *staging* en línea ([plan](docs/11-plan-de-desarrollo.md#3-de-aquí-al-sábado)).
+2. Conseguir el número de WhatsApp de PaseLibre.
+3. Fabrizio confirma los vendedores del piloto y su stock, para cargarlo el 30/10.
+4. Escribir los términos de uso, la política de privacidad y la ayuda.
 
 **Meta:** salir **antes de Halloween (31/10)**. Con el chat dentro de la web el alcance es ajustado, por eso [`docs/04`](docs/04-decisiones-para-la-reunion.md) trae una lista de recortes y un plan B.
