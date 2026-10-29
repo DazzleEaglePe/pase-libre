@@ -29,6 +29,8 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 | `/mensajes` y `/mensajes/:id` | Mensajes (C_Mensajes, F_MovilChat) | Vendedor | En el celular, la lista y el chat son dos pantallas |
 | `/cuenta/configuracion` (`?seccion=`) | Configuración (C_Configuración) | Vendedor | |
 | `/equipo/cuentas` | Panel del equipo (F_Equipo) | Equipo | `/equipo` lleva aquí |
+| `/ayuda`, `/terminos`, `/privacidad` | — (C_Footer) | Todos | Ayuda con preguntas frecuentes, y los borradores de Términos y Privacidad |
+| `/sitemap.xml`, `/robots.txt` | — | Buscadores | Solo producción se deja indexar |
 | `/salud` | — | — | Solo para el *healthcheck* del servidor |
 
 **Del mapa del lienzo que no se construyó:** `/c/:categoria` (se usa `/buscar?categoria=`), `/equipo/carga` (carga por planilla, fase 2) y `/equipo/catalogo` (unir duplicados, pendiente). Las rutas de la fase 2 (`/cuenta`, `/t/:tienda`, `/notificaciones`, `/bandeja`) siguen reservadas para no chocar después.
@@ -38,7 +40,7 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 - **Visitante:** logo, buscador (en el celular, en su propia fila) e «Ingresar».
 - **Vendedor:** logo, buscador, «Publicar», «Mis publicaciones» y «Mensajes» con su contador, la campanita y el menú de la cuenta (Configuración, Mis publicaciones, Mensajes y Salir).
 - **Equipo:** su propia barra oscura, con el logo y su panel.
-- **Pie:** Ayuda, Términos, Privacidad y Libro de Reclamaciones. **Todavía no llevan a ninguna parte** ([checklist](CHECKLIST.md)).
+- **Pie:** Ayuda, Términos y Privacidad, con sus páginas. «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
 
 **Quién entra a qué:**
 
@@ -114,7 +116,7 @@ sequenceDiagram
   B->>W: «¿Sigue disponible?»
   W-)A: Mensaje en vivo, contador y campanita
   A->>W: «Te lo separo»
-  A->>W: «Marcar como vendido» → elige a Tienda B
+  A->>W: «Vendido» → elige a Tienda B
   W-->>A: Stock 2 → 1, aviso en el chat
 ```
 
@@ -123,7 +125,7 @@ sequenceDiagram
 3. Sobre la caja de texto están las **respuestas rápidas** («¿Sigue disponible?», «Te lo separo»), que se editan en Configuración (RF-56).
 4. Se puede mandar una foto por mensaje, con texto opcional.
 5. En cada hilo: marcar como no leída, silenciar, archivar, bloquear (con confirmación) y denunciar (RF-57).
-6. Quien vende tiene **«Marcar como vendido»**: elige a quién, entre los que le escribieron por esa oferta, y el stock baja en 1 (RF-47).
+6. Quien vende tiene el botón **«Vendido»** arriba del chat: elige a quién, entre los que le escribieron por esa oferta, y el stock baja en 1 (RF-47).
 
 **La campanita** junta un aviso por conversación con mensajes sin leer («Tienes 2 mensajes sin leer de Tienda C»). Con «No molestar», los avisos aparecen al terminar el horario (RF-40, RF-59).
 

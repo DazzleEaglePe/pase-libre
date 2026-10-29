@@ -121,7 +121,7 @@ Y cada ruta sensible tiene el suyo:
 
 | Qué | Requerimiento | Estado |
 | --- | --- | --- |
-| **Términos de uso y política de privacidad**, revisados con la Ley 29733 | RNF-22, RNF-23 | Sin escribir ([checklist](CHECKLIST.md)) |
+| **Términos de uso y política de privacidad**, revisados con la Ley 29733 | RNF-22, RNF-23 | Borradores en `/terminos` y `/privacidad` (28/10). Faltan la revisión y los datos del responsable ([checklist](CHECKLIST.md)) |
 | **Consentimiento del WhatsApp** al crear la cuenta | RNF-21 | El documento 05 lo promete; el formulario del equipo no lo pide todavía. Va con los términos |
 | **Borrar una cuenta a pedido:** anonimizar al usuario, eliminar sus ofertas y conservar las ventas sin datos personales | RNF-24 | El documento 05 lo promete; no hay script ni ruta. Mientras tanto, el equipo suspende la cuenta |
 | **CSP en la web** | RNF-19 | La API la tiene (por `helmet`); la web no. Hay que definirla sin romper el socket ni las fotos |

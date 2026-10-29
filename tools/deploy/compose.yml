@@ -82,6 +82,10 @@ services:
     image: paselibre-web:${IMAGEN_TAG:-local}
     environment:
       API_INTERNAL_URL: http://api:3001
+      # Dirección pública: la vista al compartir, el sitemap y el robots.txt la usan.
+      WEB_URL: ${PUBLIC_URL:?Define PUBLIC_URL}
+      # Solo `produccion` se deja indexar por buscadores; staging no.
+      ENTORNO: ${ENTORNO}
     ports:
       - '127.0.0.1:${WEB_HOST_PORT:-3100}:3000'
     depends_on:

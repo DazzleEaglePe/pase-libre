@@ -245,6 +245,27 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
     });
   });
 
+  describe('mapa del sitio (RNF-42)', () => {
+    it('lista los productos que ve un visitante, sin los unidos ni los sin oferta vigente', async () => {
+      const respuesta = await http().get('/v1/mapa-del-sitio').expect(200);
+      const slugs = respuesta.body.productos.map((p: { slug: string }) => p.slug);
+      expect(slugs).toHaveLength(13);
+      expect(slugs).toContain(VENTUS);
+
+      const sinOfertaVigente = await prisma.producto.findMany({
+        where: { ofertas: { none: { estado: 'ACTIVA' } } },
+        select: { slug: true },
+      });
+      expect(sinOfertaVigente.length).toBeGreaterThan(0);
+      for (const { slug } of sinOfertaVigente) expect(slugs).not.toContain(slug);
+
+      for (const producto of respuesta.body.productos) {
+        expect(Number.isNaN(Date.parse(producto.actualizado_en))).toBe(false);
+      }
+      expect(respuesta.headers['cache-control']).toContain('public');
+    });
+  });
+
   describe('portada', () => {
     it('trae categorías con conteo, galerías con independientes y los totales', async () => {
       const respuesta = await http().get('/v1/portada').expect(200);

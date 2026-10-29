@@ -49,7 +49,7 @@ La ruta crítica es **VPS y dominio → *staging* → ensayo → piloto → prod
 | --- | --- | --- | --- |
 | **Mié 28/10** | Elegir el VPS y comprar el dominio | Dazz | — |
 | | Número de WhatsApp de PaseLibre y lista del piloto | Fabrizio | — |
-| | Textos de Términos, Privacidad y Ayuda (borrador), pie con enlaces, `sitemap.xml` y `robots.txt` | Dazz | — |
+| | ~~Textos de Términos, Privacidad y Ayuda (borrador), pie con enlaces, `sitemap.xml` y `robots.txt`~~ Hecho | Dazz | — |
 | **Jue 29/10** | Servidor, *staging* en línea y la prueba de punta a punta ([checklist §7](CHECKLIST.md#7-prueba-de-punta-a-punta-en-staging)) | Dazz | VPS y dominio |
 | | Respaldos con cron, copia a B2 y ensayo de restauración en *staging* | Dazz | *Staging* y cuenta de B2 |
 | | Cuentas del piloto creadas en *staging* para que prueben | Equipo | Lista del piloto |
@@ -74,7 +74,7 @@ La ruta crítica es **VPS y dominio → *staging* → ensayo → piloto → prod
 | **Unitarias** | `packages/contracts`, `apps/api` y `apps/web` | Normalización y corrección de la búsqueda (con casos del chat: «3370», «rtx3070», «ventsu»), contratos, «No molestar» y la consulta de la búsqueda en la web |
 | **Humo** | `tools/deploy/scripts/humo.sh` | Después de cada despliegue, desde afuera: salud, portada, búsqueda, visitante sin precio, socket y, con una cuenta, ingresar y salir |
 
-La última corrida completa: 132 pruebas pasando.
+La última corrida completa (28/10): 165 pruebas pasando, 133 de la API, 26 de los contratos y 6 de la web.
 
 **Lo que falta:**
 

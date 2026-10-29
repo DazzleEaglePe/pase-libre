@@ -8,6 +8,7 @@ import type {
   PortadaConsulta,
   ProductoDetalle,
   RespuestaFicha,
+  RespuestaMapaDelSitio,
   RespuestaPortada,
   RespuestaRedireccion,
 } from '@paselibre/contracts';
@@ -130,6 +131,28 @@ export class CatalogoService {
       WHERE c.padre_id IS NULL
       GROUP BY c.id
       ORDER BY c.orden, c.nombre`;
+  }
+
+  /**
+   * Mapa del sitio (RNF-42): cada producto con una oferta vigente, con la fecha de la más
+   * reciente. Un sitemap admite hasta 50 000 direcciones.
+   */
+  async mapaDelSitio(): Promise<RespuestaMapaDelSitio> {
+    const filas = await this.prisma.$queryRaw<Array<{ slug: string; actualizado_en: Date }>>`
+      SELECT p.slug::text AS slug, max(o.actualizada_en) AS actualizado_en
+      FROM producto p
+      JOIN oferta o ON o.producto_id = p.id AND o.estado = 'ACTIVA'
+      JOIN tienda t ON t.id = o.tienda_id AND t.estado = 'ACTIVA'
+      WHERE p.fusionado_en_id IS NULL
+      GROUP BY p.id
+      ORDER BY max(o.actualizada_en) DESC
+      LIMIT 50000`;
+    return {
+      productos: filas.map((f) => ({
+        slug: f.slug,
+        actualizado_en: f.actualizado_en.toISOString(),
+      })),
+    };
   }
 
   async galerias(): Promise<GaleriaResumen[]> {

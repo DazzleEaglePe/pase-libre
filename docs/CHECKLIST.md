@@ -34,8 +34,9 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 
 **Dazz**
 
-- [ ] **Antes de salir:** el pie de página lleva a Ayuda, Términos, Privacidad y Libro de Reclamaciones. Hoy son texto suelto en `pie-compacto.tsx` (depende de los textos del bloque 4)
-- [ ] **Antes de salir:** `sitemap.xml` y `robots.txt`, para el catálogo indexable (RNF-42)
+- [x] El pie de página lleva a Ayuda, Términos y Privacidad (28/10). «Libro de Reclamaciones» sigue sin enlace (ver bloque 4)
+- [x] `sitemap.xml` y `robots.txt` (RNF-42), con la ruta `GET /v1/mapa-del-sitio`. Solo producción se deja indexar; *staging* y local responden `Disallow: /` (28/10)
+- [x] La web recibe `WEB_URL` y `ENTORNO` en `compose.yml`: sin eso, la vista al compartir habría salido con `localhost` en producción (28/10)
 - [ ] **Antes de salir:** revisar en la web lo que quedó sin verificar: el orden, la paginación, el filtro de precio, el clic de WhatsApp y la vista del equipo
 - [ ] **Antes de salir:** una forma de cargar el piloto sin publicar uno por uno. La carga en bloque (RF-34) pasó a la fase 2, así que o cada vendedor publica a mano o se escribe un script chico a partir de la plantilla del bloque 4
 - [ ] **Antes de salir:** decidir qué hacer con las denuncias. Se guardan en la tabla `Denuncia`, pero el equipo no tiene dónde verlas (RF-28, RNF-53). Mínimo: una consulta SQL documentada en la guía del equipo
@@ -71,8 +72,10 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 
 **Para escribir**
 
-- [ ] **Términos de uso y política de privacidad** (RNF-21 a RNF-24): WhatsApp como dato personal con consentimiento, PaseLibre no interviene en las ventas, derecho a pedir que se eliminen los datos. Revisar con la Ley 29733 antes de publicar
-- [ ] **Ayuda:** preguntas frecuentes, cómo pedir una cuenta, «olvidé mi contraseña» (se pide al equipo por WhatsApp)
+- [x] **Borradores de Términos, Privacidad y Ayuda** en `/terminos`, `/privacidad` y `/ayuda` (28/10). Cada página avisa que es un borrador; se apaga con `BORRADOR` en `features/informacion/documento.tsx`
+- [ ] **Bloquea · Fabrizio:** quién responde legalmente por PaseLibre (nombre o razón social, RUC, domicilio y correo). Las páginas lo muestran como «[por definir]»; se completa en `RESPONSABLE` de `documento.tsx`
+- [ ] **Revisar los borradores** de Términos y Privacidad con alguien que conozca la Ley 29733, y la Ayuda con el equipo. Después, apagar `BORRADOR`
+- [ ] Al borrar una cuenta a pedido, borrar también sus fotos de la copia en B2: el respaldo las copia sin borrar nunca nada allá ([RESPALDOS.md](../tools/deploy/RESPALDOS.md)), y la política de privacidad promete eliminarlas
 - [ ] **Libro de Reclamaciones:** el diseño ya lo muestra. Averiguar si aplica a una plataforma gratuita entre tiendas y, si no, quitarlo del pie
 - [ ] **Guía del equipo:** crear cuentas, reenviar acceso, claves olvidadas, traspasar, unir duplicados, revisar denuncias y suspender
 - [ ] **Plantilla de carga del piloto:** qué se le pide a cada vendedor (producto, estado, stock, moneda, precio visible u oculto, foto)

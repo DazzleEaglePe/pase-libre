@@ -26,7 +26,7 @@ paselibre/
 │  │  └─ Dockerfile           imágenes de la API y de las migraciones
 │  └─ web/                    Next.js 15 · App Router · Tailwind
 │     ├─ src/
-│     │  ├─ app/              rutas: (publico), (vendedor), equipo, ingresar, salud
+│     │  ├─ app/              rutas: (publico), (vendedor), equipo, ingresar, salud, sitemap y robots
 │     │  ├─ features/         una carpeta por pantalla (ver abajo)
 │     │  └─ shared/           cliente de la API, tiempo real, fechas y componentes comunes
 │     └─ Dockerfile           imagen de la web (standalone)
@@ -70,6 +70,7 @@ La lista completa de rutas está en el [documento 07](07-contrato-de-la-api.md).
 | `mensajes` | Bandeja, conversación y la ventana de «Vendido» |
 | `configuracion` | Las cinco secciones de Configuración |
 | `equipo` | Cuentas, crear cuenta, acceso enviado y traspasar |
+| `informacion` | Ayuda, Términos y Privacidad, con el aviso de borrador y los datos del responsable |
 
 Las rutas de `src/app` solo arman la página y llaman a su carpeta de `features`. Los grupos `(publico)` y `(vendedor)` comparten barra y pie, y deciden quién entra ([documento 09 §2](09-ux-y-flujos.md#2-mapa-de-pantallas)).
 

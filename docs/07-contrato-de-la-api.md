@@ -75,6 +75,7 @@ El estado HTTP de cada código es el habitual; para decidir qué mostrar, la web
 | `GET /portada?galeria=` | Todos | «Recién publicado» (con la categoría de cada tarjeta) y los conteos por categoría | 44 |
 | `GET /categorias` | Todos | Las categorías, para el menú y los filtros | 11 |
 | `GET /galerias` | Todos | Las galerías activas | 17 |
+| `GET /mapa-del-sitio` | Todos | Cada producto con una oferta vigente y la fecha de la más reciente, para el `sitemap.xml` de la web | RNF-42 |
 | `GET /buscar` | Todos | Productos con el resumen de sus ofertas, las facetas y la corrección | 12–18 |
 | `GET /productos/:slug` | Todos | El producto y sus ofertas, según la audiencia. Si el producto se unió a otro, responde `{ "redirigir_a": "<slug>" }` y la web redirige con 301 | 19, 52 |
 

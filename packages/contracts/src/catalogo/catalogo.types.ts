@@ -133,6 +133,14 @@ export interface RespuestaRedireccion {
   redirigir_a: string;
 }
 
+/**
+ * `GET /v1/mapa-del-sitio`: los productos que ve un visitante, para el `sitemap.xml` de la
+ * web (RNF-42). La fecha es la de su oferta vigente más reciente.
+ */
+export interface RespuestaMapaDelSitio {
+  productos: Array<{ slug: string; actualizado_en: string }>;
+}
+
 // ── Portada ─────────────────────────────────────────────────────────────────
 
 export interface TarjetaOferta {

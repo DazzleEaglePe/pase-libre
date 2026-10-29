@@ -53,6 +53,8 @@ comprobar "La API está lista y llega a la base" GET /v1/salud/lista 200 '"base_
 comprobar "La portada responde" GET / 200 '<html'
 comprobar "La búsqueda responde" GET '/buscar?q=rtx' 200 '<html'
 comprobar "Sin sesión, /v1/yo dice que no" GET /v1/yo 401
+comprobar "El robots.txt responde" GET /robots.txt 200 'User-Agent'
+comprobar "El sitemap.xml responde" GET /sitemap.xml 200 "<urlset"
 
 # Lo que ve el visitante no puede traer precio, tienda, stand ni WhatsApp (RNF-18).
 pedir GET /v1/portada

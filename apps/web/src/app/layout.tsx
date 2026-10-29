@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Figtree } from 'next/font/google';
 import type { ReactNode } from 'react';
 
+import { URL_SITIO } from '@/shared/sitio';
+
 import './globals.css';
 
 const figtree = Figtree({
@@ -15,7 +17,7 @@ export const metadata: Metadata = {
   // Los íconos y la vista al compartir salen de los archivos de esta carpeta (icon.svg,
   // favicon.ico, apple-icon.png y opengraph-image.png), que genera branding/.
   // Con `WEB_URL` las direcciones de la vista al compartir salen con el dominio real.
-  metadataBase: new URL(process.env.WEB_URL ?? 'http://localhost:3000'),
+  metadataBase: new URL(URL_SITIO),
   title: { default: 'PaseLibre', template: '%s · PaseLibre' },
   description: 'Pases entre tiendas de la Galería Wilson: componentes de PC y periféricos.',
   openGraph: { siteName: 'PaseLibre', locale: 'es_PE', type: 'website' },

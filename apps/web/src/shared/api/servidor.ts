@@ -50,6 +50,16 @@ export async function consultarApi<T>(ruta: string): Promise<{ estado: number; c
   }
 }
 
+/**
+ * Para lo que no depende de quién mira, como el sitemap: sin cookie, igual que un visitante.
+ * Si falla, lanza.
+ */
+export async function cargarApiPublica<T>(ruta: string): Promise<T> {
+  const respuesta = await fetch(`${API_INTERNA}/v1${ruta}`, { cache: 'no-store' });
+  if (!respuesta.ok) throw new Error(`No se pudo cargar ${ruta} (${respuesta.status})`);
+  return (await respuesta.json()) as T;
+}
+
 /** Como `consultarApi`, para lo que tiene que existir: si falla, la página muestra su error. */
 export async function cargarApi<T>(ruta: string): Promise<T> {
   const { estado, cuerpo } = await consultarApi<T>(ruta);

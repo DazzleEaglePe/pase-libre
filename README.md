@@ -108,6 +108,6 @@ pnpm dev              # API en http://localhost:3001 y web en http://localhost:3
 1. Elegir el VPS y comprar el dominio, para poner *staging* en línea ([plan](docs/11-plan-de-desarrollo.md#3-de-aquí-al-sábado)).
 2. Conseguir el número de WhatsApp de PaseLibre.
 3. Fabrizio confirma los vendedores del piloto y su stock, para cargarlo el 30/10.
-4. Escribir los términos de uso, la política de privacidad y la ayuda.
+4. Revisar los borradores de Términos, Privacidad y Ayuda, y definir quién responde legalmente por PaseLibre.
 
 **Meta:** salir **antes de Halloween (31/10)**. Con el chat dentro de la web el alcance es ajustado, por eso [`docs/04`](docs/04-decisiones-para-la-reunion.md) trae una lista de recortes y un plan B.

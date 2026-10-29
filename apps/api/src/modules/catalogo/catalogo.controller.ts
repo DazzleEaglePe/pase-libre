@@ -19,6 +19,7 @@ import {
   type PortadaConsulta,
   type RespuestaBuscar,
   type RespuestaFicha,
+  type RespuestaMapaDelSitio,
   type RespuestaPortada,
   type RespuestaRedireccion,
 } from '@paselibre/contracts';
@@ -64,6 +65,12 @@ export class CatalogoController {
   @Get('galerias')
   galerias(): Promise<GaleriaResumen[]> {
     return this.catalogo.galerias();
+  }
+
+  /** Para el `sitemap.xml` de la web (RNF-42): solo lo que ve un visitante. */
+  @Get('mapa-del-sitio')
+  mapaDelSitio(): Promise<RespuestaMapaDelSitio> {
+    return this.catalogo.mapaDelSitio();
   }
 
   /** Búsqueda: 60 por minuto por persona (o por IP, sin sesión), contra el scraping (docs/05 §9). */
