@@ -19,11 +19,16 @@ function Formulario({
   const categoria = enResultados ? (parametros.get('categoria') ?? '') : '';
 
   return (
-    <form key={`${valor}|${categoria}`} action="/buscar" role="search" className={className}>
+    <form
+      key={`${valor}|${categoria}`}
+      action="/buscar"
+      role="search"
+      className={`flex items-center gap-2.5 ${className}`}
+    >
       <label htmlFor="buscar-q" className="sr-only">
         Buscar componentes
       </label>
-      <div className="flex h-11 items-center gap-2 rounded-full border border-borde-control bg-white pl-4 pr-1.5 focus-within:border-tinta">
+      <div className="flex h-12 min-w-0 flex-1 items-center gap-2 rounded-full border-[1.5px] border-borde-control bg-white pl-4 pr-1.5 focus-within:border-tinta">
         <svg
           width="18"
           height="18"
@@ -45,7 +50,7 @@ function Formulario({
           type="search"
           defaultValue={valor}
           autoComplete="off"
-          placeholder="Busca marca o modelo"
+          placeholder="Busca por modelo, marca o código"
           className="h-full min-w-0 flex-1 bg-transparent text-cuerpo text-tinta outline-none placeholder:text-detalle"
         />
         {categorias.length > 0 && (
@@ -58,9 +63,9 @@ function Formulario({
               id="buscar-categoria"
               name="categoria"
               defaultValue={categoria}
-              className="hidden h-8 max-w-[150px] shrink-0 cursor-pointer border-l border-linea bg-transparent pl-3 pr-1 text-apoyo text-secundario outline-none sm:block"
+              className="hidden h-8 max-w-[180px] shrink-0 cursor-pointer border-l border-linea bg-transparent pl-3 pr-2 text-apoyo text-secundario outline-none sm:block"
             >
-              <option value="">Todas</option>
+              <option value="">Todas las categorías</option>
               {categorias.map((opcion) => (
                 <option key={opcion.slug} value={opcion.slug}>
                   {opcion.nombre}
@@ -69,13 +74,13 @@ function Formulario({
             </select>
           </>
         )}
-        <button
-          type="submit"
-          className="h-8 shrink-0 rounded-full bg-pase px-4 text-apoyo font-semibold text-white"
-        >
-          Buscar
-        </button>
       </div>
+      <button
+        type="submit"
+        className="h-12 shrink-0 rounded-full bg-pase px-6 text-cuerpo font-semibold text-white"
+      >
+        Buscar
+      </button>
     </form>
   );
 }

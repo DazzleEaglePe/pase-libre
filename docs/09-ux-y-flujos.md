@@ -37,10 +37,14 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 
 **Barras y pie:**
 
-- **Visitante:** logo, buscador (en el celular, en su propia fila) e «Iniciar sesión».
-- **Vendedor:** logo, buscador, «Publicar», «Mis publicaciones» y «Mensajes» con su contador, la campanita y el menú de la cuenta (Configuración, Mis publicaciones, Mensajes y Salir).
-- **El buscador es el mismo con sesión y sin ella:** texto y, desde tablet, el selector de categoría, como C_Header. En los resultados conserva lo que se buscó y la categoría.
-- **Fila de categorías:** debajo de la barra en todo el catálogo (portada, resultados, ficha y ayuda), con sesión o sin ella: «Todas las categorías», cada categoría con su número de productos y «Ayuda». En el celular se desliza de lado. No va en las páginas del vendedor, para no restarle alto al chat.
+- **Una sola barra, la de C_Header** (28/10), igual con sesión y sin ella, en el catálogo y en las páginas del vendedor (`shared/ui/cabecera.tsx`). De arriba abajo:
+  1. **Fila del saludo** (desde tablet): «¡Hola! Inicia sesión o pide tu cuenta» o «¡Hola, Tienda B!», «Cómo funciona» y «Ayuda y contacto»; a la derecha, el selector de **galería** y «Publicar» (y «Mi cuenta» sin sesión). La galería filtra lo recién publicado en la portada y, desde cualquier otra página, lleva a los resultados de esa galería.
+  2. **Logo con «Pases entre tiendas de Wilson»**, el **buscador** (texto, selector de categoría desde tablet y «Buscar» aparte) y, con tienda, la campanita, Mensajes con su contador y «Mi cuenta» (Publicar, Configuración, Mis publicaciones, Mensajes y Cerrar sesión). Sin sesión, en el celular, «Ingresar».
+  3. **Banda de categorías en azul noche:** «Todas las categorías», cada categoría y, a la derecha, «Soporte por WhatsApp» (cuando exista el número) o «Ayuda y soporte». En el celular se desliza de lado.
+  4. **Franja de ventajas en azul suave** (desde tablet): «Pases entre tiendas de Wilson · Gratis para el piloto · Precios solo con sesión · Busca aunque escribas mal · Chat y WhatsApp · El trato es entre vendedores».
+- **En Mensajes** la barra va sin banda ni franja, para que el chat entre en la pantalla.
+- **En el celular** queda como F_MovilPortada: logo con los iconos, buscador y banda.
+- **Fuera, a propósito:** el menú grande de «Comprar por categoría» (con 7 categorías sin subcategorías, la banda las muestra todas) y «Avanzada» (los filtros están en `/buscar`).
 - **Equipo:** su propia barra oscura, con el logo y su panel.
 - **Pie:** el claro con columnas del lienzo (C_Footer, elegido el 28/10): la marca, las columnas PaseLibre, Ayuda y Legal, y «El trato es entre vendedores: PaseLibre no interviene en las ventas». Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat. «Escríbenos por WhatsApp» aparece cuando exista el número, y «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
 

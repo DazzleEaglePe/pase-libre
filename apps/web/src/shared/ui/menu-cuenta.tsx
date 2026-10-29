@@ -8,14 +8,15 @@ import { useEffect, useRef, useState } from 'react';
 import { llamarApi } from '@/shared/api/cliente';
 
 const ENLACES = [
+  { href: '/publicar', texto: 'Publicar' },
   { href: '/cuenta/configuracion', texto: 'Configuración' },
   { href: '/mis-publicaciones', texto: 'Mis publicaciones' },
   { href: '/mensajes', texto: 'Mensajes' },
 ] as const;
 
 /**
- * «Mi cuenta» (C_Header): el saludo con la tienda abre el menú con Configuración y
- * «Cerrar sesión» (RF-60: al cambio de contraseña se llega desde aquí).
+ * «Mi cuenta» (C_Header): el botón abre el menú con la tienda arriba, Publicar,
+ * Configuración y «Cerrar sesión» (RF-60: al cambio de contraseña se llega desde aquí).
  */
 export function MenuCuenta({ tienda, lugar }: { tienda: TiendaDeSesion; lugar: string }) {
   const router = useRouter();
@@ -68,12 +69,7 @@ export function MenuCuenta({ tienda, lugar }: { tienda: TiendaDeSesion; lugar: s
         >
           {inicial}
         </span>
-        <span className="flex flex-col leading-tight">
-          <span>
-            ¡Hola, <b className="font-semibold">{tienda.nombre}</b>!
-          </span>
-          {lugar && <span className="text-nota text-detalle">{lugar}</span>}
-        </span>
+        <span className="font-semibold max-sm:sr-only">Mi cuenta</span>
         <svg
           width="14"
           height="14"
@@ -94,6 +90,11 @@ export function MenuCuenta({ tienda, lugar }: { tienda: TiendaDeSesion; lugar: s
           aria-label="Mi cuenta"
           className="absolute right-0 top-12 z-40 flex w-[260px] max-w-[calc(100vw-32px)] flex-col rounded-[20px] border border-linea bg-white p-2 text-apoyo shadow-[0_18px_40px_rgba(20,22,26,0.18)]"
         >
+          <span className="flex flex-col px-2.5 pb-2 pt-1.5">
+            <b className="font-semibold">{tienda.nombre}</b>
+            {lugar && <span className="text-nota text-detalle">{lugar}</span>}
+          </span>
+          <span className="mx-2 mb-1 h-px bg-linea" />
           {ENLACES.map(({ href, texto }) => (
             <Link
               key={href}

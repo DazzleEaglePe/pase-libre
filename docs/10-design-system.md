@@ -157,7 +157,7 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 
 | Componente | Qué es |
 | --- | --- |
-| `barra-visitante` y `barra-vendedor` | La barra de arriba, sin sesión y con sesión |
+| `cabecera` | La barra de arriba (C_Header): fila del saludo y la galería, logo con frase, buscador, banda de categorías y franja de ventajas; igual con sesión y sin ella |
 | `buscador` | El buscador de la barra, con el selector de categoría desde tablet; en el celular, en su propia fila |
 | `campanita` y `contador` | Los avisos y las insignias |
 | `menu-cuenta` | El menú del avatar |
@@ -166,7 +166,6 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | `miniatura` | La foto pequeña de un producto |
 | `interruptor` y `segmentado` | Controles de sí o no y de opciones |
 | `ventana` | Las ventanas de confirmación («Vendido», bloquear, eliminar) |
-| `fila-categorias` | La fila de categorías bajo la barra del catálogo |
 | `pie-pagina` | El pie con columnas (C_Footer), en el catálogo y en las páginas del vendedor |
 | `pie-compacto` | El pie de una línea (C_FooterCompacto), en Mensajes y en el panel del equipo |
 
