@@ -38,8 +38,8 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 **Barras y pie:**
 
 - **Una sola barra, la de C_Header** (28/10), igual con sesión y sin ella, en el catálogo y en las páginas del vendedor (`shared/ui/cabecera.tsx`). De arriba abajo:
-  1. **Fila del saludo** (desde tablet): «¡Hola! Inicia sesión o pide tu cuenta» o «¡Hola, Tienda B!», «Cómo funciona» y «Ayuda y contacto»; a la derecha, el selector de **galería** y «Publicar» (y «Mi cuenta» sin sesión). La galería filtra lo recién publicado en la portada y, desde cualquier otra página, lleva a los resultados de esa galería.
-  2. **Logo con «Pases entre tiendas de Wilson»**, el **buscador** (texto, selector de categoría desde tablet y «Buscar» aparte) y, con tienda, la campanita, Mensajes con su contador y «Mi cuenta» (Publicar, Configuración, Mis publicaciones, Mensajes y Cerrar sesión). Sin sesión, en el celular, «Ingresar».
+  1. **Fila del saludo** (desde tablet): «¡Hola! Inicia sesión o pide tu cuenta» o «¡Hola, Tienda B!», «Cómo funciona» y «Ayuda y contacto»; a la derecha, el selector de **galería**, «Publicar» y, con tienda, la campanita, Mensajes con su contador y «Mi cuenta» (Publicar, Configuración, Mis publicaciones, Mensajes y Cerrar sesión); sin sesión, «Mi cuenta» lleva al ingreso. La galería filtra lo recién publicado en la portada y, desde cualquier otra página, lleva a los resultados de esa galería.
+  2. **Fila principal, igual con sesión y sin ella:** el logo con «Pases entre tiendas de Wilson» y «Comprar por categoría» en el borde izquierdo, el **buscador** llenando el centro y «Buscar» en el borde derecho, alineados con los bordes de las otras filas y centrados en vertical. En el celular, junto al logo van la campanita, Mensajes y «Mi cuenta» (o «Ingresar» sin sesión).
   3. **Banda de categorías en azul noche:** «Todas las categorías», cada categoría y, a la derecha, «Soporte por WhatsApp» (cuando exista el número) o «Ayuda y soporte». En el celular se desliza de lado.
   4. **Franja de ventajas en azul suave** (desde tablet): «Pases entre tiendas de Wilson · Gratis para el piloto · Precios solo con sesión · Busca aunque escribas mal · Chat y WhatsApp · El trato es entre vendedores».
 - **En Mensajes** la barra va sin banda ni franja, para que el chat entre en la pantalla.
@@ -51,7 +51,12 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
   - Se maneja con las flechas, Enter y Escape. Lo que se va escribiendo no cuenta como búsqueda en las métricas.
 - **Fuera, a propósito:** «Avanzada» (los filtros están en `/buscar`).
 - **Equipo:** su propia barra oscura, con el logo y su panel.
-- **Pie:** el claro con columnas del lienzo (C_Footer, elegido el 28/10): la marca, las columnas PaseLibre, Ayuda y Legal, y «El trato es entre vendedores: PaseLibre no interviene en las ventas». Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat. «Escríbenos por WhatsApp» aparece cuando exista el número, y «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
+- **Pie:** el claro con columnas del lienzo (C_Footer, elegido el 28/10):
+  - La marca con su frase, y las columnas PaseLibre, Ayuda y Legal, que llevan a secciones concretas de Ayuda y de Términos (`/ayuda#cuenta`, `/terminos#reglas`…).
+  - **Contacto** (29/10), con íconos de línea: WhatsApp, correo, horario (reloj) y las redes (Facebook, Instagram y TikTok) en círculos. Salen de `shared/contacto.ts`; en producción solo se ve lo que tiene dato, y en local los que faltan aparecen como «[correo de PaseLibre]».
+  - Debajo, «El trato es entre vendedores: PaseLibre no interviene en las ventas» y «Español (Perú) · Precios en US$ y S/».
+  - «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
+  - Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat.
 
 **Quién entra a qué:**
 

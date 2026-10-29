@@ -52,7 +52,7 @@ export function Terminos() {
         </ul>
       </Seccion>
 
-      <Seccion titulo="4. Qué puedes publicar">
+      <Seccion titulo="4. Qué puedes publicar" id="reglas">
         <ul>
           <li>Componentes de PC y periféricos que tengas o puedas conseguir.</li>
           <li>

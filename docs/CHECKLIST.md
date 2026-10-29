@@ -87,6 +87,7 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 - [ ] **Bloquea · Dazz:** elegir el VPS (recomendado: uno nuevo de 2 vCPU y 4 GB, no el de Yallegó)
 - [ ] **Bloquea · Dazz:** comprar el dominio. *Staging* puede vivir en un subdominio provisional
 - [ ] **Bloquea · Fabrizio:** el número de WhatsApp de PaseLibre. Se fija al construir la imagen de la web: mientras falte, el botón no aparece
+- [ ] **Fabrizio:** el correo, el horario de atención y las redes de PaseLibre (Facebook, Instagram, TikTok) para la columna Contacto del pie. Se escriben en `apps/web/src/shared/contacto.ts`; lo que falte no se muestra
 - [ ] **Fabrizio:** confirmar el inicio de sesión con correo o usuario y contraseña
 - [ ] **Fabrizio:** confirmar el plazo de 7 días para avisar de publicaciones sin actualizar
 - [ ] **Equipo:** elegir el eslogan («Lo que a tu tienda le falta, otra en Wilson ya lo tiene.» frente a «Busca tu wbada»)

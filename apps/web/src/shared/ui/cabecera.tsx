@@ -2,13 +2,14 @@
 
 import type {
   CategoriaResumen,
+  Contadores,
   GaleriaResumen,
   RespuestaYo,
   TiendaDeSesion,
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { Suspense, type ReactNode } from 'react';
 
 import { BotonSalir } from '@/features/acceso/boton-salir';
 import { enlaceWhatsappEquipo } from '@/shared/whatsapp-equipo';
@@ -89,10 +90,18 @@ function SelectorGaleria({ galerias }: { galerias: GaleriaResumen[] }) {
   );
 }
 
-/** La campanita, Mensajes con su contador y «Mi cuenta». Solo se monta con tienda. */
-function AccionesVendedor({ tienda }: { tienda: TiendaDeSesion }) {
+/**
+ * La campanita, Mensajes con su contador y «Mi cuenta». Van en la fila del saludo desde
+ * tablet y junto al logo en el celular; los contadores se piden una sola vez, arriba.
+ */
+function AccionesVendedor({
+  tienda,
+  contadores,
+}: {
+  tienda: TiendaDeSesion;
+  contadores: Contadores;
+}) {
   const ruta = usePathname();
-  const contadores = useContadores();
   const enMensajes = ruta.startsWith('/mensajes');
   const lugar = [tienda.galeria, tienda.stand && `Stand ${tienda.stand}`]
     .filter(Boolean)
@@ -220,6 +229,47 @@ export function Cabecera({
   categorias: CategoriaResumen[];
   galerias: GaleriaResumen[];
 }) {
+  const tienda = sesion?.tienda;
+  return tienda ? (
+    <CabeceraConTienda
+      sesion={sesion}
+      tienda={tienda}
+      categorias={categorias}
+      galerias={galerias}
+    />
+  ) : (
+    <Barra sesion={sesion} categorias={categorias} galerias={galerias} acciones={null} />
+  );
+}
+
+/** Con tienda: los contadores de la campanita y de Mensajes, una sola vez para toda la barra. */
+function CabeceraConTienda({
+  tienda,
+  ...resto
+}: {
+  sesion: RespuestaYo;
+  tienda: TiendaDeSesion;
+  categorias: CategoriaResumen[];
+  galerias: GaleriaResumen[];
+}) {
+  const contadores = useContadores();
+  return (
+    <Barra {...resto} acciones={<AccionesVendedor tienda={tienda} contadores={contadores} />} />
+  );
+}
+
+function Barra({
+  sesion,
+  categorias,
+  galerias,
+  acciones,
+}: {
+  sesion: RespuestaYo | null;
+  categorias: CategoriaResumen[];
+  galerias: GaleriaResumen[];
+  /** Campanita, Mensajes y «Mi cuenta», cuando hay tienda. */
+  acciones: ReactNode;
+}) {
   const ruta = usePathname();
   const completa = !ruta.startsWith('/mensajes');
   const tienda = sesion?.tienda ?? null;
@@ -275,32 +325,36 @@ export function Cabecera({
                 Mi cuenta
               </Link>
             )}
+            {acciones}
           </div>
         </div>
       </div>
 
       {/* `relative`: el panel de «Comprar por categoría» se abre a todo el ancho, debajo. */}
       <div className="relative">
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:gap-x-6 sm:px-8">
-          <div className="order-1 flex items-center gap-4">
+        {/* Como C_Header: el logo y «Comprar por categoría» en el borde izquierdo, el buscador
+            llenando el centro y «Buscar» en el borde derecho, todo centrado en vertical. */}
+        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-8 md:flex-nowrap md:gap-x-8">
+          <div className="order-1 flex shrink-0 items-center gap-6">
             <Marca conFrase />
             <MenuCategorias categorias={categorias} />
           </div>
           <Buscador
             categorias={categorias}
-            className="order-3 basis-full md:order-2 md:max-w-[720px] md:flex-1 md:basis-auto"
+            className="order-3 basis-full md:order-2 md:min-w-0 md:flex-1 md:basis-auto"
           />
-          <div className="order-2 ml-auto flex items-center gap-2 md:order-3">
+          {/* En el celular no está la fila del saludo: lo de la cuenta va junto al logo. */}
+          <div className="order-2 ml-auto flex items-center gap-2 md:hidden">
             {tienda ? (
-              <AccionesVendedor tienda={tienda} />
+              acciones
             ) : sesion ? (
-              <Link href="/equipo/cuentas" className={`${enlaceFuerte} text-apoyo md:hidden`}>
+              <Link href="/equipo/cuentas" className={`${enlaceFuerte} text-apoyo`}>
                 Panel del equipo
               </Link>
             ) : (
               <Link
                 href="/ingresar"
-                className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium no-underline md:hidden"
+                className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium no-underline"
               >
                 Ingresar
               </Link>

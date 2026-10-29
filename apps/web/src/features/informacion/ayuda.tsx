@@ -28,7 +28,7 @@ export function Ayuda() {
       titulo="Ayuda"
       resumen="Respuestas cortas a lo que más se pregunta. Si no encuentras la tuya, escríbele al equipo."
     >
-      <Seccion titulo="Sobre PaseLibre">
+      <Seccion titulo="Sobre PaseLibre" id="sobre">
         <Pregunta titulo="¿Qué es PaseLibre?">
           <p>
             Un catálogo para que las tiendas de las galerías de Wilson encuentren entre ellas los
@@ -51,7 +51,7 @@ export function Ayuda() {
         </Pregunta>
       </Seccion>
 
-      <Seccion titulo="Tu cuenta">
+      <Seccion titulo="Tu cuenta" id="cuenta">
         <Pregunta titulo="¿Cómo consigo una cuenta?">
           <p>
             Por ahora las cuentas las crea el equipo de PaseLibre para dueños de tienda, asesores y
@@ -92,7 +92,7 @@ export function Ayuda() {
         </Pregunta>
       </Seccion>
 
-      <Seccion titulo="Buscar">
+      <Seccion titulo="Buscar" id="buscar">
         <Pregunta titulo="¿Por qué no veo precios ni el nombre de la tienda?">
           <p>
             Porque no has ingresado. Sin cuenta se ven los productos, su estado, el stock y la
@@ -114,7 +114,7 @@ export function Ayuda() {
         </Pregunta>
       </Seccion>
 
-      <Seccion titulo="Publicar">
+      <Seccion titulo="Publicar" id="publicar">
         <Pregunta titulo="¿Cómo publico un producto?">
           <p>
             Entra a{' '}
@@ -154,7 +154,7 @@ export function Ayuda() {
         </Pregunta>
       </Seccion>
 
-      <Seccion titulo="Mensajes">
+      <Seccion titulo="Mensajes" id="mensajes">
         <Pregunta titulo="¿Quién ve mis mensajes?">
           <p>Solo tú y la otra persona de la conversación. El equipo de PaseLibre no los lee.</p>
         </Pregunta>
