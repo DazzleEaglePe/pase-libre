@@ -1,15 +1,16 @@
 'use client';
 
+import {
+  IconArrowsDiagonal,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlayerPause,
+  IconPlayerPlay,
+  IconX,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 
 import { Miniatura } from '@/shared/ui/miniatura';
 
@@ -62,31 +63,14 @@ function guardarRecuerdo(cambios: Partial<Recuerdo>): void {
 const enElCatalogo = (ruta: string) =>
   ruta === '/' || ruta.startsWith('/buscar') || ruta.startsWith('/p/');
 
-function Icono({ children }: { children: ReactNode }) {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
+/** Íconos de línea de Tabler, con el trazo de la marca (docs/10 §5). */
 const ICONOS = {
-  abrir: <path d="M17 17L7 7M7 15V7h8" />,
-  cerrar: <path d="M6 6l12 12M18 6L6 18" />,
-  pausa: <path d="M9 6v12M15 6v12" />,
-  seguir: <path d="M8 5.5v13l10-6.5z" />,
-  anterior: <path d="M15 6l-6 6 6 6" />,
-  siguiente: <path d="M9 6l6 6-6 6" />,
+  abrir: IconArrowsDiagonal,
+  cerrar: IconX,
+  pausa: IconPlayerPause,
+  seguir: IconPlayerPlay,
+  anterior: IconChevronLeft,
+  siguiente: IconChevronRight,
 };
 
 function BotonIcono({
@@ -100,6 +84,7 @@ function BotonIcono({
   alPulsar: () => void;
   chico?: boolean;
 }) {
+  const Dibujo = ICONOS[icono];
   return (
     <button
       type="button"
@@ -110,7 +95,7 @@ function BotonIcono({
         chico ? 'h-8 w-8' : 'h-10 w-10'
       }`}
     >
-      <Icono>{ICONOS[icono]}</Icono>
+      <Dibujo size={chico ? 18 : 20} stroke={1.5} aria-hidden="true" />
     </button>
   );
 }
@@ -303,6 +288,23 @@ function Mini({
   const [pausa, setPausa] = useState(false);
   const [encima, setEncima] = useState(false);
   const [reducir, setReducir] = useState(false);
+  // Cuánto del pie se ve: la tarjeta sube para no tapar Contacto ni las redes.
+  const [sobrePie, setSobrePie] = useState(0);
+
+  useEffect(() => {
+    const medir = () => {
+      const pie = document.querySelector('footer');
+      if (!pie) return;
+      setSobrePie(Math.max(0, Math.round(window.innerHeight - pie.getBoundingClientRect().top)));
+    };
+    medir();
+    window.addEventListener('scroll', medir, { passive: true });
+    window.addEventListener('resize', medir);
+    return () => {
+      window.removeEventListener('scroll', medir);
+      window.removeEventListener('resize', medir);
+    };
+  }, []);
   const indiceActual = useRef(0);
   const progresoActual = useRef(0);
   const salto = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -384,7 +386,8 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        className="fixed bottom-6 right-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
+        style={{ bottom: 24 + sobrePie }}
+        className="borde-en-vivo fixed bottom-6 right-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
         <div className="flex items-center justify-between gap-1 pl-3 pr-2 pt-2">
           <span className="flex items-center gap-0.5">
@@ -467,7 +470,8 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        className="fixed inset-x-3 bottom-3 z-30 flex flex-col overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
+        style={{ bottom: 12 + sobrePie }}
+        className="borde-en-vivo fixed inset-x-3 bottom-3 z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <div className="flex items-center gap-1 py-2.5 pl-2.5 pr-1.5">
           <div className="min-w-0 flex-1 overflow-hidden">

@@ -111,7 +111,7 @@ La línea gráfica **Hielo** (D-52) y cómo se usa en la web: color, tipografía
 
 ## 5. Íconos y logo
 
-**Íconos:** de línea, sobre una rejilla de 24, con trazo de 1,5, extremos y uniones redondeados, sin relleno y en azul noche. **Nunca dentro de un cuadrado de color:** el color es del azul pase, y el azul pase es para actuar. Las categorías sin foto usan su propio glifo (`glifo-categoria.tsx`).
+**Íconos:** de línea, sobre una rejilla de 24, con trazo de 1,5, extremos y uniones redondeados, sin relleno y en azul noche. **Nunca dentro de un cuadrado de color:** el color es del azul pase, y el azul pase es para actuar. Las categorías sin foto usan su propio glifo (`glifo-categoria.tsx`). En la web, los demás salen de [Tabler](https://tabler.io/icons) (`@tabler/icons-react`, versión fija) con `stroke={1.5}`: los controles (pausa, flechas, cerrar) y las marcas (WhatsApp, Facebook, Instagram y TikTok), que así tienen el mismo trazo que el resto.
 
 **Logo:** una entrada con muesca y una flecha (el «pase»), junto a la palabra PaseLibre.
 
@@ -167,7 +167,7 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | `miniatura` | La foto pequeña de un producto |
 | `interruptor` y `segmentado` | Controles de sí o no y de opciones |
 | `ventana` | Las ventanas de confirmación («Vendido», bloquear, eliminar) |
-| `pie-pagina` | El pie con columnas (C_Footer), en el catálogo y en las páginas del vendedor. Su columna Contacto lleva íconos de línea (WhatsApp, correo, reloj y redes en círculos) y lee sus datos de `shared/contacto.ts` |
+| `pie-pagina` | El pie con columnas (C_Footer), en el catálogo y en las páginas del vendedor. Su columna Contacto lleva íconos de Tabler en círculos grises (WhatsApp, correo, reloj y las redes, que al pasar el mouse se ponen en azul noche) y lee sus datos de `shared/contacto.ts` |
 | `pie-compacto` | El pie de una línea (C_FooterCompacto), en Mensajes y en el panel del equipo |
 
 ## 8. Cómo se cambia

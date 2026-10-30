@@ -1,3 +1,11 @@
+import {
+  IconBrandFacebook,
+  IconBrandInstagram,
+  IconBrandTiktok,
+  IconBrandWhatsapp,
+  IconClock,
+  IconMail,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -37,73 +45,28 @@ const COLUMNAS: Array<{ titulo: string; enlaces: Array<{ href: string; texto: st
 const claseEnlace =
   'inline-flex min-h-6 items-center text-apoyo text-secundario no-underline hover:text-tinta hover:underline';
 
-/** Íconos de línea de la marca: rejilla de 24, trazo de 1,5 y sin relleno (docs/10 §5). */
-function Icono({ children, tamano = 18 }: { children: ReactNode; tamano?: number }) {
-  return (
-    <svg
-      width={tamano}
-      height={tamano}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="shrink-0"
-    >
-      {children}
-    </svg>
-  );
-}
+/** Íconos de línea de Tabler, con el trazo de la marca: 1,5 (docs/10 §5). */
+const TRAZO = 1.5;
 
 const ICONOS = {
-  whatsapp: (
-    <Icono>
-      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
-      <path d="M9.2 8.8c0 3.4 2.6 6 6 6l1-1.6-2.1-1-1 .9c-.9-.4-1.7-1.2-2.1-2.1l.9-1-1-2.1z" />
-    </Icono>
-  ),
-  correo: (
-    <Icono>
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M3.5 6.5 12 13l8.5-6.5" />
-    </Icono>
-  ),
-  horario: (
-    <Icono>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </Icono>
-  ),
+  whatsapp: <IconBrandWhatsapp size={16} stroke={TRAZO} aria-hidden="true" />,
+  correo: <IconMail size={16} stroke={TRAZO} aria-hidden="true" />,
+  horario: <IconClock size={16} stroke={TRAZO} aria-hidden="true" />,
 } as const;
 
 const REDES_ICONO: Record<Red, ReactNode> = {
-  facebook: (
-    <Icono>
-      <path d="M15 3h-2a4 4 0 0 0-4 4v3H7v4h2v7h4v-7h2.5l.5-4h-3V7.5A.5.5 0 0 1 13.5 7H15z" />
-    </Icono>
-  ),
-  instagram: (
-    <Icono>
-      <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M17.2 6.8h.01" />
-    </Icono>
-  ),
-  tiktok: (
-    <Icono>
-      <path d="M14 3v11.2a3.8 3.8 0 1 1-3.8-3.8" />
-      <path d="M14 3c.4 2.9 2.3 4.8 5 5.1" />
-    </Icono>
-  ),
+  facebook: <IconBrandFacebook size={20} stroke={TRAZO} aria-hidden="true" />,
+  instagram: <IconBrandInstagram size={20} stroke={TRAZO} aria-hidden="true" />,
+  tiktok: <IconBrandTiktok size={20} stroke={TRAZO} aria-hidden="true" />,
 };
 
 function FilaContacto({ icono, dato }: { icono: ReactNode; dato: DatoContacto }) {
   const texto = <span className={dato.falta ? 'text-detalle' : undefined}>{dato.texto}</span>;
   return (
-    <li className="flex min-h-6 items-center gap-2.5 text-apoyo text-secundario">
-      <span className="text-tinta">{icono}</span>
+    <li className="flex min-h-8 items-center gap-2.5 text-apoyo text-secundario">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-superficie text-tinta">
+        {icono}
+      </span>
       {dato.href ? (
         <a
           href={dato.href}
@@ -172,7 +135,7 @@ export function PiePagina() {
               <ul aria-label="Redes de PaseLibre" className="mt-1.5 flex gap-2">
                 {REDES.map(({ red, nombre, url }) => {
                   const clase =
-                    'flex h-10 w-10 items-center justify-center rounded-full border border-linea text-tinta';
+                    'flex h-10 w-10 items-center justify-center rounded-full bg-superficie transition-colors';
                   return (
                     <li key={red}>
                       {url ? (
@@ -181,7 +144,7 @@ export function PiePagina() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`PaseLibre en ${nombre}`}
-                          className={`${clase} hover:border-borde-control hover:bg-superficie`}
+                          className={`${clase} text-tinta hover:bg-tinta hover:text-white`}
                         >
                           {REDES_ICONO[red]}
                         </a>

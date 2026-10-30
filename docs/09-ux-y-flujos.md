@@ -177,12 +177,13 @@ En la web se llama **«Pases del día»** y los tipos se leen **«Busco»** y **
 | Momento | En la computadora | En el celular |
 | --- | --- | --- |
 | Al entrar (solo la primera vez del día) | Ventana flotante a la derecha, bajo el saludo, sin oscurecer la página: lo que está en vivo, «Ver todo» y «Publicar en vivo». Su × la encoge, igual que bajar | Hoja desde abajo con lo mismo. Sin sesión no se abre: empieza en la barra |
-| Al bajar, y el resto del día | Se encoge a una tarjeta mini abajo a la derecha: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y ocultar | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
+| Al bajar, y el resto del día | Se encoge a una tarjeta mini abajo a la derecha: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y ocultar. Una luz azul gira sin parar por su borde, como el chat de VS Code, y la barra de abajo marca cuánto falta para la siguiente | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
 | Oculta (× de la tarjeta mini) | Nada en la esquina hasta que alguien publique algo nuevo; entonces vuelve la tarjeta mini | Lo mismo |
 
 - Aparece en la portada, la búsqueda y la ficha. No en Publicar, Mensajes, Configuración, `/pases-del-dia` ni el panel del equipo. Si no hay nada en vivo, no aparece nada.
 - **La entrada fija** es «● Pases del día N» en la banda de categorías, en el catálogo y en las páginas del vendedor: se llega aunque la tarjeta esté oculta.
 - **Es un estado, no se repite:** la ventana completa se abre sola solo la primera vez del día. Después, en cualquier página o pestaña, empieza encogida, y no se vuelve a abrir al subir ni al cambiar de página; «Abrir» la despliega solo en esa página. Lo recuerda el navegador, como las búsquedas recientes, y otra pestaña abierta hace lo mismo al momento.
+- Al llegar al pie, la tarjeta mini sube para no tapar Contacto ni las redes.
 - Se detiene con el mouse encima, con el foco del teclado o con pausa; con «reducir movimiento» no pasa sola. Esc encoge la ventana y oculta la tarjeta. Nunca suena.
 
 **El recorrido:**
