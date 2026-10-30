@@ -25,8 +25,6 @@ const nextConfig = {
   output: 'standalone',
   outputFileTracingRoot: workspaceRoot,
   poweredByHeader: false,
-  // En local, la «N» de Next va a la derecha: abajo a la izquierda está la tarjeta de Pases del día.
-  devIndicators: { position: 'bottom-right' },
   reactStrictMode: true,
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
