@@ -7,12 +7,12 @@ import { FormularioEnVivo } from '@/features/en-vivo/publicar';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
-  title: 'Publicar en vivo',
+  title: 'Publicar un pase del día',
   robots: { index: false },
 };
 
-/** `/en-vivo/publicar` (EV_Publicar, RF-24 y RF-72): un busco o una oferta flash. */
-export default async function PublicarEnVivo() {
+/** `/pases-del-dia/publicar` (EV_Publicar, RF-24 y RF-72): un busco o un remate. */
+export default async function PublicarPaseDelDia() {
   const [sesion, { estado }, { cuerpo: categorias }] = await Promise.all([
     obtenerSesion(),
     consultarApi('/en-vivo/mios'),
@@ -28,8 +28,8 @@ export default async function PublicarEnVivo() {
           Inicio
         </Link>
         <span aria-hidden="true">›</span>
-        <Link href="/en-vivo" className="text-secundario">
-          En vivo
+        <Link href="/pases-del-dia" className="text-secundario">
+          Pases del día
         </Link>
         <span aria-hidden="true">›</span>
         <span>Publicar</span>

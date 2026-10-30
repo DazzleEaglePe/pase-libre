@@ -17,9 +17,9 @@ import { EtiquetaTipo } from './piezas';
 import { cuantoQueda, textoCierre } from './textos';
 
 /**
- * La tarjeta en vivo fija arriba del chat (EV_Responder): el busco o la oferta flash de la
- * que nació el hilo. Quien la publicó la cierra desde aquí («Ya lo conseguí» o «Cerrar
- * oferta»); «Vendido» sigue en la barra del producto y le resta unidades a la oferta.
+ * La tarjeta del pase del día fija arriba del chat (EV_Responder): el busco o el remate del
+ * que nació el hilo. Quien lo publicó lo cierra desde aquí («Ya lo conseguí» o «Cerrar
+ * remate»); «Vendido» sigue en la barra del producto y le resta unidades al remate.
  */
 export function EnVivoEnElChat({
   enVivo,
@@ -56,7 +56,7 @@ export function EnVivoEnElChat({
       <EtiquetaTipo tipo={enVivo.tipo} />
       <span className="flex min-w-0 flex-[1_1_220px] flex-col">
         <Link
-          href={`/en-vivo?id=${enVivo.id}`}
+          href={`/pases-del-dia?id=${enVivo.id}`}
           className="truncate text-apoyo font-semibold no-underline hover:underline"
         >
           {enVivo.titulo}
@@ -73,7 +73,7 @@ export function EnVivoEnElChat({
           onClick={() => void cerrar()}
           className="h-9 rounded-full border border-borde bg-white px-3.5 text-nota font-medium"
         >
-          {enVivo.tipo === 'BUSCO' ? 'Ya lo conseguí' : 'Cerrar oferta'}
+          {enVivo.tipo === 'BUSCO' ? 'Ya lo conseguí' : 'Cerrar remate'}
         </button>
       )}
       {error && (

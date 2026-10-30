@@ -48,8 +48,8 @@ function useDemorado<T>(valor: T, ms = 250): T {
 }
 
 /**
- * Publicar en vivo (EV_Publicar, RF-24, RF-72 y RF-73). El busco pide un producto del
- * catálogo o un texto («RTX 4060 o 5060, 8 GB»); la oferta flash sale de una de tus
+ * Publicar un pase del día (EV_Publicar, RF-24, RF-72 y RF-73). El busco pide un producto
+ * del catálogo o un texto («RTX 4060 o 5060, 8 GB»); el remate sale de una de tus
  * publicaciones. La vista previa dice a cuántas tiendas les llegará el aviso del busco.
  */
 export function FormularioEnVivo({
@@ -164,7 +164,7 @@ export function FormularioEnVivo({
         : { tipo, ...comun, oferta: oferta?.id, precio: monto };
     try {
       const creado = await llamarApi<EnVivoPropio>('/en-vivo', { metodo: 'POST', cuerpo });
-      router.push(`/en-vivo?id=${creado.id}`);
+      router.push(`/pases-del-dia?id=${creado.id}`);
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No pudimos publicarlo. Vuelve a intentarlo.');
       setEnviando(false);
@@ -185,7 +185,7 @@ export function FormularioEnVivo({
     >
       <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
         <div>
-          <h1 className="text-titulo">Publicar en vivo</h1>
+          <h1 className="text-titulo">Publicar un pase del día</h1>
           <p className="text-secundario">
             Sale en la portada al instante y dura lo que elijas. Puedes tener hasta 3 a la vez.
           </p>
@@ -203,7 +203,7 @@ export function FormularioEnVivo({
                 ],
                 [
                   'FLASH',
-                  'Oferta flash',
+                  'Remato',
                   'Vendes hoy a precio de pase. Las tiendas interesadas te responden «¡Lo quiero!».',
                 ],
               ] as const
@@ -511,9 +511,9 @@ export function FormularioEnVivo({
         )}
         <div className="flex flex-wrap gap-3">
           <button type="submit" disabled={!listo || enviando} className={botonPrincipal}>
-            {enviando ? 'Publicando…' : 'Publicar en vivo'}
+            {enviando ? 'Publicando…' : 'Publicar'}
           </button>
-          <Link href="/en-vivo" className={`${botonSecundario} no-underline`}>
+          <Link href="/pases-del-dia" className={`${botonSecundario} no-underline`}>
             Cancelar
           </Link>
         </div>
@@ -546,7 +546,7 @@ export function FormularioEnVivo({
         </div>
         <h2 className="pt-2 text-etiqueta uppercase text-detalle">Quién lo verá</h2>
         <p className="text-apoyo text-secundario">
-          Todas las tiendas, en la portada y en En vivo.
+          Todas las tiendas, en la portada y en Pases del día.
           {tipo === 'BUSCO' &&
             alcance !== null &&
             (alcance === 0

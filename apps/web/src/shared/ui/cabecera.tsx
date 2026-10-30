@@ -140,7 +140,13 @@ function AccionesVendedor({
   );
 }
 
-function BandaCategorias({ categorias }: { categorias: CategoriaResumen[] }) {
+function BandaCategorias({
+  categorias,
+  extra,
+}: {
+  categorias: CategoriaResumen[];
+  extra: ReactNode;
+}) {
   const ruta = usePathname();
   const parametros = useSearchParams();
   const enResultados = ruta === '/buscar';
@@ -177,6 +183,7 @@ function BandaCategorias({ categorias }: { categorias: CategoriaResumen[] }) {
           </svg>
           Todas las categorías
         </Link>
+        {extra}
         {categorias.map((categoria) => {
           const activa = actual === categoria.slug;
           return (
@@ -224,10 +231,13 @@ export function Cabecera({
   sesion,
   categorias,
   galerias,
+  enBanda = null,
 }: {
   sesion: RespuestaYo | null;
   categorias: CategoriaResumen[];
   galerias: GaleriaResumen[];
+  /** Una entrada más en la banda, después de «Todas las categorías» (En vivo, D-53). */
+  enBanda?: ReactNode;
 }) {
   const tienda = sesion?.tienda;
   return tienda ? (
@@ -236,9 +246,16 @@ export function Cabecera({
       tienda={tienda}
       categorias={categorias}
       galerias={galerias}
+      enBanda={enBanda}
     />
   ) : (
-    <Barra sesion={sesion} categorias={categorias} galerias={galerias} acciones={null} />
+    <Barra
+      sesion={sesion}
+      categorias={categorias}
+      galerias={galerias}
+      enBanda={enBanda}
+      acciones={null}
+    />
   );
 }
 
@@ -251,6 +268,7 @@ function CabeceraConTienda({
   tienda: TiendaDeSesion;
   categorias: CategoriaResumen[];
   galerias: GaleriaResumen[];
+  enBanda: ReactNode;
 }) {
   const contadores = useContadores();
   return (
@@ -262,11 +280,13 @@ function Barra({
   sesion,
   categorias,
   galerias,
+  enBanda,
   acciones,
 }: {
   sesion: RespuestaYo | null;
   categorias: CategoriaResumen[];
   galerias: GaleriaResumen[];
+  enBanda: ReactNode;
   /** Campanita, Mensajes y «Mi cuenta», cuando hay tienda. */
   acciones: ReactNode;
 }) {
@@ -365,7 +385,7 @@ function Barra({
 
       {completa && (
         <Suspense fallback={<div className="h-12 bg-tinta" />}>
-          <BandaCategorias categorias={categorias} />
+          <BandaCategorias categorias={categorias} extra={enBanda} />
         </Suspense>
       )}
       {completa && (

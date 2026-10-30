@@ -80,13 +80,13 @@ export function SeccionAvisos({ alAvisar }: { alAvisar: (mensaje: string) => voi
         {datos.campanita.EN_VIVO !== undefined && (
           <div className="flex items-center justify-between gap-4 border-t border-linea px-4 py-3.5">
             <span className="flex flex-col">
-              <b className="font-semibold">En vivo</b>
+              <b className="font-semibold">Pases del día</b>
               <span className="text-apoyo text-secundario">
                 Cuando una tienda busca algo que tienes publicado
               </span>
             </span>
             <Interruptor
-              etiqueta="Avisos de En vivo en la campanita"
+              etiqueta="Avisos de Pases del día en la campanita"
               activo={datos.campanita.EN_VIVO}
               alCambiar={(activo) =>
                 void guardar({ ...datos, campanita: { ...datos.campanita, EN_VIVO: activo } })

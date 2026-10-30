@@ -201,4 +201,4 @@ No es fase 2: se construyó el 29/10 con la migración `20261030010147_en_vivo`,
 - **Reglas en la base:** la oferta flash lleva `precio_centimos` y `oferta_id`; `cantidad`, `vendidas` y `avisadas` nunca negativas; `vence_en` cae como máximo 12 horas después de `creado_en`; `cerrado_en` lleno si y solo si ya no está VIVO.
 - **Reglas en la API:** hasta 3 en VIVO por autor (se cuentan dentro de la transacción que publica, con un candado por persona); nadie responde a lo de su propia tienda; la oferta flash sale de una publicación que atiende quien la publica y no ofrece más unidades que su stock; una oferta flash viva por publicación.
 - **«Venció» no se guarda:** es VIVO con `vence_en` ya pasado. Así no hace falta un proceso que los cierre a la hora.
-- **Índices:** `en_vivo (estado, vence_en)` para la lista y `en_vivo (autor_id, estado)` para «Lo tuyo en vivo».
+- **Índices:** `en_vivo (estado, vence_en)` para la lista y `en_vivo (autor_id, estado)` para «Tus pases del día».

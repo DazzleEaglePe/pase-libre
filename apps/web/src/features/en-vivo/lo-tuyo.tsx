@@ -61,7 +61,7 @@ function Propio({
             Sumar 1 hora
           </button>
           <button type="button" onClick={() => alCambiar('cerrar')} className={botonLista}>
-            {item.tipo === 'BUSCO' ? 'Ya lo conseguí' : 'Cerrar oferta'}
+            {item.tipo === 'BUSCO' ? 'Ya lo conseguí' : 'Cerrar remate'}
           </button>
         </span>
       )}
@@ -69,7 +69,7 @@ function Propio({
   );
 }
 
-/** «Lo tuyo en vivo» (EV_Todos, RF-75): sumar una hora, cerrar y los chats de cada respuesta. */
+/** «Tus pases del día» (EV_Todos, RF-75): sumar una hora, cerrar y los chats de cada respuesta. */
 export function LoTuyo({ ahora }: { ahora: number }) {
   const [datos, setDatos] = useState<RespuestaMisEnVivo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ export function LoTuyo({ ahora }: { ahora: number }) {
     try {
       setDatos(await llamarApi<RespuestaMisEnVivo>('/en-vivo/mios'));
     } catch {
-      setError('No pudimos cargar lo tuyo en vivo.');
+      setError('No pudimos cargar tus pases del día.');
     }
   }, []);
   useEffect(() => {
@@ -104,7 +104,7 @@ export function LoTuyo({ ahora }: { ahora: number }) {
     >
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="lo-tuyo" className="text-tarjeta">
-          Lo tuyo en vivo
+          Tus pases del día
         </h2>
         {datos && (
           <span className="text-nota text-detalle">

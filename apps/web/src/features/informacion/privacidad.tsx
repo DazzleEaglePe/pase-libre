@@ -146,8 +146,8 @@ export function Privacidad() {
           tu equipo, no nos llegan, y las borras con la × de cada una.
         </p>
         <p>
-          También recuerda, solo por el día, si ya viste o cerraste la ventana de En vivo, para no
-          volver a abrírtela. Tampoco nos llega.
+          También recuerda, solo por el día, si ya viste o cerraste la ventana de Pases del día,
+          para no volver a abrírtela. Tampoco nos llega.
         </p>
       </Seccion>
 

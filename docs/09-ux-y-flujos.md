@@ -29,8 +29,8 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 | `/mensajes` y `/mensajes/:id` | Mensajes (C_Mensajes, F_MovilChat) | Vendedor | En el celular, la lista y el chat son dos pantallas |
 | `/cuenta/configuracion` (`?seccion=`) | Configuración (C_Configuración) | Vendedor | |
 | `/equipo/cuentas` | Panel del equipo (F_Equipo) | Equipo | `/equipo` lleva aquí |
-| `/en-vivo` (`?id=` resalta uno) | Ver todos (EV_Todos) | Todos | Busco y ofertas flash (D-53). Con sesión, «Lo tuyo en vivo». Con `EN_VIVO` apagado, no existe |
-| `/en-vivo/publicar` | Publicar en vivo (EV_Publicar) | Vendedor | Busco u oferta flash, con la vista previa y a cuántas tiendas les llegará el aviso |
+| `/pases-del-dia` (`?id=` resalta uno) | Ver todos (EV_Todos) | Todos | Pases del día: busco y remates (D-53). Con sesión, «Tus pases del día». `/en-vivo` redirige aquí. Con `EN_VIVO` apagado, no existe |
+| `/pases-del-dia/publicar` | Publicar un pase del día (EV_Publicar) | Vendedor | Busco o remate, con la vista previa y a cuántas tiendas les llegará el aviso |
 | `/ayuda`, `/terminos`, `/privacidad` | — (C_Footer) | Todos | Ayuda con preguntas frecuentes, y los borradores de Términos y Privacidad |
 | `/sitemap.xml`, `/robots.txt` | — | Buscadores | Solo producción se deja indexar |
 | `/salud` | — | — | Solo para el *healthcheck* del servidor |
@@ -170,26 +170,27 @@ Quedan para la fase 2, aunque el lienzo C los muestra: perfil privado, «Quién 
 
 ### 3.8 En vivo (D-53)
 
-Construido el 29/10; **solo se ve con `EN_VIVO` encendido** (en producción, apagado hasta que se decida). El diseño está en el lienzo, página «En vivo · busco y ofertas flash»: los flujos (EV_Flujo y EV_SigueFlujo), la demo para probar con Play (EV_SigueDemo) y las pantallas (EV_Publicar, EV_Responder, EV_Todos, EV_SigueEntrar, EV_SigueE y EV_SigueMovil).
+En la web se llama **«Pases del día»** y los tipos se leen **«Busco»** y **«Remato»** (29/10); por dentro (código, API y base) sigue siendo En vivo, con BUSCO y FLASH. Construido el 29/10; **solo se ve con `EN_VIVO` encendido** (en producción, apagado hasta que se decida). El diseño está en el lienzo, página «En vivo · busco y ofertas flash»: los flujos (EV_Flujo y EV_SigueFlujo), la demo para probar con Play (EV_SigueDemo) y las pantallas (EV_Publicar, EV_Responder, EV_Todos, EV_SigueEntrar, EV_SigueE y EV_SigueMovil).
 
 **Cómo se muestra (propuesta E):**
 
 | Momento | En la computadora | En el celular |
 | --- | --- | --- |
-| Al entrar | Ventana flotante a la derecha, bajo el saludo, sin oscurecer la página: lo que está en vivo, «Ver todo» y «Publicar en vivo» | Hoja desde abajo con lo mismo. Sin sesión no se abre: empieza en la barra |
-| Al bajar | Se encoge a una tarjeta mini abajo a la derecha: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y cerrar | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
-| Cerrada | La pastilla «En vivo · 4» en la esquina | La misma pastilla |
+| Al entrar (solo la primera vez del día) | Ventana flotante a la derecha, bajo el saludo, sin oscurecer la página: lo que está en vivo, «Ver todo» y «Publicar en vivo». Su × la encoge, igual que bajar | Hoja desde abajo con lo mismo. Sin sesión no se abre: empieza en la barra |
+| Al bajar, y el resto del día | Se encoge a una tarjeta mini abajo a la derecha: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y ocultar | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
+| Oculta (× de la tarjeta mini) | Nada en la esquina hasta que alguien publique algo nuevo; entonces vuelve la tarjeta mini | Lo mismo |
 
-- Aparece en la portada, la búsqueda y la ficha. No en Publicar, Mensajes, Configuración, `/en-vivo` ni el panel del equipo. Si no hay nada en vivo, no aparece nada.
-- Se abre sola una vez al día, o cuando hay algo nuevo desde la última vez. Si se encogió sola al bajar, vuelve a abrirse al subir al inicio; si se minimizó o se cerró a mano, se respeta. Lo recuerda el navegador, como las búsquedas recientes.
-- Se detiene con el mouse encima, con el foco del teclado o con pausa; con «reducir movimiento» no pasa sola. Esc la minimiza. Nunca suena.
+- Aparece en la portada, la búsqueda y la ficha. No en Publicar, Mensajes, Configuración, `/pases-del-dia` ni el panel del equipo. Si no hay nada en vivo, no aparece nada.
+- **La entrada fija** es «● Pases del día N» en la banda de categorías, en el catálogo y en las páginas del vendedor: se llega aunque la tarjeta esté oculta.
+- **Es un estado, no se repite:** la ventana completa se abre sola solo la primera vez del día. Después, en cualquier página o pestaña, empieza encogida, y no se vuelve a abrir al subir ni al cambiar de página; «Abrir» la despliega solo en esa página. Lo recuerda el navegador, como las búsquedas recientes, y otra pestaña abierta hace lo mismo al momento.
+- Se detiene con el mouse encima, con el foco del teclado o con pausa; con «reducir movimiento» no pasa sola. Esc encoge la ventana y oculta la tarjeta. Nunca suena.
 
 **El recorrido:**
 
-1. **Publicar en vivo** (desde la ventana, `/en-vivo` o Publicar): «Busco un producto» u «Oferta flash». El busco pide el producto, la cantidad, la condición, el presupuesto (opcional) y cuánto dura; la oferta flash, una de tus publicaciones, el precio de pase y cuántas unidades entran. La vista previa dice a cuántas tiendas les llegará el aviso.
+1. **Publicar un pase del día** (desde la ventana o `/pases-del-dia`): «Busco un producto» o «Remato». El busco pide el producto, la cantidad, la condición, el presupuesto (opcional) y cuánto dura; la oferta flash, una de tus publicaciones, el precio de pase y cuántas unidades entran. La vista previa dice a cuántas tiendas les llegará el aviso.
 2. **Responder:** «¡Lo tengo!» abre una ventana para elegir cuál de tus publicaciones ofreces, con un mensaje ya escrito; si no la tienes publicada, «Publicarla» lleva a Publicar con ese producto. «¡Lo quiero!» abre el chat directo.
 3. **El chat** muestra arriba la tarjeta en vivo. Quien publicó el busco tiene «Ya lo conseguí»; quien publicó la oferta flash, «Vendido».
-4. **Lo tuyo en vivo** (en `/en-vivo`): cuánto falta, quién respondió, «Sumar 1 hora», «Ya lo conseguí» o «Cerrar oferta».
+4. **Tus pases del día** (en `/pases-del-dia`): cuánto falta, quién respondió, «Sumar 1 hora», «Ya lo conseguí» o «Cerrar remate».
 
 ## 4. Estados y mensajes
 

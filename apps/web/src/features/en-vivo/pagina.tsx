@@ -80,8 +80,8 @@ function Tarjeta({
 }
 
 /**
- * `/en-vivo` (EV_Todos, RF-75): todo lo que está en vivo, con filtros por tipo, categoría y
- * galería, los cerrados de hoy y, con sesión, «Lo tuyo en vivo». `?id=` resalta uno (los
+ * `/pases-del-dia` (EV_Todos, RF-75): los busco y remates vigentes, con filtros por tipo,
+ * categoría y galería, los cerrados de hoy y, con sesión, «Tus pases del día». `?id=` resalta uno (los
  * avisos de la campanita llegan así).
  */
 export function PaginaEnVivo({
@@ -119,14 +119,14 @@ export function PaginaEnVivo({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <PildoraEnVivo />
-          <h1 className="text-titulo">Busco y ofertas flash</h1>
+          <h1 className="text-titulo">Busco y remates</h1>
           {datos && <span className="text-apoyo text-detalle">{enVivo.length} ahora</span>}
         </div>
         <Link
-          href={conSesion ? '/en-vivo/publicar' : '/ingresar'}
+          href={conSesion ? '/pases-del-dia/publicar' : '/ingresar'}
           className={`${botonPrincipal} no-underline`}
         >
-          Publicar en vivo
+          Publicar busco o remate
         </Link>
       </div>
       <p className="-mt-3 max-w-[640px] text-secundario">
@@ -142,7 +142,7 @@ export function PaginaEnVivo({
           opciones={[
             ['todo', 'Todo'],
             ['busco', 'Busco'],
-            ['flash', 'Ofertas flash'],
+            ['flash', 'Remates'],
           ]}
         />
         <label className="flex flex-col gap-1 text-nota font-medium text-detalle">
@@ -182,7 +182,7 @@ export function PaginaEnVivo({
           {!datos && <p className="text-secundario">Cargando…</p>}
           {datos && enVivo.length === 0 && (
             <p className="rounded-2xl bg-superficie p-5 text-secundario">
-              Ahora no hay nada en vivo
+              Ahora no hay pases del día
               {tipo !== 'todo' || categoria || galeria ? ' con esos filtros' : ''}. Publica lo que
               buscas para un cliente y les avisamos a las tiendas que lo tienen.
             </p>

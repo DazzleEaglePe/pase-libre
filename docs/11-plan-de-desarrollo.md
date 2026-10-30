@@ -108,6 +108,8 @@ Se ordena de nuevo con lo que pidan las tiendas en las primeras semanas.
 
 Elegido el 29/10 (D-53): busco y ofertas flash, mostrados con la propuesta E del lienzo. Los requerimientos están en el [documento 02 §5](02-requerimientos-funcionales.md#5-en-vivo-busco-y-ofertas-flash); el modelo, en el [06 §6](06-modelo-de-datos.md#6-fase-2-prevista); las rutas, en el [07 §2.8](07-contrato-de-la-api.md#28-en-vivo-d-53); y las pantallas, en el [09 §3.8](09-ux-y-flujos.md#38-en-vivo-d-53).
 
+En la web se llama **«Pases del día»** y los tipos se leen **«Busco»** y **«Remato»** (29/10); por dentro (código, API y base) sigue siendo En vivo, con BUSCO y FLASH.
+
 **Estado (29/10): construido detrás de un interruptor.** Dazz decidió adelantarlo. Con `EN_VIVO=false` (el valor por defecto, y el de producción) la API responde 404 en sus rutas y la web no muestra nada, así que no cambia lo que sale el sábado. En local está encendido (`.env`). Para encenderlo en un servidor basta `EN_VIVO=true` en su archivo de entorno y reiniciar la API: la web no se vuelve a construir.
 
 **Los pasos, como se planearon:**
@@ -116,8 +118,8 @@ Elegido el 29/10 (D-53): busco y ofertas flash, mostrados con la propuesta E del
 | --- | --- | --- |
 | 1 · Base y contratos | Migración con `en_vivo`, `en_vivo_respuesta`, `conversacion.en_vivo_id` y los valores nuevos de los tipos. Esquemas en `packages/contracts/src/en-vivo/` | `pnpm db:migrate` pasa y el código anterior sigue funcionando con la base nueva |
 | 2 · API | Módulo `en-vivo`: listar por audiencia, publicar con el límite de 3, sumar una hora y cerrar, responder (abre el hilo), «Vendido» que descuenta la oferta flash, los avisos y `en-vivo:cambio` a todos los sockets | Pasan `en-vivo.e2e-spec.ts` y la prueba de contrato público con `GET /en-vivo` como visitante |
-| 3 · Web: la ventana que te sigue | `shared/ui/en-vivo/`: ventana, tarjeta mini y pastilla en la computadora; hoja y barra en el celular. Lo que recuerda el navegador (`paselibre:en-vivo`), pausa, teclado y «reducir movimiento». Se monta en el layout del catálogo | Se ve y se comporta como EV_SigueDemo en la portada, la búsqueda y la ficha |
-| 4 · Web: publicar, responder y `/en-vivo` | Publicar en vivo (busco y oferta flash), la ventana de «¡Lo tengo!», la tarjeta fija en el chat, `/en-vivo` con «Lo tuyo en vivo» y el tipo de aviso en Configuración | Dos tiendas hacen el recorrido completo en local |
+| 3 · Web: la ventana que te sigue | `features/en-vivo/`: ventana y tarjeta mini en la computadora, la entrada de la banda de categorías; hoja y barra en el celular. Lo que recuerda el navegador (`paselibre:en-vivo`), pausa, teclado y «reducir movimiento». Se monta en el layout del catálogo | Se ve y se comporta como EV_SigueDemo en la portada, la búsqueda y la ficha |
+| 4 · Web: publicar, responder y `/pases-del-dia` | Publicar un pase del día (busco o remate), la ventana de «¡Lo tengo!», la tarjeta fija en el chat, `/en-vivo` con «Lo tuyo en vivo» y el tipo de aviso en Configuración | Dos tiendas hacen el recorrido completo en local |
 | 5 · Cierre | Privacidad (lo que guarda el navegador), Ayuda, el lienzo al día y la prueba en celulares reales | La CI pasa y los documentos dicen lo que quedó construido |
 
 **Hecho:** los pasos 1 a 4, con 16 pruebas nuevas en la API (`en-vivo.e2e-spec.ts` y `horario.spec.ts`) y revisado en el navegador, en computadora y celular, como visitante y como vendedor.

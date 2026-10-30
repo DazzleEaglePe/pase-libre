@@ -186,10 +186,10 @@ Construidas el 29/10. **Con `EN_VIVO` apagado responden 404**, como si no existi
 | Método y ruta | Quién | Qué hace | RF |
 | --- | --- | --- | --- |
 | `GET /en-vivo?tipo=&categoria=&galeria=` | Todos | Lo que está en vivo, lo que vence primero arriba, y los cerrados de hoy. Responde por audiencia, con la caché de 60 s sin sesión | 25, 75, 77 |
-| `GET /en-vivo/mios` | Vendedor | «Lo tuyo en vivo»: los suyos, con cuántas respuestas tiene cada uno | 75 |
+| `GET /en-vivo/mios` | Vendedor | «Tus pases del día»: los suyos, con cuántas respuestas tiene cada uno | 75 |
 | `GET /en-vivo/alcance?producto=` (o `?q=`) | Vendedor | A cuántas tiendas les llegará el aviso, para la vista previa de Publicar | 76 |
 | `POST /en-vivo` | Vendedor | Publicar un busco o una oferta flash. 409 `LIMITE_EN_VIVO` si ya tiene 3. 10 por hora por persona | 24, 72, 73 |
-| `PATCH /en-vivo/:id` | Quien lo publicó | Sumar una hora o cerrar («Ya lo conseguí», «Cerrar oferta») | 27 |
+| `PATCH /en-vivo/:id` | Quien lo publicó | Sumar una hora o cerrar («Ya lo conseguí», «Cerrar remate») | 27 |
 | `GET /en-vivo/:id/opciones` | Vendedor de otra tienda | Sus publicaciones activas y con stock que coinciden con el busco (las que atiende), para «¿Cuál tienes?» | 26 |
 | `POST /en-vivo/:id/respuestas` | Vendedor de otra tienda | «¡Lo tengo!» (con la publicación que ofrece) o «¡Lo quiero!». Abre o reutiliza el hilo, deja la tarjeta arriba y avisa. 409 `YA_RESPONDISTE` | 26, 76 |
 

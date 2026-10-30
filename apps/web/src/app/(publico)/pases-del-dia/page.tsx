@@ -6,15 +6,19 @@ import { PaginaEnVivo } from '@/features/en-vivo/pagina';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
-  title: 'En vivo · busco y ofertas flash',
+  title: 'Pases del día · busco y remates',
   description: 'Lo que las tiendas de Wilson necesitan o rematan hoy.',
 };
 
 /**
- * `/en-vivo` (EV_Todos, D-53). Con En vivo apagado (`EN_VIVO`), la API responde 404 y la
+ * `/pases-del-dia` (EV_Todos, D-53). Por dentro se llama En vivo. Con En vivo apagado (`EN_VIVO`), la API responde 404 y la
  * página tampoco existe.
  */
-export default async function EnVivo({ searchParams }: { searchParams: Promise<{ id?: string }> }) {
+export default async function PasesDelDia({
+  searchParams,
+}: {
+  searchParams: Promise<{ id?: string }>;
+}) {
   const [{ estado }, sesion, { cuerpo: categorias }, { cuerpo: galerias }, { id }] =
     await Promise.all([
       consultarApi('/en-vivo'),

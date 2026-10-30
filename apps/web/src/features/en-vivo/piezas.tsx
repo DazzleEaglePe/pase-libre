@@ -6,12 +6,12 @@ import { Miniatura } from '@/shared/ui/miniatura';
 import { BotonResponder } from './responder';
 import { cuantoQueda, etiquetaTipo, lineaLugar, type ItemEnVivo } from './textos';
 
-/** «● EN VIVO» del lienzo. */
+/** «● PASES DEL DÍA»: la etiqueta roja de la sección (D-53). */
 export function PildoraEnVivo() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-error-fondo px-2.5 py-[3px] text-etiqueta uppercase text-error">
       <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#C8331F]" />
-      En vivo
+      Pases del día
     </span>
   );
 }
@@ -50,7 +50,7 @@ export function FilaEnVivo({ item, ahora }: { item: ItemEnVivo; ahora: number })
           </span>
         </span>
         <Link
-          href={`/en-vivo?id=${item.id}`}
+          href={`/pases-del-dia?id=${item.id}`}
           className="truncate text-cuerpo font-semibold no-underline hover:underline"
         >
           {item.titulo}

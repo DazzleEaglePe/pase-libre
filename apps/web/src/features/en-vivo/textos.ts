@@ -10,7 +10,8 @@ export type ItemEnVivo = EnVivoPublico | EnVivoConVendedor;
 
 export const conVendedor = (item: ItemEnVivo): item is EnVivoConVendedor => 'tienda' in item;
 
-export const etiquetaTipo = (tipo: TipoEnVivo) => (tipo === 'BUSCO' ? 'Busco' : 'Oferta flash');
+/** En la web, el FLASH de la API se lee «Remato»: así le dicen en Wilson. */
+export const etiquetaTipo = (tipo: TipoEnVivo) => (tipo === 'BUSCO' ? 'Busco' : 'Remato');
 export const textoAccion = (tipo: TipoEnVivo) => (tipo === 'BUSCO' ? '¡Lo tengo!' : '¡Lo quiero!');
 
 /** «Quedan 1 h 40 min», «Quedan 35 min», «Vence en 1 min». `corto` deja «1 h 40 min». */

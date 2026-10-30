@@ -47,7 +47,7 @@ import type { SesionActiva } from '../sesion/sesion.types';
 import { EnVivoActivoGuard } from './en-vivo-activo.guard';
 import { EnVivoService } from './en-vivo.service';
 
-const idDeEnVivo = new ZodValidationPipe(z.uuid('Esta publicación en vivo ya se cerró o venció.'));
+const idDeEnVivo = new ZodValidationPipe(z.uuid('Este pase del día ya se cerró o venció.'));
 
 /**
  * `GET /v1/en-vivo`: lo ve cualquiera (RF-77). Sin sesión no lleva tienda, precio,

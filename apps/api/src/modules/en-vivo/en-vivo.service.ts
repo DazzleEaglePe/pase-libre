@@ -81,7 +81,7 @@ const noExiste = () =>
   new ApiHttpException(
     HttpStatus.NOT_FOUND,
     'NO_ENCONTRADO',
-    'Esta publicación en vivo ya se cerró o venció.',
+    'Este pase del día ya se cerró o venció.',
   );
 
 /** Lo que sigue en vivo: sin vencer, de una tienda activa y de una cuenta activa. */
@@ -252,7 +252,7 @@ export class EnVivoService {
         throw new ApiHttpException(
           HttpStatus.CONFLICT,
           'LIMITE_EN_VIVO',
-          `Ya tienes ${MAX_EN_VIVO_POR_CUENTA} en vivo. Cierra uno o espera a que venza.`,
+          `Ya tienes ${MAX_EN_VIVO_POR_CUENTA} pases del día publicados. Cierra uno o espera a que venza.`,
         );
       }
       return tx.enVivo.create({
@@ -346,7 +346,7 @@ export class EnVivoService {
       throw new ApiHttpException(
         HttpStatus.CONFLICT,
         'CONFLICTO',
-        'Esa publicación la atiende otra persona de tu tienda: que la ponga ella en oferta flash.',
+        'Esa publicación la atiende otra persona de tu tienda: que la remate ella.',
       );
     }
     if (oferta.stock < datos.cantidad) {
@@ -365,7 +365,7 @@ export class EnVivoService {
       throw new ApiHttpException(
         HttpStatus.CONFLICT,
         'CONFLICTO',
-        'Esa publicación ya está en oferta flash.',
+        'Esa publicación ya está en remate.',
       );
     }
     return {
@@ -579,7 +579,7 @@ export class EnVivoService {
         throw new ApiHttpException(
           HttpStatus.NOT_FOUND,
           'NO_ENCONTRADO',
-          'Esta oferta flash ya no está disponible.',
+          'Este remate ya no está disponible.',
         );
       }
       hilo = {
@@ -593,7 +593,7 @@ export class EnVivoService {
 
     const remitente = usuario.tienda?.nombre ?? usuario.nombre;
     const respuesta = enVivo.tipo === 'BUSCO' ? '¡Lo tengo!' : '¡Lo quiero!';
-    const destino = enVivo.tipo === 'BUSCO' ? 'al busco' : 'a la oferta flash';
+    const destino = enVivo.tipo === 'BUSCO' ? 'al busco' : 'al remate';
     let conversacionId: string;
     try {
       conversacionId = await this.prisma.$transaction(async (tx) => {
@@ -812,7 +812,7 @@ export class EnVivoService {
         tipo: 'EN_VIVO' as const,
         titulo: `${quien} busca ${busco.titulo}`.slice(0, 160),
         extracto,
-        enlace: `/en-vivo?id=${id}`,
+        enlace: `/pases-del-dia?id=${id}`,
         visibleDesde: visibleDesde(p.noMolestarDesde, p.noMolestarHasta, ahora),
       })),
     });

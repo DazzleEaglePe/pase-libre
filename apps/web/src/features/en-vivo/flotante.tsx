@@ -13,12 +13,13 @@ import {
 
 import { Miniatura } from '@/shared/ui/miniatura';
 
-import { useAhora, useEnVivo } from './datos';
+import { useEnVivoCompartido } from './contexto';
+import { useAhora } from './datos';
 import { EtiquetaTipo, FilaEnVivo, PildoraEnVivo, botonResponder } from './piezas';
 import { BotonResponder } from './responder';
 import { cuantoQueda, lineaLugar, type ItemEnVivo } from './textos';
 
-type Estado = 'abierta' | 'mini' | 'cerrada';
+type Estado = 'abierta' | 'mini' | 'oculta';
 
 /** Lo que recuerda el navegador (como las búsquedas recientes): nada viaja a la API. */
 const CLAVE = 'paselibre:en-vivo';
@@ -29,12 +30,12 @@ const PASO = 100;
 const UMBRAL = 120;
 
 interface Recuerdo {
-  /** El día de Lima en que se vio por última vez. */
+  /** El día de Lima: al día siguiente se olvida todo y la ventana vuelve a abrirse una vez. */
   dia: string;
-  /** La publicación más nueva que se vio: si llega otra, se vuelve a abrir. */
+  /** La publicación más nueva que se vio: si llega otra, la tarjeta mini vuelve a salir. */
   visto: string;
-  /** Se cerró con ×: queda solo la pastilla hasta el día siguiente. */
-  cerrada: boolean;
+  /** Cómo la dejó: encogida en la esquina u oculta hasta que haya algo nuevo. */
+  estado: 'mini' | 'oculta' | null;
 }
 
 const diaDeLima = () => new Date(Date.now() - 5 * 3_600_000).toISOString().slice(0, 10);
@@ -50,7 +51,7 @@ function leerRecuerdo(): Recuerdo | null {
 
 function guardarRecuerdo(cambios: Partial<Recuerdo>): void {
   try {
-    const actual = leerRecuerdo() ?? { dia: diaDeLima(), visto: '', cerrada: false };
+    const actual = leerRecuerdo() ?? { dia: diaDeLima(), visto: '', estado: null };
     localStorage.setItem(CLAVE, JSON.stringify({ ...actual, ...cambios, dia: diaDeLima() }));
   } catch {
     // Navegación privada o almacenamiento lleno: sin recuerdo, se abre cada vez.
@@ -80,10 +81,8 @@ function Icono({ children }: { children: ReactNode }) {
 }
 
 const ICONOS = {
-  minimizar: <path d="M7 7l10 10M17 9v8H9" />,
   abrir: <path d="M17 17L7 7M7 15V7h8" />,
   cerrar: <path d="M6 6l12 12M18 6L6 18" />,
-  abajo: <path d="M6 9l6 6 6-6" />,
   pausa: <path d="M9 6v12M15 6v12" />,
   seguir: <path d="M8 5.5v13l10-6.5z" />,
   anterior: <path d="M15 6l-6 6 6 6" />,
@@ -118,112 +117,107 @@ function BotonIcono({
 
 /**
  * En vivo, propuesta E del lienzo (D-53, RF-25 y RF-74). Al entrar, una ventana flotante
- * bajo el saludo; al bajar, una tarjeta mini en la esquina que pasa una publicación cada
- * 5 s y sigue al usuario; cerrada, la pastilla «En vivo · N». En el celular son una hoja
- * desde abajo y una barra flotante.
+ * bajo el saludo; al bajar o con su ×, una tarjeta mini en la esquina que pasa una
+ * publicación cada 5 s y sigue al usuario. En el celular son una hoja desde abajo y una
+ * barra flotante. La entrada fija está en la banda de categorías.
  *
- * - Se abre sola una vez al día, o cuando hay algo nuevo desde la última vez.
- * - Si se encogió sola al bajar, vuelve a abrirse arriba del todo; si se minimizó o se
- *   cerró a mano, se respeta.
+ * - La ventana completa se abre sola una vez al día. Después, en cualquier página o
+ *   pestaña, empieza en la tarjeta mini: el estado se guarda en el navegador.
+ * - La × de la tarjeta mini la oculta hasta que alguien publique algo nuevo.
  * - Se detiene con el mouse encima, con el foco o con pausa; con «reducir movimiento» no
  *   pasa sola. Nunca suena.
  * - En el celular, sin sesión, empieza en la barra: no tapa lo que llega desde Google.
  */
 export function EnVivoFlotante({ conSesion }: { conSesion: boolean }) {
   const ruta = usePathname();
-  const { datos, activo } = useEnVivo();
+  const compartido = useEnVivoCompartido();
   const ahora = useAhora();
   const [estado, setEstado] = useState<Estado | null>(null);
-  const porScroll = useRef(false);
+  const decidido = useRef(false);
 
-  const items = datos?.en_vivo ?? [];
+  const items = compartido?.datos?.en_vivo ?? [];
   const masNuevo = items.reduce((max, item) => (item.creado_en > max ? item.creado_en : max), '');
 
-  // La primera vez que llegan datos se decide cómo empieza.
+  // La primera vez que llegan datos se decide cómo empieza; después, si llega algo nuevo,
+  // la tarjeta mini vuelve a salir (nunca la ventana completa).
   useEffect(() => {
-    if (estado !== null || items.length === 0) return;
+    if (items.length === 0) return;
     const recuerdo = leerRecuerdo();
-    const movil = !window.matchMedia('(min-width: 768px)').matches;
-    let inicial: Estado = 'abierta';
-    if (recuerdo?.cerrada) inicial = 'cerrada';
-    else if (recuerdo && recuerdo.visto >= masNuevo) inicial = 'mini';
-    else if ((movil && !conSesion) || window.scrollY > UMBRAL) inicial = 'mini';
-    setEstado(inicial);
-    guardarRecuerdo({ visto: masNuevo });
-  }, [estado, items.length, masNuevo, conSesion]);
+    const hayNuevo = !recuerdo || masNuevo > recuerdo.visto;
+    if (!decidido.current) {
+      decidido.current = true;
+      const movil = !window.matchMedia('(min-width: 768px)').matches;
+      let inicial: Estado = 'mini';
+      if (!recuerdo)
+        inicial = (movil && !conSesion) || window.scrollY > UMBRAL ? 'mini' : 'abierta';
+      else if (recuerdo.estado === 'oculta' && !hayNuevo) inicial = 'oculta';
+      setEstado(inicial);
+      // Desde aquí, el resto del día empieza encogida aunque no la toque.
+      guardarRecuerdo({ visto: masNuevo, estado: inicial === 'oculta' ? 'oculta' : 'mini' });
+      return;
+    }
+    if (hayNuevo) {
+      guardarRecuerdo({ visto: masNuevo, estado: 'mini' });
+      setEstado((actual) => (actual === 'oculta' ? 'mini' : actual));
+    }
+  }, [items.length, masNuevo, conSesion]);
 
-  // Al bajar se encoge; si fue por bajar, arriba del todo se vuelve a abrir.
+  // Otra pestaña la encogió u ocultó: esta hace lo mismo.
   useEffect(() => {
-    if (estado === null || estado === 'cerrada') return;
+    const alCambiar = (evento: StorageEvent) => {
+      if (evento.key !== CLAVE) return;
+      const recuerdo = leerRecuerdo();
+      if (recuerdo?.estado) setEstado((actual) => (actual === null ? actual : recuerdo.estado));
+    };
+    window.addEventListener('storage', alCambiar);
+    return () => window.removeEventListener('storage', alCambiar);
+  }, []);
+
+  // Al bajar se encoge, y se queda encogida: no vuelve a abrirse al subir ni al cambiar de
+  // página.
+  useEffect(() => {
+    if (estado !== 'abierta') return;
     const alMover = () => {
-      if (estado === 'abierta' && window.scrollY > UMBRAL) {
-        porScroll.current = true;
+      if (window.scrollY > UMBRAL) {
         setEstado('mini');
-      } else if (estado === 'mini' && porScroll.current && window.scrollY < 16) {
-        porScroll.current = false;
-        setEstado('abierta');
+        guardarRecuerdo({ estado: 'mini' });
       }
     };
     window.addEventListener('scroll', alMover, { passive: true });
     return () => window.removeEventListener('scroll', alMover);
   }, [estado]);
 
-  const minimizar = useCallback(() => {
-    porScroll.current = false;
+  const encoger = useCallback(() => {
     setEstado('mini');
+    guardarRecuerdo({ estado: 'mini' });
   }, []);
-  const cerrar = useCallback(() => {
-    porScroll.current = false;
-    setEstado('cerrada');
-    guardarRecuerdo({ cerrada: true });
-  }, []);
-  const abrir = useCallback(() => {
-    porScroll.current = false;
-    setEstado('abierta');
-    guardarRecuerdo({ cerrada: false, visto: masNuevo });
+  const ocultar = useCallback(() => {
+    setEstado('oculta');
+    guardarRecuerdo({ estado: 'oculta', visto: masNuevo });
   }, [masNuevo]);
+  // Abrirla a mano no cambia lo guardado: en la próxima página vuelve a empezar encogida.
+  const abrir = useCallback(() => setEstado('abierta'), []);
 
-  if (!activo || !enElCatalogo(ruta) || items.length === 0 || estado === null) return null;
-
-  if (estado === 'cerrada') {
-    return (
-      <button
-        type="button"
-        onClick={abrir}
-        className="fixed bottom-4 right-4 z-30 inline-flex h-11 items-center gap-2 rounded-full border border-borde bg-white px-4 text-apoyo font-semibold shadow-[0_8px_24px_rgba(10,22,51,0.14)] md:bottom-6 md:right-6"
-      >
-        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#C8331F]" />
-        En vivo · {items.length}
-      </button>
-    );
-  }
+  if (!compartido?.activo || !enElCatalogo(ruta) || items.length === 0) return null;
+  if (estado === null || estado === 'oculta') return null;
 
   if (estado === 'abierta') {
-    return (
-      <Ventana
-        items={items}
-        ahora={ahora}
-        conSesion={conSesion}
-        alMinimizar={minimizar}
-        alCerrar={cerrar}
-      />
-    );
+    return <Ventana items={items} ahora={ahora} conSesion={conSesion} alCerrar={encoger} />;
   }
-
-  return <Mini items={items} ahora={ahora} alAbrir={abrir} alCerrar={cerrar} />;
+  return <Mini items={items} ahora={ahora} alAbrir={abrir} alCerrar={ocultar} />;
 }
 
 function PieVentana({ conSesion }: { conSesion: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3 border-t border-linea pt-3">
-      <Link href="/en-vivo" className="text-apoyo font-semibold">
+      <Link href="/pases-del-dia" className="text-apoyo font-semibold">
         Ver todo
       </Link>
       <Link
-        href={conSesion ? '/en-vivo/publicar' : '/ingresar'}
+        href={conSesion ? '/pases-del-dia/publicar' : '/ingresar'}
         className="inline-flex h-11 items-center rounded-full border border-borde bg-white px-5 text-apoyo font-semibold no-underline"
       >
-        Publicar en vivo
+        Publicar busco o remate
       </Link>
     </div>
   );
@@ -234,13 +228,12 @@ function Ventana({
   items,
   ahora,
   conSesion,
-  alMinimizar,
   alCerrar,
 }: {
   items: ItemEnVivo[];
   ahora: number;
   conSesion: boolean;
-  alMinimizar: () => void;
+  /** La × la encoge a la tarjeta mini, igual que bajar. */
   alCerrar: () => void;
 }) {
   const lista = (
@@ -250,44 +243,37 @@ function Ventana({
       ))}
     </ul>
   );
-  const cabecera = (abajo: boolean) => (
+  const cabecera = (
     <div className="flex items-center justify-between gap-2 pb-1.5">
       <span className="flex min-w-0 items-center gap-2.5">
         <PildoraEnVivo />
-        <h2 className="truncate text-tarjeta">Busco y ofertas flash</h2>
+        <h2 className="truncate text-tarjeta">Busco y remates</h2>
       </span>
-      <span className="flex">
-        <BotonIcono
-          etiqueta="Minimizar"
-          icono={abajo ? 'abajo' : 'minimizar'}
-          alPulsar={alMinimizar}
-        />
-        <BotonIcono etiqueta="Cerrar" icono="cerrar" alPulsar={alCerrar} />
-      </span>
+      <BotonIcono etiqueta="Cerrar (queda en la esquina)" icono="cerrar" alPulsar={alCerrar} />
     </div>
   );
   const alTeclear = (evento: KeyboardEvent) => {
-    if (evento.key === 'Escape') alMinimizar();
+    if (evento.key === 'Escape') alCerrar();
   };
 
   return (
     <>
       <aside
-        aria-label="En vivo: busco y ofertas flash"
+        aria-label="Pases del día: busco y remates"
         onKeyDown={alTeclear}
         className="fixed right-6 top-[304px] z-30 hidden max-h-[calc(100dvh-328px)] w-[404px] flex-col overflow-y-auto rounded-2xl border border-linea bg-white px-5 pb-4 pt-3 shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
-        {cabecera(false)}
+        {cabecera}
         {lista}
         <PieVentana conSesion={conSesion} />
       </aside>
       <section
-        aria-label="En vivo: busco y ofertas flash"
+        aria-label="Pases del día: busco y remates"
         onKeyDown={alTeclear}
         className="fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col overflow-y-auto rounded-t-[20px] bg-white px-4 pb-5 pt-2 shadow-[0_-12px_40px_rgba(10,22,51,0.2)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <span aria-hidden="true" className="mb-1.5 h-1 w-10 self-center rounded-full bg-borde" />
-        {cabecera(true)}
+        {cabecera}
         {lista}
         <PieVentana conSesion={conSesion} />
       </section>
@@ -396,7 +382,7 @@ function Mini({
     <>
       {/* Computadora: la tarjeta mini en la esquina (EV_SigueE). */}
       <aside
-        aria-label="En vivo: busco y ofertas flash"
+        aria-label="Pases del día: busco y remates"
         {...controles}
         className="fixed bottom-6 right-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
@@ -434,7 +420,11 @@ function Mini({
               />
             )}
             <BotonIcono etiqueta="Abrir la ventana" icono="abrir" alPulsar={alAbrir} />
-            <BotonIcono etiqueta="Cerrar" icono="cerrar" alPulsar={alCerrar} />
+            <BotonIcono
+              etiqueta="Ocultar hasta que haya algo nuevo"
+              icono="cerrar"
+              alPulsar={alCerrar}
+            />
           </span>
         </div>
         <div className="overflow-hidden pb-3 pt-2">
@@ -453,7 +443,7 @@ function Mini({
                   grosor={4.5}
                 />
                 <Link
-                  href={`/en-vivo?id=${item.id}`}
+                  href={`/pases-del-dia?id=${item.id}`}
                   className="flex min-w-0 flex-1 flex-col gap-0.5 no-underline"
                 >
                   <span className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap">
@@ -475,7 +465,7 @@ function Mini({
 
       {/* Celular: la barra flotante abajo (EV_SigueMovilBajar). */}
       <aside
-        aria-label="En vivo: busco y ofertas flash"
+        aria-label="Pases del día: busco y remates"
         {...controles}
         className="fixed inset-x-3 bottom-3 z-30 flex flex-col overflow-hidden rounded-2xl border border-linea bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
@@ -491,7 +481,7 @@ function Mini({
                   <button
                     type="button"
                     onClick={alAbrir}
-                    aria-label="Abrir En vivo"
+                    aria-label="Abrir Pases del día"
                     className="relative shrink-0"
                   >
                     <Miniatura
@@ -507,7 +497,7 @@ function Mini({
                     />
                   </button>
                   <Link
-                    href={`/en-vivo?id=${item.id}`}
+                    href={`/pases-del-dia?id=${item.id}`}
                     className="flex min-w-0 flex-1 flex-col gap-0.5 no-underline"
                   >
                     <span className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap">
@@ -523,7 +513,11 @@ function Mini({
               ))}
             </div>
           </div>
-          <BotonIcono etiqueta="Cerrar" icono="cerrar" alPulsar={alCerrar} />
+          <BotonIcono
+            etiqueta="Ocultar hasta que haya algo nuevo"
+            icono="cerrar"
+            alPulsar={alCerrar}
+          />
         </div>
         {barraDeTiempo}
       </aside>

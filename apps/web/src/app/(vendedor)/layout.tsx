@@ -2,6 +2,8 @@ import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
+import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { Cabecera } from '@/shared/ui/cabecera';
@@ -24,13 +26,20 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
 
   return (
     <ProveedorTiempoReal>
-      <div className="flex min-h-dvh flex-col">
-        <Cabecera sesion={sesion} categorias={categorias ?? []} galerias={galerias ?? []} />
-        <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
-          {children}
-        </main>
-        <Pie />
-      </div>
+      <ProveedorEnVivo>
+        <div className="flex min-h-dvh flex-col">
+          <Cabecera
+            sesion={sesion}
+            categorias={categorias ?? []}
+            galerias={galerias ?? []}
+            enBanda={<EntradaEnVivo />}
+          />
+          <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
+            {children}
+          </main>
+          <Pie />
+        </div>
+      </ProveedorEnVivo>
     </ProveedorTiempoReal>
   );
 }
