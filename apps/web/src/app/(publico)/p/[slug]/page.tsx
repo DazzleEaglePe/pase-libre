@@ -1,5 +1,6 @@
 import type { RespuestaFicha, RespuestaRedireccion } from '@paselibre/contracts';
 import type { Metadata } from 'next';
+import { IconCopy } from '@tabler/icons-react';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { cache } from 'react';
@@ -36,7 +37,7 @@ export async function generateMetadata({
   return { title: producto.titulo };
 }
 
-/** `/p/:producto` (F_Ficha): el producto con todas sus ofertas. */
+/** `/p/:producto` (B_Producto en Hielo): el producto con todas sus ofertas. */
 export default async function Ficha({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const ficha = await cargarFicha(slug);
@@ -44,17 +45,29 @@ export default async function Ficha({ params }: { params: Promise<{ slug: string
 
   return (
     <div className="flex flex-col gap-5">
-      <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle">
-        <Link href="/" className="text-secundario">
-          Inicio
-        </Link>
-        <span aria-hidden="true">›</span>
-        <Link href={`/buscar?categoria=${producto.categoria.slug}`} className="text-secundario">
-          {producto.categoria.nombre}
-        </Link>
-        <span aria-hidden="true">›</span>
-        <span>{producto.modelo ?? producto.titulo}</span>
-      </nav>
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle">
+          <Link href="/" className="text-secundario">
+            Inicio
+          </Link>
+          <span aria-hidden="true">›</span>
+          <Link href={`/buscar?categoria=${producto.categoria.slug}`} className="text-secundario">
+            {producto.categoria.nombre}
+          </Link>
+          <span aria-hidden="true">›</span>
+          <span>{producto.modelo ?? producto.titulo}</span>
+        </nav>
+        {/* RF-53: cualquier vendedor publica el mismo producto con estas fotos y datos. */}
+        {ficha.audiencia === 'vendedor' && (
+          <Link
+            href={`/publicar?igual=${producto.slug}`}
+            className="inline-flex items-center gap-1.5 text-apoyo font-semibold"
+          >
+            <IconCopy size={16} stroke={1.5} aria-hidden="true" />
+            ¿Tú también lo tienes? Publicar uno igual
+          </Link>
+        )}
+      </div>
       <FichaProducto
         key={producto.id}
         producto={producto}

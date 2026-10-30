@@ -4,31 +4,74 @@ import {
   formatearPrecio,
   urlFoto,
   type Audiencia,
+  type Precio,
   type ProductoDetalle,
   type RespuestaContacto,
 } from '@paselibre/contracts';
+import { IconBrandWhatsapp, IconFlag } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
 import { botonLista, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
+import { Ventana } from '@/shared/ui/ventana';
 
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoEstado, textoStock } from './textos';
+
+/** Viñetas de «Lo que tienes que saber»: las primeras líneas de lo que escribió el vendedor. */
+const VINETAS = 4;
 
 const lugarDe = (oferta: OfertaVista): string =>
   [oferta.galeria ?? 'Independiente', oferta.tienda?.stand && `Stand ${oferta.tienda.stand}`]
     .filter(Boolean)
     .join(' · ');
 
+const nombreDe = (oferta: OfertaVista): string =>
+  oferta.tienda
+    ? `${oferta.tienda.nombre}${oferta.propia ? ' (tú)' : ''}`
+    : `Tienda de ${oferta.galeria ?? 'independiente'}`;
+
+/** «A» para «Tienda A»; «?» para el visitante, que no ve la tienda. */
+const inicialDe = (oferta: OfertaVista): string =>
+  oferta.tienda ? (oferta.tienda.nombre.replace(/^tienda\s+/i, '')[0] ?? '?').toUpperCase() : '?';
+
+const disponibles = (stock: number) => (stock === 0 ? 'Sin stock' : textoStock(stock));
+
+/** El precio visible más bajo, en la moneda pedida (o en cualquiera, si no hay una). */
+function masBarata(ofertas: OfertaVista[], moneda?: Precio['moneda']): OfertaVista | null {
+  return ofertas.reduce<OfertaVista | null>((mejor, oferta) => {
+    if (!oferta.precio || (moneda && oferta.precio.moneda !== moneda)) return mejor;
+    if (!mejor?.precio || oferta.precio.centimos < mejor.precio.centimos) return oferta;
+    return mejor;
+  }, null);
+}
+
+function Avatar({ oferta, chico = false }: { oferta: OfertaVista; chico?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`flex shrink-0 items-center justify-center rounded-full bg-tinta font-semibold text-white ${
+        chico ? 'h-9 w-9 text-apoyo' : 'h-11 w-11'
+      }`}
+    >
+      {inicialDe(oferta)}
+    </span>
+  );
+}
+
 /**
- * La ficha de un producto (F_Ficha): las fotos, la oferta que se está viendo con sus botones
- * y la tabla con todas las ofertas. Elegir otra oferta cambia el precio, el vendedor, las
- * fotos y la descripción. Contactar abre el chat o WhatsApp (RF-21, RF-23).
+ * La ficha de un producto, con la estructura de B_Producto en Hielo: fotos, el producto con
+ * su precio y «Lo que tienes que saber», la caja para contactar con el vendedor, la tabla de
+ * otras ofertas y los detalles. Elegir otra oferta cambia el precio, el vendedor, las fotos y
+ * la descripción. Contactar abre el chat o WhatsApp (RF-21, RF-23).
+ *
+ * Lo de la fase 2 que muestra el lienzo (pedir pase, favoritos, seguir, reputación y
+ * preguntas) no aparece hasta que exista.
  */
 export function FichaProducto({
   producto,
@@ -47,10 +90,37 @@ export function FichaProducto({
   const [foto, setFoto] = useState(0);
   const [contactando, setContactando] = useState<'CHAT' | 'WHATSAPP' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [denunciando, setDenunciando] = useState(false);
 
   const oferta = ofertas.find((candidata) => candidata.id === elegida) ?? null;
   const fotos = oferta && oferta.fotos.length > 0 ? oferta.fotos : producto.fotos;
   const fotoActual = fotos[Math.min(foto, fotos.length - 1)] ?? null;
+
+  const lineas = (oferta?.descripcion ?? '')
+    .split('\n')
+    .map((linea) => linea.replace(/^[-•*·]\s*/, '').trim())
+    .filter(Boolean);
+  const caracteristicas = Object.entries(producto.caracteristicas);
+  const vinetas =
+    lineas.length > 0
+      ? lineas.slice(0, VINETAS)
+      : caracteristicas.slice(0, VINETAS).map(([nombre, valor]) => `${nombre}: ${valor}`);
+
+  const mejor = masBarata(ofertas);
+  const otraMasBarata = oferta
+    ? masBarata(
+        ofertas.filter((otra) => otra.id !== oferta.id),
+        oferta.precio?.moneda,
+      )
+    : null;
+  const conviene =
+    otraMasBarata?.precio &&
+    (!oferta?.precio || otraMasBarata.precio.centimos < oferta.precio.centimos)
+      ? otraMasBarata
+      : null;
+  const vendedores = conSesion
+    ? new Set(ofertas.map((o) => o.tienda?.nombre)).size
+    : ofertas.length;
 
   function elegir(id: string) {
     setElegida(id);
@@ -78,12 +148,10 @@ export function FichaProducto({
   }
 
   return (
-    <div className="flex flex-col gap-12">
-      <div className="flex flex-wrap items-start gap-10">
-        <section
-          aria-label="Fotos"
-          className="flex min-w-0 flex-[1_1_520px] flex-col-reverse gap-3 sm:flex-row"
-        >
+    <div className="flex flex-col gap-14">
+      <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(300px,0.85fr)] lg:gap-10">
+        {/* Fotos: las miniaturas a la izquierda y la foto grande. */}
+        <section aria-label="Fotos" className="flex min-w-0 flex-col-reverse gap-3 sm:flex-row">
           {fotos.length > 1 && (
             <div
               role="tablist"
@@ -99,7 +167,7 @@ export function FichaProducto({
                   aria-selected={indice === foto}
                   aria-label={`Foto ${indice + 1} de ${fotos.length}`}
                   onClick={() => setFoto(indice)}
-                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-[10px] border bg-superficie p-0 ${
+                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-superficie p-0 ${
                     indice === foto ? 'border-2 border-tinta' : 'border-linea'
                   }`}
                 >
@@ -117,9 +185,9 @@ export function FichaProducto({
             <Miniatura
               ruta={fotoActual?.ruta ?? null}
               categoria={producto.categoria.slug}
-              className="aspect-[4/3] w-full rounded-2xl"
-              glifo={260}
-              grosor={0.7}
+              className="aspect-square w-full rounded-[20px]"
+              glifo={240}
+              grosor={0.8}
             />
             {fotos.length > 1 && (
               <span className="absolute bottom-3.5 left-4 rounded-full bg-white/90 px-2.5 text-nota text-secundario">
@@ -129,82 +197,92 @@ export function FichaProducto({
           </div>
         </section>
 
-        <section
-          aria-label="Producto y oferta"
-          className="flex min-w-0 flex-[1_1_380px] flex-col gap-5 lg:max-w-[460px]"
-        >
-          <div className="flex flex-col gap-2">
-            <span className="text-nota text-detalle">
-              {[producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
-            </span>
-            <h1 className="text-titulo">{producto.titulo}</h1>
-            {producto.etiquetas.length > 0 && (
-              <ul aria-label="Etiquetas" className="mt-1 flex list-none flex-wrap gap-1.5 p-0">
-                {producto.etiquetas.map((etiqueta) => (
-                  <li
-                    key={etiqueta}
-                    className="rounded-full bg-superficie px-2.5 text-nota leading-5 text-secundario"
-                  >
-                    {etiqueta}
-                  </li>
+        {/* El producto: estado, título, precio y lo que hay que saber. */}
+        <section aria-label="Producto" className="flex min-w-0 flex-col gap-4">
+          <span className="text-apoyo text-secundario">
+            {oferta
+              ? `${textoEstado(oferta.condicion)} · Actualizado ${haceCuanto(oferta.actualizadaEn).toLowerCase()}`
+              : [producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
+          </span>
+          <h1 className="text-[30px] font-semibold leading-[38px] tracking-[-0.01em]">
+            {producto.titulo}
+          </h1>
+          {producto.etiquetas.length > 0 && (
+            <ul aria-label="Etiquetas" className="flex list-none flex-wrap gap-1.5 p-0">
+              {producto.etiquetas.map((etiqueta) => (
+                <li
+                  key={etiqueta}
+                  className="rounded-full bg-superficie px-2.5 text-nota leading-5 text-secundario"
+                >
+                  {etiqueta}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {oferta && (
+            <div className="flex flex-col gap-1">
+              {oferta.precio ? (
+                <span className="text-[40px] font-semibold leading-[48px] tracking-[-0.02em]">
+                  {formatearPrecio(oferta.precio)}
+                </span>
+              ) : conSesion ? (
+                <span className="text-[28px] font-semibold leading-9">Al interno</span>
+              ) : (
+                <PrecioConSesion className="text-[22px] leading-8" />
+              )}
+              <span className="text-apoyo text-secundario">
+                {oferta.precio
+                  ? `Precio de pase de ${nombreDe(oferta)}${oferta.precioVisible ? '' : ' · está al interno: solo lo ves tú'}`
+                  : conSesion
+                    ? 'El vendedor da el precio por mensaje o WhatsApp'
+                    : 'El precio y la tienda se ven al iniciar sesión'}
+                {conviene?.precio && (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={() => elegir(conviene.id)}
+                      className="font-semibold text-tinta underline"
+                    >
+                      hay otra desde {formatearPrecio(conviene.precio)}
+                    </button>
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+
+          {vinetas.length > 0 && (
+            <div className="flex flex-col gap-2 pt-1">
+              <h2 className="text-tarjeta">Lo que tienes que saber</h2>
+              <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-secundario marker:text-detalle">
+                {vinetas.map((vineta) => (
+                  <li key={vineta}>{vineta}</li>
                 ))}
               </ul>
-            )}
-          </div>
-
-          {oferta ? (
-            <div className="flex flex-col gap-4 rounded-2xl border border-linea p-5">
-              <span className="text-nota text-detalle">
-                {textoEstado(oferta.condicion)} · {textoStock(oferta.stock)} · Actualizado{' '}
-                {haceCuanto(oferta.actualizadaEn).toLowerCase()}
-              </span>
-              {oferta.precio ? (
-                <div className="flex flex-col">
-                  <span className="text-[32px] font-semibold leading-10 tracking-[-0.01em]">
-                    {formatearPrecio(oferta.precio)}
-                  </span>
-                  <span className="text-nota text-detalle">
-                    {oferta.precioVisible
-                      ? 'Precio de pase'
-                      : 'Precio de pase · está al interno: solo lo ves tú'}
-                  </span>
-                </div>
-              ) : conSesion ? (
-                <div className="flex flex-col">
-                  <span className="text-[24px] font-semibold leading-8">Al interno</span>
-                  <span className="text-nota text-detalle">
-                    El vendedor da el precio por mensaje o WhatsApp
-                  </span>
-                </div>
-              ) : (
-                <PrecioConSesion className="text-[20px] leading-7" />
+              {lineas.length > VINETAS && (
+                <a href="#descripcion" className="text-apoyo font-semibold">
+                  Ver la descripción completa
+                </a>
               )}
+            </div>
+          )}
+        </section>
 
-              <div className="flex items-center gap-3 border-t border-linea pt-4">
-                {oferta.tienda && (
-                  <span
-                    aria-hidden="true"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tinta font-semibold text-white"
-                  >
-                    {(oferta.tienda.nombre.replace(/^tienda\s+/i, '')[0] ?? '?').toUpperCase()}
-                  </span>
-                )}
-                <span className="flex min-w-0 flex-col">
-                  <b className="font-semibold">
-                    {oferta.tienda
-                      ? `${oferta.tienda.nombre}${oferta.propia ? ' (tú)' : ''}`
-                      : `Tienda de ${oferta.galeria ?? 'independiente'}`}
-                  </b>
-                  <span className="text-nota text-detalle">
-                    {oferta.tienda
-                      ? lugarDe(oferta)
-                      : `${oferta.galeria ? `Galería ${oferta.galeria}` : 'Independiente'} · el nombre y el stand se ven con sesión`}
-                  </span>
-                </span>
-              </div>
+        {/* La caja de contacto (a la derecha en la computadora). */}
+        <aside
+          aria-label="Contactar al vendedor"
+          className="flex min-w-0 flex-col gap-4 rounded-[20px] border border-linea p-5 md:col-span-2 lg:col-span-1"
+        >
+          {oferta ? (
+            <>
+              <b className={`text-tarjeta ${oferta.stock > 0 ? 'text-ok' : 'text-aviso'}`}>
+                {disponibles(oferta.stock)}
+              </b>
 
               {audiencia === 'vendedor' && !oferta.propia && (
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-3">
                   <button
                     type="button"
                     disabled={contactando !== null}
@@ -217,27 +295,11 @@ export function FichaProducto({
                     type="button"
                     disabled={contactando !== null}
                     onClick={() => contactar('WHATSAPP')}
-                    className={`${botonSecundario} h-12 w-full gap-2`}
+                    className="inline-flex h-11 items-center justify-center gap-2 text-apoyo font-semibold text-ok underline disabled:text-detalle"
                   >
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
-                      <path d="M9.2 8.8c0 3.4 2.6 6 6 6l1-1.6-2.1-1-1 .9c-.9-.4-1.7-1.2-2.1-2.1l.9-1-1-2.1z" />
-                    </svg>
-                    {contactando === 'WHATSAPP' ? 'Abriendo…' : 'WhatsApp'}
+                    <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
+                    {contactando === 'WHATSAPP' ? 'Abriendo WhatsApp…' : 'Escribir por WhatsApp'}
                   </button>
-                  <span className="text-nota text-detalle">
-                    WhatsApp se abre con un mensaje ya escrito sobre este producto.
-                  </span>
                   {error && (
                     <p role="alert" className="text-apoyo text-error">
                       {error}
@@ -274,55 +336,48 @@ export function FichaProducto({
                   </span>
                 </div>
               )}
-            </div>
-          ) : (
-            <p className="rounded-2xl bg-superficie p-5 text-secundario">
-              Por ahora ninguna tienda lo tiene publicado.
-            </p>
-          )}
 
-          {audiencia === 'vendedor' && (
-            <div className="flex items-center justify-between gap-4">
-              <span className="flex flex-col">
-                <b className="font-semibold">¿Tienes este producto?</b>
-                <span className="text-nota text-detalle">
-                  Usa estas fotos y datos; solo pones estado, stock y precio.
+              <p className="text-nota text-detalle">
+                PaseLibre no cobra ni intermedia: el pase se coordina entre ustedes.
+              </p>
+
+              <div className="flex items-center gap-3 border-t border-linea pt-4">
+                <Avatar oferta={oferta} />
+                <span className="flex min-w-0 flex-col">
+                  <b className="font-semibold">{nombreDe(oferta)}</b>
+                  <span className="text-nota text-detalle">
+                    {oferta.tienda ? lugarDe(oferta) : 'El nombre y el stand se ven con sesión'}
+                  </span>
                 </span>
-              </span>
-              <Link
-                href={`/publicar?igual=${producto.slug}`}
-                className={`${botonLista} shrink-0 no-underline`}
-              >
-                Publicar uno igual
-              </Link>
-            </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-secundario">Por ahora ninguna tienda lo tiene publicado.</p>
           )}
-        </section>
+        </aside>
       </div>
 
       {ofertas.length > 0 && (
-        <section aria-labelledby="ofertas" className="flex flex-col">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-5 gap-y-1 pb-3">
-            <h2 id="ofertas" className="text-seccion">
-              Ofertas de este producto{' '}
-              <span className="font-normal text-detalle">({ofertas.length})</span>
+        <section aria-labelledby="ofertas" className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <h2 id="ofertas" className="text-[24px] font-semibold leading-8">
+              Otras ofertas de este producto
             </h2>
-            <span className="text-nota text-detalle">
+            <span className="text-apoyo text-secundario">
               {conSesion
-                ? 'De menor a mayor precio. Las ofertas al interno van al final.'
-                : 'De la más reciente a la más antigua.'}
+                ? `Lo ${vendedores === 1 ? 'tiene 1 vendedor' : `tienen ${vendedores} vendedores`}${mejor?.precio ? ` · desde ${formatearPrecio(mejor.precio)}` : ''}`
+                : `${ofertas.length === 1 ? '1 oferta' : `${ofertas.length} ofertas`} · los precios se ven con sesión`}
             </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-left">
+          <div className="overflow-x-auto rounded-[20px] border border-linea">
+            <table className="w-full min-w-[680px] border-collapse text-left">
               <thead>
-                <tr className="border-b border-linea text-nota font-semibold text-detalle">
-                  <th className="h-10 pr-4 font-semibold">Vendedor</th>
-                  <th className="pr-4 font-semibold">Galería</th>
+                <tr className="bg-superficie text-nota font-semibold text-secundario">
+                  <th className="h-12 px-5 font-semibold">Vendedor</th>
                   <th className="pr-4 font-semibold">Estado</th>
-                  <th className="pr-4 font-semibold">Stock</th>
+                  <th className="pr-4 font-semibold">Disponibles</th>
                   <th className="pr-4 font-semibold">Precio</th>
-                  <th className="w-[132px]">
+                  <th className="w-[160px] pr-5">
                     <span className="sr-only">Acción</span>
                   </th>
                 </tr>
@@ -330,40 +385,49 @@ export function FichaProducto({
               <tbody>
                 {ofertas.map((fila) => {
                   const viendo = fila.id === elegida;
+                  const esMejor = conSesion && fila.id === mejor?.id && ofertas.length > 1;
                   return (
                     <tr
                       key={fila.id}
-                      className={`h-16 border-b border-linea ${viendo ? 'bg-superficie' : ''}`}
+                      className={`border-t border-linea ${viendo ? 'bg-pase-suave' : ''}`}
                     >
-                      <td className={`pr-4 ${viendo ? 'font-semibold' : ''}`}>
-                        {fila.tienda
-                          ? `${fila.tienda.nombre}${fila.propia ? ' (tú)' : ''}`
-                          : `Tienda de ${fila.galeria ?? 'independiente'}`}
-                      </td>
-                      <td className="pr-4 text-apoyo text-secundario">
-                        {fila.galeria ?? 'Independiente'}
-                      </td>
-                      <td className="pr-4 text-apoyo text-secundario">
-                        {textoEstado(fila.condicion)}
-                      </td>
-                      <td className="pr-4 text-apoyo text-secundario">{textoStock(fila.stock)}</td>
-                      <td className="pr-4 font-semibold">
-                        {fila.precio
-                          ? formatearPrecio(fila.precio)
-                          : conSesion
-                            ? 'Al interno'
-                            : 'Con sesión'}
-                      </td>
-                      <td>
-                        {viendo ? (
-                          <span className="flex w-[132px] justify-center text-apoyo font-medium text-secundario">
-                            Viendo
+                      <td className="px-5 py-3.5">
+                        <span className="flex items-center gap-3">
+                          <Avatar oferta={fila} chico />
+                          <span className="flex min-w-0 flex-col">
+                            <b className="font-semibold">{nombreDe(fila)}</b>
+                            <span className="text-nota text-detalle">{lugarDe(fila)}</span>
                           </span>
-                        ) : (
+                        </span>
+                      </td>
+                      <td className="pr-4">{textoEstado(fila.condicion)}</td>
+                      <td className="pr-4">{disponibles(fila.stock)}</td>
+                      <td className="pr-4">
+                        <span className="flex flex-col">
+                          <b className="text-tarjeta">
+                            {fila.precio
+                              ? formatearPrecio(fila.precio)
+                              : conSesion
+                                ? 'Al interno'
+                                : 'Con sesión'}
+                          </b>
+                          {viendo ? (
+                            <span className="text-nota font-semibold text-pase">
+                              Estás viendo esta
+                            </span>
+                          ) : (
+                            esMejor && (
+                              <span className="text-nota font-semibold text-ok">Mejor precio</span>
+                            )
+                          )}
+                        </span>
+                      </td>
+                      <td className="pr-5 text-right">
+                        {!viendo && (
                           <button
                             type="button"
                             onClick={() => elegir(fila.id)}
-                            className={`${botonLista} w-[132px]`}
+                            className={`${botonLista} w-[140px]`}
                           >
                             Ver oferta
                           </button>
@@ -375,33 +439,132 @@ export function FichaProducto({
               </tbody>
             </table>
           </div>
+          <span className="text-nota text-detalle">
+            {conSesion
+              ? 'De menor a mayor precio. Las ofertas al interno van al final.'
+              : 'De la más reciente a la más antigua.'}
+          </span>
         </section>
       )}
 
-      <section aria-label="Detalle" className="flex flex-wrap gap-10 pt-2">
-        <div className="flex min-w-0 flex-[1_1_520px] flex-col gap-2.5">
-          <h2 className="text-seccion">Descripción del vendedor</h2>
-          <p className="max-w-[640px] whitespace-pre-line">
+      <section aria-label="Descripción y detalles" className="grid gap-10 lg:grid-cols-2">
+        <div id="descripcion" className="flex min-w-0 scroll-mt-28 flex-col gap-3">
+          <h2 className="text-[24px] font-semibold leading-8">Descripción del vendedor</h2>
+          <p className="max-w-[640px] whitespace-pre-line text-secundario">
             {oferta?.descripcion || 'El vendedor no agregó una descripción.'}
           </p>
           {ofertas.length > 1 && (
             <span className="text-nota text-detalle">Cambia con la oferta que estás viendo.</span>
           )}
         </div>
-        {Object.keys(producto.caracteristicas).length > 0 && (
-          <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-2.5 lg:max-w-[460px]">
-            <h2 className="text-seccion">Características</h2>
-            <dl className="m-0 grid grid-cols-[140px_minmax(0,1fr)] text-apoyo">
-              {Object.entries(producto.caracteristicas).map(([nombre, valor]) => (
-                <div key={nombre} className="contents">
-                  <dt className="border-b border-linea py-2.5 text-detalle">{nombre}</dt>
-                  <dd className="m-0 border-b border-linea py-2.5">{valor}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        )}
+        <div className="flex min-w-0 flex-col gap-3">
+          <h2 className="text-[24px] font-semibold leading-8">Detalles</h2>
+          <dl className="m-0 grid grid-cols-[minmax(120px,0.4fr)_minmax(0,1fr)] border-t border-linea">
+            {[
+              ...(producto.marca ? [['Marca', producto.marca] as const] : []),
+              ...(producto.modelo ? [['Modelo', producto.modelo] as const] : []),
+              ...caracteristicas,
+              ['Categoría', producto.categoria.nombre] as const,
+            ].map(([nombre, valor]) => (
+              <div key={nombre} className="contents">
+                <dt className="border-b border-linea py-3 text-secundario">{nombre}</dt>
+                <dd className="m-0 border-b border-linea py-3">{valor}</dd>
+              </div>
+            ))}
+          </dl>
+          {oferta && (
+            <span className="flex flex-wrap items-center gap-x-1.5 text-nota text-detalle">
+              Publicación actualizada {haceCuanto(oferta.actualizadaEn).toLowerCase()}
+              {audiencia === 'vendedor' && !oferta.propia && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <button
+                    type="button"
+                    onClick={() => setDenunciando(true)}
+                    className="inline-flex items-center gap-1 underline"
+                  >
+                    <IconFlag size={14} stroke={1.5} aria-hidden="true" />
+                    Denunciar
+                  </button>
+                </>
+              )}
+            </span>
+          )}
+        </div>
       </section>
+
+      {denunciando && oferta && (
+        <VentanaDenuncia ofertaId={oferta.id} alCerrar={() => setDenunciando(false)} />
+      )}
     </div>
+  );
+}
+
+/** Denunciar la oferta que se está viendo (RF-29): el motivo va a la cola del equipo. */
+function VentanaDenuncia({ ofertaId, alCerrar }: { ofertaId: string; alCerrar: () => void }) {
+  const [motivo, setMotivo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [enviada, setEnviada] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function enviar(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setEnviando(true);
+    setError(null);
+    try {
+      await llamarApi('/denuncias', {
+        metodo: 'POST',
+        cuerpo: { objeto: 'OFERTA', objeto_id: ofertaId, motivo },
+      });
+      setEnviada(true);
+    } catch (falla) {
+      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos enviar la denuncia.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <Ventana titulo="Denunciar esta publicación" abierta alCerrar={alCerrar}>
+      {enviada ? (
+        <>
+          <p className="text-secundario">Gracias. El equipo de PaseLibre la va a revisar.</p>
+          <button type="button" onClick={alCerrar} className={botonSecundario}>
+            Cerrar
+          </button>
+        </>
+      ) : (
+        <form onSubmit={(evento) => void enviar(evento)} className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-apoyo font-medium">
+            ¿Qué pasa con esta publicación?
+            <textarea
+              value={motivo}
+              onChange={(evento) => setMotivo(evento.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Ya no la tienen, el precio no es real, es otro producto…"
+              className="rounded-xl border border-borde px-3.5 py-2.5 text-cuerpo font-normal"
+            />
+          </label>
+          {error && (
+            <p role="alert" className="text-apoyo text-error">
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <button type="button" onClick={alCerrar} className={botonSecundario}>
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={enviando || motivo.trim().length < 5}
+              className={botonPrincipal}
+            >
+              {enviando ? 'Enviando…' : 'Enviar denuncia'}
+            </button>
+          </div>
+        </form>
+      )}
+    </Ventana>
   );
 }

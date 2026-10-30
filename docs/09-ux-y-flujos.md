@@ -22,7 +22,7 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 | --- | --- | --- | --- |
 | `/` | Portada (F_Portada) | Todos | Buscador, categorías y «Recién publicado». Con sesión, la barra es la de la tienda y aparecen los precios |
 | `/buscar?q=…` | Resultados (F_Resultados) | Todos | Filtros, orden y página viven en la dirección: una búsqueda se comparte y funciona sin JavaScript. La categoría también va como filtro (`?categoria=`) |
-| `/p/:producto` (y `?oferta=:id`) | Ficha (F_Ficha) | Todos | Fotos, datos, ofertas de las tiendas, «Enviar mensaje», «WhatsApp» y «Publicar uno igual». Un producto unido a otro redirige con 301 |
+| `/p/:producto` (y `?oferta=:id`) | Ficha (B_Producto, en Hielo, desde el 29/10) | Todos | Tres columnas: fotos; el producto con su precio, «hay otra desde…» y «Lo que tienes que saber»; y la caja para contactar («Enviar mensaje», «Escribir por WhatsApp» y el vendedor). Debajo, «Otras ofertas de este producto» con «Mejor precio» y «Estás viendo esta», la descripción del vendedor y «Detalles» con «Denunciar». Arriba, «¿Tú también lo tienes? Publicar uno igual». Lo que el lienzo muestra de la fase 2 (pedir pase, favoritos, seguir, reputación y preguntas) no está. Un producto unido a otro redirige con 301 |
 | `/ingresar` | Acceso y primer ingreso (F_Acceso) | Sin sesión | Si ya hay sesión, lleva a la portada (o al panel, si es del equipo) |
 | `/publicar` (`?igual=`, `?editar=`) | Publicar uno igual (F_Publicar) | Vendedor | Publicar, publicar uno igual desde la ficha y editar |
 | `/mis-publicaciones` | Mis publicaciones (F_MisPublicaciones) | Vendedor | |
