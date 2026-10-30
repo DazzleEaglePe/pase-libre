@@ -177,7 +177,7 @@ En la web se llama **«Pases del día»** y los tipos se leen **«Busco»** y **
 | Momento | En la computadora | En el celular |
 | --- | --- | --- |
 | Al entrar (solo la primera vez del día) | Ventana flotante a la derecha, bajo el saludo, sin oscurecer la página: lo que está en vivo, «Ver todo» y «Publicar en vivo». Su × la encoge, igual que bajar | Hoja desde abajo con lo mismo. Sin sesión no se abre: empieza en la barra |
-| Al bajar, y el resto del día | Se encoge a una tarjeta mini abajo a la derecha: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y ocultar. Una luz azul gira sin parar por su borde, como el chat de VS Code; no lleva barra de tiempo | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
+| Al bajar, y el resto del día | Se encoge a una tarjeta mini abajo a la izquierda, lejos de los botones de cada resultado: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y ocultar. Una luz azul gira sin parar por su borde, como el chat de VS Code; no lleva barra de tiempo | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
 | Oculta (× de la tarjeta mini) | Nada en la esquina hasta que alguien publique algo nuevo; entonces vuelve la tarjeta mini | Lo mismo |
 
 - Aparece en la portada, la búsqueda y la ficha. No en Publicar, Mensajes, Configuración, `/pases-del-dia` ni el panel del equipo. Si no hay nada en vivo, no aparece nada.

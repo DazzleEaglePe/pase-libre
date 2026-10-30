@@ -373,12 +373,12 @@ function Mini({
 
   return (
     <>
-      {/* Computadora: la tarjeta mini en la esquina (EV_SigueE). */}
+      {/* Computadora: la tarjeta mini abajo a la izquierda, lejos de los botones de la derecha. */}
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
         style={{ bottom: 24 + sobrePie }}
-        className="borde-en-vivo fixed bottom-6 right-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
+        className="borde-en-vivo fixed bottom-6 left-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
         <div className="flex items-center justify-between gap-1 pl-3 pr-2 pt-2">
           <span className="flex items-center gap-0.5">
