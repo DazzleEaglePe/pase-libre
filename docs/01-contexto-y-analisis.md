@@ -1,6 +1,6 @@
 # 01 · Contexto y análisis
 
-**Versión:** 0.8 (borrador) · **Fecha:** 26/10/2026
+**Versión:** 0.9 (borrador) · **Fecha:** 29/10/2026
 **Fuente:** chat del grupo de WhatsApp «PaseLibre compra y ventas» (22–24/10/2026), incluida la conversación del 24/10 entre las 12:07 y las 23:44, las respuestas de Dazz del 25/10, el [lienzo de diseño](https://claude.ai/artifact/H9iqh18AbknFVzzuRZPK1A) del 25/10 (versiones A, B, C y la línea final), el boceto que compartió Fabrizio y una captura del prototipo «TechGallery». Lo que no sale del chat está marcado como *propuesto* o *por validar*.
 
 ---
@@ -57,7 +57,7 @@ Una interfaz web tipo marketplace/OLX, simple, donde:
 - Cada tienda podrá **ocultar su identidad** (nombre, dirección, stand) sin dejar de publicar, con un perfil privado o público (D-20).
 - Un mismo **producto agrupa las ofertas** de varios vendedores, de menor a mayor precio, y cualquiera puede **«Publicar uno igual»** desde una ficha (D-43, D-44).
 - **Mensajes** con filtros, respuestas rápidas y acciones de conversación, y una **configuración** básica de la cuenta (D-45, D-46).
-- *(Fase 2)* Pedir pase con bandeja, preguntas públicas, reputación, favoritos, tienda pública y requerimientos «¡Lo tengo!» (D-31, D-47).
+- *(Fase 2)* Pedir pase con bandeja, preguntas públicas, reputación, favoritos, tienda pública y **En vivo**: busco y ofertas flash, con «¡Lo tengo!» y «¡Lo quiero!» (D-31, D-47, D-53).
 
 ## 5. Fuera de alcance y límites (decisiones explícitas)
 
@@ -147,6 +147,7 @@ Una interfaz web tipo marketplace/OLX, simple, donde:
 | D-50 | 26/10 | **Stack:** se reutiliza el de Yallegó: monorepo pnpm con Next.js, NestJS, Prisma, PostgreSQL, Redis y socket.io | Dazz. Detalle en el [documento 05](05-arquitectura.md). El servidor (VPS nuevo o el de Yallegó) se decide al final |
 | D-51 | 26/10 | **Bandeja de mensajes por persona:** cada conversación es entre quien escribe y el responsable de la oferta (quien la publicó). Los demás usuarios de la tienda no la ven | Dazz. El equipo puede pasar las ofertas y conversaciones de un usuario a otro de la misma tienda |
 | D-52 | 27/10 | **Línea gráfica «Hielo»:** azul noche #0A1633 para el texto, azul pase #2F5BFF para actuar y grises fríos; tipografía **Figtree** (400, 500 y 600) con la misma escala de D-49; el logo es la entrada con muesca y la flecha vaciada. Reemplaza el lima, la tinta y Inter de D-49 en el código y los archivos de marca | Dazz, entre 4 propuestas minimalistas (Papel, Hielo, Musgo y Noche) hechas con Claude y con la imagen de ChatGPT. Los archivos están en `branding/` y las propuestas en `branding/propuestas/`. El lienzo de diseño conserva la línea anterior hasta que Grimm y My lo actualicen |
+| D-53 | 29/10 | **En vivo: busco y ofertas flash.** Los requerimientos del boceto pasan a ser dos publicaciones que duran unas horas: **«Busco»** (las demás tiendas responden «¡Lo tengo!») y **«Oferta flash»** (responden «¡Lo quiero!»). Cualquier cuenta publica las dos, y la respuesta abre el chat de la web. Se muestran con la **propuesta E** del lienzo: al entrar, una ventana flotante junto al saludo; al bajar, una tarjeta mini en la esquina que pasa una publicación a la vez y sigue al usuario | Dazz, entre las propuestas del lienzo (A a D para la portada; E, F y G para «aparece y te sigue»). Se construyó el mismo 29/10 detrás del interruptor `EN_VIVO` (apagado en producción hasta que se decida encenderlo); el estado está en el [documento 11 §7](11-plan-de-desarrollo.md#7-en-vivo) |
 
 ## 9. Preguntas
 
@@ -247,7 +248,9 @@ Cada una cambia el diseño o el alcance. Conviene cerrar las primeras antes de c
 | **Partner / socio** | Rol que un vendedor da a otra tienda para ofrecerle un precio preferencial |
 | **Independiente** | Vendedor sin tienda que trae productos del exterior por unidad o en pequeñas cantidades y los vende a tiendas |
 | **Asesor / «chacal»** | Empleado de una tienda que cierra ventas y busca quién tiene el producto más barato |
-| **Requerimiento** | Publicación de una tienda que busca un producto |
-| **«Lo tengo!!»** | Respuesta de una tienda a un requerimiento |
+| **En vivo** | Publicación que dura unas horas: un «Busco» o una «Oferta flash» (D-53) |
+| **Busco** (antes «requerimiento») | Publicación de una tienda que necesita un producto para un cliente |
+| **Oferta flash** | Una publicación a precio de pase solo por hoy |
+| **«¡Lo tengo!» / «¡Lo quiero!»** | Respuesta de otra tienda a un busco o a una oferta flash. Abre el chat |
 | **wbada / wbear** | Jerga del chat, usada como «cosa» o «equivocarse» según el caso. No es un término técnico |
 | **CPP, CGS** | Tiendas grandes de Wilson citadas por Fabrizio. CPP, como ejemplo de vendedor «celoso» |

@@ -13,6 +13,10 @@ export const CODIGOS_ERROR = [
   'CLAVE_ACTUAL_INCORRECTA',
   /** La otra persona bloqueó a tu tienda: no puedes escribirle ni contactarla (RF-57). */
   'BLOQUEADO',
+  /** Ya tienes 3 publicaciones en vivo a la vez (RF-73). */
+  'LIMITE_EN_VIVO',
+  /** Tu tienda ya respondió a este busco o a esta oferta flash (RF-26). */
+  'YA_RESPONDISTE',
   'FALTA_CABECERA_PASELIBRE',
   'SERVICIO_NO_DISPONIBLE',
   'ERROR_INTERNO',

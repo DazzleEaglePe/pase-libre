@@ -13,7 +13,8 @@ const campoHora =
 
 /**
  * Configuración · Avisos (RF-59). Cada cambio se guarda al momento, como los interruptores
- * del lienzo. Por ahora solo hay avisos de mensajes; la columna de correo llega con RF-42.
+ * del lienzo: mensajes y, con En vivo encendido (D-53), los busco de lo que tienes publicado.
+ * La columna de correo llega con RF-42.
  */
 export function SeccionAvisos({ alAvisar }: { alAvisar: (mensaje: string) => void }) {
   const id = useId();
@@ -71,9 +72,28 @@ export function SeccionAvisos({ alAvisar }: { alAvisar: (mensaje: string) => voi
           <Interruptor
             etiqueta="Mensajes nuevos en la campanita"
             activo={datos.campanita.MENSAJE}
-            alCambiar={(activo) => void guardar({ ...datos, campanita: { MENSAJE: activo } })}
+            alCambiar={(activo) =>
+              void guardar({ ...datos, campanita: { ...datos.campanita, MENSAJE: activo } })
+            }
           />
         </div>
+        {datos.campanita.EN_VIVO !== undefined && (
+          <div className="flex items-center justify-between gap-4 border-t border-linea px-4 py-3.5">
+            <span className="flex flex-col">
+              <b className="font-semibold">En vivo</b>
+              <span className="text-apoyo text-secundario">
+                Cuando una tienda busca algo que tienes publicado
+              </span>
+            </span>
+            <Interruptor
+              etiqueta="Avisos de En vivo en la campanita"
+              activo={datos.campanita.EN_VIVO}
+              alCambiar={(activo) =>
+                void guardar({ ...datos, campanita: { ...datos.campanita, EN_VIVO: activo } })
+              }
+            />
+          </div>
+        )}
       </div>
       <p className="-mt-2 text-nota text-detalle">
         Apagarlo no apaga el chat: los mensajes siguen llegando a Mensajes. El aviso por correo

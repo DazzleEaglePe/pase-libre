@@ -29,6 +29,8 @@ En la primera salida el dueño y el asesor pueden lo mismo dentro de su tienda. 
 | Precio oculto | **No** | **No** («Al interno · consultar») | Sí | Sí |
 | WhatsApp | **No** | Solo al pulsar el botón (A-07) | Sí | Sí |
 | Mensajes | **No** | Solo los suyos | Solo los suyos (es el responsable) | **No** |
+| En vivo (D-53): producto, galería y cuánto falta | Sí | Sí | Sí | Sí |
+| En vivo (D-53): tienda, precio de pase, presupuesto y nota | **No** | Sí | Sí | Sí |
 
 **Cómo se garantiza (A-06):**
 

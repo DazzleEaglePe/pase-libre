@@ -10,6 +10,8 @@ import { ObservabilityLoggerModule } from './infrastructure/observability/logger
 import { ArchivosModule } from './modules/archivos/archivos.module';
 import { CatalogoModule } from './modules/catalogo/catalogo.module';
 import { CuentaModule } from './modules/cuenta/cuenta.module';
+import { EnVivoModule } from './modules/en-vivo/en-vivo.module';
+import { InterruptorEnVivoModule } from './modules/en-vivo/interruptor';
 import { EquipoModule } from './modules/equipo/equipo.module';
 import { MensajesModule } from './modules/mensajes/mensajes.module';
 import { OfertasModule } from './modules/ofertas/ofertas.module';
@@ -31,6 +33,7 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     // Por IP y por persona; las rutas sensibles ajustan el suyo (shared/limites.ts).
     ThrottlerModule.forRoot(LIMITES),
     DatabaseModule,
+    InterruptorEnVivoModule,
     TiempoRealModule,
     SesionModule,
     CuentaModule,
@@ -38,6 +41,7 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     ArchivosModule,
     OfertasModule,
     MensajesModule,
+    EnVivoModule,
     EquipoModule,
     SaludModule,
   ],

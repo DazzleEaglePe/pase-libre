@@ -16,3 +16,18 @@
     @apply outline outline-2 outline-offset-2 outline-tinta;
   }
 }
+
+/* En vivo (D-53): la ventana y la tarjeta mini entran desde abajo, salvo con «reducir movimiento». */
+@keyframes entrar-en-vivo {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes subir-en-vivo {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+}

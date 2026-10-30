@@ -9,6 +9,7 @@ import type { PrismaClient } from '@prisma/client';
 
 import { AppModule } from '../src/app.module';
 import { configureApplication } from '../src/bootstrap/configure-application';
+import { INTERRUPTOR_EN_VIVO } from '../src/modules/en-vivo/interruptor';
 import { cifrarClave } from '../src/modules/sesion/clave';
 
 /** Las fotos de las pruebas van a una carpeta temporal (ver vitest.config.ts). */
@@ -32,8 +33,12 @@ export function usarBaseDePruebas(): string {
   return url;
 }
 
-export async function crearApp(): Promise<INestApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+/** En vivo (D-53) va apagado salvo en su prueba, diga lo que diga el `.env` local. */
+export async function crearApp(opciones: { enVivo?: boolean } = {}): Promise<INestApplication> {
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(INTERRUPTOR_EN_VIVO)
+    .useValue({ activo: opciones.enVivo ?? false })
+    .compile();
   const app = moduleRef.createNestApplication({ logger: false });
   configureApplication(app, {
     webUrl: 'http://localhost:3000',

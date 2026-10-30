@@ -53,6 +53,7 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 
 - [ ] Pasar el lienzo de diseño de Inter y lima a Hielo (Figtree, azul noche, azul pase y grises fríos). La web ya está en Hielo y el lienzo quedó atrás
 - [ ] Revisar la web en celular, en las pantallas de la primera salida, y avisar de lo que se vea mal
+- [x] En vivo (busco y ofertas flash) diseñado en el lienzo; elegida la propuesta E el 29/10 (D-53)
 - [ ] Cerrar la pregunta sobre la maquetación de Grimm (pendiente 8 del [04](04-decisiones-para-la-reunion.md)): la web se construyó desde el lienzo, así que probablemente ya no aplica
 
 ## 4. Documentos
@@ -163,3 +164,5 @@ Se hace cuando exista el VPS. La guía está en [tools/deploy/DESPLIEGUE.md](../
 - [ ] Revisar las denuncias y los duplicados
 - [ ] Mirar el respaldo de la primera noche y el ensayo del primer domingo
 - [ ] Decidir el orden de la fase 2 con lo que pidan las tiendas
+- [x] **En vivo** (D-53) construido detrás de `EN_VIVO`, apagado en producción (29/10)
+- [ ] Decidir cuándo se enciende En vivo y cerrar las tres preguntas del [documento 11 §7](11-plan-de-desarrollo.md#7-en-vivo)

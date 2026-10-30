@@ -1,6 +1,6 @@
 # 11 · Plan de desarrollo
 
-**Versión:** 0.1 · **Fecha:** 28/10/2026 · **Responsable:** Dazz
+**Versión:** 0.2 · **Fecha:** 29/10/2026 · **Responsable:** Dazz
 
 El plan para llegar al sábado 31/10, cómo va, cómo se prueba y qué sigue después. Sale de las secciones 12 y 13 del [documento 05](05-arquitectura.md#12-plan-de-construcción-al-3110). Las tareas sueltas, con casillas y responsable, están en el [checklist](CHECKLIST.md); este documento da el orden y las fechas.
 
@@ -69,12 +69,12 @@ La ruta crítica es **VPS y dominio → *staging* → ensayo → piloto → prod
 
 | Tipo | Dónde | Qué cubre |
 | --- | --- | --- |
-| **De extremo a extremo de la API** | `apps/api/test/*.e2e-spec.ts` (9 archivos) | Sesión, catálogo, contrato público, publicar, mensajes, cuenta, equipo, traspasar y límites, contra una base real (`paselibre_test`) |
+| **De extremo a extremo de la API** | `apps/api/test/*.e2e-spec.ts` (10 archivos) | Sesión, catálogo, contrato público, publicar, mensajes, cuenta, equipo, traspasar, límites y En vivo, contra una base real (`paselibre_test`) |
 | **Contrato público** | `contrato-publico.e2e-spec.ts` | El JSON del visitante no trae `precio`, `tienda`, `stand` ni `whatsapp` |
 | **Unitarias** | `packages/contracts`, `apps/api` y `apps/web` | Normalización y corrección de la búsqueda (con casos del chat: «3370», «rtx3070», «ventsu»), contratos, «No molestar» y la consulta de la búsqueda en la web |
 | **Humo** | `tools/deploy/scripts/humo.sh` | Después de cada despliegue, desde afuera: salud, portada, búsqueda, visitante sin precio, socket y, con una cuenta, ingresar y salir |
 
-La última corrida completa (29/10): 168 pruebas pasando, 136 de la API, 26 de los contratos y 6 de la web.
+La última corrida completa (29/10, con En vivo): 185 pruebas pasando, 153 de la API, 26 de los contratos y 6 de la web.
 
 **Lo que falta:**
 
@@ -94,11 +94,38 @@ La última corrida completa (29/10): 168 pruebas pasando, 136 de la API, 26 de l
 La fase 2 está decidida en el [documento 04](04-decisiones-para-la-reunion.md#para-llegar-a-halloween); el orden no. Una propuesta, de lo que más usan las tiendas a lo que menos:
 
 1. **La primera semana:** lo que salga del piloto, el panel para unir duplicados y ver denuncias, el reporte semanal de uso (RF-31) y las búsquedas sin resultados (RF-32).
-2. **Carga por planilla** (RF-34), si las tiendas grandes no publican una por una.
-3. **Aviso por correo** (RF-42) y **página de notificaciones** (RF-66).
-4. **Pedir pase con bandeja** (RF-61): el siguiente paso natural del chat.
-5. **Registro propio con aprobación** (RF-01, RF-04) y **cuentas de asesores** del dueño (RF-36).
-6. **Perfil privado** (RF-41), **tienda pública** (RF-65), **favoritos** (RF-64) y **reputación** (RF-63).
-7. **La app del celular**, con la misma API y los mismos contratos.
+2. **Encender En vivo** (D-53): ya está construido; falta decidir cuándo y cerrar lo de la [sección 7](#7-en-vivo).
+3. **Carga por planilla** (RF-34), si las tiendas grandes no publican una por una.
+4. **Aviso por correo** (RF-42) y **página de notificaciones** (RF-66).
+5. **Pedir pase con bandeja** (RF-61): el siguiente paso natural del chat.
+6. **Registro propio con aprobación** (RF-01, RF-04) y **cuentas de asesores** del dueño (RF-36).
+7. **Perfil privado** (RF-41), **tienda pública** (RF-65), **favoritos** (RF-64) y **reputación** (RF-63).
+8. **La app del celular**, con la misma API y los mismos contratos.
 
 Se ordena de nuevo con lo que pidan las tiendas en las primeras semanas.
+
+## 7. En vivo
+
+Elegido el 29/10 (D-53): busco y ofertas flash, mostrados con la propuesta E del lienzo. Los requerimientos están en el [documento 02 §5](02-requerimientos-funcionales.md#5-en-vivo-busco-y-ofertas-flash); el modelo, en el [06 §6](06-modelo-de-datos.md#6-fase-2-prevista); las rutas, en el [07 §2.8](07-contrato-de-la-api.md#28-en-vivo-d-53); y las pantallas, en el [09 §3.8](09-ux-y-flujos.md#38-en-vivo-d-53).
+
+**Estado (29/10): construido detrás de un interruptor.** Dazz decidió adelantarlo. Con `EN_VIVO=false` (el valor por defecto, y el de producción) la API responde 404 en sus rutas y la web no muestra nada, así que no cambia lo que sale el sábado. En local está encendido (`.env`). Para encenderlo en un servidor basta `EN_VIVO=true` en su archivo de entorno y reiniciar la API: la web no se vuelve a construir.
+
+**Los pasos, como se planearon:**
+
+| Paso | Qué | Listo cuando |
+| --- | --- | --- |
+| 1 · Base y contratos | Migración con `en_vivo`, `en_vivo_respuesta`, `conversacion.en_vivo_id` y los valores nuevos de los tipos. Esquemas en `packages/contracts/src/en-vivo/` | `pnpm db:migrate` pasa y el código anterior sigue funcionando con la base nueva |
+| 2 · API | Módulo `en-vivo`: listar por audiencia, publicar con el límite de 3, sumar una hora y cerrar, responder (abre el hilo), «Vendido» que descuenta la oferta flash, los avisos y `en-vivo:cambio` a todos los sockets | Pasan `en-vivo.e2e-spec.ts` y la prueba de contrato público con `GET /en-vivo` como visitante |
+| 3 · Web: la ventana que te sigue | `shared/ui/en-vivo/`: ventana, tarjeta mini y pastilla en la computadora; hoja y barra en el celular. Lo que recuerda el navegador (`paselibre:en-vivo`), pausa, teclado y «reducir movimiento». Se monta en el layout del catálogo | Se ve y se comporta como EV_SigueDemo en la portada, la búsqueda y la ficha |
+| 4 · Web: publicar, responder y `/en-vivo` | Publicar en vivo (busco y oferta flash), la ventana de «¡Lo tengo!», la tarjeta fija en el chat, `/en-vivo` con «Lo tuyo en vivo» y el tipo de aviso en Configuración | Dos tiendas hacen el recorrido completo en local |
+| 5 · Cierre | Privacidad (lo que guarda el navegador), Ayuda, el lienzo al día y la prueba en celulares reales | La CI pasa y los documentos dicen lo que quedó construido |
+
+**Hecho:** los pasos 1 a 4, con 16 pruebas nuevas en la API (`en-vivo.e2e-spec.ts` y `horario.spec.ts`) y revisado en el navegador, en computadora y celular, como visitante y como vendedor.
+
+**Falta del paso 5:** contarlo en Ayuda y probarlo en celulares reales. Privacidad ya dice lo que guarda el navegador.
+
+**Por decidir antes de encenderlo:**
+
+- La hora de «hasta el cierre de hoy»: se propone 8:00 p. m. (Fabrizio).
+- Si un busco escrito como texto libre también avisa a las tiendas: se propone que sí, con la misma búsqueda tolerante a errores y solo a las que tienen stock.
+- Si el equipo puede quitar desde su panel un busco o una oferta flash denunciada.

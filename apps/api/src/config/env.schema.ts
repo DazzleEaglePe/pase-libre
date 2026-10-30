@@ -32,6 +32,11 @@ export const envSchema = z
       commaSeparatedList,
       z.array(z.string()).default(['loopback']),
     ),
+    /**
+     * En vivo: busco y ofertas flash (D-53). Apagado, sus rutas responden 404 y la web no
+     * muestra nada. Se enciende en local para construirlo y en producción cuando se decida.
+     */
+    EN_VIVO: z.stringbool().default(false),
   })
   .transform((entorno) => ({
     ...entorno,

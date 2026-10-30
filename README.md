@@ -37,7 +37,7 @@ En las galerías tecnológicas de Lima, cuando una tienda necesita un producto q
 6. **Mensajes:** chat de la web con filtros, respuestas rápidas, fotos, archivar y bloquear, además del botón de **WhatsApp**. Cada persona ve sus propias conversaciones.
 7. **Configuración:** datos de la cuenta, cambio de contraseña y avisos.
 8. *(Si hay tiempo)* Botón **«Vendido»** en el chat que descuenta el stock.
-9. *(Fase 2)* Registro propio con aprobación, aviso por correo, precio por rol, cuentas de asesores, requerimientos, pedir pase con bandeja, preguntas públicas, reputación, favoritos, tienda pública, notificaciones y la app.
+9. *(Fase 2)* Registro propio con aprobación, aviso por correo, precio por rol, cuentas de asesores, En vivo (busco y ofertas flash), pedir pase con bandeja, preguntas públicas, reputación, favoritos, tienda pública, notificaciones y la app.
 
 El detalle está en [`docs/02-requerimientos-funcionales.md`](docs/02-requerimientos-funcionales.md).
 

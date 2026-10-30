@@ -1,6 +1,6 @@
 # 07 · Contrato de la API
 
-**Versión:** 0.1 · **Fecha:** 28/10/2026 · **Responsable:** Dazz
+**Versión:** 0.2 · **Fecha:** 29/10/2026 · **Responsable:** Dazz
 
 Qué rutas tiene la API, qué recibe cada una y qué responde. Sale de las secciones 6.2 y 6.3 del [documento 05](05-arquitectura.md#6-rutas-de-la-web-y-de-la-api), revisadas contra los controladores. Las rutas de la web están en el [documento 09](09-ux-y-flujos.md).
 
@@ -179,6 +179,22 @@ Cuando corrige, la respuesta trae `{ "correccion": { "buscaste": "rtx 3370", "mo
 
 Las fotos se sirven en `/media/…`, fuera de `/v1`: en producción las entrega nginx desde la carpeta del servidor, con caché de un año (cada foto tiene un nombre que no se reutiliza).
 
+### 2.8 En vivo (D-53)
+
+Construidas el 29/10. **Con `EN_VIVO` apagado responden 404**, como si no existieran ([documento 11 §7](11-plan-de-desarrollo.md#7-en-vivo)). Siguen las reglas de arriba: el visitante recibe el producto, la categoría, la galería y `vence_en`, nunca `precio_centimos`, la tienda ni el presupuesto.
+
+| Método y ruta | Quién | Qué hace | RF |
+| --- | --- | --- | --- |
+| `GET /en-vivo?tipo=&categoria=&galeria=` | Todos | Lo que está en vivo, lo que vence primero arriba, y los cerrados de hoy. Responde por audiencia, con la caché de 60 s sin sesión | 25, 75, 77 |
+| `GET /en-vivo/mios` | Vendedor | «Lo tuyo en vivo»: los suyos, con cuántas respuestas tiene cada uno | 75 |
+| `GET /en-vivo/alcance?producto=` (o `?q=`) | Vendedor | A cuántas tiendas les llegará el aviso, para la vista previa de Publicar | 76 |
+| `POST /en-vivo` | Vendedor | Publicar un busco o una oferta flash. 409 `LIMITE_EN_VIVO` si ya tiene 3. 10 por hora por persona | 24, 72, 73 |
+| `PATCH /en-vivo/:id` | Quien lo publicó | Sumar una hora o cerrar («Ya lo conseguí», «Cerrar oferta») | 27 |
+| `GET /en-vivo/:id/opciones` | Vendedor de otra tienda | Sus publicaciones activas y con stock que coinciden con el busco (las que atiende), para «¿Cuál tienes?» | 26 |
+| `POST /en-vivo/:id/respuestas` | Vendedor de otra tienda | «¡Lo tengo!» (con la publicación que ofrece) o «¡Lo quiero!». Abre o reutiliza el hilo, deja la tarjeta arriba y avisa. 409 `YA_RESPONDISTE` | 26, 76 |
+
+«Vendido» sigue siendo `POST /ofertas/:id/vendido`: si el hilo viene de una oferta flash, además resta una unidad de la oferta y la cierra al llegar a 0. `GET /conversaciones/:id` trae `en_vivo` con la tarjeta del hilo, y `GET /cuenta/avisos` suma `campanita.EN_VIVO` solo con el interruptor encendido.
+
 ## 3. Tiempo real
 
 El navegador abre un socket de socket.io en `/tiempo-real` (fuera de `/v1`) con su cookie. Solo entra una sesión vigente con contraseña propia, y el *handshake* revisa el origen: CORS no protege a un WebSocket.
@@ -193,6 +209,7 @@ La API une cada socket a la sala de su usuario (`usuario:<id>`), a la de su tien
 | `aviso:nuevo` | El usuario | La campanita |
 | `oferta:stock` | La tienda dueña | Refrescar Mis publicaciones después de un «Vendido» |
 | `contadores:cambio` | El usuario | Se leyó algo en otra pestaña: volver a pedir las insignias |
+| `en-vivo:cambio` | Todos los sockets | *(D-53)* Hay uno nuevo, cambió o se cerró: volver a pedir `GET /en-vivo`. Sin sesión no hay socket, así que la web la vuelve a pedir cada 60 s mientras se ve |
 
 - El socket solo **avisa**; todo se lee y se escribe por las rutas REST. Al reconectar, la web vuelve a pedir la bandeja, la conversación abierta y los contadores, así que no se pierde nada si el socket se cae.
 - Salir corta los sockets de esa sesión; suspender una cuenta o darle una clave nueva corta todos los suyos.

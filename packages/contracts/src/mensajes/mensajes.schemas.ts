@@ -46,7 +46,7 @@ export const cambiarConversacionSchema = z
 
 /** `POST /v1/denuncias` (RF-57, RNF-53). */
 export const denunciaSchema = z.strictObject({
-  objeto: z.enum(['CONVERSACION', 'OFERTA', 'TIENDA']),
+  objeto: z.enum(['CONVERSACION', 'OFERTA', 'TIENDA', 'EN_VIVO']),
   objeto_id: z.uuid('No encontramos lo que quieres denunciar.'),
   motivo: z
     .string()

@@ -70,6 +70,7 @@ const horaSchema = z
 export const avisosCuentaSchema = z.strictObject({
   campanita: z.strictObject({
     MENSAJE: z.boolean(),
+    EN_VIVO: z.boolean().optional(),
   }),
   no_molestar: z
     .strictObject({ desde: horaSchema, hasta: horaSchema })

@@ -7,6 +7,7 @@ import {
   type ConversacionEnLista,
   type DenunciaDatos,
   type DetalleConversacion,
+  type EnVivoEnChat,
   type EnviarMensajeDatos,
   type EventoMensajeNuevo,
   type FiltroConversaciones,
@@ -17,6 +18,7 @@ import {
   type RespuestaConversaciones,
   type RespuestaMensajes,
   type RespuestaVendido,
+  precioDe,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -24,6 +26,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
 import { precioPara } from '../catalogo/visibilidad';
+import { estadoEfectivo } from '../en-vivo/horario';
 import type { UsuarioConTienda } from '../sesion/sesion.types';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 import { AvisosService, noLeidosPorConversacion } from './avisos.service';
@@ -60,6 +63,7 @@ const SELECT_CONVERSACION = {
   compradorId: true,
   vendedorId: true,
   ultimoMensajeEn: true,
+  enVivoId: true,
   comprador: { select: SELECT_PERSONA },
   vendedor: { select: SELECT_PERSONA },
   oferta: {
@@ -318,6 +322,40 @@ export class MensajesService {
       },
       bloqueaste: Boolean(bloqueo),
       puede_vender: base.rol === 'vendedor' && oferta.estado !== 'ELIMINADA' && oferta.stock > 0,
+      en_vivo: conversacion.enVivoId
+        ? await this.enVivoDelHilo(conversacion.enVivoId, usuario.id)
+        : null,
+    };
+  }
+
+  /** La tarjeta del busco o la oferta flash de la que nació el hilo (D-53). */
+  private async enVivoDelHilo(id: string, usuarioId: string): Promise<EnVivoEnChat | null> {
+    const fila = await this.prisma.enVivo.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        tipo: true,
+        titulo: true,
+        estado: true,
+        venceEn: true,
+        cantidad: true,
+        precioCentimos: true,
+        moneda: true,
+        autorId: true,
+      },
+    });
+    if (!fila) return null;
+    const estado = estadoEfectivo(fila, new Date());
+    return {
+      id: fila.id,
+      tipo: fila.tipo,
+      titulo: fila.titulo,
+      estado,
+      vence_en: fila.venceEn.toISOString(),
+      cantidad: fila.cantidad,
+      precio:
+        fila.precioCentimos === null ? null : precioDe(Number(fila.precioCentimos), fila.moneda),
+      puede_cerrar: fila.autorId === usuarioId && estado === 'VIVO',
     };
   }
 
@@ -553,7 +591,9 @@ export class MensajesService {
           ? await this.prisma.oferta.count({
               where: { id: datos.objeto_id, estado: { not: 'ELIMINADA' } },
             })
-          : await this.prisma.tienda.count({ where: { id: datos.objeto_id } });
+          : datos.objeto === 'EN_VIVO'
+            ? await this.prisma.enVivo.count({ where: { id: datos.objeto_id } })
+            : await this.prisma.tienda.count({ where: { id: datos.objeto_id } });
     if (!existe) {
       throw new ApiHttpException(
         HttpStatus.NOT_FOUND,
@@ -629,6 +669,7 @@ export class MensajesService {
           compradorId: true,
           tiendaCompradoraId: true,
           tiendaCompradora: { select: { nombre: true } },
+          enVivoId: true,
         },
       });
       if (!conversacion) {
@@ -653,6 +694,31 @@ export class MensajesService {
         where: { id: ofertaId },
         data: { stock: despues, actualizadaEn: ahora },
       });
+      // Si el hilo nació de una oferta flash de esta publicación, también le resta una
+      // unidad; sin unidades, la oferta se cierra sola (RF-27).
+      const flash = conversacion.enVivoId
+        ? await tx.enVivo.findFirst({
+            where: {
+              id: conversacion.enVivoId,
+              ofertaId,
+              tipo: 'FLASH',
+              estado: 'VIVO',
+              venceEn: { gt: ahora },
+            },
+            select: { id: true, cantidad: true },
+          })
+        : null;
+      if (flash) {
+        const quedan = Math.max(0, flash.cantidad - 1);
+        await tx.enVivo.update({
+          where: { id: flash.id },
+          data: {
+            cantidad: quedan,
+            vendidas: { increment: 1 },
+            ...(quedan === 0 ? { estado: 'VENDIDO' as const, cerradoEn: ahora } : {}),
+          },
+        });
+      }
       await tx.venta.create({
         data: {
           ofertaId,
@@ -684,7 +750,13 @@ export class MensajesService {
         where: { conversacionId_usuarioId: { conversacionId, usuarioId: usuario.id } },
         data: { leidoHasta: mensaje.creadoEn },
       });
-      return { antes, despues, mensaje, compradorId: conversacion.compradorId };
+      return {
+        antes,
+        despues,
+        mensaje,
+        compradorId: conversacion.compradorId,
+        flashId: flash?.id ?? null,
+      };
     });
 
     this.difundir(conversacionId, resultado.mensaje, usuario.id, resultado.compradorId);
@@ -692,6 +764,9 @@ export class MensajesService {
       oferta_id: ofertaId,
       stock: resultado.despues,
     });
+    if (resultado.flashId) {
+      this.tiempoReal.emitirATodos(EVENTOS.enVivoCambio, { id: resultado.flashId });
+    }
     return {
       stock_antes: resultado.antes,
       stock_despues: resultado.despues,

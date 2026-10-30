@@ -24,6 +24,7 @@ import {
   type FormEvent,
 } from 'react';
 
+import { EnVivoEnElChat } from '@/features/en-vivo/en-chat';
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
 import { diaDelChat, hora, haceRato } from '@/shared/fechas';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
@@ -507,6 +508,9 @@ export function Conversacion({ id }: { id: string }) {
           Ver ficha
         </Link>
       </div>
+      {detalle.en_vivo && (
+        <EnVivoEnElChat enVivo={detalle.en_vivo} alCambiar={() => void cargar()} />
+      )}
 
       <div
         ref={historial}

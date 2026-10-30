@@ -26,7 +26,7 @@ Lo respondió Dazz o salió del lienzo de diseño. Falta validarlo con el equipo
 | **«Vendido»** | Se marca **desde el chat** en la primera salida (D-40, D-48) | Pedir pase lo reemplaza en la fase 2 |
 | **Web o app** | **Primero la web**, después la app con la misma cuenta (D-21) | La cuenta y los datos deben poder reutilizarse en la app |
 | **Galerías** | Filtro por galería desde el inicio, con **piloto** de vendedores conocidos. Maxiplaza es una galería (D-28, D-33) | |
-| **Fase 2** | Pedir pase con bandeja, preguntas públicas, reputación, favoritos y seguir tiendas, tienda pública, página de notificaciones, sesiones abiertas, respuesta automática, publicar paso a paso, precio por rol y requerimientos (D-31, D-47) | El modelo de datos puede dejarlos previstos |
+| **Fase 2** | Pedir pase con bandeja, preguntas públicas, reputación, favoritos y seguir tiendas, tienda pública, página de notificaciones, sesiones abiertas, respuesta automática, publicar paso a paso, precio por rol y requerimientos, hoy «En vivo» (D-31, D-47, D-53) | El modelo de datos puede dejarlos previstos |
 | **Stack** | El de Yallegó: monorepo pnpm con Next.js, NestJS, Prisma, PostgreSQL, Redis y socket.io (D-50) | Detalle y plan día por día en el [documento 05](05-arquitectura.md) |
 | **Línea gráfica** | **Hielo:** azul noche, azul pase y grises fríos (D-52) | Elegida entre 4 propuestas; los archivos están en `branding/` |
 | **Bandeja de mensajes** | **Por persona:** cada conversación es entre quien escribe y quien publicó la oferta (D-51) | El equipo puede pasar ofertas y conversaciones de un usuario a otro de la misma tienda |
@@ -76,7 +76,7 @@ Lo respondió Dazz o salió del lienzo de diseño. Falta validarlo con el equipo
 
 **Plan B:** si hacia el **29/10** el chat no está estable, se sale con el catálogo y el botón de WhatsApp, y el chat se añade la semana siguiente. La salida no se retrasa por el chat.
 
-**Pasa a la fase 2:** registro propio y aprobación, aviso por correo, precio por rol, perfil privado, cuentas de asesores con planes, requerimientos, pedir pase con bandeja, preguntas públicas, reputación, favoritos y seguir tiendas, tienda pública, página de notificaciones, sesiones abiertas, respuesta automática, publicar paso a paso y la app.
+**Pasa a la fase 2:** registro propio y aprobación, aviso por correo, precio por rol, perfil privado, cuentas de asesores con planes, requerimientos (hoy «En vivo», D-53), pedir pase con bandeja, preguntas públicas, reputación, favoritos y seguir tiendas, tienda pública, página de notificaciones, sesiones abiertas, respuesta automática, publicar paso a paso y la app.
 
 ## Quién hace qué
 - **Dazz:** arquitectura ([documento 05](05-arquitectura.md)) y desarrollo, empezando por el modelo de productos y ofertas.

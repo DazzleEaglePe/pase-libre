@@ -77,6 +77,8 @@ enum TipoAviso {
   SEGURIDAD
   RECORDATORIO
   SISTEMA
+  /// Busco nuevo de un producto que la tienda tiene publicado (D-53).
+  EN_VIVO
 
   @@map("tipo_aviso")
 }
@@ -85,6 +87,7 @@ enum ObjetoDenuncia {
   OFERTA
   CONVERSACION
   TIENDA
+  EN_VIVO
 
   @@map("objeto_denuncia")
 }
@@ -95,6 +98,27 @@ enum EstadoDenuncia {
   DESCARTADA
 
   @@map("estado_denuncia")
+}
+
+/// En vivo (D-53): lo que una tienda necesita hoy o lo que remata hoy.
+enum TipoEnVivo {
+  BUSCO
+  FLASH
+
+  @@map("tipo_en_vivo")
+}
+
+/// «Venció» no es un estado: es VIVO con `vence_en` ya pasado.
+enum EstadoEnVivo {
+  VIVO
+  /// «Ya lo conseguí» en un busco.
+  CONSEGUIDO
+  /// La oferta flash se quedó sin unidades con «Vendido».
+  VENDIDO
+  /// «Cerrar oferta».
+  CERRADO
+
+  @@map("estado_en_vivo")
 }
 
 enum CanalContacto {
@@ -116,14 +140,15 @@ enum EstadoCarga {
 
 /// La galería es un dato, no una constante (RNF-29).
 model Galeria {
-  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre   String  @unique @db.VarChar(80)
-  slug     String  @unique @db.Citext
-  activa   Boolean @default(true)
-  orden    Int     @default(0) @db.SmallInt
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre   String   @unique @db.VarChar(80)
+  slug     String   @unique @db.Citext
+  activa   Boolean  @default(true)
+  orden    Int      @default(0) @db.SmallInt
   creadaEn DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
 
   tiendas Tienda[]
+  enVivo  EnVivo[]
 
   @@map("galeria")
 }
@@ -148,16 +173,18 @@ model Tienda {
   creadaEn             DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
   actualizadaEn        DateTime     @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
 
-  galeria               Galeria?        @relation(fields: [galeriaId], references: [id])
-  usuarios              Usuario[]
-  ofertas               Oferta[]
-  productosCreados      Producto[]      @relation("ProductoCreadoPor")
-  conversacionesCompra  Conversacion[]  @relation("TiendaCompradora")
-  conversacionesVenta   Conversacion[]  @relation("TiendaVendedora")
-  bloqueos              Bloqueo[]
-  comprasRegistradas    Venta[]         @relation("VentaTiendaCompradora")
-  cargas                CargaPlanilla[]
-  archivos              Archivo[]
+  galeria              Galeria?          @relation(fields: [galeriaId], references: [id])
+  usuarios             Usuario[]
+  ofertas              Oferta[]
+  productosCreados     Producto[]        @relation("ProductoCreadoPor")
+  conversacionesCompra Conversacion[]    @relation("TiendaCompradora")
+  conversacionesVenta  Conversacion[]    @relation("TiendaVendedora")
+  bloqueos             Bloqueo[]
+  comprasRegistradas   Venta[]           @relation("VentaTiendaCompradora")
+  cargas               CargaPlanilla[]
+  archivos             Archivo[]
+  enVivo               EnVivo[]
+  respuestasEnVivo     EnVivoRespuesta[]
 
   @@index([galeriaId])
   @@map("tienda")
@@ -211,6 +238,8 @@ model Usuario {
   cargas               CargaPlanilla[]
   auditorias           Auditoria[]
   archivos             Archivo[]
+  enVivo               EnVivo[]
+  respuestasEnVivo     EnVivoRespuesta[]
 
   @@index([tiendaId])
   @@map("usuario")
@@ -238,15 +267,16 @@ model Sesion {
 // ── Catálogo: producto y oferta (D-43) ─────────────────────────────────────
 
 model Categoria {
-  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nombre   String  @db.VarChar(80)
-  slug     String  @unique @db.Citext
-  orden    Int     @default(0) @db.SmallInt
-  padreId  String? @map("padre_id") @db.Uuid
+  id      String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre  String  @db.VarChar(80)
+  slug    String  @unique @db.Citext
+  orden   Int     @default(0) @db.SmallInt
+  padreId String? @map("padre_id") @db.Uuid
 
   padre     Categoria?  @relation("Subcategorias", fields: [padreId], references: [id])
   hijas     Categoria[] @relation("Subcategorias")
   productos Producto[]
+  enVivo    EnVivo[]
 
   @@map("categoria")
 }
@@ -280,14 +310,15 @@ model Producto {
   creadoEn          DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn     DateTime @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 
-  categoria       Categoria           @relation(fields: [categoriaId], references: [id])
-  marca           Marca?              @relation(fields: [marcaId], references: [id])
-  creadoPorTienda Tienda?             @relation("ProductoCreadoPor", fields: [creadoPorTiendaId], references: [id])
-  fusionadoEn     Producto?           @relation("Fusiones", fields: [fusionadoEnId], references: [id])
-  fusionados      Producto[]          @relation("Fusiones")
+  categoria       Categoria          @relation(fields: [categoriaId], references: [id])
+  marca           Marca?             @relation(fields: [marcaId], references: [id])
+  creadoPorTienda Tienda?            @relation("ProductoCreadoPor", fields: [creadoPorTiendaId], references: [id])
+  fusionadoEn     Producto?          @relation("Fusiones", fields: [fusionadoEnId], references: [id])
+  fusionados      Producto[]         @relation("Fusiones")
   fotos           ProductoFoto[]
   etiquetas       ProductoEtiqueta[]
   ofertas         Oferta[]
+  enVivo          EnVivo[]
 
   @@index([categoriaId])
   @@index([marcaId])
@@ -335,34 +366,36 @@ model ProductoEtiqueta {
 /// Lo que una tienda tiene de un producto. Única por producto, tienda y condición
 /// mientras no esté eliminada (ver `vigente`).
 model Oferta {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productoId      String       @map("producto_id") @db.Uuid
-  tiendaId        String       @map("tienda_id") @db.Uuid
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId     String       @map("producto_id") @db.Uuid
+  tiendaId       String       @map("tienda_id") @db.Uuid
   /// Quien recibe los mensajes de esta oferta (A-11): por defecto, quien la publicó.
-  responsableId   String       @map("responsable_id") @db.Uuid
-  condicion       Condicion
-  stock           Int          @default(1)
+  responsableId  String       @map("responsable_id") @db.Uuid
+  condicion      Condicion
+  stock          Int          @default(1)
   /// Céntimos enteros: US$ 250 → 25000. Nulo = sin precio cargado («Al interno»).
-  precioCentimos  BigInt?      @map("precio_centimos")
-  moneda          Moneda       @default(USD)
-  precioVisible   Boolean      @default(false) @map("precio_visible")
-  descripcion     String?      @db.VarChar(500)
-  estado          EstadoOferta @default(ACTIVA)
+  precioCentimos BigInt?      @map("precio_centimos")
+  moneda         Moneda       @default(USD)
+  precioVisible  Boolean      @default(false) @map("precio_visible")
+  descripcion    String?      @db.VarChar(500)
+  estado         EstadoOferta @default(ACTIVA)
   /// `true` mientras no esté eliminada y nulo al eliminarla. Con él, el índice único
   /// deja una sola oferta vigente por producto, tienda y condición sin índice parcial,
   /// que Prisma no sabe mantener. Un CHECK lo ata a `estado`.
-  vigente         Boolean?     @default(true)
+  vigente        Boolean?     @default(true)
   /// Cambia con stock, precio, visibilidad o «Siguen igual» (RF-09, RF-10).
-  actualizadaEn   DateTime     @default(now()) @map("actualizada_en") @db.Timestamptz(6)
-  creadaEn        DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
+  actualizadaEn  DateTime     @default(now()) @map("actualizada_en") @db.Timestamptz(6)
+  creadaEn       DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
 
-  producto       Producto       @relation(fields: [productoId], references: [id])
-  tienda         Tienda         @relation(fields: [tiendaId], references: [id])
-  responsable    Usuario        @relation(fields: [responsableId], references: [id])
-  fotos          OfertaFoto[]
-  conversaciones Conversacion[]
-  ventas         Venta[]
-  contactos      Contacto[]
+  producto         Producto          @relation(fields: [productoId], references: [id])
+  tienda           Tienda            @relation(fields: [tiendaId], references: [id])
+  responsable      Usuario           @relation(fields: [responsableId], references: [id])
+  fotos            OfertaFoto[]
+  conversaciones   Conversacion[]
+  ventas           Venta[]
+  contactos        Contacto[]
+  enVivo           EnVivo[]
+  respuestasEnVivo EnVivoRespuesta[]
 
   @@unique([productoId, tiendaId, condicion, vigente], map: "oferta_vigente_key")
   @@index([productoId, estado])
@@ -406,16 +439,21 @@ model Conversacion {
   tiendaVendedoraId  String   @map("tienda_vendedora_id") @db.Uuid
   ultimoMensajeEn    DateTime @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
   creadaEn           DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+  /// La tarjeta en vivo que el chat muestra arriba (D-53): el hilo nació de un «¡Lo tengo!»
+  /// o un «¡Lo quiero!».
+  enVivoId           String?  @map("en_vivo_id") @db.Uuid
 
-  oferta           Oferta          @relation(fields: [ofertaId], references: [id])
-  comprador        Usuario         @relation("Comprador", fields: [compradorId], references: [id])
-  vendedor         Usuario         @relation("Vendedor", fields: [vendedorId], references: [id])
-  tiendaCompradora Tienda          @relation("TiendaCompradora", fields: [tiendaCompradoraId], references: [id])
-  tiendaVendedora  Tienda          @relation("TiendaVendedora", fields: [tiendaVendedoraId], references: [id])
+  oferta           Oferta            @relation(fields: [ofertaId], references: [id])
+  comprador        Usuario           @relation("Comprador", fields: [compradorId], references: [id])
+  vendedor         Usuario           @relation("Vendedor", fields: [vendedorId], references: [id])
+  tiendaCompradora Tienda            @relation("TiendaCompradora", fields: [tiendaCompradoraId], references: [id])
+  tiendaVendedora  Tienda            @relation("TiendaVendedora", fields: [tiendaVendedoraId], references: [id])
   participaciones  Participacion[]
   mensajes         Mensaje[]
   ventas           Venta[]
   avisos           Aviso[]
+  enVivo           EnVivo?           @relation(fields: [enVivoId], references: [id], onDelete: SetNull)
+  respuestasEnVivo EnVivoRespuesta[]
 
   @@unique([ofertaId, compradorId])
   @@index([compradorId, ultimoMensajeEn])
@@ -551,6 +589,76 @@ model PreferenciaAviso {
 
   @@id([usuarioId, tipo])
   @@map("preferencia_aviso")
+}
+
+// ── En vivo: busco y ofertas flash (D-53) ──────────────────────────────────
+
+/// Un busco o una oferta flash. Dura unas horas; las reglas que Prisma no expresa son
+/// CHECK de la migración `en_vivo`.
+model EnVivo {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tipo           TipoEnVivo
+  autorId        String       @map("autor_id") @db.Uuid
+  tiendaId       String       @map("tienda_id") @db.Uuid
+  /// La de la tienda al publicar, para filtrar sin mirar la tienda.
+  galeriaId      String?      @map("galeria_id") @db.Uuid
+  categoriaId    String       @map("categoria_id") @db.Uuid
+  /// Obligatorio en la oferta flash; en el busco, nulo si se escribió como texto libre.
+  productoId     String?      @map("producto_id") @db.Uuid
+  /// La publicación que sale en oferta flash.
+  ofertaId       String?      @map("oferta_id") @db.Uuid
+  titulo         String       @db.VarChar(200)
+  /// Las unidades que busca, o las que quedan en la oferta flash.
+  cantidad       Int          @default(1) @db.SmallInt
+  /// Las que ya se vendieron con «Vendido» (oferta flash).
+  vendidas       Int          @default(0) @db.SmallInt
+  /// Nula en el busco = «cualquiera».
+  condicion      Condicion?
+  /// El precio de pase en la oferta flash; el presupuesto (opcional) en el busco.
+  precioCentimos BigInt?      @map("precio_centimos")
+  moneda         Moneda       @default(USD)
+  nota           String?      @db.VarChar(120)
+  /// A cuántas tiendas les llegó el aviso al publicar el busco.
+  avisadas       Int          @default(0) @db.SmallInt
+  venceEn        DateTime     @map("vence_en") @db.Timestamptz(6)
+  estado         EstadoEnVivo @default(VIVO)
+  cerradoEn      DateTime?    @map("cerrado_en") @db.Timestamptz(6)
+  creadoEn       DateTime     @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  autor          Usuario           @relation(fields: [autorId], references: [id])
+  tienda         Tienda            @relation(fields: [tiendaId], references: [id])
+  galeria        Galeria?          @relation(fields: [galeriaId], references: [id])
+  categoria      Categoria         @relation(fields: [categoriaId], references: [id])
+  producto       Producto?         @relation(fields: [productoId], references: [id])
+  oferta         Oferta?           @relation(fields: [ofertaId], references: [id])
+  respuestas     EnVivoRespuesta[]
+  conversaciones Conversacion[]
+
+  @@index([estado, venceEn])
+  @@index([autorId, estado])
+  @@map("en_vivo")
+}
+
+/// Cada «¡Lo tengo!» o «¡Lo quiero!»: una por tienda en cada publicación en vivo.
+model EnVivoRespuesta {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  enVivoId       String   @map("en_vivo_id") @db.Uuid
+  usuarioId      String   @map("usuario_id") @db.Uuid
+  tiendaId       String   @map("tienda_id") @db.Uuid
+  /// La publicación que ofrece quien responde a un busco.
+  ofertaId       String?  @map("oferta_id") @db.Uuid
+  conversacionId String   @map("conversacion_id") @db.Uuid
+  creadaEn       DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  enVivo       EnVivo       @relation(fields: [enVivoId], references: [id], onDelete: Cascade)
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id])
+  tienda       Tienda       @relation(fields: [tiendaId], references: [id])
+  oferta       Oferta?      @relation(fields: [ofertaId], references: [id])
+  conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+
+  @@unique([enVivoId, tiendaId])
+  @@index([conversacionId])
+  @@map("en_vivo_respuesta")
 }
 
 // ── Métricas y operación ───────────────────────────────────────────────────

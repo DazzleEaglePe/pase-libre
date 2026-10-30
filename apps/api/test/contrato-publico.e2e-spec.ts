@@ -142,4 +142,8 @@ describe('Contrato público: el visitante no recibe precio, tienda, stand ni Wha
     expect(respuesta.headers['cache-control']).toMatch(/^public/);
     expect(respuesta.headers['vary']).toMatch(/Cookie/);
   });
+
+  it('con En vivo apagado, su ruta no existe (D-53)', async () => {
+    await http().get('/v1/en-vivo').expect(404);
+  });
 });

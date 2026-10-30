@@ -33,6 +33,11 @@ export class TiempoRealService {
     this.servidor?.to(salaDeTienda(tiendaId)).emit(evento, datos ?? {});
   }
 
+  /** A todos los sockets: todos tienen sesión, porque el visitante no abre uno. */
+  emitirATodos(evento: string, datos?: unknown): void {
+    this.servidor?.emit(evento, datos ?? {});
+  }
+
   enLinea(usuarioId: string): boolean {
     return (this.conexiones.get(usuarioId) ?? 0) > 0;
   }

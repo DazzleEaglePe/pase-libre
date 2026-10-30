@@ -1,6 +1,6 @@
 # 02 · Requerimientos funcionales
 
-**Versión:** 0.8 (borrador) · **Fecha:** 26/10/2026
+**Versión:** 0.9 (borrador) · **Fecha:** 29/10/2026
 
 ## Cómo leer este documento
 
@@ -74,16 +74,22 @@
 | RF-47 | En una conversación, bajo los datos del otro usuario (nombre y si está activo), el vendedor tiene **«Marcar como vendido»**. Se abre una ventana para elegir **a quién** se lo vendió entre quienes conversaron sobre ese producto, con el stock antes y después. Al confirmar, el stock **baja en 1** y queda un aviso en el chat. Con 0, el producto pasa a **«Sin stock»** y en «Mis publicaciones» aparece «Reponer stock». Si falta tiempo, el vendedor ajusta la cantidad a mano | Should | Dazz y lienzo 25/10 |
 | RF-23 | El sistema **registra cada clic** en «Contactar» (publicación, tienda, fecha), sin guardar el contenido de la conversación | Should | Propuesto |
 
-## 5. Requerimientos de compra («Lo tengo!!») (fase 2)
+## 5. En vivo: busco y ofertas flash
 
-Salen del boceto de Fabrizio. Dazz confirmó el 25/10 que van en la **segunda fase**.
+Nacen de la banda de «Requerimientos» del boceto de Fabrizio. El 29/10 se ampliaron a dos tipos de publicación que duran unas horas, y se eligió cómo se muestran (D-53). El diseño está en el [lienzo](https://claude.ai/artifact/H9iqh18AbknFVzzuRZPK1A), página «En vivo · busco y ofertas flash». **Se construyó el 29/10 detrás del interruptor `EN_VIVO` (apagado en producción hasta que se decida encenderlo)**: estaba en la fase 2 y Dazz decidió adelantarlo.
 
 | ID | Requerimiento | Prioridad | Origen |
 | --- | --- | --- | --- |
-| RF-24 | Una tienda puede **publicar un requerimiento**: qué producto busca, categoría, y opcionalmente un presupuesto | Should | Boceto |
-| RF-25 | La portada muestra una **banda de requerimientos** recientes | Should | Boceto |
-| RF-26 | Otra tienda puede responder **«¡Lo tengo!»** y se abre WhatsApp con el solicitante, con mensaje prellenado | Should | Boceto |
-| RF-27 | El solicitante puede **cerrar** el requerimiento cuando lo resuelve; los antiguos expiran solos | Could | Propuesto |
+| RF-24 | Cualquier vendedor puede publicar un **«Busco»**: el producto que necesita para un cliente (uno del catálogo o un texto como «RTX 4060 o 5060, 8 GB»), la categoría, la cantidad, la condición, un presupuesto máximo opcional y una nota de hasta 120 letras | Should | Boceto, Dazz 29/10 |
+| RF-72 | Cualquier vendedor puede publicar una **«Oferta flash»**: una de sus publicaciones a un **precio de pase solo por hoy**, con cuántas unidades entran en la oferta y una nota | Should | Dazz 29/10 |
+| RF-73 | Cada publicación en vivo **dura 1 hora, 3 horas o hasta el cierre de hoy** (se propone 8:00 p. m., hora de Lima). Una cuenta tiene **hasta 3 en vivo a la vez**. Al vencer pasa a «Cerrados» y se puede volver a publicar | Should | Lienzo, Dazz 29/10 |
+| RF-25 | **Aparece al entrar y te sigue** (propuesta E): en la portada, la búsqueda y la ficha se abre una **ventana flotante** junto al saludo, sin oscurecer la página. Al bajar se encoge a una **tarjeta mini en la esquina** que pasa una publicación cada 5 segundos, con anterior, siguiente, pausa, abrir y cerrar. Cerrada, queda la pastilla «En vivo · N». En el celular son una hoja desde abajo y una barra flotante | Should | Dazz 29/10 (lienzo, propuesta E) |
+| RF-74 | **Que no canse:** la ventana se abre sola una vez al día, o cuando hay algo nuevo desde la última vez que se vio. Si se cierra, queda solo la pastilla hasta el día siguiente. Se detiene con el mouse encima, con el foco del teclado o con pausa, y con «reducir movimiento» no pasa sola. Nunca suena. En el celular, sin sesión empieza en la barra | Should | Propuesto 29/10 |
+| RF-26 | Otra tienda responde **«¡Lo tengo!»** a un busco, eligiendo cuál de sus publicaciones ofrece, o **«¡Lo quiero!»** a una oferta flash. Se abre el **chat de la web** con la tarjeta en vivo fija arriba. Cada tienda responde una vez a cada publicación en vivo. Reemplaza al WhatsApp con mensaje prellenado del boceto | Should | Boceto, Dazz 29/10 |
+| RF-27 | Quien publicó puede **sumar una hora** o **cerrarla**: «Ya lo conseguí» en un busco y «Cerrar oferta» en una oferta flash. «Vendido» en un chat de oferta flash resta del stock de la publicación (RF-47) y de las unidades de la oferta; con 0, la oferta se cierra sola | Should | Propuesto, lienzo |
+| RF-75 | La página **«En vivo»** (`/en-vivo`) muestra todas, con filtros por tipo, categoría y galería, los «Cerrados hoy» y, con sesión, **«Lo tuyo en vivo»** con sus respuestas | Should | Lienzo 29/10 |
+| RF-76 | **Avisos:** la campanita avisa a quien publicó de cada respuesta, y avisa de un busco nuevo a las tiendas que tienen ese producto publicado con stock. Es un tipo de aviso nuevo, que se apaga en Configuración y respeta «No molestar» | Should | Lienzo 29/10 |
+| RF-77 | **Sin sesión** se ve el producto, la categoría, la galería y cuánto falta; **no** el precio, el presupuesto ni la tienda. Responder pide iniciar sesión | Must | Dazz 25/10 (como RF-44 y RF-45) |
 
 ## 6. Administración y moderación
 
@@ -155,6 +161,6 @@ Es decir: un **catálogo público sin precio**, el botón de **iniciar sesión**
 
 **Entra si hay tiempo:** botón «Vendido» (RF-47), sugerencias de búsqueda (RF-14), valores por defecto al publicar (RF-48) y lista del piloto (RF-49). **Por decidir:** perfil privado (RF-41).
 
-**Pasa a la segunda iteración:** registro propio y aprobación (RF-01 y RF-04), aviso por correo (RF-42), precio por rol (RF-37), cuentas de asesores gestionadas por el dueño (RF-36), requerimientos, carga en bloque, métricas, la app y lo que queda de los lienzos B y C (RF-61 a RF-70).
+**Pasa a la segunda iteración:** registro propio y aprobación (RF-01 y RF-04), aviso por correo (RF-42), precio por rol (RF-37), cuentas de asesores gestionadas por el dueño (RF-36), En vivo (busco y ofertas flash, RF-24 a RF-27 y RF-72 a RF-77), carga en bloque, métricas, la app y lo que queda de los lienzos B y C (RF-61 a RF-70).
 
 **Ojo:** con el chat dentro de la web, el alcance es ajustado para seis días. El [documento 04](04-decisiones-para-la-reunion.md) trae los recortes propuestos y un plan B.

@@ -2,6 +2,7 @@ import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { EnVivoFlotante } from '@/features/en-vivo/flotante';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { Cabecera } from '@/shared/ui/cabecera';
@@ -28,6 +29,8 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
         {children}
       </main>
       <PiePagina />
+      {/* En vivo (D-53): aparece al entrar y sigue al usuario al bajar. */}
+      <EnVivoFlotante conSesion={Boolean(sesion?.tienda)} />
     </div>
   );
   return sesion?.tienda ? <ProveedorTiempoReal>{pagina}</ProveedorTiempoReal> : pagina;

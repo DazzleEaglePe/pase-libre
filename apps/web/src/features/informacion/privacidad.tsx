@@ -145,6 +145,10 @@ export function Privacidad() {
           Tu navegador guarda tus últimas búsquedas para mostrártelas en el buscador. Se quedan en
           tu equipo, no nos llegan, y las borras con la × de cada una.
         </p>
+        <p>
+          También recuerda, solo por el día, si ya viste o cerraste la ventana de En vivo, para no
+          volver a abrírtela. Tampoco nos llega.
+        </p>
       </Seccion>
 
       <Seccion titulo="9. Menores de edad">

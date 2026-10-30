@@ -9,5 +9,7 @@ import { MensajesService } from './mensajes.service';
   imports: [ArchivosModule],
   controllers: [MensajesController],
   providers: [MensajesService, AvisosService, LimiteDeMensajesGuard],
+  // En vivo abre hilos y manda el primer mensaje con las mismas reglas (D-53).
+  exports: [MensajesService],
 })
 export class MensajesModule {}

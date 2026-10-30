@@ -132,6 +132,7 @@ Las imágenes viejas ocupan disco. Cuando haga falta espacio: `docker image ls '
 - Las cookies de sesión son `Secure`: sin HTTPS no se puede ingresar. La API en producción se niega a arrancar sin eso.
 - `PROXIES_DE_CONFIANZA=uniquelocal` deja que la API lea la IP real del cliente en `X-Forwarded-For`. nginx **pisa** esa cabecera con `$remote_addr`, así que un cliente no puede inventar su IP para saltarse los límites.
 - Postgres, la API y la web escuchan solo en la red de compose o en `127.0.0.1`.
+- `EN_VIVO` (busco y ofertas flash, D-53) va en `false` hasta que se decida encenderlo. Cambiarlo solo pide reiniciar la API.
 - El archivo de entorno tiene la contraseña de la base: permisos 600 y fuera del repositorio.
 
 ## Probado en local (28/10/2026)

@@ -13,6 +13,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
+import { INTERRUPTOR_EN_VIVO, type InterruptorEnVivo } from '../en-vivo/interruptor';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
@@ -92,6 +93,7 @@ export class CuentaService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ArchivosService) private readonly archivos: ArchivosService,
     @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
+    @Inject(INTERRUPTOR_EN_VIVO) private readonly enVivo: InterruptorEnVivo,
   ) {}
 
   async cuenta(usuarioId: string): Promise<RespuestaCuenta> {
@@ -162,17 +164,23 @@ export class CuentaService {
   // ── Avisos (RF-59) ────────────────────────────────────────────────────────
 
   async avisos(usuarioId: string): Promise<RespuestaAvisosCuenta> {
-    const [usuario, preferencia] = await Promise.all([
+    const [usuario, preferencias] = await Promise.all([
       this.prisma.usuario.findUniqueOrThrow({
         where: { id: usuarioId },
         select: { noMolestarDesde: true, noMolestarHasta: true },
       }),
-      this.prisma.preferenciaAviso.findUnique({
-        where: { usuarioId_tipo: { usuarioId, tipo: 'MENSAJE' } },
+      this.prisma.preferenciaAviso.findMany({
+        where: { usuarioId, tipo: { in: ['MENSAJE', 'EN_VIVO'] } },
       }),
     ]);
+    const encendido = (tipo: 'MENSAJE' | 'EN_VIVO') =>
+      preferencias.find((p) => p.tipo === tipo)?.campanita ?? true;
     return {
-      campanita: { MENSAJE: preferencia?.campanita ?? true },
+      campanita: {
+        MENSAJE: encendido('MENSAJE'),
+        // Los avisos de En vivo solo se ofrecen con En vivo encendido (D-53).
+        ...(this.enVivo.activo ? { EN_VIVO: encendido('EN_VIVO') } : {}),
+      },
       no_molestar:
         usuario.noMolestarDesde !== null && usuario.noMolestarHasta !== null
           ? { desde: aHora(usuario.noMolestarDesde), hasta: aHora(usuario.noMolestarHasta) }
@@ -187,6 +195,15 @@ export class CuentaService {
         update: { campanita: datos.campanita.MENSAJE },
         create: { usuarioId, tipo: 'MENSAJE', campanita: datos.campanita.MENSAJE },
       }),
+      ...(datos.campanita.EN_VIVO === undefined
+        ? []
+        : [
+            this.prisma.preferenciaAviso.upsert({
+              where: { usuarioId_tipo: { usuarioId, tipo: 'EN_VIVO' } },
+              update: { campanita: datos.campanita.EN_VIVO },
+              create: { usuarioId, tipo: 'EN_VIVO', campanita: datos.campanita.EN_VIVO },
+            }),
+          ]),
       this.prisma.usuario.update({
         where: { id: usuarioId },
         data: {

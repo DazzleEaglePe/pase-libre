@@ -1,6 +1,6 @@
 # 09 · UX y flujos
 
-**Versión:** 0.1 · **Fecha:** 28/10/2026 · **Responsable:** Dazz, para revisar con Grimm y My
+**Versión:** 0.2 · **Fecha:** 29/10/2026 · **Responsable:** Dazz, para revisar con Grimm y My
 
 Las pantallas de la web, cómo se llega a cada una y los recorridos principales, tal como están construidos. La referencia visual es el [lienzo de diseño](https://claude.ai/artifact/H9iqh18AbknFVzzuRZPK1A), página «Línea final · todas las pantallas»; los nombres entre paréntesis (F_Portada, C_Mensajes…) son sus pantallas. La línea gráfica está en el [documento 10](10-design-system.md) y las rutas de la API en el [documento 07](07-contrato-de-la-api.md).
 
@@ -29,6 +29,8 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 | `/mensajes` y `/mensajes/:id` | Mensajes (C_Mensajes, F_MovilChat) | Vendedor | En el celular, la lista y el chat son dos pantallas |
 | `/cuenta/configuracion` (`?seccion=`) | Configuración (C_Configuración) | Vendedor | |
 | `/equipo/cuentas` | Panel del equipo (F_Equipo) | Equipo | `/equipo` lleva aquí |
+| `/en-vivo` (`?id=` resalta uno) | Ver todos (EV_Todos) | Todos | Busco y ofertas flash (D-53). Con sesión, «Lo tuyo en vivo». Con `EN_VIVO` apagado, no existe |
+| `/en-vivo/publicar` | Publicar en vivo (EV_Publicar) | Vendedor | Busco u oferta flash, con la vista previa y a cuántas tiendas les llegará el aviso |
 | `/ayuda`, `/terminos`, `/privacidad` | — (C_Footer) | Todos | Ayuda con preguntas frecuentes, y los borradores de Términos y Privacidad |
 | `/sitemap.xml`, `/robots.txt` | — | Buscadores | Solo producción se deja indexar |
 | `/salud` | — | — | Solo para el *healthcheck* del servidor |
@@ -165,6 +167,29 @@ Quedan para la fase 2, aunque el lienzo C los muestra: perfil privado, «Quién 
 2. La web muestra la clave temporal **una sola vez**, con un mensaje listo para mandarle por WhatsApp.
 3. La lista muestra cada cuenta como «Activa» o «Sin primer ingreso» (RF-49). Desde ahí: dar una clave temporal nueva, suspender o reactivar.
 4. **«Traspasar»** aparece en las cuentas que tienen publicaciones o hilos y comparten tienda con otra: pasa todo a la otra cuenta (RF-71).
+
+### 3.8 En vivo (D-53)
+
+Construido el 29/10; **solo se ve con `EN_VIVO` encendido** (en producción, apagado hasta que se decida). El diseño está en el lienzo, página «En vivo · busco y ofertas flash»: los flujos (EV_Flujo y EV_SigueFlujo), la demo para probar con Play (EV_SigueDemo) y las pantallas (EV_Publicar, EV_Responder, EV_Todos, EV_SigueEntrar, EV_SigueE y EV_SigueMovil).
+
+**Cómo se muestra (propuesta E):**
+
+| Momento | En la computadora | En el celular |
+| --- | --- | --- |
+| Al entrar | Ventana flotante a la derecha, bajo el saludo, sin oscurecer la página: lo que está en vivo, «Ver todo» y «Publicar en vivo» | Hoja desde abajo con lo mismo. Sin sesión no se abre: empieza en la barra |
+| Al bajar | Se encoge a una tarjeta mini abajo a la derecha: una publicación a la vez, cada 5 s, con anterior, siguiente, «1 de 4», pausa, abrir y cerrar | Barra flotante abajo, como el reproductor mini de una app de música. Tocar el dibujo abre la hoja |
+| Cerrada | La pastilla «En vivo · 4» en la esquina | La misma pastilla |
+
+- Aparece en la portada, la búsqueda y la ficha. No en Publicar, Mensajes, Configuración, `/en-vivo` ni el panel del equipo. Si no hay nada en vivo, no aparece nada.
+- Se abre sola una vez al día, o cuando hay algo nuevo desde la última vez. Si se encogió sola al bajar, vuelve a abrirse al subir al inicio; si se minimizó o se cerró a mano, se respeta. Lo recuerda el navegador, como las búsquedas recientes.
+- Se detiene con el mouse encima, con el foco del teclado o con pausa; con «reducir movimiento» no pasa sola. Esc la minimiza. Nunca suena.
+
+**El recorrido:**
+
+1. **Publicar en vivo** (desde la ventana, `/en-vivo` o Publicar): «Busco un producto» u «Oferta flash». El busco pide el producto, la cantidad, la condición, el presupuesto (opcional) y cuánto dura; la oferta flash, una de tus publicaciones, el precio de pase y cuántas unidades entran. La vista previa dice a cuántas tiendas les llegará el aviso.
+2. **Responder:** «¡Lo tengo!» abre una ventana para elegir cuál de tus publicaciones ofreces, con un mensaje ya escrito; si no la tienes publicada, «Publicarla» lleva a Publicar con ese producto. «¡Lo quiero!» abre el chat directo.
+3. **El chat** muestra arriba la tarjeta en vivo. Quien publicó el busco tiene «Ya lo conseguí»; quien publicó la oferta flash, «Vendido».
+4. **Lo tuyo en vivo** (en `/en-vivo`): cuánto falta, quién respondió, «Sumar 1 hora», «Ya lo conseguí» o «Cerrar oferta».
 
 ## 4. Estados y mensajes
 

@@ -1,5 +1,6 @@
 import type { Precio } from '../comun/dinero.js';
 import type { Condicion } from '../catalogo/catalogo.types.js';
+import type { EnVivoEnChat } from '../en-vivo/en-vivo.types.js';
 import type { TipoTienda } from '../sesion/sesion.types.js';
 
 /** La otra persona de una conversación: siempre con su tienda (A-11, bandeja por persona). */
@@ -80,6 +81,8 @@ export interface DetalleConversacion extends Omit<ConversacionEnLista, 'otro' | 
   bloqueaste: boolean;
   /** Es el vendedor, la oferta sigue publicada y tiene stock: puede marcar «Vendido». */
   puede_vender: boolean;
+  /** El busco o la oferta flash de la que nació el hilo (D-53). */
+  en_vivo?: EnVivoEnChat | null;
 }
 
 export interface RespuestaMensajes {
@@ -106,7 +109,7 @@ export interface RespuestaVendido {
   mensaje: MensajeChat;
 }
 
-export type TipoAviso = 'MENSAJE' | 'SEGURIDAD' | 'RECORDATORIO' | 'SISTEMA';
+export type TipoAviso = 'MENSAJE' | 'SEGURIDAD' | 'RECORDATORIO' | 'SISTEMA' | 'EN_VIVO';
 
 /** Un aviso de la campanita (RF-40). Uno por conversación con mensajes sin leer. */
 export interface AvisoCampanita {
@@ -153,6 +156,8 @@ export const EVENTOS = {
   ofertaStock: 'oferta:stock',
   /** Cambió algo que mueve los contadores (se leyó un hilo en otra pestaña, por ejemplo). */
   contadores: 'contadores:cambio',
+  /** Hay un busco o una oferta flash nueva, cambió o se cerró (a todos los sockets, D-53). */
+  enVivoCambio: 'en-vivo:cambio',
 } as const;
 
 export interface EventoMensajeNuevo {

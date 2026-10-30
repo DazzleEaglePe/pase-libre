@@ -1,6 +1,6 @@
 # 06 · Modelo de datos
 
-**Versión:** 0.1 · **Fecha:** 28/10/2026 · **Responsable:** Dazz
+**Versión:** 0.2 · **Fecha:** 29/10/2026 · **Responsable:** Dazz
 
 Las tablas de la base, qué guarda cada una y las reglas que cuida la propia base. Sale de la sección 4 del [documento 05](05-arquitectura.md#4-modelo-de-datos), revisada contra el código.
 
@@ -175,6 +175,7 @@ Y estas las cuida la API:
 | `20261027032701_medidas_de_fotos_de_oferta` | `ancho` y `alto` en las fotos de la oferta |
 | `20261027132605_archivos_subidos` | La tabla `archivo`, para las fotos subidas antes de usarse |
 | `20261028004357_ultima_conexion` | `usuario.ultima_conexion_en`, para «Activo hace 2 h» |
+| `20261030010147_en_vivo` | En vivo (D-53): `en_vivo`, `en_vivo_respuesta`, `conversacion.en_vivo_id`, los valores EN_VIVO de los avisos y las denuncias, y sus `CHECK` |
 
 **Cómo se cambia el modelo:**
 
@@ -185,3 +186,19 @@ Y estas las cuida la API:
 ## 6. Fase 2 prevista
 
 Se agregan con migraciones nuevas, sin tocar las tablas de arriba: `pedido_pase`, `pregunta`, `favorito`, `seguimiento` y `precio_rol`. `tienda.perfil_privado` y `carga_planilla` ya existen y esperan su pantalla.
+
+### En vivo (D-53, ya construido)
+
+No es fase 2: se construyó el 29/10 con la migración `20261030010147_en_vivo`, y la usa la API solo con `EN_VIVO` encendido. Dos tablas nuevas, una columna en `conversacion` y dos valores nuevos en tipos que ya existen. Todo se agrega: nada de lo de arriba cambia de tipo.
+
+| Tabla | Para qué | Columnas clave |
+| --- | --- | --- |
+| `en_vivo` | Cada busco u oferta flash (RF-24, RF-72) | `tipo` (BUSCO, FLASH), `autor_id`, `tienda_id`, `galeria_id` (la de la tienda al publicar, para filtrar), `categoria_id`, `producto_id` (obligatorio en la oferta flash; en el busco, nulo si es un texto libre), `oferta_id` (la publicación de la oferta flash), `titulo` (lo que se muestra), `cantidad`, `condicion` (nula en el busco = «Cualquiera»), `precio_centimos` y `moneda` (el precio de pase en la flash; el presupuesto, opcional, en el busco), `nota` (hasta 120), `vence_en`, `estado` (VIVO, CONSEGUIDO, VENDIDO, CERRADO), `cerrado_en` |
+| `en_vivo_respuesta` | Cada «¡Lo tengo!» o «¡Lo quiero!» (RF-26) | `en_vivo_id`, `usuario_id`, `tienda_id`, `oferta_id` (la publicación que ofrece quien responde a un busco), `conversacion_id`. Única por (`en_vivo_id`, `tienda_id`) |
+
+- **`conversacion.en_vivo_id`** (nula): la tarjeta en vivo que el chat muestra arriba. El hilo sigue colgando de una oferta, así que vale la regla de siempre: uno por oferta y por persona.
+- **`aviso.tipo` suma EN_VIVO** y **`denuncia.objeto` suma EN_VIVO**.
+- **Reglas en la base:** la oferta flash lleva `precio_centimos` y `oferta_id`; `cantidad`, `vendidas` y `avisadas` nunca negativas; `vence_en` cae como máximo 12 horas después de `creado_en`; `cerrado_en` lleno si y solo si ya no está VIVO.
+- **Reglas en la API:** hasta 3 en VIVO por autor (se cuentan dentro de la transacción que publica, con un candado por persona); nadie responde a lo de su propia tienda; la oferta flash sale de una publicación que atiende quien la publica y no ofrece más unidades que su stock; una oferta flash viva por publicación.
+- **«Venció» no se guarda:** es VIVO con `vence_en` ya pasado. Así no hace falta un proceso que los cierre a la hora.
+- **Índices:** `en_vivo (estado, vence_en)` para la lista y `en_vivo (autor_id, estado)` para «Lo tuyo en vivo».
