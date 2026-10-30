@@ -4,13 +4,13 @@ import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { botonPrincipal, campo } from '@/shared/ui/estilos';
+import { botonPrincipal } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { Segmentado } from '@/shared/ui/segmentado';
 
 import { useAhora, useEnVivo } from './datos';
 import { LoTuyo } from './lo-tuyo';
-import { EtiquetaTipo, PildoraEnVivo, botonResponder } from './piezas';
+import { EtiquetaTipo, PildoraEnVivo, botonResponderGrande } from './piezas';
 import { BotonResponder } from './responder';
 import {
   conVendedor,
@@ -22,6 +22,11 @@ import {
 } from './textos';
 
 type Tipo = 'todo' | 'busco' | 'flash';
+
+const etiquetaFiltro = 'text-nota font-medium text-detalle';
+/** Del alto del «Todo · Busco · Remates» (44 px), para que la fila de filtros quede pareja. */
+const selector =
+  'h-11 w-full rounded-xl border border-borde bg-white px-3.5 text-apoyo font-normal text-tinta';
 
 function Tarjeta({
   item,
@@ -71,9 +76,13 @@ function Tarjeta({
       )}
       {conVendedor(item) && item.nota && <p className="text-apoyo text-secundario">{item.nota}</p>}
       <span className="text-nota text-detalle">{detalle}</span>
-      <div className="mt-auto flex items-center justify-between gap-2 border-t border-linea pt-2.5">
-        <b className="text-cuerpo font-semibold">{datoPrecio(item)}</b>
-        <BotonResponder item={item} className={botonResponder} />
+      <div className="mt-auto flex h-14 items-end justify-between gap-2 border-t border-linea pb-0.5">
+        <b className="pb-2 text-cuerpo font-semibold">{datoPrecio(item)}</b>
+        {conVendedor(item) && item.propio ? (
+          <span className="pb-2 text-nota font-medium text-detalle">Es tuyo</span>
+        ) : (
+          <BotonResponder item={item} className={botonResponderGrande} />
+        )}
       </div>
     </article>
   );
@@ -124,7 +133,7 @@ export function PaginaEnVivo({
         </div>
         <Link
           href={conSesion ? '/pases-del-dia/publicar' : '/ingresar'}
-          className={`${botonPrincipal} no-underline`}
+          className={`${botonPrincipal} no-underline max-sm:w-full`}
         >
           Publicar busco o remate
         </Link>
@@ -134,47 +143,55 @@ export function PaginaEnVivo({
         respuesta abre el chat con la tienda.
       </p>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <Segmentado
-          etiqueta="Qué mostrar"
-          valor={tipo}
-          alCambiar={setTipo}
-          opciones={[
-            ['todo', 'Todo'],
-            ['busco', 'Busco'],
-            ['flash', 'Remates'],
-          ]}
-        />
-        <label className="flex flex-col gap-1 text-nota font-medium text-detalle">
-          Categoría
-          <select
-            value={categoria}
-            onChange={(evento) => setCategoria(evento.target.value)}
-            className={`${campo} h-10 w-auto`}
-          >
-            <option value="">Todas</option>
-            {categorias.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-nota font-medium text-detalle">
-          Galería
-          <select
-            value={galeria}
-            onChange={(evento) => setGaleria(evento.target.value)}
-            className={`${campo} h-10 w-auto`}
-          >
-            <option value="">Todas</option>
-            {galerias.map((g) => (
-              <option key={g.slug} value={g.slug}>
-                {g.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+        <div className="flex flex-col gap-1.5 max-sm:w-full">
+          <span aria-hidden="true" className={etiquetaFiltro}>
+            Mostrar
+          </span>
+          <Segmentado
+            llenoEnCelular
+            etiqueta="Qué mostrar"
+            valor={tipo}
+            alCambiar={setTipo}
+            opciones={[
+              ['todo', 'Todo'],
+              ['busco', 'Busco'],
+              ['flash', 'Remates'],
+            ]}
+          />
+        </div>
+        <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto">
+          <label className={`${etiquetaFiltro} flex min-w-0 flex-col gap-1.5 sm:w-44`}>
+            Categoría
+            <select
+              value={categoria}
+              onChange={(evento) => setCategoria(evento.target.value)}
+              className={selector}
+            >
+              <option value="">Todas</option>
+              {categorias.map((c) => (
+                <option key={c.slug} value={c.slug}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={`${etiquetaFiltro} flex min-w-0 flex-col gap-1.5 sm:w-44`}>
+            Galería
+            <select
+              value={galeria}
+              onChange={(evento) => setGaleria(evento.target.value)}
+              className={selector}
+            >
+              <option value="">Todas</option>
+              {galerias.map((g) => (
+                <option key={g.slug} value={g.slug}>
+                  {g.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-start gap-6">
@@ -205,18 +222,21 @@ export function PaginaEnVivo({
                   <li
                     key={item.id}
                     id={`en-vivo-${item.id}`}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-linea px-4 py-2.5 first:border-t-0"
+                    className="flex flex-col gap-1 border-t border-linea px-4 py-2.5 first:border-t-0 sm:flex-row sm:items-center sm:gap-3"
                   >
-                    <EtiquetaTipo tipo={item.tipo} />
-                    <b className="min-w-0 flex-1 truncate text-apoyo font-semibold">
-                      {item.titulo}
-                    </b>
-                    <span className="text-nota text-detalle">
-                      {conVendedor(item) ? `${item.tienda.nombre} · ` : ''}
-                      {item.galeria ?? 'Independiente'}
+                    {/* En el celular, el título tiene su propia línea y no se corta. */}
+                    <span className="flex min-w-0 flex-1 items-center gap-3">
+                      <EtiquetaTipo tipo={item.tipo} />
+                      <b className="min-w-0 truncate text-apoyo font-semibold">{item.titulo}</b>
                     </span>
-                    <span className="text-nota font-semibold text-secundario">
-                      {textoCierre(item)}
+                    <span className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className="text-nota text-detalle">
+                        {conVendedor(item) ? `${item.tienda.nombre} · ` : ''}
+                        {item.galeria ?? 'Independiente'}
+                      </span>
+                      <span className="text-nota font-semibold text-secundario">
+                        {textoCierre(item)}
+                      </span>
                     </span>
                   </li>
                 ))}

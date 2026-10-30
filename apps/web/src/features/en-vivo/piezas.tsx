@@ -28,8 +28,13 @@ export function EtiquetaTipo({ tipo }: { tipo: TipoEnVivo }) {
   );
 }
 
-export const botonResponder =
-  'inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-borde bg-white px-3 text-nota font-semibold text-tinta hover:border-borde-control';
+/** El botón «¡Lo tengo!» / «¡Lo quiero!» sin alto: cada lugar pone el suyo. */
+const baseResponder =
+  'inline-flex shrink-0 items-center justify-center rounded-full border border-borde bg-white text-nota font-semibold text-tinta hover:border-borde-control';
+/** En las filas y en la tarjeta mini: 36 px, porque van con el mouse. */
+export const botonResponder = `${baseResponder} h-9 px-3`;
+/** En las tarjetas de la página y en la barra del celular: 40 px, para el dedo. */
+export const botonResponderGrande = `${baseResponder} h-10 px-3.5`;
 
 /** Un renglón de la ventana y de la hoja (EV_SigueEntrar): dibujo, tipo, cuánto falta y responder. */
 export function FilaEnVivo({ item, ahora }: { item: ItemEnVivo; ahora: number }) {

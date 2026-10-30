@@ -16,7 +16,13 @@ import { Miniatura } from '@/shared/ui/miniatura';
 
 import { useEnVivoCompartido } from './contexto';
 import { useAhora } from './datos';
-import { EtiquetaTipo, FilaEnVivo, PildoraEnVivo, botonResponder } from './piezas';
+import {
+  EtiquetaTipo,
+  FilaEnVivo,
+  PildoraEnVivo,
+  botonResponder,
+  botonResponderGrande,
+} from './piezas';
 import { BotonResponder } from './responder';
 import { cuantoQueda, lineaLugar, type ItemEnVivo } from './textos';
 
@@ -502,7 +508,7 @@ function Mini({
                     </span>
                     <b className="truncate text-apoyo font-semibold">{item.titulo}</b>
                   </Link>
-                  <BotonResponder item={item} className={`${botonResponder} h-10`} />
+                  <BotonResponder item={item} className={botonResponderGrande} />
                 </div>
               ))}
             </div>
