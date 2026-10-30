@@ -284,7 +284,6 @@ function Mini({
   const n = items.length;
   const [indice, setIndice] = useState(0);
   const [saltando, setSaltando] = useState(false);
-  const [progreso, setProgreso] = useState(0);
   const [pausa, setPausa] = useState(false);
   const [encima, setEncima] = useState(false);
   const [reducir, setReducir] = useState(false);
@@ -324,7 +323,6 @@ function Mini({
   useEffect(() => {
     clearTimeout(salto.current);
     progresoActual.current = 0;
-    setProgreso(0);
     irA(0, true);
   }, [n, irA]);
 
@@ -332,7 +330,6 @@ function Mini({
     (paso: 1 | -1) => {
       clearTimeout(salto.current);
       progresoActual.current = 0;
-      setProgreso(0);
       const actual = indiceActual.current % n;
       if (paso < 0 && actual === 0) {
         // Hacia atrás desde la primera: salta a la copia y anima hacia la última.
@@ -354,7 +351,6 @@ function Mini({
       if (document.visibilityState !== 'visible') return;
       progresoActual.current += PASO / DURACION;
       if (progresoActual.current >= 1) mover(1);
-      else setProgreso(progresoActual.current);
     }, PASO);
     return () => clearInterval(reloj);
   }, [quieta, mover]);
@@ -374,11 +370,6 @@ function Mini({
       if (evento.key === 'Escape') alCerrar();
     },
   };
-  const barraDeTiempo = (
-    <span aria-hidden="true" className="block h-[3px] bg-linea">
-      <span className="block h-[3px] bg-pase" style={{ width: `${Math.round(progreso * 100)}%` }} />
-    </span>
-  );
 
   return (
     <>
@@ -463,7 +454,6 @@ function Mini({
             ))}
           </div>
         </div>
-        {barraDeTiempo}
       </aside>
 
       {/* Celular: la barra flotante abajo (EV_SigueMovilBajar). */}
@@ -523,7 +513,6 @@ function Mini({
             alPulsar={alCerrar}
           />
         </div>
-        {barraDeTiempo}
       </aside>
     </>
   );
