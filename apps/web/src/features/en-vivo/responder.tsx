@@ -65,7 +65,9 @@ export function BotonResponder({ item, className }: { item: ItemEnVivo; classNam
   );
 }
 
-/** La ventana de responder: en un busco, cuál de tus publicaciones ofreces; y el mensaje. */
+/** La ventana de responder: en un busco, cuál de tus publicaciones ofreces; y el mensaje.
+ * El `<fieldset>` lleva `min-w-0`: por defecto no se achica y un título largo ensancha la ventana.
+ */
 function VentanaResponder({ item, alCerrar }: { item: ItemEnVivo; alCerrar: () => void }) {
   const id = useId();
   const router = useRouter();
@@ -124,7 +126,7 @@ function VentanaResponder({ item, alCerrar }: { item: ItemEnVivo; alCerrar: () =
       </p>
       <form onSubmit={(evento) => void enviar(evento)} className="flex flex-col gap-4">
         {busco && (
-          <fieldset className="flex flex-col gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-1.5 text-apoyo font-medium">¿Cuál tienes?</legend>
             {opciones === null && <p className="text-apoyo text-secundario">Cargando…</p>}
             {sinOpciones && (
@@ -142,7 +144,7 @@ function VentanaResponder({ item, alCerrar }: { item: ItemEnVivo; alCerrar: () =
             {opciones?.map((opcion) => (
               <label
                 key={opcion.oferta_id}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2.5 ${
+                className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl border p-2.5 ${
                   elegida === opcion.oferta_id ? 'border-tinta' : 'border-linea'
                 }`}
               >
