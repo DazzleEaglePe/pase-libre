@@ -448,7 +448,7 @@ export function FichaProducto({
       )}
 
       <section aria-label="Descripción y detalles" className="grid gap-10 lg:grid-cols-2">
-        <div id="descripcion" className="flex min-w-0 scroll-mt-28 flex-col gap-3">
+        <div id="descripcion" className="flex min-w-0 scroll-mt-40 flex-col gap-3">
           <h2 className="text-[24px] font-semibold leading-8">Descripción del vendedor</h2>
           <p className="max-w-[640px] whitespace-pre-line text-secundario">
             {oferta?.descripcion || 'El vendedor no agregó una descripción.'}

@@ -225,7 +225,8 @@ function BandaCategorias({
  * ella. De arriba abajo: la fila del saludo y la galería, el logo con su frase y el buscador,
  * la banda de categorías en azul noche y la franja de ventajas. En el celular quedan el logo,
  * el buscador y la banda, como en F_MovilPortada. En Mensajes va sin banda ni franja: el
- * chat necesita el alto.
+ * chat necesita el alto. Al bajar, el logo con el buscador y la banda se quedan fijos arriba;
+ * el saludo y la franja de ventajas se van con la página.
  */
 export function Cabecera({
   sesion,
@@ -295,8 +296,8 @@ function Barra({
   const tienda = sesion?.tienda ?? null;
 
   return (
-    <header>
-      <div className="border-b border-linea text-nota max-md:hidden">
+    <>
+      <nav aria-label="Cuenta y ayuda" className="border-b border-linea text-nota max-md:hidden">
         <div className="mx-auto flex min-h-10 max-w-[1280px] flex-wrap items-center justify-between gap-x-5 gap-y-1 px-4 sm:px-8">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
             {sesion ? (
@@ -348,46 +349,58 @@ function Barra({
             {acciones}
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* `relative`: el panel de «Comprar por categoría» se abre a todo el ancho, debajo. */}
-      <div className="relative">
-        {/* Como C_Header: el logo y «Comprar por categoría» en el borde izquierdo, el buscador
+      {/* Lo que te sigue al bajar: el logo con el buscador y la banda de categorías. El
+          saludo de arriba y la franja de ventajas de abajo se van con el desplazamiento. Es el
+          propio `<header>` el que se queda fijo: su contenedor es toda la página, y un hijo
+          pegajoso dentro de un `<header>` solo se movería dentro de la altura del `<header>`.
+          Va por debajo (z-30) de los menús de la fila del saludo (z-40), que se abren encima. En
+          el celular se pega 54 px más arriba: la fila del logo y «Ingresar» (14 px de margen y 40
+          de alto) se va y quedan fijos el buscador y la banda, para no gastar un cuarto de la
+          pantalla. */}
+      <header className="sticky top-0 z-30 bg-white max-md:-top-[54px]">
+        {/* `relative`: el panel de «Comprar por categoría» se abre a todo el ancho, debajo. */}
+        <div className="relative">
+          {/* Como C_Header: el logo y «Comprar por categoría» en el borde izquierdo, el buscador
             llenando el centro y «Buscar» en el borde derecho, todo centrado en vertical. */}
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-8 md:flex-nowrap md:gap-x-8">
-          <div className="order-1 flex shrink-0 items-center gap-6">
-            <Marca conFrase />
-            <MenuCategorias categorias={categorias} conSesion={Boolean(tienda)} />
-          </div>
-          <Buscador
-            categorias={categorias}
-            className="order-3 basis-full md:order-2 md:min-w-0 md:flex-1 md:basis-auto"
-          />
-          {/* En el celular no está la fila del saludo: lo de la cuenta va junto al logo. */}
-          <div className="order-2 ml-auto flex items-center gap-2 md:hidden">
-            {tienda ? (
-              acciones
-            ) : sesion ? (
-              <Link href="/equipo/cuentas" className={`${enlaceFuerte} text-apoyo`}>
-                Panel del equipo
-              </Link>
-            ) : (
-              <Link
-                href="/ingresar"
-                className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium no-underline"
-              >
-                Ingresar
-              </Link>
-            )}
+          <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-8 md:flex-nowrap md:gap-x-8">
+            <div className="order-1 flex shrink-0 items-center gap-6">
+              <Marca conFrase />
+              <MenuCategorias categorias={categorias} conSesion={Boolean(tienda)} />
+            </div>
+            <Buscador
+              categorias={categorias}
+              className="order-3 basis-full md:order-2 md:min-w-0 md:flex-1 md:basis-auto"
+            />
+            {/* En el celular no está la fila del saludo: lo de la cuenta va junto al logo. */}
+            <div className="order-2 ml-auto flex items-center gap-2 md:hidden">
+              {tienda ? (
+                acciones
+              ) : sesion ? (
+                <Link href="/equipo/cuentas" className={`${enlaceFuerte} text-apoyo`}>
+                  Panel del equipo
+                </Link>
+              ) : (
+                <Link
+                  href="/ingresar"
+                  className="flex h-10 items-center rounded-full border border-borde px-4 text-apoyo font-medium no-underline"
+                >
+                  Ingresar
+                </Link>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {completa && (
-        <Suspense fallback={<div className="h-12 bg-tinta" />}>
-          <BandaCategorias categorias={categorias} extra={enBanda} />
-        </Suspense>
-      )}
+        {completa && (
+          <Suspense fallback={<div className="h-12 bg-tinta" />}>
+            <BandaCategorias categorias={categorias} extra={enBanda} />
+          </Suspense>
+        )}
+        {!completa && <div className="border-b border-linea" />}
+      </header>
+
       {completa && (
         <div className="bg-pase-suave text-nota font-semibold text-tinta max-md:hidden">
           <div className="mx-auto flex min-h-[34px] max-w-[1280px] flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-1.5 sm:px-8">
@@ -400,7 +413,6 @@ function Barra({
           </div>
         </div>
       )}
-      {!completa && <div className="border-b border-linea" />}
-    </header>
+    </>
   );
 }

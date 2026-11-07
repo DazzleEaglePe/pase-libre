@@ -39,7 +39,7 @@ export function VistaPrevia({
   return (
     <aside
       aria-label="Vista previa"
-      className="sticky top-6 hidden w-full max-w-[360px] flex-[1_1_300px] flex-col gap-3.5 lg:flex"
+      className="sticky top-36 hidden w-full max-w-[360px] flex-[1_1_300px] flex-col gap-3.5 lg:flex"
     >
       <div className="flex items-center justify-between gap-3">
         <span className="text-etiqueta uppercase text-detalle">Así lo verán</span>

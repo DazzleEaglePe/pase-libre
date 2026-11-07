@@ -47,7 +47,7 @@ function Tarjeta({
   return (
     <article
       id={`en-vivo-${item.id}`}
-      className={`flex scroll-mt-28 flex-col gap-2 rounded-2xl border bg-white p-3.5 ${
+      className={`flex scroll-mt-40 flex-col gap-2 rounded-2xl border bg-white p-3.5 ${
         resaltada ? 'border-tinta ring-2 ring-pase-suave' : 'border-linea'
       }`}
     >
