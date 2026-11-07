@@ -25,7 +25,11 @@
     "cuenta:equipo": "pnpm --filter @paselibre/api cuenta:equipo",
     "docker:up": "docker compose -f tools/docker/compose.dev.yml up -d",
     "docker:down": "docker compose -f tools/docker/compose.dev.yml down",
-    "docker:logs": "docker compose -f tools/docker/compose.dev.yml logs -f"
+    "docker:logs": "docker compose -f tools/docker/compose.dev.yml logs -f",
+    "datos:raspar": "node tools/datos-demo/raspar.mjs",
+    "datos:cargar": "node tools/datos-demo/cargar.mjs --pases",
+    "datos:limpiar": "node tools/datos-demo/cargar.mjs --limpiar",
+    "qa": "node tools/datos-demo/verificar.mjs"
   },
   "devDependencies": {
     "prettier": "3.9.6",

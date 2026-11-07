@@ -22,3 +22,8 @@ apps/api/media/
 .DS_Store
 .idea/
 .vscode/
+
+# Datos de prueba raspados y los informes de QA (no se suben: son de terceros o se regeneran)
+tools/datos-demo/cache/
+tools/datos-demo/datos/
+tools/datos-demo/informes/
