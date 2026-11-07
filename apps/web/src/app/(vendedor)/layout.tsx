@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
 import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
-import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
+import { consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { Cabecera } from '@/shared/ui/cabecera';
 import { Pie } from '@/shared/ui/pie';
@@ -18,8 +18,8 @@ import { Pie } from '@/shared/ui/pie';
 export default async function LayoutVendedor({ children }: { children: ReactNode }) {
   const [sesion, { cuerpo: categorias }, { cuerpo: galerias }] = await Promise.all([
     obtenerSesion(),
-    consultarApi<CategoriaResumen[]>('/categorias'),
-    consultarApi<GaleriaResumen[]>('/galerias'),
+    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
+    consultarApiCompartida<GaleriaResumen[]>('/galerias'),
   ]);
   if (!sesion || sesion.usuario.debe_cambiar_clave) redirect('/ingresar');
   if (!sesion.tienda) redirect('/equipo/cuentas');

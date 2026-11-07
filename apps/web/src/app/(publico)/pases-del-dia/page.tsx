@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { PaginaEnVivo } from '@/features/en-vivo/pagina';
-import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
+import { consultarApi, consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
   title: 'Pases del día · busco y remates',
@@ -23,8 +23,8 @@ export default async function PasesDelDia({
     await Promise.all([
       consultarApi('/en-vivo'),
       obtenerSesion(),
-      consultarApi<CategoriaResumen[]>('/categorias'),
-      consultarApi<GaleriaResumen[]>('/galerias'),
+      consultarApiCompartida<CategoriaResumen[]>('/categorias'),
+      consultarApiCompartida<GaleriaResumen[]>('/galerias'),
       searchParams,
     ]);
   if (estado === 404) notFound();

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
 import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
 import { EnVivoFlotante } from '@/features/en-vivo/flotante';
-import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
+import { consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { Cabecera } from '@/shared/ui/cabecera';
 import { PiePagina } from '@/shared/ui/pie-pagina';
@@ -19,8 +19,8 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
   const [sesion, { cuerpo: categorias }, { cuerpo: galerias }] = await Promise.all([
     obtenerSesion(),
     // Si la API no responde, la barra sale sin categorías y la página muestra su propio error.
-    consultarApi<CategoriaResumen[]>('/categorias'),
-    consultarApi<GaleriaResumen[]>('/galerias'),
+    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
+    consultarApiCompartida<GaleriaResumen[]>('/galerias'),
   ]);
   if (sesion?.usuario.debe_cambiar_clave) redirect('/ingresar');
 

@@ -18,7 +18,7 @@ import {
   sinFiltros,
   textoConsulta,
 } from '@/features/catalogo/consulta';
-import { cargarApi, consultarApi } from '@/shared/api/servidor';
+import { cargarApi, consultarApi, consultarApiCompartida } from '@/shared/api/servidor';
 
 type Parametros = Promise<Record<string, string | string[] | undefined>>;
 
@@ -51,7 +51,7 @@ export default async function Resultados({ searchParams }: { searchParams: Param
   const consulta = textoConsulta(filtros);
   const [resultado, { cuerpo: categorias }] = await Promise.all([
     cargarApi<RespuestaBuscar>(`/buscar${consulta ? `?${consulta}` : ''}`),
-    consultarApi<CategoriaResumen[]>('/categorias'),
+    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
   ]);
   const conSesion = resultado.audiencia !== 'visitante';
   // El busco lo publica una tienda: al equipo no se le ofrece.

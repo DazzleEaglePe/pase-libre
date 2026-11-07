@@ -84,7 +84,11 @@ Y cada ruta sensible tiene el suyo:
 | Subir fotos | 30 por hora | Persona |
 | Denuncias | 10 por hora | Persona |
 
+Cada contador es **por ruta**: `@nestjs/throttler` arma su clave con el nombre de la clase, el del método y quién pide, así que `/buscar` tiene el suyo, `/productos/:slug` otro, y así.
+
 **La IP real:** detrás de nginx, la API lee la IP del cliente en `X-Forwarded-For` solo si la petición viene de una red de confianza (`PROXIES_DE_CONFIANZA`, `uniquelocal` en el servidor). nginx **pisa** esa cabecera con la IP que ve, así que un cliente no puede inventar la suya para saltarse los límites. Falta probarlo en *staging* con la IP verdadera.
+
+**La web también la reenvía** (`shared/api/servidor.ts`): cuando Next arma una página llama a la API desde su servidor y le pasa el `X-Forwarded-For` que recibió de nginx. Sin eso, la API vería a todos los visitantes con la IP del servidor web y los de sin sesión compartirían un solo contador: con la búsqueda a 60 por minuto, desde la 61.ª página de resultados de un minuto todos verían un error 500 (lo midió `pnpm qa --estres`: 60 respuestas buenas y 90 errores de 150 visitantes). Las categorías y galerías de la barra, iguales para todos, salen de una caché de 60 segundos sin cookie y no gastan pedidos de cada visitante.
 
 *Cambio del 27/10:* antes había un único límite de 120 por minuto por IP y el ingreso permitía 20 por IP. El día del piloto, toda una galería con el mismo wifi se hubiera frenado entre sí.
 

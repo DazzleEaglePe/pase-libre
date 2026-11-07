@@ -258,6 +258,19 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(respuesta.body).toEqual({ redirigir_a: VENTUS });
     });
 
+    it('una dirección que no puede ser de un producto responde 404, no 500', async () => {
+      for (const slug of [
+        '%00',
+        'con%20espacio',
+        '..%2fetc',
+        'a'.repeat(400),
+        encodeURIComponent('ñandú'),
+      ]) {
+        const respuesta = await http().get(`/v1/productos/${slug}`).expect(404);
+        expect(respuesta.body.error.codigo).toBe('NO_ENCONTRADO');
+      }
+    });
+
     it('un producto que no existe responde 404 en español', async () => {
       const respuesta = await http().get('/v1/productos/no-existe').expect(404);
       expect(respuesta.body.error).toMatchObject({

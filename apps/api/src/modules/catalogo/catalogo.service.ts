@@ -74,6 +74,9 @@ type OfertaConVendedorFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFE
 /** Pseudo-galería para quienes venden sin galería. */
 export const INDEPENDIENTES = { slug: 'independientes', nombre: 'Independientes' } as const;
 
+/** Lo único que puede tener la dirección de un producto (`slugDe` solo deja letras, números y guiones). */
+const SLUG_VALIDO = /^[a-z0-9-]{1,300}$/;
+
 function aFoto(foto: { ruta: string; ancho: number | null; alto: number | null }): Foto {
   return { ruta: foto.ruta, ancho: foto.ancho, alto: foto.alto };
 }
@@ -259,6 +262,15 @@ export class CatalogoService {
    * la ficha muestra la lista vacía.
    */
   async ficha(slug: string, mirada: Mirada): Promise<RespuestaFicha | RespuestaRedireccion> {
+    // Un slug solo tiene letras, números y guiones (`slugDe`): lo demás no puede existir, y
+    // algunos caracteres (como el nulo de `%00`) harían fallar la consulta con un 500.
+    if (!SLUG_VALIDO.test(slug)) {
+      throw new ApiHttpException(
+        HttpStatus.NOT_FOUND,
+        'NO_ENCONTRADO',
+        'Este producto no existe en PaseLibre.',
+      );
+    }
     const producto = await this.prisma.producto.findUnique({
       where: { slug },
       include: {

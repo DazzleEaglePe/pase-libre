@@ -1,7 +1,7 @@
 import 'server-only';
 
 import type { RespuestaYo } from '@paselibre/contracts';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { cache } from 'react';
 
 const API_INTERNA = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
@@ -9,17 +9,43 @@ const API_INTERNA = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
 /**
  * Llamada desde el servidor de Next a la API con la cookie de quien pidió la página.
  * Con sesión, la respuesta nunca se guarda en caché (A-09).
+ *
+ * También le pasa la IP de quien pidió la página (la que puso nginx en `X-Forwarded-For`):
+ * la API limita los pedidos por IP y, sin esto, todos los visitantes llegarían con la del
+ * servidor web y compartirían un solo contador. La API solo cree esa cabecera si viene de
+ * un proxy de confianza (`PROXIES_DE_CONFIANZA`), y nginx pone siempre la IP real al final.
  */
 async function llamarApiServidor(
   ruta: string,
   redireccion: RequestRedirect = 'follow',
 ): Promise<Response> {
-  const almacen = await cookies();
+  const [almacen, entrada] = await Promise.all([cookies(), headers()]);
+  const cabeceras: Record<string, string> = { cookie: almacen.toString() };
+  const ip = entrada.get('x-forwarded-for');
+  if (ip) cabeceras['x-forwarded-for'] = ip;
   return fetch(`${API_INTERNA}/v1${ruta}`, {
-    headers: { cookie: almacen.toString() },
+    headers: cabeceras,
     cache: 'no-store',
     redirect: redireccion,
   });
+}
+
+/**
+ * Lo que es igual para todos y casi no cambia, como las categorías y las galerías de la
+ * barra: sin cookie y con caché de `segundos`. Así cada página no gasta pedidos de los 120
+ * por minuto que la API le da a quien la mira. Como `consultarApi`, no lanza nunca.
+ */
+export async function consultarApiCompartida<T>(
+  ruta: string,
+  segundos = 60,
+): Promise<{ estado: number; cuerpo: T | null }> {
+  try {
+    const respuesta = await fetch(`${API_INTERNA}/v1${ruta}`, { next: { revalidate: segundos } });
+    const cuerpo = (await respuesta.json().catch(() => null)) as T | null;
+    return { estado: respuesta.status, cuerpo };
+  } catch {
+    return { estado: 0, cuerpo: null };
+  }
 }
 
 /**

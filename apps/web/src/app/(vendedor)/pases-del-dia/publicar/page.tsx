@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 
 import { FormularioEnVivo } from '@/features/en-vivo/publicar';
-import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
+import { consultarApi, consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
   title: 'Publicar un pase del día',
@@ -24,7 +24,7 @@ export default async function PublicarPaseDelDia({
   const [sesion, { estado }, { cuerpo: categorias }] = await Promise.all([
     obtenerSesion(),
     consultarApi('/en-vivo/mios'),
-    consultarApi<CategoriaResumen[]>('/categorias'),
+    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
   ]);
   if (!sesion?.tienda) redirect('/ingresar');
   if (estado === 404) notFound();
