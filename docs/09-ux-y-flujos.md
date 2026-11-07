@@ -186,7 +186,7 @@ En la web se llama **«Pases del día»** y los tipos se leen **«Busco»** y **
 - Aparece en la portada, la búsqueda y la ficha. No en Publicar, Mensajes, Configuración, `/pases-del-dia` ni el panel del equipo. Si no hay nada en vivo, no aparece nada.
 - **La entrada fija** es «● Pases del día N» en la banda de categorías, en el catálogo y en las páginas del vendedor: se llega aunque la tarjeta esté oculta.
 - **Es un estado, no se repite:** la ventana completa se abre sola solo la primera vez del día. Después, en cualquier página o pestaña, empieza encogida, y no se vuelve a abrir al subir ni al cambiar de página; «Abrir» la despliega solo en esa página. Lo recuerda el navegador, como las búsquedas recientes, y otra pestaña abierta hace lo mismo al momento.
-- Al llegar al pie, la tarjeta mini sube para no tapar Contacto ni las redes.
+- **Sigue al usuario hasta el final de la página:** la tarjeta mini se queda siempre en la esquina inferior derecha (la barra, abajo en el celular), también sobre el pie. Puede tapar un poco de lo de abajo (las insignias o el aviso legal); la × la quita. Antes subía al llegar al pie, pero el pie del celular es más alto que la pantalla y la sacaba de la vista.
 - Se detiene con el mouse encima, con el foco del teclado o con pausa; con «reducir movimiento» no pasa sola. Esc encoge la ventana y oculta la tarjeta. Nunca suena.
 
 **El recorrido:**

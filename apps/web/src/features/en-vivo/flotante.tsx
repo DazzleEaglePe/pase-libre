@@ -293,23 +293,6 @@ function Mini({
   const [pausa, setPausa] = useState(false);
   const [encima, setEncima] = useState(false);
   const [reducir, setReducir] = useState(false);
-  // Cuánto del pie se ve: la tarjeta sube para no tapar Contacto ni las redes.
-  const [sobrePie, setSobrePie] = useState(0);
-
-  useEffect(() => {
-    const medir = () => {
-      const pie = document.querySelector('footer');
-      if (!pie) return;
-      setSobrePie(Math.max(0, Math.round(window.innerHeight - pie.getBoundingClientRect().top)));
-    };
-    medir();
-    window.addEventListener('scroll', medir, { passive: true });
-    window.addEventListener('resize', medir);
-    return () => {
-      window.removeEventListener('scroll', medir);
-      window.removeEventListener('resize', medir);
-    };
-  }, []);
   const indiceActual = useRef(0);
   const progresoActual = useRef(0);
   const salto = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -383,7 +366,6 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        style={{ bottom: 24 + sobrePie }}
         className="borde-en-vivo fixed bottom-6 right-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
         <div className="flex items-center justify-between gap-1 pl-3 pr-2 pt-2">
@@ -466,7 +448,6 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        style={{ bottom: 12 + sobrePie }}
         className="borde-en-vivo fixed inset-x-3 bottom-3 z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <div className="flex items-center gap-1 py-2.5 pl-2.5 pr-1.5">

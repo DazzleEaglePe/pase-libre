@@ -6,6 +6,7 @@ import {
   type RespuestaOpcionesEnVivo,
   type RespuestaResponderEnVivo,
 } from '@paselibre/contracts';
+import { IconBolt, IconMessageCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type FormEvent } from 'react';
@@ -41,6 +42,7 @@ export function BotonResponder({ item, className }: { item: ItemEnVivo; classNam
         className={className}
         aria-label={`${accion} Inicia sesión para responder`}
       >
+        <IconBolt size={16} stroke={1.8} aria-hidden="true" />
         {accion}
       </Link>
     );
@@ -49,6 +51,7 @@ export function BotonResponder({ item, className }: { item: ItemEnVivo; classNam
   if (item.respondiste) {
     return item.conversacion_id ? (
       <Link href={`/mensajes/${item.conversacion_id}`} className={className}>
+        <IconMessageCircle size={16} stroke={1.8} aria-hidden="true" />
         Ver chat
       </Link>
     ) : (
@@ -58,6 +61,7 @@ export function BotonResponder({ item, className }: { item: ItemEnVivo; classNam
   return (
     <>
       <button type="button" onClick={() => setAbierta(true)} className={className}>
+        <IconBolt size={16} stroke={1.8} aria-hidden="true" />
         {accion}
       </button>
       {abierta && <VentanaResponder item={item} alCerrar={() => setAbierta(false)} />}
