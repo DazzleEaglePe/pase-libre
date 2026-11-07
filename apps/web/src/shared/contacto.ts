@@ -13,6 +13,8 @@ const DATOS_EQUIPO = {
   correo: null as string | null,
   /** Por ejemplo «Lunes a sábado, de 10:00 a 19:00». */
   horario: null as string | null,
+  /** La línea legal del pie: por ejemplo «PaseLibre S.A.C. · RUC 20…». */
+  legal: null as string | null,
   redes: {
     facebook: null as string | null,
     instagram: null as string | null,
@@ -62,7 +64,16 @@ export const CONTACTO = {
     () => null,
     '[horario de atención]',
   ),
+  legal: dato(
+    DATOS_EQUIPO.legal,
+    (l) => l,
+    () => null,
+    '[Razón social] · RUC [por definir]',
+  ),
 };
+
+/** Dónde está la galería; el stand del equipo se sumará cuando exista. */
+export const VISITANOS = 'Galería Wilson, Cercado de Lima';
 
 export type Red = 'facebook' | 'instagram' | 'tiktok';
 

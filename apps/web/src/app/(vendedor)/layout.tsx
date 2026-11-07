@@ -37,7 +37,7 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
             {children}
           </main>
-          <Pie />
+          <Pie conSesion />
         </div>
       </ProveedorEnVivo>
     </ProveedorTiempoReal>

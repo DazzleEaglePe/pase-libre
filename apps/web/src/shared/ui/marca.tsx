@@ -11,10 +11,13 @@ import { LOGO_HORIZONTAL as logo } from './marca-trazos';
 export function Marca({
   href = '/',
   sobreOscuro = false,
+  sobrePase = false,
   conFrase = false,
 }: {
   href?: string;
   sobreOscuro?: boolean;
+  /** Sobre el azul pase (el pie): el símbolo en blanco, con la flecha calada en el azul. */
+  sobrePase?: boolean;
   /** «Pases entre tiendas de Wilson» debajo del logo, como en la barra del lienzo. */
   conFrase?: boolean;
 }) {
@@ -29,7 +32,11 @@ export function Marca({
         aria-hidden="true"
         className={conFrase ? 'h-7 w-auto sm:h-8' : 'h-6 w-auto'}
       >
-        <path fill={sobreOscuro ? color.acento : color.pase} fillRule="evenodd" d={logo.simbolo} />
+        <path
+          fill={sobrePase ? '#FFFFFF' : sobreOscuro ? color.acento : color.pase}
+          fillRule="evenodd"
+          d={logo.simbolo}
+        />
         <g transform={`translate(${logo.palabra.x} ${logo.palabra.y})`} fill="currentColor">
           <path d={logo.palabra.pase} />
           <path d={logo.palabra.libre} />

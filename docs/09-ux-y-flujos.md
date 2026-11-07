@@ -53,11 +53,12 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
   - Se maneja con las flechas, Enter y Escape. Lo que se va escribiendo no cuenta como búsqueda en las métricas.
 - **Fuera, a propósito:** «Avanzada» (los filtros están en `/buscar`).
 - **Equipo:** su propia barra oscura, con el logo y su panel.
-- **Pie:** el claro con columnas del lienzo (C_Footer, elegido el 28/10):
-  - La marca con su frase, y las columnas PaseLibre, Ayuda y Legal, que llevan a secciones concretas de Ayuda y de Términos (`/ayuda#cuenta`, `/terminos#reglas`…).
-  - **Contacto** (29/10), con íconos de línea: WhatsApp, correo, horario (reloj) y las redes (Facebook, Instagram y TikTok) en círculos. Salen de `shared/contacto.ts`; en producción solo se ve lo que tiene dato, y en local los que faltan aparecen como «[correo de PaseLibre]».
-  - Debajo, «El trato es entre vendedores: PaseLibre no interviene en las ventas» y «Español (Perú) · Precios en US$ y S/».
-  - «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
+- **Pie** (PIE_D del lienzo, elegido el 06/11, con ideas del pie de Oechsle; reemplaza al claro C_Footer del 28/10). En el celular es el pie D y en computadora el diseño de la E, los dos en azul pase:
+  - **Franja de beneficios** arriba del pie, en blanco: seis íconos de línea con título, una frase y su enlace (Pases entre tiendas, Pases del día —solo con `EN_VIVO`—, Chat y WhatsApp, Precios entre tiendas, Sin comisiones, ¿Dudas?).
+  - En el pie, la marca con su frase y la **invitación**: sin sesión «¿Tienes tienda en Galería Wilson? Pedir mi cuenta» (y «Escribir por WhatsApp» si hay número); con sesión «Invita a una tienda vecina» con «Compartir por WhatsApp» y «Copiar enlace». Va donde la referencia pedía suscribirse a ofertas.
+  - **Contáctanos** con íconos, título, dato y enlace: WhatsApp con el horario, correo y «Visítanos: Galería Wilson, Cercado de Lima». Salen de `shared/contacto.ts`; en producción solo se ve lo que tiene dato y en local los que faltan aparecen como «[correo de PaseLibre]».
+  - Columnas PaseLibre, Ayuda y Legal (acordeones en el celular). «Libro de Reclamaciones» va como sello, todavía sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
+  - Abajo, «Síguenos en» con las redes en círculos blancos y dos sellos: «Cuentas verificadas por el equipo» y «Sin comisiones ni pagos en línea». Al final, «El trato es entre vendedores…», la razón social y el RUC (cuando existan) y «Español (Perú) · Precios en US$ y S/».
   - Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat.
 
 **Quién entra a qué:**

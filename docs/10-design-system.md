@@ -167,7 +167,7 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | `miniatura` | La foto pequeña de un producto |
 | `interruptor` y `segmentado` | Controles de sí o no y de opciones |
 | `ventana` | Las ventanas de confirmación («Vendido», bloquear, eliminar) |
-| `pie-pagina` | El pie con columnas (C_Footer), en el catálogo y en las páginas del vendedor. Su columna Contacto lleva íconos de Tabler en círculos grises (WhatsApp, correo, reloj y las redes, que al pasar el mouse se ponen en azul noche) y lee sus datos de `shared/contacto.ts` |
+| `pie-pagina` | El pie en azul pase (PIE_D), en el catálogo y en las páginas del vendedor: franja de beneficios en blanco arriba, la marca con `sobrePase` (símbolo blanco), la invitación (`invitacion-pie`, cliente), Contáctanos con íconos de Tabler, columnas que en el celular son acordeones (`<details>`), redes en círculos blancos y sellos. Lee sus datos de `shared/contacto.ts` |
 | `pie-compacto` | El pie de una línea (C_FooterCompacto), en Mensajes y en el panel del equipo |
 
 ## 8. Cómo se cambia
