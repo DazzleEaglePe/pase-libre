@@ -39,12 +39,13 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
 
 **Barras y pie:**
 
-- **Una sola barra, la de C_Header** (28/10), igual con sesión y sin ella, en el catálogo y en las páginas del vendedor (`shared/ui/cabecera.tsx`). De arriba abajo:
+- **Una sola barra, la de C_Header** (28/10), igual con sesión y sin ella, en **todas** las pantallas: el catálogo, las páginas del vendedor, el ingreso, el panel del equipo y el 404 (`shared/ui/cabecera.tsx`; el ingreso, el equipo y el 404 la reciben de `MarcoPagina`). De arriba abajo:
   1. **Fila del saludo** (desde tablet): «¡Hola! Inicia sesión o pide tu cuenta» o «¡Hola, Tienda B!», «Cómo funciona» y «Ayuda y contacto»; a la derecha, el selector de **galería**, «Publicar» y, con tienda, la campanita, Mensajes con su contador y «Mi cuenta» (Publicar, Configuración, Mis publicaciones, Mensajes y Cerrar sesión); sin sesión, «Mi cuenta» lleva al ingreso. La galería filtra lo recién publicado en la portada y, desde cualquier otra página, lleva a los resultados de esa galería.
   2. **Fila principal, igual con sesión y sin ella:** el logo con «Pases entre tiendas de Wilson» y «Comprar por categoría» en el borde izquierdo, el **buscador** llenando el centro y «Buscar» en el borde derecho, alineados con los bordes de las otras filas y centrados en vertical. En el celular, junto al logo van la campanita, Mensajes y «Mi cuenta» (o «Ingresar» sin sesión).
   3. **Banda de categorías en azul noche:** «Todas las categorías», cada categoría y, a la derecha, «Soporte por WhatsApp» (cuando exista el número) o «Ayuda y soporte». En el celular se desliza de lado.
   4. **Franja de ventajas en azul suave** (desde tablet): «Pases entre tiendas de Wilson · Gratis para el piloto · Precios solo con sesión · Busca aunque escribas mal · Chat y WhatsApp · El trato es entre vendedores».
 - **En Mensajes** la barra va sin banda ni franja, para que el chat entre en la pantalla.
+- **Te sigue al bajar:** el logo con el buscador y la banda de categorías quedan fijos arriba; la fila del saludo y la franja de ventajas se van con la página. En el celular se va también la fila del logo y quedan fijos el buscador y la banda. Los menús de la fila del saludo se abren por encima de la barra fija.
 - **En el celular** queda como F_MovilPortada: logo con los iconos, buscador y banda.
 - **«Comprar por categoría»** (desde computadora, junto al logo; J1 del lienzo): abre un panel a todo el ancho. A la izquierda, «● Pases del día» primero (si está encendido) y las categorías con su dibujo y cuántos productos hay. A la derecha, la que se señala: «Ver N productos», sus marcas, estado y galerías como chips con cuántas ofertas hay de cada una, «Lo más buscado en …» y, al pie, la tarjeta «¿Buscas algo para un cliente? Publicar un busco».
 - **El desplegable del buscador:**
@@ -52,14 +53,14 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
   - Mientras se escribe: **«¿Quisiste decir…?»** cuando corrige, hasta **5 productos** con su foto o ícono, categoría, ofertas y galerías, y al final «Ver los N resultados» o «Buscar «…»».
   - Se maneja con las flechas, Enter y Escape. Lo que se va escribiendo no cuenta como búsqueda en las métricas.
 - **Fuera, a propósito:** «Avanzada» (los filtros están en `/buscar`).
-- **Equipo:** su propia barra oscura, con el logo y su panel.
+- **Equipo:** la misma barra, con «Panel del equipo» y «Cerrar sesión» en la fila del saludo, y una franja con las secciones del panel (hoy «Cuentas») debajo; en el celular el nombre y «Cerrar sesión» van en esa franja.
 - **Pie** (PIE_D del lienzo, elegido el 06/11, con ideas del pie de Oechsle; reemplaza al claro C_Footer del 28/10). En el celular es el pie D y en computadora el diseño de la E, los dos en azul pase:
   - **Franja de beneficios** arriba del pie, en blanco: seis íconos de línea con título, una frase y su enlace (Pases entre tiendas, Pases del día —solo con `EN_VIVO`—, Chat y WhatsApp, Precios entre tiendas, Sin comisiones, ¿Dudas?).
   - En el pie, la marca con su frase y la **invitación**: sin sesión «¿Tienes tienda en Galería Wilson? Pedir mi cuenta» (y «Escribir por WhatsApp» si hay número); con sesión «Invita a una tienda vecina» con «Compartir por WhatsApp» y «Copiar enlace». Va donde la referencia pedía suscribirse a ofertas.
   - **Contáctanos** con íconos, título, dato y enlace: WhatsApp con el horario, correo y «Visítanos: Galería Wilson, Cercado de Lima». Salen de `shared/contacto.ts`; en producción solo se ve lo que tiene dato y en local los que faltan aparecen como «[correo de PaseLibre]».
   - Columnas PaseLibre, Ayuda y Legal (acordeones en el celular). «Libro de Reclamaciones» va como sello, todavía sin enlace hasta decidir si aplica ([checklist](CHECKLIST.md)).
   - Abajo, «Síguenos en» con las redes en círculos blancos y dos sellos: «Cuentas verificadas por el equipo» y «Sin comisiones ni pagos en línea». Al final, «El trato es entre vendedores…», la razón social y el RUC (cuando existan) y «Español (Perú) · Precios en US$ y S/».
-  - Mensajes y el panel del equipo llevan el compacto (C_FooterCompacto), para no ponerle un pie alto al chat.
+  - Solo Mensajes lleva el compacto (C_FooterCompacto), para no ponerle un pie alto al chat. Todas las demás pantallas, incluidos el ingreso, el panel del equipo y el «no encontramos esa página» de cualquier dirección, llevan la misma barra y el mismo pie (`MarcoPagina`).
 
 **Quién entra a qué:**
 

@@ -7,8 +7,7 @@ const ENLACES = [
 ];
 
 /**
- * Pie compacto del lienzo (C_FooterCompacto), para Mensajes y el panel del equipo; el resto
- * lleva `PiePagina`. «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica a
+ * Pie compacto del lienzo (C_FooterCompacto), solo para Mensajes; el resto lleva `PiePagina`. «Libro de Reclamaciones» sigue sin enlace hasta decidir si aplica a
  * PaseLibre (docs/CHECKLIST.md §4).
  */
 export function PieCompacto() {

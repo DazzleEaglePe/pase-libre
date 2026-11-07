@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { FormularioAcceso } from '@/features/acceso/formulario-acceso';
 import { obtenerSesion } from '@/shared/api/servidor';
-import { Marca } from '@/shared/ui/marca';
-import { PieCompacto } from '@/shared/ui/pie-compacto';
+import { MarcoPagina } from '@/shared/ui/marco-pagina';
 
 export const metadata: Metadata = {
   title: 'Inicia sesión',
@@ -25,23 +23,16 @@ export default async function PaginaIngresar({
   }
   const { pestana } = await searchParams;
 
+  // La barra va como la de un visitante: aquí o no hay sesión o es la clave temporal, y con ella
+  // todavía se ve el catálogo como visitante (docs/08 §2).
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="border-b border-linea">
-        <div className="mx-auto flex max-w-[1280px] items-center justify-between gap-4 px-4 py-3.5 sm:px-8">
-          <Marca />
-          <Link href="/" className="text-apoyo font-medium">
-            Volver al catálogo
-          </Link>
-        </div>
-      </header>
+    <MarcoPagina sesion={null}>
       <main className="mx-auto w-full max-w-[440px] flex-1 px-5 pb-16 pt-12">
         <FormularioAcceso
           primerIngreso={sesion?.usuario.debe_cambiar_clave ? sesion.usuario.usuario : null}
           pestanaInicial={pestana === 'crear' ? 'crear' : 'ingresar'}
         />
       </main>
-      <PieCompacto />
-    </div>
+    </MarcoPagina>
   );
 }

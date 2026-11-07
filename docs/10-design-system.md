@@ -168,7 +168,8 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | `interruptor` y `segmentado` | Controles de sí o no y de opciones |
 | `ventana` | Las ventanas de confirmación («Vendido», bloquear, eliminar) |
 | `pie-pagina` | El pie en azul pase (PIE_D), en el catálogo y en las páginas del vendedor: franja de beneficios en blanco arriba, la marca con `sobrePase` (símbolo blanco), la invitación (`invitacion-pie`, cliente), Contáctanos con íconos de Tabler, columnas que en el celular son acordeones (`<details>`), redes en círculos blancos y sellos. Lee sus datos de `shared/contacto.ts` |
-| `pie-compacto` | El pie de una línea (C_FooterCompacto), en Mensajes y en el panel del equipo |
+| `pie-compacto` | El pie de una línea (C_FooterCompacto), solo en Mensajes |
+| `marco-pagina` | La barra y el pie de siempre para las pantallas fuera de los layouts del catálogo y del vendedor: ingreso, panel del equipo y el 404 general |
 
 ## 8. Cómo se cambia
 
