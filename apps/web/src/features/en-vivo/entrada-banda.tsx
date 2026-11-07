@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-import { useEnVivoCompartido } from './contexto';
+import { useEnVivoMontado } from './contexto';
 
 /**
  * La entrada fija a Pases del día en la banda de categorías: «● Pases del día 4». Así se
@@ -11,7 +11,7 @@ import { useEnVivoCompartido } from './contexto';
  */
 export function EntradaEnVivo() {
   const ruta = usePathname();
-  const compartido = useEnVivoCompartido();
+  const compartido = useEnVivoMontado();
   if (!compartido?.activo || !compartido.datos) return null;
 
   const cantidad = compartido.datos.en_vivo.length;

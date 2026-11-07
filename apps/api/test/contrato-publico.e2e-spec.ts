@@ -78,6 +78,7 @@ describe('Contrato público: el visitante no recibe precio, tienda, stand ni Wha
       '/v1/galerias',
       '/v1/mapa-del-sitio',
       '/v1/buscar/populares',
+      '/v1/buscar/populares?categoria=graficas',
       '/v1/buscar/sugerencias?q=rtx',
       '/v1/buscar/sugerencias?q=rtx%203370',
     ]) {

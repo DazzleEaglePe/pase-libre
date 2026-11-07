@@ -357,7 +357,7 @@ function Barra({
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-8 md:flex-nowrap md:gap-x-8">
           <div className="order-1 flex shrink-0 items-center gap-6">
             <Marca conFrase />
-            <MenuCategorias categorias={categorias} />
+            <MenuCategorias categorias={categorias} conSesion={Boolean(tienda)} />
           </div>
           <Buscador
             categorias={categorias}

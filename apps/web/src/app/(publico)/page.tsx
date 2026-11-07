@@ -1,9 +1,9 @@
 import type { RespuestaPortada } from '@paselibre/contracts';
 import Link from 'next/link';
 
+import { TarjetaCategoria } from '@/features/catalogo/tarjeta-categoria';
 import { TarjetaOfertaPortada } from '@/features/catalogo/tarjeta-oferta';
 import { cargarApi, obtenerSesion } from '@/shared/api/servidor';
-import { GlifoCategoria } from '@/shared/ui/glifo-categoria';
 import { botonLista, botonPrincipal } from '@/shared/ui/estilos';
 
 /**
@@ -148,23 +148,16 @@ export default async function Portada({
         <h2 id="explora" className="text-seccion">
           Explora por categoría
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {/* La misma tarjeta que arriba de los resultados y en la página sin resultados (J). */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
           {portada.categorias.map((categoria) => (
-            <Link
+            <TarjetaCategoria
               key={categoria.slug}
               href={`/buscar?categoria=${categoria.slug}`}
-              className="flex flex-col items-center gap-3 rounded-2xl border border-linea p-4 text-center no-underline hover:border-borde"
-            >
-              <span className="flex h-16 w-full items-center justify-center rounded-xl bg-superficie">
-                <GlifoCategoria categoria={categoria.slug} ancho={68} grosor={2.6} />
-              </span>
-              <span className="flex flex-col">
-                <span className="text-apoyo font-semibold text-tinta">{categoria.nombre}</span>
-                <span className="text-nota text-detalle">
-                  {categoria.productos === 1 ? '1 producto' : `${categoria.productos} productos`}
-                </span>
-              </span>
-            </Link>
+              slug={categoria.slug}
+              nombre={categoria.nombre}
+              productos={categoria.productos}
+            />
           ))}
         </div>
       </section>

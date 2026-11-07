@@ -12,11 +12,13 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import {
   buscarSchema,
+  masBuscadoSchema,
   portadaSchema,
   sugerenciasBusquedaSchema,
   type BuscarConsulta,
   type CategoriaResumen,
   type GaleriaResumen,
+  type MasBuscadoConsulta,
   type PortadaConsulta,
   type RespuestaBuscar,
   type RespuestaFicha,
@@ -99,10 +101,15 @@ export class CatalogoController {
     return this.busqueda.sugerencias(consulta);
   }
 
-  /** «Lo más buscado», para el buscador vacío. */
+  /**
+   * «Lo más buscado», para el buscador vacío y la página sin resultados; con `categoria`,
+   * para el menú de categorías y los resultados de una categoría.
+   */
   @Get('buscar/populares')
-  masBuscado(): Promise<RespuestaMasBuscado> {
-    return this.busqueda.masBuscado();
+  masBuscado(
+    @Query(new ZodValidationPipe(masBuscadoSchema)) consulta: MasBuscadoConsulta,
+  ): Promise<RespuestaMasBuscado> {
+    return this.busqueda.masBuscado(consulta);
   }
 
   @Get('productos/:slug')

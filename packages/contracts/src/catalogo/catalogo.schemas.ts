@@ -47,6 +47,15 @@ export const sugerenciasBusquedaSchema = z.object({
   categoria: slug.optional(),
 });
 
+/**
+ * Consulta de `GET /v1/buscar/populares`. Con `categoria`, solo lo más buscado que encuentra
+ * algo en esa categoría: «Lo más buscado en Gráficas» del menú y de los resultados.
+ */
+export const masBuscadoSchema = z.object({
+  categoria: slug.optional(),
+});
+
 export type BuscarConsulta = z.output<typeof buscarSchema>;
+export type MasBuscadoConsulta = z.output<typeof masBuscadoSchema>;
 export type PortadaConsulta = z.output<typeof portadaSchema>;
 export type SugerenciasBusquedaConsulta = z.output<typeof sugerenciasBusquedaSchema>;

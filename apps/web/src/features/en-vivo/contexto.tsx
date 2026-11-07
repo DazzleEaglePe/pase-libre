@@ -1,7 +1,7 @@
 'use client';
 
 import type { RespuestaEnVivo } from '@paselibre/contracts';
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { useEnVivo } from './datos';
 
@@ -24,4 +24,17 @@ export function ProveedorEnVivo({ children }: { children: ReactNode }) {
 /** Nulo fuera del proveedor (el panel del equipo, por ejemplo). */
 export function useEnVivoCompartido(): EnVivoCompartido | null {
   return useContext(Contexto);
+}
+
+/**
+ * Como `useEnVivoCompartido`, pero nulo hasta que el componente se montó. El HTML del
+ * servidor nunca trae Pases del día: si la lista llega antes de que una parte que se hidrata
+ * tarde (dentro de un Suspense, como la banda de categorías) termine de hidratarse, React
+ * vería un enlace que el servidor no dibujó y rehace esa parte entera.
+ */
+export function useEnVivoMontado(): EnVivoCompartido | null {
+  const compartido = useContext(Contexto);
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+  return montado ? compartido : null;
 }

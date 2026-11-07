@@ -102,9 +102,31 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       const procesadores = await http().get('/v1/buscar?categoria=procesadores').expect(200);
       expect(procesadores.body.productos.map((p: Producto) => p.slug)).toEqual([I5]);
 
-      const facetas = (await http().get('/v1/buscar?q=rtx%203070').expect(200)).body.facetas;
+      const rtx = (await http().get('/v1/buscar?q=rtx%203070').expect(200)).body;
+      const facetas = rtx.facetas;
       expect(facetas.marcas[0]).toEqual({ slug: 'msi', nombre: 'MSI', cantidad: 5 });
       expect(facetas.con_stock).toBe(8);
+      // Las tarjetas de categoría cuentan productos, no ofertas.
+      expect(facetas.categorias).toEqual([
+        { slug: 'graficas', nombre: 'Gráficas', cantidad: rtx.total_productos },
+      ]);
+    });
+
+    it('las tarjetas de categoría no se achican al elegir una', async () => {
+      const todas = (await http().get('/v1/buscar').expect(200)).body;
+      expect(todas.facetas.categorias.length).toBeGreaterThan(1);
+      const suma = todas.facetas.categorias.reduce(
+        (total: number, c: { cantidad: number }) => total + c.cantidad,
+        0,
+      );
+      expect(suma).toBe(todas.total_productos);
+
+      const enProcesadores = (await http().get('/v1/buscar?categoria=procesadores').expect(200))
+        .body;
+      expect(enProcesadores.facetas.categorias).toEqual(todas.facetas.categorias);
+      expect(enProcesadores.total_productos).toBe(
+        todas.facetas.categorias.find((c: { slug: string }) => c.slug === 'procesadores').cantidad,
+      );
     });
 
     it('no muestra ofertas pausadas ni de tiendas suspendidas', async () => {
@@ -294,6 +316,16 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       });
       const respuesta = await http().get('/v1/buscar/populares').expect(200);
       expect(respuesta.body).toEqual({ terminos: ['rtx 3070', 'i5 14400f', 'ssd 1tb'] });
+
+      // Por categoría: solo lo que hoy encuentra algo en ella («ssd 1tb» no encuentra nada).
+      const enGraficas = await http().get('/v1/buscar/populares?categoria=graficas').expect(200);
+      expect(enGraficas.body).toEqual({ terminos: ['rtx 3070'] });
+      const enProcesadores = await http()
+        .get('/v1/buscar/populares?categoria=procesadores')
+        .expect(200);
+      expect(enProcesadores.body).toEqual({ terminos: ['i5 14400f'] });
+      const enMonitores = await http().get('/v1/buscar/populares?categoria=monitores').expect(200);
+      expect(enMonitores.body).toEqual({ terminos: [] });
     });
   });
 

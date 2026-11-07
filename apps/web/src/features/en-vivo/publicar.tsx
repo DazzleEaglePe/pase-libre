@@ -56,10 +56,13 @@ export function FormularioEnVivo({
   categorias,
   usuarioId,
   tienda,
+  inicial = { texto: '', categoria: '' },
 }: {
   categorias: CategoriaResumen[];
   usuarioId: string;
   tienda: TiendaDeSesion;
+  /** Lo buscado sin resultados, cuando se llega desde «Publicar un busco» de la búsqueda. */
+  inicial?: { texto: string; categoria: string };
 }) {
   const id = useId();
   const router = useRouter();
@@ -73,10 +76,12 @@ export function FormularioEnVivo({
   const [error, setError] = useState<string | null>(null);
 
   // Busco.
-  const [texto, setTexto] = useState('');
+  const [texto, setTexto] = useState(inicial.texto.slice(0, 120));
   const [producto, setProducto] = useState<SugerenciaProducto | null>(null);
   const [sugerencias, setSugerencias] = useState<SugerenciaProducto[]>([]);
-  const [categoria, setCategoria] = useState('');
+  const [categoria, setCategoria] = useState(() =>
+    categorias.some((c) => c.slug === inicial.categoria) ? inicial.categoria : '',
+  );
   const [condicion, setCondicion] = useState<Condicion>('CUALQUIERA');
   const [alcance, setAlcance] = useState<number | null>(null);
 

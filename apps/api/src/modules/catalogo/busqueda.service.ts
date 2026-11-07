@@ -6,6 +6,7 @@ import {
   type BuscarConsulta,
   type Condicion,
   type Faceta,
+  type MasBuscadoConsulta,
   type Precio,
   type ProductoEnLista,
   type ProductoEnListaConPrecio,
@@ -26,6 +27,8 @@ export const POR_PAGINA = 24;
 export const SUGERENCIAS = 5;
 /** Términos de «Lo más buscado». */
 export const MAS_BUSCADOS = 4;
+/** Cuántos de lo más buscado se prueban contra una categoría antes de rendirse. */
+const CANDIDATOS_POR_CATEGORIA = 20;
 
 interface FilaProducto {
   slug: string;
@@ -153,9 +156,24 @@ export class BusquedaService {
   /**
    * «Lo más buscado» del buscador: lo que se buscó al menos dos veces en los últimos 30 días
    * y encontró algo. «RTX3070» y «rtx 3070» cuentan juntos (misma forma normalizada), y se
-   * muestra como más se escribió.
+   * muestra como más se escribió. Con categoría, se quedan los que hoy encuentran algo en
+   * ella («Lo más buscado en Gráficas»), probando a lo más los 20 primeros.
    */
-  async masBuscado(): Promise<RespuestaMasBuscado> {
+  async masBuscado(consulta: MasBuscadoConsulta = {}): Promise<RespuestaMasBuscado> {
+    const todos = await this.terminosRepetidos();
+    if (!consulta.categoria) return { terminos: todos.slice(0, MAS_BUSCADOS) };
+
+    const base = buscarSchema.parse({ categoria: consulta.categoria });
+    const terminos: string[] = [];
+    for (const termino of todos.slice(0, CANDIDATOS_POR_CATEGORIA)) {
+      if (terminos.length === MAS_BUSCADOS) break;
+      if (await this.hayResultados(this.palabras(termino), base)) terminos.push(termino);
+    }
+    return { terminos };
+  }
+
+  /** Lo buscado al menos dos veces, de más a menos, con la forma que más se escribió. */
+  private async terminosRepetidos(): Promise<string[]> {
     const filas = await this.prisma.$queryRaw<Array<{ texto: string; veces: number }>>`
       SELECT regexp_replace(lower(trim(coalesce(texto_corregido, texto))), '[[:space:]]+', ' ', 'g') AS texto,
              count(*)::int AS veces
@@ -179,12 +197,25 @@ export class BusquedaService {
         }
       }
     }
-    const terminos = [...grupos.values()]
+    return [...grupos.values()]
       .filter((grupo) => grupo.veces >= 2)
       .sort((a, b) => b.veces - a.veces || a.forma.localeCompare(b.forma, 'es'))
-      .slice(0, MAS_BUSCADOS)
       .map((grupo) => grupo.forma);
-    return { terminos };
+  }
+
+  /** Si lo escrito encuentra hoy al menos una oferta vigente (con la categoría de `consulta`). */
+  private async hayResultados(palabras: string[], consulta: BuscarConsulta): Promise<boolean> {
+    if (palabras.length === 0) return false;
+    const condiciones = this.condicionesBase(palabras, consulta);
+    const [fila] = await this.prisma.$queryRaw<Array<{ hay: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1 FROM oferta o
+        JOIN tienda t ON t.id = o.tienda_id
+        JOIN producto p ON p.id = o.producto_id
+        JOIN categoria c ON c.id = p.categoria_id
+        WHERE ${Prisma.join(condiciones, ' AND ')}
+      ) AS hay`;
+    return fila?.hay === true;
   }
 
   /** Palabras normalizadas y sin repetir de lo que se escribió (también para «Ya está en PaseLibre»). */
@@ -346,13 +377,27 @@ export class BusquedaService {
     );
   }
 
-  /** Conteos para el lateral, sobre lo que coincide con el texto y la categoría. */
+  /**
+   * Conteos para el lateral, sobre lo que coincide con el texto y la categoría. Las
+   * categorías se cuentan sin su propio filtro: así las tarjetas de arriba de los resultados
+   * siguen mostrando las otras categorías después de elegir una.
+   */
   private async facetas(
     palabras: string[],
     consulta: BuscarConsulta,
   ): Promise<RespuestaBuscar['facetas']> {
     const condiciones = this.condicionesBase(palabras, consulta);
-    const filas = await this.prisma.$queryRaw<Array<Faceta & { dimension: string }>>`
+    const sinCategoria = this.condicionesBase(palabras, { ...consulta, categoria: undefined });
+    const categorias = this.prisma.$queryRaw<Faceta[]>`
+      SELECT c.slug::text AS slug, c.nombre, count(DISTINCT p.id)::int AS cantidad
+      FROM oferta o
+      JOIN tienda t ON t.id = o.tienda_id
+      JOIN producto p ON p.id = o.producto_id
+      JOIN categoria c ON c.id = p.categoria_id
+      WHERE ${Prisma.join(sinCategoria, ' AND ')}
+      GROUP BY c.slug, c.nombre, c.orden
+      ORDER BY 3 DESC, c.orden, c.nombre`;
+    const lateral = this.prisma.$queryRaw<Array<Faceta & { dimension: string }>>`
       WITH base AS (
         SELECT o.condicion, o.stock, g.slug::text AS galeria_slug, g.nombre AS galeria_nombre,
                m.slug::text AS marca_slug, m.nombre::text AS marca_nombre
@@ -373,6 +418,7 @@ export class BusquedaService {
       SELECT 'condicion', lower(condicion::text), initcap(lower(condicion::text)), count(*)::int FROM base GROUP BY 2, 3
       UNION ALL
       SELECT 'stock', 'con-stock', 'Con stock', count(*)::int FROM base WHERE stock > 0`;
+    const [filas, porCategoria] = await Promise.all([lateral, categorias]);
 
     const de = (dimension: string): Faceta[] =>
       filas
@@ -384,6 +430,7 @@ export class BusquedaService {
       marcas: de('marca'),
       condiciones: de('condicion'),
       con_stock: filas.find((f) => f.dimension === 'stock')?.cantidad ?? 0,
+      categorias: porCategoria,
     };
   }
 

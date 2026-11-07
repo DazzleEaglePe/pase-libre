@@ -46,7 +46,7 @@ Las pantallas de la web, cómo se llega a cada una y los recorridos principales,
   4. **Franja de ventajas en azul suave** (desde tablet): «Pases entre tiendas de Wilson · Gratis para el piloto · Precios solo con sesión · Busca aunque escribas mal · Chat y WhatsApp · El trato es entre vendedores».
 - **En Mensajes** la barra va sin banda ni franja, para que el chat entre en la pantalla.
 - **En el celular** queda como F_MovilPortada: logo con los iconos, buscador y banda.
-- **«Comprar por categoría»** (desde computadora, junto al logo): abre un panel a todo el ancho con las categorías a la izquierda y, para la que se señala, sus marcas, su estado y sus galerías con cuántas ofertas hay de cada una, más «Ver todo en …».
+- **«Comprar por categoría»** (desde computadora, junto al logo; J1 del lienzo): abre un panel a todo el ancho. A la izquierda, «● Pases del día» primero (si está encendido) y las categorías con su dibujo y cuántos productos hay. A la derecha, la que se señala: «Ver N productos», sus marcas, estado y galerías como chips con cuántas ofertas hay de cada una, «Lo más buscado en …» y, al pie, la tarjeta «¿Buscas algo para un cliente? Publicar un busco».
 - **El desplegable del buscador:**
   - Con el campo vacío: las **búsquedas recientes** (se guardan en el navegador, hasta 5, y cada una se quita con ×) y **«Lo más buscado»** (lo que se buscó al menos dos veces en 30 días y encontró algo).
   - Mientras se escribe: **«¿Quisiste decir…?»** cuando corrige, hasta **5 productos** con su foto o ícono, categoría, ofertas y galerías, y al final «Ver los N resultados» o «Buscar «…»».
@@ -81,9 +81,10 @@ flowchart LR
 ```
 
 1. Busca como escribe: «rtx3370», «Ventsu». La búsqueda corrige y lo dice: «Mostramos resultados para *rtx 3070*. Buscaste *rtx 3370*» (RF-13, RF-14).
-2. Filtra por categoría, galería, marca, condición y «Con stock» (RF-16, RF-17).
-3. En la ficha ve fotos, condición, stock, galería y fecha de actualización. **No ve precio, tienda, stand ni WhatsApp** (D-34): ve «Precio con sesión» y «Tienda de Maxiplaza».
-4. En lugar de los botones de contacto ve «Inicia sesión para contactar». Como no hay registro propio, «Crear cuenta» avisa que está en mantenimiento y ofrece pedir la cuenta por WhatsApp al equipo (RF-43).
+2. Filtra por categoría, galería, marca, condición y «Con stock» (RF-16, RF-17). Si lo buscado está en más de una categoría, arriba de los resultados salen **tarjetas de categoría** con cuántos productos hay en cada una («Todas» incluida); elegir una deja lo escrito y limpia los demás filtros. Con una categoría elegida aparece «Lo más buscado en …» y, al final de la lista, «¿No está lo que buscas? Publicar un busco» (J2 del lienzo).
+3. **Sin resultados y sin filtros** la página no es un callejón (G del lienzo): «No encontramos «…»», lo más buscado en la galería, la tarjeta «¿Lo necesitas para un cliente? Publicar un busco» (lleva lo escrito al formulario con `?que=`) y las categorías en tarjetas. Si se buscó dentro de una categoría y hay resultados en otras, primero va «Sí está en otras categorías». La tarjeta de categoría es la misma de la portada.
+4. En la ficha ve fotos, condición, stock, galería y fecha de actualización. **No ve precio, tienda, stand ni WhatsApp** (D-34): ve «Precio con sesión» y «Tienda de Maxiplaza».
+5. En lugar de los botones de contacto ve «Inicia sesión para contactar». Como no hay registro propio, «Crear cuenta» avisa que está en mantenimiento y ofrece pedir la cuenta por WhatsApp al equipo (RF-43).
 
 ### 3.2 Primer ingreso
 

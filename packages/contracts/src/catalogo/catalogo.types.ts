@@ -72,6 +72,11 @@ interface BaseBusqueda {
     marcas: Faceta[];
     condiciones: Faceta[];
     con_stock: number;
+    /**
+     * En qué categorías hay resultados para lo escrito, sin contar el filtro de categoría:
+     * las tarjetas de arriba de los resultados. Aquí `cantidad` son productos, no ofertas.
+     */
+    categorias: Faceta[];
   };
 }
 
