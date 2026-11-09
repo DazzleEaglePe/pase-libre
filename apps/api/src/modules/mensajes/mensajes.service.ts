@@ -19,6 +19,7 @@ import {
   type RespuestaMensajes,
   type RespuestaVendido,
   precioDe,
+  TIENDA_RESERVADA,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -76,6 +77,7 @@ const SELECT_CONVERSACION = {
       precioCentimos: true,
       moneda: true,
       precioVisible: true,
+      tiendaVisible: true,
       producto: {
         select: {
           slug: true,
@@ -104,7 +106,24 @@ type PersonaFila = Prisma.UsuarioGetPayload<{ select: typeof SELECT_PERSONA }>;
 type MensajeFila = Prisma.MensajeGetPayload<{ select: typeof SELECT_MENSAJE }>;
 type ParticipacionFila = Prisma.ParticipacionGetPayload<{ select: typeof SELECT_PARTICIPACION }>;
 
-function persona(u: PersonaFila): PersonaChat {
+/**
+ * El otro del chat. `reservada`: es quien vende una oferta con la tienda reservada y mira
+ * quien compra; no ve su nombre, ni el de su tienda, ni el stand. La galería sí.
+ */
+function persona(u: PersonaFila, reservada = false): PersonaChat {
+  if (reservada) {
+    return {
+      id: u.id,
+      nombre: TIENDA_RESERVADA,
+      tienda: {
+        id: '',
+        nombre: TIENDA_RESERVADA,
+        tipo: u.tienda?.tipo ?? 'INDEPENDIENTE',
+        galeria: u.tienda?.galeria?.nombre ?? null,
+        stand: null,
+      },
+    };
+  }
   return {
     id: u.id,
     nombre: u.nombre,
@@ -160,6 +179,7 @@ export class MensajesService {
       select: {
         tiendaId: true,
         responsableId: true,
+        tiendaVisible: true,
         tienda: { select: { whatsapp: true } },
         responsable: { select: { whatsapp: true } },
         producto: { select: { titulo: true } },
@@ -199,6 +219,14 @@ export class MensajesService {
     await this.prisma.contacto.create({ data: { ofertaId, usuarioId: usuario.id, canal } });
 
     if (canal === 'WHATSAPP') {
+      // El número delataría a la tienda reservada: con ella se escribe solo por chat.
+      if (!oferta.tiendaVisible) {
+        throw new ApiHttpException(
+          HttpStatus.CONFLICT,
+          'CONFLICTO',
+          'Esta tienda atiende solo por el chat de PaseLibre.',
+        );
+      }
       const numero = oferta.responsable.whatsapp ?? oferta.tienda.whatsapp;
       const texto = `Vi que tienes ${oferta.producto.titulo} publicado en PaseLibre, ¿a qué precio lo tienes?`;
       return { canal, enlace: `https://wa.me/51${numero}?text=${encodeURIComponent(texto)}` };
@@ -266,6 +294,7 @@ export class MensajesService {
     const conteos = {
       todas: todas.filter((c) => !c.archivada).length,
       no_leidas: todas.filter((c) => !c.archivada && sinLeer(c)).length,
+      pases: todas.filter((c) => !c.archivada && c.pase_del_dia).length,
       archivadas: todas.filter((c) => c.archivada).length,
     };
 
@@ -278,7 +307,9 @@ export class MensajesService {
       (c) =>
         (filtro.filtro === 'archivadas'
           ? c.archivada
-          : !c.archivada && (filtro.filtro === 'todas' || sinLeer(c))) && coincide(c),
+          : !c.archivada &&
+            (filtro.filtro === 'todas' ||
+              (filtro.filtro === 'pases' ? c.pase_del_dia : sinLeer(c)))) && coincide(c),
     );
     return { conversaciones, conteos };
   }
@@ -378,7 +409,8 @@ export class MensajesService {
     return {
       id: c.id,
       rol,
-      otro: persona(rol === 'vendedor' ? c.comprador : c.vendedor),
+      otro:
+        rol === 'vendedor' ? persona(c.comprador) : persona(c.vendedor, !c.oferta.tiendaVisible),
       oferta: {
         id: c.oferta.id,
         condicion: c.oferta.condicion,
@@ -394,6 +426,7 @@ export class MensajesService {
       no_leida: p.noLeidaManual,
       silenciada: p.silenciada,
       archivada: p.archivada,
+      pase_del_dia: c.enVivoId !== null,
       actualizada_en: c.ultimoMensajeEn.toISOString(),
     };
   }
@@ -475,7 +508,11 @@ export class MensajesService {
       );
     }
 
-    const remitente = usuario.tienda?.nombre ?? usuario.nombre;
+    // Si escribe quien vende una oferta con la tienda reservada, el aviso no dice quién es.
+    const remitente =
+      !soyComprador && !conversacion.oferta.tiendaVisible
+        ? TIENDA_RESERVADA
+        : (usuario.tienda?.nombre ?? usuario.nombre);
     const { mensaje, aviso } = await this.prisma.$transaction(async (tx) => {
       if (datos.foto) await this.archivos.reclamar(tx, [datos.foto], miTiendaId);
       const mensaje = await tx.mensaje.create({

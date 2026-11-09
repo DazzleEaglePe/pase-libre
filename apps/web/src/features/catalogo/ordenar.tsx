@@ -12,13 +12,13 @@ export function Ordenar({
 }) {
   const router = useRouter();
   return (
-    <label className="flex items-center gap-2 text-apoyo text-secundario">
+    <label className="flex shrink-0 items-center gap-2 text-apoyo text-secundario">
       Ordenar
       <select
         value={actual}
         onChange={(evento) => {
           const elegida = opciones.find((opcion) => opcion.valor === evento.target.value);
-          if (elegida) router.push(elegida.href);
+          if (elegida) router.push(elegida.href, { scroll: false });
         }}
         className="h-10 rounded-xl border border-borde-control bg-white px-3 text-apoyo font-medium text-tinta"
       >

@@ -248,6 +248,14 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
         conversacion_id: conversacion,
         respuestas: 1,
       });
+
+      // En Mensajes, el filtro «Pases del día» junta los hilos que nacieron de un pase.
+      const pases = (await como('tiendab').get('/v1/conversaciones?filtro=pases').expect(200)).body;
+      expect(pases.conteos.pases).toBeGreaterThanOrEqual(1);
+      expect(pases.conversaciones.every((c: { pase_del_dia: boolean }) => c.pase_del_dia)).toBe(
+        true,
+      );
+      expect(pases.conversaciones.map((c: { id: string }) => c.id)).toContain(conversacion);
     });
 
     it('«Lo tuyo en vivo» muestra quién respondió; se suma una hora y se cierra', async () => {

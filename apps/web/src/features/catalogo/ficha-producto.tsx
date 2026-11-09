@@ -2,13 +2,14 @@
 
 import {
   formatearPrecio,
+  TIENDA_RESERVADA,
   urlFoto,
   type Audiencia,
   type Precio,
   type ProductoDetalle,
   type RespuestaContacto,
 } from '@paselibre/contracts';
-import { IconBrandWhatsapp, IconFlag } from '@tabler/icons-react';
+import { IconBrandWhatsapp, IconFlag, IconMessageCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
@@ -18,6 +19,8 @@ import { haceCuanto } from '@/shared/fechas';
 import { botonLista, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { Ventana } from '@/shared/ui/ventana';
+import { BotonCompartir } from '@/shared/ui/boton-compartir';
+import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
 
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
@@ -26,19 +29,32 @@ import { textoEstado, textoStock } from './textos';
 /** Viñetas de «Lo que tienes que saber»: las primeras líneas de lo que escribió el vendedor. */
 const VINETAS = 4;
 
+/** «responde en ~10 min» o «~2 h», redondeado: es una idea, no un reloj. */
+const respondeEn = (minutos: number): string =>
+  minutos < 60 ? `responde en ~${minutos} min` : `responde en ~${Math.round(minutos / 60)} h`;
+
 const lugarDe = (oferta: OfertaVista): string =>
-  [oferta.galeria ?? 'Independiente', oferta.tienda?.stand && `Stand ${oferta.tienda.stand}`]
+  [
+    oferta.galeria ?? 'Independiente',
+    oferta.tienda?.stand && `Stand ${oferta.tienda.stand}`,
+    oferta.respondeEnMin !== null && respondeEn(oferta.respondeEnMin),
+  ]
     .filter(Boolean)
     .join(' · ');
 
 const nombreDe = (oferta: OfertaVista): string =>
   oferta.tienda
-    ? `${oferta.tienda.nombre}${oferta.propia ? ' (tú)' : ''}`
+    ? `${oferta.tienda.nombre}${oferta.propia ? (oferta.tiendaVisible ? ' (tú)' : ' (tú · reservada)') : ''}`
     : `Tienda de ${oferta.galeria ?? 'independiente'}`;
 
-/** «A» para «Tienda A»; «?» para el visitante, que no ve la tienda. */
+/** La tienda no quiso mostrar su nombre: se lee en cursiva, como en el lienzo. */
+const esReservada = (oferta: OfertaVista): boolean => oferta.tienda?.nombre === TIENDA_RESERVADA;
+
+/** «A» para «Tienda A»; «?» para el visitante, que no ve la tienda (ni para la reservada). */
 const inicialDe = (oferta: OfertaVista): string =>
-  oferta.tienda ? (oferta.tienda.nombre.replace(/^tienda\s+/i, '')[0] ?? '?').toUpperCase() : '?';
+  oferta.tienda && !esReservada(oferta)
+    ? (oferta.tienda.nombre.replace(/^tienda\s+/i, '')[0] ?? '?').toUpperCase()
+    : '?';
 
 const disponibles = (stock: number) => (stock === 0 ? 'Sin stock' : textoStock(stock));
 
@@ -129,6 +145,10 @@ export function FichaProducto({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // La barra fija de abajo (celular): para quien puede escribir y para el visitante.
+  const barraAbajo = oferta !== null && !oferta.propia && audiencia !== 'equipo';
+  useReservarAbajo(84, barraAbajo);
+
   async function contactar(canal: 'CHAT' | 'WHATSAPP') {
     if (!oferta) return;
     setContactando(canal);
@@ -204,9 +224,12 @@ export function FichaProducto({
               ? `${textoEstado(oferta.condicion)} · Actualizado ${haceCuanto(oferta.actualizadaEn).toLowerCase()}`
               : [producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
           </span>
-          <h1 className="text-[30px] font-semibold leading-[38px] tracking-[-0.01em]">
-            {producto.titulo}
-          </h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-[30px] font-semibold leading-[38px] tracking-[-0.01em]">
+              {producto.titulo}
+            </h1>
+            <BotonCompartir titulo={producto.titulo} />
+          </div>
           {producto.etiquetas.length > 0 && (
             <ul aria-label="Etiquetas" className="flex list-none flex-wrap gap-1.5 p-0">
               {producto.etiquetas.map((etiqueta) => (
@@ -291,15 +314,22 @@ export function FichaProducto({
                   >
                     {contactando === 'CHAT' ? 'Abriendo…' : 'Enviar mensaje'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={contactando !== null}
-                    onClick={() => contactar('WHATSAPP')}
-                    className="inline-flex h-11 items-center justify-center gap-2 text-apoyo font-semibold text-ok underline disabled:text-detalle"
-                  >
-                    <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
-                    {contactando === 'WHATSAPP' ? 'Abriendo WhatsApp…' : 'Escribir por WhatsApp'}
-                  </button>
+                  {oferta.tiendaVisible ? (
+                    <button
+                      type="button"
+                      disabled={contactando !== null}
+                      onClick={() => contactar('WHATSAPP')}
+                      className="inline-flex h-11 items-center justify-center gap-2 text-apoyo font-semibold text-ok underline disabled:text-detalle"
+                    >
+                      <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
+                      {contactando === 'WHATSAPP' ? 'Abriendo WhatsApp…' : 'Escribir por WhatsApp'}
+                    </button>
+                  ) : (
+                    <span className="text-nota text-detalle">
+                      Esta tienda prefirió no mostrar su nombre: atiende solo por el chat de
+                      PaseLibre.
+                    </span>
+                  )}
                   {error && (
                     <p role="alert" className="text-apoyo text-error">
                       {error}
@@ -310,7 +340,8 @@ export function FichaProducto({
               {oferta.propia && (
                 <div className="flex flex-col gap-2.5">
                   <span className="text-apoyo text-secundario">
-                    Esta es tu oferta. Los demás vendedores ven los botones para escribirte.
+                    Esta es tu oferta. Los demás vendedores ven los botones para escribirte
+                    {oferta.tiendaVisible ? '.' : ', y a tu tienda como «Tienda reservada».'}
                   </span>
                   <Link
                     href="/mis-publicaciones"
@@ -344,7 +375,9 @@ export function FichaProducto({
               <div className="flex items-center gap-3 border-t border-linea pt-4">
                 <Avatar oferta={oferta} />
                 <span className="flex min-w-0 flex-col">
-                  <b className="font-semibold">{nombreDe(oferta)}</b>
+                  <b className={`font-semibold ${esReservada(oferta) ? 'italic' : ''}`}>
+                    {nombreDe(oferta)}
+                  </b>
                   <span className="text-nota text-detalle">
                     {oferta.tienda ? lugarDe(oferta) : 'El nombre y el stand se ven con sesión'}
                   </span>
@@ -369,7 +402,9 @@ export function FichaProducto({
                 : `${ofertas.length === 1 ? '1 oferta' : `${ofertas.length} ofertas`} · los precios se ven con sesión`}
             </span>
           </div>
-          <div className="overflow-x-auto rounded-[20px] border border-linea">
+          {/* `relative`: así los textos para lectores de pantalla (sr-only, absolutos) quedan
+              dentro del recorte y no ensanchan la página en el celular. */}
+          <div className="relative overflow-x-auto rounded-[20px] border border-linea">
             <table className="w-full min-w-[680px] border-collapse text-left">
               <thead>
                 <tr className="bg-superficie text-nota font-semibold text-secundario">
@@ -395,7 +430,9 @@ export function FichaProducto({
                         <span className="flex items-center gap-3">
                           <Avatar oferta={fila} chico />
                           <span className="flex min-w-0 flex-col">
-                            <b className="font-semibold">{nombreDe(fila)}</b>
+                            <b className={`font-semibold ${esReservada(fila) ? 'italic' : ''}`}>
+                              {nombreDe(fila)}
+                            </b>
                             <span className="text-nota text-detalle">{lugarDe(fila)}</span>
                           </span>
                         </span>
@@ -417,7 +454,7 @@ export function FichaProducto({
                             </span>
                           ) : (
                             esMejor && (
-                              <span className="text-nota font-semibold text-ok">Mejor precio</span>
+                              <span className="text-nota font-semibold text-ok">Más barato</span>
                             )
                           )}
                         </span>
@@ -495,6 +532,46 @@ export function FichaProducto({
 
       {denunciando && oferta && (
         <VentanaDenuncia ofertaId={oferta.id} alCerrar={() => setDenunciando(false)} />
+      )}
+
+      {/* En el celular, contactar queda siempre a mano abajo (M_Ficha). */}
+      {barraAbajo && oferta && (
+        <>
+          <div aria-hidden="true" className="h-20 md:hidden" />
+          <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t border-linea bg-white px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-3 md:hidden">
+            {conSesion ? (
+              <>
+                <button
+                  type="button"
+                  disabled={contactando !== null}
+                  onClick={() => contactar('CHAT')}
+                  className="inline-flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-pase text-[16px] font-semibold text-white disabled:bg-borde-control"
+                >
+                  <IconMessageCircle size={20} stroke={1.8} aria-hidden="true" />
+                  {contactando === 'CHAT' ? 'Abriendo…' : 'Chatear ahora'}
+                </button>
+                {oferta.tiendaVisible && (
+                  <button
+                    type="button"
+                    aria-label="Escribir por WhatsApp"
+                    disabled={contactando !== null}
+                    onClick={() => contactar('WHATSAPP')}
+                    className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border border-borde bg-white text-ok"
+                  >
+                    <IconBrandWhatsapp size={22} stroke={1.6} aria-hidden="true" />
+                  </button>
+                )}
+              </>
+            ) : (
+              <Link
+                href="/ingresar"
+                className="inline-flex h-[52px] flex-1 items-center justify-center rounded-full bg-pase text-[16px] font-semibold text-white no-underline"
+              >
+                Inicia sesión para contactar
+              </Link>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

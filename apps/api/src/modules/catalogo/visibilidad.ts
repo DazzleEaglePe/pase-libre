@@ -1,4 +1,4 @@
-import { precioDe, type Precio } from '@paselibre/contracts';
+import { precioDe, TIENDA_RESERVADA, type Precio } from '@paselibre/contracts';
 import type { Moneda } from '@prisma/client';
 
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
@@ -30,4 +30,17 @@ export function precioPara(
   if (!conSesion(mirada) || oferta.precioCentimos === null) return null;
   if (!oferta.precioVisible && !veOculto(mirada, oferta.tiendaId)) return null;
   return precioDe(Number(oferta.precioCentimos), oferta.moneda);
+}
+
+/**
+ * La tienda de una oferta tal como la ve quien mira: con la tienda reservada, las demás
+ * tiendas reciben «Tienda reservada», sin id ni stand. La dueña y el equipo la ven igual.
+ */
+export function tiendaPara(
+  oferta: { tiendaVisible: boolean; tiendaId: string },
+  tienda: { id: string; nombre: string; stand: string | null },
+  mirada: Mirada,
+): { id: string; nombre: string; stand: string | null } {
+  if (oferta.tiendaVisible || veOculto(mirada, oferta.tiendaId)) return tienda;
+  return { id: '', nombre: TIENDA_RESERVADA, stand: null };
 }

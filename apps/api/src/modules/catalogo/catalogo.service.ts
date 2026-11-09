@@ -17,7 +17,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
-import { conSesion, precioPara } from './visibilidad';
+import { conSesion, precioPara, tiendaPara } from './visibilidad';
 
 /** Una oferta se muestra si está activa, su tienda no está suspendida y su producto no se unió a otro. */
 const OFERTA_VIGENTE = {
@@ -48,6 +48,7 @@ const SELECT_OFERTA_CON_VENDEDOR = {
   precioCentimos: true,
   moneda: true,
   precioVisible: true,
+  tiendaVisible: true,
   tienda: {
     select: {
       id: true,
@@ -94,10 +95,18 @@ function ofertaPublica(o: OfertaPublicaFila): OfertaPublica {
   };
 }
 
-function ofertaConVendedor(o: OfertaConVendedorFila, mirada: Mirada): OfertaConVendedor {
+function ofertaConVendedor(
+  o: OfertaConVendedorFila,
+  mirada: Mirada,
+  respondeEn: Map<string, number> = new Map(),
+): OfertaConVendedor {
+  const tienda = tiendaPara(o, o.tienda, mirada);
   return {
     ...ofertaPublica(o),
-    tienda: { id: o.tienda.id, nombre: o.tienda.nombre, stand: o.tienda.stand },
+    tienda,
+    tienda_visible: o.tiendaVisible,
+    // Con la tienda reservada tampoco: sería una pista de quién es.
+    responde_en_min: tienda.id ? (respondeEn.get(o.tiendaId) ?? null) : null,
     precio: precioPara(o, mirada),
     precio_visible: o.precioVisible,
     propia: o.tiendaId === mirada.tiendaId,
@@ -248,7 +257,8 @@ export class CatalogoService {
         stock: o.stock,
         galeria: o.tienda.galeria?.nombre ?? null,
         actualizada_en: o.actualizadaEn.toISOString(),
-        tienda: { nombre: o.tienda.nombre, stand: o.tienda.stand },
+        tienda: (({ nombre, stand }) => ({ nombre, stand }))(tiendaPara(o, o.tienda, mirada)),
+        tienda_visible: o.tiendaVisible,
         precio: precioPara(o, mirada),
         precio_visible: o.precioVisible,
         propia: o.tiendaId === mirada.tiendaId,
@@ -317,11 +327,47 @@ export class CatalogoService {
       where,
       select: SELECT_OFERTA_CON_VENDEDOR,
     });
+    const respondeEn = await this.respondeEn([...new Set(ofertas.map((o) => o.tiendaId))]);
     return {
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
       producto: detalle,
-      ofertas: ofertas.sort(compararPorPrecio).map((o) => ofertaConVendedor(o, mirada)),
+      ofertas: ofertas.sort(compararPorPrecio).map((o) => ofertaConVendedor(o, mirada, respondeEn)),
     };
+  }
+
+  /**
+   * «Responde en ~10 min» (lienzo «Demo · lo aprobado»): por tienda, la mediana de lo que tardó
+   * en contestar el primer mensaje de cada hilo de los últimos 60 días. Cuenta cualquier
+   * persona de la tienda (el hilo se puede traspasar), no los mensajes del sistema. Con menos
+   * de 3 hilos contestados no se muestra: sería más ruido que dato.
+   */
+  async respondeEn(tiendaIds: string[]): Promise<Map<string, number>> {
+    if (tiendaIds.length === 0) return new Map();
+    const filas = await this.prisma.$queryRaw<Array<{ tienda_id: string; minutos: number }>>`
+      WITH preguntas AS (
+        SELECT c.id, c.tienda_vendedora_id, c.comprador_id, min(m.creado_en) AS pregunta
+        FROM conversacion c
+        JOIN mensaje m ON m.conversacion_id = c.id AND m.autor_id = c.comprador_id
+        WHERE c.tienda_vendedora_id IN (${Prisma.join(tiendaIds.map((id) => Prisma.sql`${id}::uuid`))})
+          AND c.creada_en > now() - interval '60 days'
+        GROUP BY c.id, c.tienda_vendedora_id, c.comprador_id
+      ),
+      demoras AS (
+        SELECT p.tienda_vendedora_id,
+               extract(epoch FROM (
+                 SELECT min(m.creado_en) FROM mensaje m
+                 WHERE m.conversacion_id = p.id AND m.autor_id IS NOT NULL
+                   AND m.autor_id <> p.comprador_id AND m.creado_en >= p.pregunta
+               ) - p.pregunta) / 60 AS minutos
+        FROM preguntas p
+      )
+      SELECT tienda_vendedora_id::text AS tienda_id,
+             percentile_cont(0.5) WITHIN GROUP (ORDER BY minutos)::float8 AS minutos
+      FROM demoras
+      WHERE minutos IS NOT NULL
+      GROUP BY tienda_vendedora_id
+      HAVING count(*) >= 3`;
+    return new Map(filas.map((f) => [f.tienda_id, Math.max(1, Math.round(f.minutos))]));
   }
 
   private async totales(): Promise<RespuestaPortada['totales']> {

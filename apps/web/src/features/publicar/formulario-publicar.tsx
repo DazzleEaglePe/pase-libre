@@ -25,6 +25,7 @@ import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { Contador } from '@/shared/ui/contador';
 import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
 import { Segmentado } from '@/shared/ui/segmentado';
+import { Interruptor } from '@/shared/ui/interruptor';
 
 import { BuscadorProducto, ProductoElegido } from './producto-catalogo';
 import { PRODUCTO_NUEVO_VACIO, ProductoNuevo, type DatosProductoNuevo } from './producto-nuevo';
@@ -123,6 +124,7 @@ export function FormularioPublicar({
   const [moneda, setMoneda] = useState<Moneda>(tienda.moneda_defecto);
   const [monto, setMonto] = useState('');
   const [visible, setVisible] = useState(tienda.precio_visible_defecto);
+  const [tiendaVisible, setTiendaVisible] = useState(true);
   const [descripcion, setDescripcion] = useState('');
   const [fotos, setFotos] = useState<ArchivoSubido[]>([]);
   const [subiendoProducto, setSubiendoProducto] = useState(false);
@@ -159,6 +161,7 @@ export function FormularioPublicar({
           setMoneda(oferta.moneda);
           setMonto(oferta.precio ? montoParaCampo(oferta.precio.centimos) : '');
           setVisible(oferta.precio_visible);
+          setTiendaVisible(oferta.tienda_visible);
           setDescripcion(oferta.descripcion ?? '');
           setFotos(
             oferta.fotos.map((f) => ({ ruta: f.ruta, ancho: f.ancho ?? 0, alto: f.alto ?? 0 })),
@@ -200,6 +203,7 @@ export function FormularioPublicar({
     setStock(1);
     setMonto('');
     setVisible(tienda.precio_visible_defecto);
+    setTiendaVisible(true);
     setMoneda(tienda.moneda_defecto);
     setDescripcion('');
     setFotos([]);
@@ -225,6 +229,7 @@ export function FormularioPublicar({
       moneda,
       precio: monto,
       precio_visible: visible,
+      tienda_visible: tiendaVisible,
       descripcion,
       fotos: fotos.map((f) => f.ruta),
     };
@@ -457,7 +462,25 @@ export function FormularioPublicar({
             </div>
           </Seccion>
 
-          <Seccion titulo="4. Descripción y fotos tuyas" opcional ultima>
+          <Seccion titulo="4. Tu tienda">
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex flex-col gap-0.5">
+                <span className="font-semibold">Mostrar el nombre de mi tienda</span>
+                <span className="text-apoyo text-secundario">
+                  {tiendaVisible
+                    ? `Saldrá «${tienda.nombre} · ${tienda.galeria ?? 'Independiente'}» para las tiendas con sesión.`
+                    : 'Saldrás como «Tienda reservada», sin stand ni WhatsApp: te escriben solo por el chat.'}
+                </span>
+              </span>
+              <Interruptor
+                activo={tiendaVisible}
+                alCambiar={setTiendaVisible}
+                etiqueta="Mostrar el nombre de mi tienda"
+              />
+            </div>
+          </Seccion>
+
+          <Seccion titulo="5. Descripción y fotos tuyas" opcional ultima>
             <label htmlFor={`${id}-descripcion`} className={etiqueta}>
               Descripción
               <textarea
@@ -535,6 +558,7 @@ export function FormularioPublicar({
           stock={stock}
           precio={precioTexto}
           visible={visible}
+          tiendaVisible={tiendaVisible}
           tienda={tienda}
         />
       </div>

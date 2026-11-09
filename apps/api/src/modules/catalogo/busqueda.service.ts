@@ -1,4 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   buscarSchema,
   normalizarTexto,
@@ -7,6 +8,7 @@ import {
   type Condicion,
   type Faceta,
   type MasBuscadoConsulta,
+  type OfertaDestacada,
   type Precio,
   type ProductoEnLista,
   type ProductoEnListaConPrecio,
@@ -17,10 +19,11 @@ import {
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
+import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { INDEPENDIENTES } from './catalogo.service';
-import { conSesion } from './visibilidad';
+import { conSesion, tiendaPara } from './visibilidad';
 
 export const POR_PAGINA = 24;
 /** Productos del desplegable del buscador. */
@@ -45,6 +48,19 @@ interface FilaProducto {
   desde_usd?: bigint | null;
   desde_pen?: bigint | null;
   al_interno?: number;
+  /** La oferta destacada (solo se pide con sesión). */
+  oferta_id?: string;
+  tienda_id?: string;
+  tienda_nombre?: string;
+  tienda_stand?: string | null;
+  d_tienda_visible?: boolean;
+  d_condicion?: Condicion;
+  d_stock?: number;
+  d_galeria?: string;
+  d_moneda?: 'USD' | 'PEN';
+  d_precio?: bigint | null;
+  d_visible?: boolean;
+  d_mas_barato?: boolean;
 }
 
 interface Resultado {
@@ -60,13 +76,22 @@ interface Resultado {
  * 2. Busca productos donde cada palabra es el comienzo de alguna palabra del producto.
  * 3. Si no hay nada, corrige palabra por palabra contra `termino` y vuelve a buscar.
  * 4. Agrupa por producto: cuántas ofertas, en qué galerías, stock y, con sesión, el
- *    menor precio visible. Al visitante no se le piden ni se le calculan precios.
+ *    menor precio visible y la oferta más barata para escribirle. Al visitante no se le
+ *    piden ni se le calculan precios ni tiendas.
  */
 @Injectable()
 export class BusquedaService {
   private readonly logger = new Logger(BusquedaService.name);
 
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  /** Soles por dólar, solo para comparar (TIPO_CAMBIO). */
+  private readonly tipoCambio: number;
+
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(ConfigService) config: ConfigService<Environment, true>,
+  ) {
+    this.tipoCambio = config.get('TIPO_CAMBIO', { infer: true });
+  }
 
   async buscar(consulta: BuscarConsulta, mirada: Mirada): Promise<RespuestaBuscar> {
     const conPrecio = conSesion(mirada);
@@ -77,13 +102,19 @@ export class BusquedaService {
       : { ...consulta, precio_min: undefined, precio_max: undefined, orden: 'recientes' };
 
     const palabras = this.palabras(consulta.q);
-    let resultado = await this.ejecutar(palabras, efectiva, conPrecio);
+    let resultado = await this.ejecutar(palabras, efectiva, conPrecio, POR_PAGINA, mirada.tiendaId);
     let correccion: RespuestaBuscar['correccion'] = null;
 
     if (resultado.totalProductos === 0 && palabras.length > 0) {
       const corregidas = await this.corregir(palabras);
       if (corregidas.join(' ') !== palabras.join(' ')) {
-        const intento = await this.ejecutar(corregidas, efectiva, conPrecio);
+        const intento = await this.ejecutar(
+          corregidas,
+          efectiva,
+          conPrecio,
+          POR_PAGINA,
+          mirada.tiendaId,
+        );
         if (intento.totalProductos > 0) {
           resultado = intento;
           correccion = { buscaste: consulta.q, mostramos: corregidas.join(' ') };
@@ -120,7 +151,7 @@ export class BusquedaService {
     return {
       ...base,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
-      productos: resultado.filas.map((f) => this.productoConPrecio(f)),
+      productos: resultado.filas.map((f) => this.productoConPrecio(f, mirada)),
     };
   }
 
@@ -274,8 +305,15 @@ export class BusquedaService {
       ...this.condicionesBase(palabras, consulta),
       ...this.condicionesFaceta(consulta, conPrecio),
     ];
+    // `precio_eq`: el precio visible en céntimos de dólar, solo para comparar (nunca se muestra).
     const columnasPrecio = conPrecio
-      ? Prisma.sql`, o.moneda, o.precio_centimos, o.precio_visible`
+      ? Prisma.sql`, o.moneda, o.precio_centimos, o.precio_visible,
+             o.id AS oferta_id, o.tienda_id, t.nombre AS tienda_nombre, t.stand AS tienda_stand,
+             o.tienda_visible,
+             CASE WHEN o.precio_visible AND o.precio_centimos IS NOT NULL
+                  THEN o.precio_centimos::numeric
+                       / CASE WHEN o.moneda::text = 'PEN' THEN CAST(${this.tipoCambio} AS numeric) ELSE 1 END
+             END AS precio_eq`
       : Prisma.empty;
     return Prisma.sql`
       SELECT o.producto_id, o.condicion, o.stock, o.actualizada_en,
@@ -295,38 +333,77 @@ export class BusquedaService {
     consulta: BuscarConsulta,
     conPrecio: boolean,
     limite = POR_PAGINA,
+    /** La tienda de quien mira: su propia oferta solo se destaca si no hay otra. */
+    miTiendaId: string | null = null,
   ): Promise<Resultado> {
     const filtradas = this.filtradas(palabras, consulta, conPrecio);
     const agregadosPrecio = conPrecio
       ? Prisma.sql`,
         min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'USD') AS desde_usd,
         min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'PEN') AS desde_pen,
+        min(f.precio_eq) AS desde_eq,
         count(*) FILTER (WHERE NOT f.precio_visible OR f.precio_centimos IS NULL)::int AS al_interno`
       : Prisma.empty;
+    // Con sesión se compara en dólares (`precio_eq`): un precio en soles y uno en dólares
+    // quedan en la misma vara, y los productos sin precio visible van al final.
     const orden =
       consulta.orden === 'precio_asc'
-        ? Prisma.sql`desde_usd ASC NULLS LAST, desde_pen ASC NULLS LAST, actualizada_en DESC`
+        ? Prisma.sql`g.desde_eq ASC NULLS LAST, g.actualizada_en DESC, g.titulo`
         : consulta.orden === 'precio_desc'
-          ? Prisma.sql`desde_usd DESC NULLS LAST, desde_pen DESC NULLS LAST, actualizada_en DESC`
-          : Prisma.sql`actualizada_en DESC, p.titulo`;
+          ? Prisma.sql`g.desde_eq DESC NULLS LAST, g.actualizada_en DESC, g.titulo`
+          : Prisma.sql`g.actualizada_en DESC, g.titulo`;
+    // La oferta destacada: la de otra tienda antes que la propia (la tarjeta es para escribirle
+    // a alguien), con stock, con precio visible y la más barata; entre iguales, la más reciente.
+    // «Más barata» es la de menor precio entre todos los resultados.
+    const destacada = conPrecio
+      ? Prisma.sql`,
+        d AS (
+          SELECT DISTINCT ON (f.producto_id)
+                 f.producto_id, f.oferta_id, f.tienda_id, f.tienda_nombre, f.tienda_stand,
+                 f.tienda_visible AS d_tienda_visible,
+                 f.condicion::text AS d_condicion, f.stock AS d_stock, f.galeria_nombre AS d_galeria,
+                 f.moneda::text AS d_moneda, f.precio_centimos AS d_precio,
+                 f.precio_visible AS d_visible, f.precio_eq AS d_eq
+          FROM f
+          ORDER BY f.producto_id, COALESCE(f.tienda_id = CAST(${miTiendaId} AS uuid), false) ASC,
+                   (f.stock > 0) DESC, (f.precio_eq IS NOT NULL) DESC,
+                   f.precio_eq ASC, f.actualizada_en DESC, f.oferta_id
+        )`
+      : Prisma.empty;
+    const columnasDestacada = conPrecio
+      ? Prisma.sql`, d.oferta_id, d.tienda_id, d.tienda_nombre, d.tienda_stand, d.d_tienda_visible,
+               d.d_condicion,
+               d.d_stock, d.d_galeria, d.d_moneda, d.d_precio, d.d_visible,
+               (d.d_stock > 0 AND d.d_eq IS NOT NULL
+                 AND d.d_eq = min(d.d_eq) FILTER (WHERE d.d_stock > 0) OVER ()) AS d_mas_barato`
+      : Prisma.empty;
+    const unirDestacada = conPrecio
+      ? Prisma.sql`JOIN d ON d.producto_id = g.producto_id`
+      : Prisma.empty;
 
     const [filas, totales] = await Promise.all([
       this.prisma.$queryRaw<FilaProducto[]>`
-        WITH f AS (${filtradas})
-        SELECT p.slug::text AS slug, p.titulo, c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
-               m.nombre::text AS marca,
-               (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto,
-               count(*)::int AS cantidad,
-               array_agg(DISTINCT f.galeria_nombre) AS galerias,
-               array_agg(DISTINCT f.condicion::text) AS condiciones,
-               sum(f.stock)::int AS stock_total,
-               max(f.actualizada_en) AS actualizada_en
-               ${agregadosPrecio}
-        FROM f
-        JOIN producto p ON p.id = f.producto_id
-        JOIN categoria c ON c.id = p.categoria_id
-        LEFT JOIN marca m ON m.id = p.marca_id
-        GROUP BY p.id, c.slug, c.nombre, m.nombre
+        WITH f AS (${filtradas}),
+        g AS (
+          SELECT p.id AS producto_id, p.slug::text AS slug, p.titulo,
+                 c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
+                 m.nombre::text AS marca,
+                 (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto,
+                 count(*)::int AS cantidad,
+                 array_agg(DISTINCT f.galeria_nombre) AS galerias,
+                 array_agg(DISTINCT f.condicion::text) AS condiciones,
+                 sum(f.stock)::int AS stock_total,
+                 max(f.actualizada_en) AS actualizada_en
+                 ${agregadosPrecio}
+          FROM f
+          JOIN producto p ON p.id = f.producto_id
+          JOIN categoria c ON c.id = p.categoria_id
+          LEFT JOIN marca m ON m.id = p.marca_id
+          GROUP BY p.id, c.slug, c.nombre, m.nombre
+        )${destacada}
+        SELECT g.*${columnasDestacada}
+        FROM g
+        ${unirDestacada}
         ORDER BY ${orden}
         LIMIT ${limite} OFFSET ${(consulta.pagina - 1) * limite}`,
       this.prisma.$queryRaw<Array<{ productos: number; ofertas: number }>>`
@@ -473,7 +550,7 @@ export class BusquedaService {
     };
   }
 
-  private productoConPrecio(f: FilaProducto): ProductoEnListaConPrecio {
+  private productoConPrecio(f: FilaProducto, mirada: Mirada): ProductoEnListaConPrecio {
     const lista = this.productoEnLista(f);
     const precios: Precio[] = [];
     if (f.desde_usd != null) precios.push(precioDe(Number(f.desde_usd), 'USD'));
@@ -481,6 +558,32 @@ export class BusquedaService {
     return {
       ...lista,
       ofertas: { ...lista.ofertas, precios_desde: precios, al_interno: f.al_interno ?? 0 },
+      oferta_destacada: this.ofertaDestacada(f, mirada),
+    };
+  }
+
+  private ofertaDestacada(f: FilaProducto, mirada: Mirada): OfertaDestacada {
+    const visible = f.d_visible === true && f.d_precio != null && f.d_moneda != null;
+    const tiendaVisible = f.d_tienda_visible !== false;
+    const tienda = tiendaPara(
+      { tiendaVisible, tiendaId: f.tienda_id as string },
+      {
+        id: f.tienda_id as string,
+        nombre: f.tienda_nombre as string,
+        stand: f.tienda_stand ?? null,
+      },
+      mirada,
+    );
+    return {
+      id: f.oferta_id as string,
+      condicion: f.d_condicion as Condicion,
+      stock: f.d_stock ?? 0,
+      galeria: f.d_galeria as string,
+      precio: visible ? precioDe(Number(f.d_precio), f.d_moneda as 'USD' | 'PEN') : null,
+      tienda: { nombre: tienda.nombre, stand: tienda.stand },
+      tienda_visible: tiendaVisible,
+      propia: f.tienda_id === mirada.tiendaId,
+      mas_barata: f.d_mas_barato === true,
     };
   }
 }

@@ -49,6 +49,7 @@ const SELECT_OFERTA_PROPIA = {
   precioCentimos: true,
   moneda: true,
   precioVisible: true,
+  tiendaVisible: true,
   descripcion: true,
   estado: true,
   actualizadaEn: true,
@@ -252,6 +253,7 @@ export class OfertasService {
             // Sin monto no hay precio que mostrar; si no se eligió, manda la tienda (D-37).
             precioVisible:
               datos.precio !== null && (datos.precio_visible ?? tienda.precioVisibleDefecto),
+            tiendaVisible: datos.tienda_visible ?? true,
             descripcion: datos.descripcion,
             fotos: {
               create: datos.fotos.map((ruta, orden) => ({ ruta, orden, ...fotos.get(ruta) })),
@@ -513,6 +515,7 @@ export class OfertasService {
           descripcion: cambios.descripcion,
           estado: cambios.estado,
           precioVisible: visible,
+          tiendaVisible: cambios.tienda_visible,
           ...(cambios.precio === undefined
             ? {}
             : { precioCentimos: cambios.precio === null ? null : BigInt(cambios.precio) }),
@@ -590,6 +593,7 @@ export class OfertasService {
       precio: o.precioCentimos === null ? null : precioDe(Number(o.precioCentimos), o.moneda),
       moneda: o.moneda,
       precio_visible: o.precioVisible,
+      tienda_visible: o.tiendaVisible,
       descripcion: o.descripcion,
       fotos: o.fotos,
       estado: o.estado === 'PAUSADA' ? 'PAUSADA' : 'ACTIVA',

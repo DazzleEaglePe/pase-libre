@@ -261,7 +261,7 @@ function Ventana({
       <section
         aria-label="Pases del día: busco y remates"
         onKeyDown={alTeclear}
-        className="fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col overflow-y-auto rounded-t-[20px] bg-white px-4 pb-5 pt-2 shadow-[0_-12px_40px_rgba(10,22,51,0.2)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[70dvh] flex-col overflow-y-auto rounded-t-[20px] bg-white px-4 pb-5 pt-2 shadow-[0_-12px_40px_rgba(10,22,51,0.2)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <span aria-hidden="true" className="mb-1.5 h-1 w-10 self-center rounded-full bg-borde" />
         {cabecera}
@@ -448,7 +448,7 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        className="borde-en-vivo fixed inset-x-3 bottom-3 z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
+        className="borde-en-vivo fixed inset-x-3 bottom-[calc(0.75rem+var(--abajo,0px))] z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <div className="flex items-center gap-1 py-2.5 pl-2.5 pr-1.5">
           <div className="min-w-0 flex-1 overflow-hidden">

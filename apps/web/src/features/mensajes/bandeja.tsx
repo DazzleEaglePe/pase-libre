@@ -17,6 +17,7 @@ import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
 const FILTROS: Array<[FiltroConversacion, string]> = [
   ['todas', 'Todas'],
   ['no_leidas', 'No leídos'],
+  ['pases', 'Pases del día'],
   ['archivadas', 'Archivados'],
 ];
 
@@ -162,6 +163,8 @@ export function Bandeja({ children }: { children: ReactNode }) {
         <div role="tablist" aria-label="Filtrar conversaciones" className="flex flex-wrap gap-1.5">
           {FILTROS.map(([valor, texto]) => {
             const elegido = valor === filtro;
+            // «Pases del día» aparece cuando hay hilos que nacieron de un pase (D-53).
+            if (valor === 'pases' && !elegido && !datos?.conteos.pases) return null;
             return (
               <button
                 key={valor}

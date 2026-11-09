@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   alternar,
   con,
+  cuantosFiltros,
   hayFiltros,
   hrefBuscar,
   leerFiltros,
@@ -26,14 +27,30 @@ describe('Filtros de /buscar', () => {
       condicion: [],
       stock: true,
       moneda: 'USD',
-      orden: 'recientes',
+      orden: null,
       pagina: 3,
     });
   });
 
+  it('«Solo con stock» viene prendido y solo se apaga con stock=0', () => {
+    expect(leerFiltros({}).stock).toBe(true);
+    expect(leerFiltros({ stock: '0' }).stock).toBe(false);
+    expect(leerFiltros({ stock: 'false' }).stock).toBe(false);
+    // Para los enlaces lo prendido no se escribe; para la API sí, porque ella lo trae apagado.
+    expect(textoConsulta(leerFiltros({ q: 'ram' }))).toBe('q=ram');
+    expect(textoConsulta(leerFiltros({ q: 'ram' }), true)).toBe('q=ram&stock=true');
+    expect(textoConsulta(leerFiltros({ q: 'ram', stock: '0' }))).toBe('q=ram&stock=0');
+    expect(textoConsulta(leerFiltros({ q: 'ram', stock: '0' }), true)).toBe('q=ram');
+  });
+
+  it('el orden por defecto no se escribe, y «Más recientes» elegido sí', () => {
+    expect(leerFiltros({}).orden).toBeNull();
+    expect(textoConsulta(leerFiltros({ orden: 'recientes' }))).toBe('orden=recientes');
+  });
+
   it('ignora lo que no entiende: orden raro, moneda rara y páginas fuera de rango', () => {
     const filtros = leerFiltros({ orden: 'al-azar', moneda: 'eur', pagina: '-4' });
-    expect(filtros).toMatchObject({ orden: 'recientes', moneda: 'USD', pagina: 1 });
+    expect(filtros).toMatchObject({ orden: null, moneda: 'USD', pagina: 1 });
     expect(leerFiltros({ pagina: '99999' }).pagina).toBe(500);
   });
 
@@ -68,8 +85,10 @@ describe('Filtros de /buscar', () => {
       precio_min: '100',
     });
     expect(hayFiltros(base)).toBe(true);
+    expect(cuantosFiltros(base)).toBe(3);
     const limpio = sinFiltros(base);
     expect(hayFiltros(limpio)).toBe(false);
+    expect(cuantosFiltros(limpio)).toBe(0);
     expect(textoConsulta(limpio)).toBe('q=rtx&categoria=graficas');
     expect(con(limpio, { q: '' }).q).toBe('');
   });

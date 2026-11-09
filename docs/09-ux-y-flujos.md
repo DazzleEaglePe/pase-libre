@@ -83,10 +83,12 @@ flowchart LR
 ```
 
 1. Busca como escribe: «rtx3370», «Ventsu». La búsqueda corrige y lo dice: «Mostramos resultados para *rtx 3070*. Buscaste *rtx 3370*» (RF-13, RF-14).
-2. Filtra por categoría, galería, marca, condición y «Con stock» (RF-16, RF-17). Si lo buscado está en más de una categoría, arriba de los resultados salen **tarjetas de categoría** con cuántos productos hay en cada una («Todas» incluida); elegir una deja lo escrito y limpia los demás filtros. Con una categoría elegida aparece «Lo más buscado en …» y, al final de la lista, «¿No está lo que buscas? Publicar un busco» (J2 del lienzo).
-3. **Sin resultados y sin filtros** la página no es un callejón (G del lienzo): «No encontramos «…»», lo más buscado en la galería, la tarjeta «¿Lo necesitas para un cliente? Publicar un busco» (lleva lo escrito al formulario con `?que=`) y las categorías en tarjetas. Si se buscó dentro de una categoría y hay resultados en otras, primero va «Sí está en otras categorías». La tarjeta de categoría es la misma de la portada.
-4. En la ficha ve fotos, condición, stock, galería y fecha de actualización. **No ve precio, tienda, stand ni WhatsApp** (D-34): ve «Precio con sesión» y «Tienda de Maxiplaza».
-5. En lugar de los botones de contacto ve «Inicia sesión para contactar». Como no hay registro propio, «Crear cuenta» avisa que está en mantenimiento y ofrece pedir la cuenta por WhatsApp al equipo (RF-43).
+2. Los resultados son **tarjetas por producto** (W2 y K3 de «Demo · lo aprobado»): con sesión, cada una pone al frente la oferta más barata de **otra** tienda (la propia solo si no hay otra), con su tienda, galería, precio, stock, «N tiendas más lo tienen» y **«Chatear ahora»**, que abre el chat sin pasar por la ficha. **«Más barato»** marca el producto más barato de todos los resultados con stock, solo cuando todos son de una categoría (no compara una gráfica con un teclado); compara soles con dólares con `TIPO_CAMBIO` de la API, sin convertir lo que se muestra. El visitante ve el producto, el estado, la galería y el stock, con «Precio con sesión» e «Inicia sesión para chatear».
+3. Arriba de las tarjetas, una fila: **«Filtros»** (con cuántos hay puestos), los atajos **«Con stock», «Nuevo», «Usado»**, «Más filtros» y, con sesión, «Ordenar». «Filtros» abre una hoja (centrada en la computadora, desde abajo en el celular) con orden, «Solo con stock», estado, galería, marca y precio; cada opción es un enlace, la hoja sigue abierta y «Ver N ofertas» la cierra. **«Solo con stock» viene prendido** (se apaga con `stock=0`) y, con sesión, el orden por defecto es **«Más barato primero»**. Si con stock no queda nada pero hay ofertas agotadas, la página lo dice y ofrece verlas.
+4. Filtra por categoría, galería, marca, condición y «Con stock» (RF-16, RF-17). Si lo buscado está en más de una categoría, arriba de los resultados salen **tarjetas de categoría** con cuántos productos hay en cada una («Todas» incluida); elegir una deja lo escrito y limpia los demás filtros. Con una categoría elegida aparece «Lo más buscado en …» y, al final de la lista, «¿No está lo que buscas? Publicar un busco» (J2 del lienzo).
+5. **Sin resultados y sin filtros** la página no es un callejón (G del lienzo): «No encontramos «…»», lo más buscado en la galería, la tarjeta «¿Lo necesitas para un cliente? Publicar un busco» (lleva lo escrito al formulario con `?que=`) y las categorías en tarjetas. Si se buscó dentro de una categoría y hay resultados en otras, primero va «Sí está en otras categorías». La tarjeta de categoría es la misma de la portada.
+6. En la ficha ve fotos, condición, stock, galería y fecha de actualización. **No ve precio, tienda, stand ni WhatsApp** (D-34): ve «Precio con sesión» y «Tienda de Maxiplaza».
+7. En lugar de los botones de contacto ve «Inicia sesión para contactar». Como no hay registro propio, «Crear cuenta» avisa que está en mantenimiento y ofrece pedir la cuenta por WhatsApp al equipo (RF-43).
 
 ### 3.2 Primer ingreso
 
@@ -114,7 +116,7 @@ flowchart TD
 
 1. Escribe el producto y la lista «Ya está en PaseLibre» le sugiere los parecidos, con la misma búsqueda tolerante (RF-53).
 2. Si está, elige **«Publicar uno igual»**: no se crea otro producto, solo su oferta. Si no está, «¿No está en la lista?» abre el producto nuevo.
-3. Completa su oferta. El precio sale **oculto** y en dólares por defecto, o con lo que la tienda fijó en Configuración · Preferencias (RF-48).
+3. Completa su oferta. El precio sale **oculto** y en dólares por defecto, o con lo que la tienda fijó en Configuración · Preferencias (RF-48). En **«4. Tu tienda»** decide si muestra el nombre: apagado, las demás tiendas ven **«Tienda reservada»** (ver §3.5).
 4. Ve la vista previa y publica. Meta: menos de 2 minutos (RNF-03).
 
 **Atajos:** «Publicar uno igual» desde la ficha de otro (`/publicar?igual=`) llega con el producto ya elegido; «Editar» en Mis publicaciones abre la misma pantalla con `?editar=`.
@@ -122,7 +124,7 @@ flowchart TD
 ### 3.4 Mis publicaciones
 
 - Pestañas **Activas**, **Sin stock** y **Pausadas**, con buscador.
-- En cada fila: cambiar el stock (− y +), editar, pausar o reactivar, eliminar y ver la ficha.
+- En cada fila: cambiar el stock (− y +), editar, pausar o reactivar, eliminar y ver la ficha. Bajo el precio, dos interruptores rápidos: «Precio visible / al interno» y «Tienda visible / reservada».
 - Las que llevan más de 7 días sin cambios piden revisión; **«Siguen igual»** las confirma todas de una vez (RF-10).
 
 ### 3.5 Contactar y conversar
@@ -142,11 +144,15 @@ sequenceDiagram
 ```
 
 1. En la ficha, **«Enviar mensaje»** abre el hilo con quien publicó esa oferta, con el producto fijo arriba. **«WhatsApp»** abre WhatsApp con un mensaje ya escrito sobre el producto (RF-21).
-2. La bandeja tiene los filtros **Todas**, **No leídos** y **Archivados**, y un buscador por tienda o producto (RF-55).
+2. La bandeja tiene los filtros **Todas**, **No leídos**, **Pases del día** (solo si hay hilos que nacieron de un «¡Lo tengo!» o «¡Lo quiero!») y **Archivados**, y un buscador por tienda o producto (RF-55).
 3. Sobre la caja de texto están las **respuestas rápidas** («¿Sigue disponible?», «Te lo separo»), que se editan en Configuración (RF-56).
 4. Se puede mandar una foto por mensaje, con texto opcional.
 5. En cada hilo: marcar como no leída, silenciar, archivar, bloquear (con confirmación) y denunciar (RF-57).
 6. Quien vende tiene el botón **«Vendido»** arriba del chat: elige a quién, entre los que le escribieron por esa oferta, y el stock baja en 1 (RF-47).
+
+**Tienda reservada:** si la oferta tiene apagado «Mostrar el nombre de mi tienda», quien compra ve «Tienda reservada» con la galería, en cursiva, en la ficha, las tarjetas, la portada, la bandeja, el chat y la campanita; no ve el stand ni el botón de WhatsApp («atiende solo por el chat de PaseLibre»). Quien vende ve a quien le escribe como siempre.
+
+**«Responde en ~10 min»:** junto a la galería y el stand de cada oferta, la mediana de lo que tarda esa tienda en contestar el primer mensaje de un hilo (últimos 60 días, con 3 hilos contestados o más). No sale para la tienda reservada.
 
 **La campanita** junta un aviso por conversación con mensajes sin leer («Tienes 2 mensajes sin leer de Tienda C»). Con «No molestar», los avisos aparecen al terminar el horario (RF-40, RF-59).
 
@@ -212,7 +218,10 @@ La web se diseñó para el celular primero (RNF-02), porque en la galería se tr
 - Configuración abre una sección a la vez.
 - Los botones miden 44 px de alto como mínimo, 48 en formularios (RNF-07).
 
+- **Barra inferior** (RNF-55, M_Portada): Inicio, Buscar, Publicar, Mensajes (con su contador) y Cuenta; sin sesión, Inicio, Buscar, Pases del día e Ingresar. Solo en las secciones principales (inicio, resultados, Pases del día, la bandeja, Mis publicaciones y Cuenta); no en la ficha, el chat, Publicar ni Ingresar, que ya tienen algo fijo abajo o son de paso.
+- **La ficha** lleva abajo «Chatear ahora» y el botón de WhatsApp (sin él, con la tienda reservada); el visitante ve «Inicia sesión para contactar». Junto al título, **«Compartir»** abre el menú del celular (o copia el enlace).
+- Lo que queda fijo abajo avisa su alto en `--abajo` y la barra de Pases del día flota encima.
+
 **Falta:**
 
-- La barra inferior del celular con inicio, buscar, mensajes y cuenta (RNF-55): no está construida; en el celular se navega con la barra de arriba y el menú de la cuenta.
 - Una revisión completa en un Android y un iPhone reales, sobre todo de Publicar con la cámara ([checklist](CHECKLIST.md)).

@@ -76,7 +76,7 @@ El estado HTTP de cada código es el habitual; para decidir qué mostrar, la web
 | `GET /categorias` | Todos | Las categorías, para el menú y los filtros | 11 |
 | `GET /galerias` | Todos | Las galerías activas | 17 |
 | `GET /mapa-del-sitio` | Todos | Cada producto con una oferta vigente y la fecha de la más reciente, para el `sitemap.xml` de la web | RNF-42 |
-| `GET /buscar` | Todos | Productos con el resumen de sus ofertas, las facetas y la corrección. `facetas.categorias` dice en qué categorías hay resultados para lo escrito, contando **productos** y sin el filtro de categoría: son las tarjetas de arriba de los resultados | 12–18 |
+| `GET /buscar` | Todos | Productos con el resumen de sus ofertas, las facetas y la corrección. Con sesión, cada producto trae `oferta_destacada` (id, condición, stock, galería, precio, tienda, `tienda_visible`, `propia`, `mas_barata`): la más barata de otra tienda, para «Chatear ahora». `facetas.categorias` dice en qué categorías hay resultados para lo escrito, contando **productos** y sin el filtro de categoría: son las tarjetas de arriba de los resultados | 12–18 |
 | `GET /buscar/sugerencias?q=&categoria=` | Todos | El desplegable del buscador: hasta 5 productos y la corrección, **sin registrar la búsqueda** y sin precios ni tiendas aunque haya sesión. 120 por minuto | 13, 14 |
 | `GET /buscar/populares` | Todos | «Lo más buscado»: hasta 4 búsquedas de los últimos 30 días que encontraron algo y se repitieron, como más se escribieron. Con `?categoria=`, solo las que hoy encuentran algo en esa categoría (prueba las 20 primeras) | 32 |
 | `GET /productos/:slug` | Todos | El producto y sus ofertas, según la audiencia. Si el producto se unió a otro, responde `{ "redirigir_a": "<slug>" }` y la web redirige con 301 | 19, 52 |
@@ -91,7 +91,7 @@ El estado HTTP de cada código es el habitual; para decidir qué mostrar, la web
 | `condicion` | `nuevo`, `usado` (uno o los dos) | |
 | `stock` | `true` | Solo con stock |
 | `precio_min`, `precio_max`, `moneda` | Números y `USD` o `PEN` | **Solo con sesión.** Al visitante se le ignoran, para que no adivine precios probando rangos |
-| `orden` | `recientes`, `precio_asc`, `precio_desc` | El orden por precio solo con sesión |
+| `orden` | `recientes`, `precio_asc`, `precio_desc` | El orden por precio solo con sesión. Compara soles con dólares con `TIPO_CAMBIO` (soles por dólar, 3.75 por defecto) |
 | `pagina` | 1 a 500 | |
 
 Cuando corrige, la respuesta trae `{ "correccion": { "buscaste": "rtx 3370", "mostramos": "rtx 3070" } }`. Cómo busca, en el [documento 05 §7](05-arquitectura.md#7-búsqueda-tolerante-a-errores).
@@ -115,7 +115,7 @@ Cuando corrige, la respuesta trae `{ "correccion": { "buscaste": "rtx 3370", "mo
 | `POST /ofertas` | Vendedor | Publicar: «uno igual» con `producto_id`, o con `producto_nuevo`. Producto y oferta se crean en una sola transacción | 05, 06, 38 |
 | `GET /mis-ofertas?estado=&q=` | Vendedor | Las de su tienda: activas, sin stock o pausadas, con buscador | 08 |
 | `GET /ofertas/:id` | Vendedor | Una oferta propia, para editarla | 08 |
-| `PATCH /ofertas/:id` | Vendedor | Condición, stock, precio, moneda, visibilidad, descripción y fotos; pausar o reactivar | 06, 08, 09 |
+| `PATCH /ofertas/:id` | Vendedor | Condición, stock, precio, moneda, visibilidad del precio, `tienda_visible` («Tienda reservada»), descripción y fotos; pausar o reactivar | 06, 08, 09 |
 | `DELETE /ofertas/:id` | Vendedor | Eliminar (queda `ELIMINADA`) | 08 |
 | `POST /ofertas/confirmar` | Vendedor | «Siguen igual» para las de más de 7 días | 10 |
 
@@ -124,7 +124,7 @@ Cuando corrige, la respuesta trae `{ "correccion": { "buscaste": "rtx 3370", "mo
 | Método y ruta | Quién | Qué hace | RF |
 | --- | --- | --- | --- |
 | `POST /ofertas/:id/contacto` | Vendedor | Abre el hilo o devuelve el enlace de WhatsApp con el mensaje armado, y registra el clic. No se contacta a la propia tienda ni a quien te bloqueó | 21, 23 |
-| `GET /conversaciones?filtro=&q=` | Vendedor | Su bandeja: todas, no leídas o archivadas, con buscador por tienda o producto | 55 |
+| `GET /conversaciones?filtro=&q=` | Vendedor | Su bandeja: todas, no leídas, `pases` (las que nacieron de un Pase del día, `pase_del_dia`) o archivadas, con buscador por tienda o producto | 55 |
 | `GET /conversaciones/:id` | Vendedor | El hilo con el producto arriba, si el otro está activo y si se puede marcar «Vendido» | 55, 47 |
 | `GET /conversaciones/:id/mensajes?antes=` | Vendedor | El historial por páginas, hacia atrás | 39 |
 | `POST /conversaciones/:id/mensajes` | Vendedor | Enviar texto o una foto | 39 |

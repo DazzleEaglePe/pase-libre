@@ -13,6 +13,10 @@ export interface OfertaVista {
   tienda: { nombre: string; stand: string | null } | null;
   precio: Precio | null;
   precioVisible: boolean;
+  /** Falso: las demás tiendas la ven como «Tienda reservada» (y sin WhatsApp). */
+  tiendaVisible: boolean;
+  /** «Responde en ~10 min»: minutos, o nulo si no hay datos (o la tienda es reservada). */
+  respondeEnMin: number | null;
   propia: boolean;
 }
 
@@ -29,6 +33,8 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
       tienda: null,
       precio: null,
       precioVisible: false,
+      tiendaVisible: true,
+      respondeEnMin: null,
       propia: false,
     }));
   }
@@ -43,6 +49,8 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
     tienda: { nombre: oferta.tienda.nombre, stand: oferta.tienda.stand },
     precio: oferta.precio,
     precioVisible: oferta.precio_visible,
+    tiendaVisible: oferta.tienda_visible,
+    respondeEnMin: oferta.responde_en_min,
     propia: oferta.propia,
   }));
 }

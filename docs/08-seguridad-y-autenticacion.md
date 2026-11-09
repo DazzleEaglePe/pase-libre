@@ -24,10 +24,10 @@ En la primera salida el dueño y el asesor pueden lo mismo dentro de su tienda. 
 | --- | --- | --- | --- | --- |
 | Producto, fotos, etiquetas, características | Sí | Sí | Sí | Sí |
 | Condición, stock, galería, fecha de actualización | Sí | Sí | Sí | Sí |
-| Nombre de la tienda y stand | **No** («Tienda de Maxiplaza») | Sí | Sí | Sí |
+| Nombre de la tienda y stand | **No** («Tienda de Maxiplaza») | Sí, salvo «Tienda reservada» | Sí | Sí |
 | Precio visible | **No** («Precio con sesión») | Sí | Sí | Sí |
 | Precio oculto | **No** | **No** («Al interno · consultar») | Sí | Sí |
-| WhatsApp | **No** | Solo al pulsar el botón (A-07) | Sí | Sí |
+| WhatsApp | **No** | Solo al pulsar el botón (A-07); nunca con «Tienda reservada» | Sí | Sí |
 | Mensajes | **No** | Solo los suyos | Solo los suyos (es el responsable) | **No** |
 | En vivo (D-53): producto, galería y cuánto falta | Sí | Sí | Sí | Sí |
 | En vivo (D-53): tienda, precio de pase, presupuesto y nota | **No** | Sí | Sí | Sí |
@@ -39,6 +39,7 @@ En la primera salida el dueño y el asesor pueden lo mismo dentro de su tienda. 
 - **No se deja deducir el precio.** Al visitante, las ofertas de la ficha le llegan por fecha, no por precio, y se le ignoran el filtro y el orden por precio: si no, podría adivinarlo probando rangos.
 - **WhatsApp a pedido (A-07).** El número no viaja en la página: el botón llama a `POST /v1/ofertas/:id/contacto` y la API devuelve el enlace `wa.me`. Protege los números del *scraping* (RNF-19) y registra el clic.
 - **Las cachés no mezclan audiencias.** Sin sesión, la API responde `public, max-age=60`; con sesión, `private, no-store`, siempre con `Vary: Cookie`. nginx no cachea respuestas con cookie.
+- **Tienda reservada.** Con `oferta.tienda_visible` apagado, la API cambia la tienda por «Tienda reservada» (sin id ni stand) en la ficha, la búsqueda, la portada, la bandeja, el chat y el texto de la campanita, para todos menos la tienda dueña y el equipo (`tiendaPara` en `visibilidad.ts`). El contacto por WhatsApp responde 409 y «responde en» no se calcula. Lo vigila [`tienda-reservada.e2e-spec.ts`](../apps/api/test/tienda-reservada.e2e-spec.ts), que falla si aparecen el nombre, el stand, el WhatsApp o el nombre de quien atiende.
 - **Clave temporal = visitante.** Quien entró con la clave que dio el equipo y todavía no creó la suya ve el catálogo como visitante: nadie ve precios con una clave que conoce otra persona.
 
 ## 3. Ingreso y sesión

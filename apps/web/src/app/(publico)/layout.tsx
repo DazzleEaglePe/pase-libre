@@ -7,6 +7,7 @@ import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
 import { EnVivoFlotante } from '@/features/en-vivo/flotante';
 import { consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
+import { BarraInferior } from '@/shared/ui/barra-inferior';
 import { Cabecera } from '@/shared/ui/cabecera';
 import { PiePagina } from '@/shared/ui/pie-pagina';
 
@@ -39,6 +40,7 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
         <PiePagina conSesion={Boolean(sesion?.tienda)} />
         {/* En vivo (D-53): aparece al entrar y sigue al usuario al bajar. */}
         <EnVivoFlotante conSesion={Boolean(sesion?.tienda)} />
+        <BarraInferior conTienda={Boolean(sesion?.tienda)} />
       </div>
     </ProveedorEnVivo>
   );

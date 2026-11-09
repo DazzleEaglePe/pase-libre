@@ -186,7 +186,7 @@ describe('Mensajes, campanita, bloqueo y «Vendido» (RF-39, RF-40, RF-47, RF-55
       });
 
       const lista = await como('tiendaa').get('/v1/conversaciones').expect(200);
-      expect(lista.body.conteos).toEqual({ todas: 1, no_leidas: 1, archivadas: 0 });
+      expect(lista.body.conteos).toEqual({ todas: 1, no_leidas: 1, pases: 0, archivadas: 0 });
       expect(lista.body.conversaciones[0]).toMatchObject({
         rol: 'vendedor',
         no_leidos: 1,

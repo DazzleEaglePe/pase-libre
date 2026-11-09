@@ -1,6 +1,6 @@
 'use client';
 
-import type { Condicion, TiendaDeSesion } from '@paselibre/contracts';
+import { TIENDA_RESERVADA, type Condicion, type TiendaDeSesion } from '@paselibre/contracts';
 import { useState } from 'react';
 
 import { Miniatura } from '@/shared/ui/miniatura';
@@ -20,6 +20,7 @@ export function VistaPrevia({
   stock,
   precio,
   visible,
+  tiendaVisible = true,
   tienda,
 }: {
   titulo: string;
@@ -30,6 +31,8 @@ export function VistaPrevia({
   /** Ya formateado, o nulo si no hay monto. */
   precio: string | null;
   visible: boolean;
+  /** «Mostrar el nombre de mi tienda»: apagado, las tiendas ven «Tienda reservada». */
+  tiendaVisible?: boolean;
   tienda: TiendaDeSesion;
 }) {
   const [como, setComo] = useState<'vendedor' | 'visitante'>('vendedor');
@@ -90,12 +93,24 @@ export function VistaPrevia({
           </span>
         )}
         <span className="text-nota text-detalle">
-          {conSesion ? `${tienda.nombre} · ${galeria}` : galeria} · Actualizado ahora
+          {conSesion ? (
+            <>
+              <span className={tiendaVisible ? '' : 'italic'}>
+                {tiendaVisible ? tienda.nombre : TIENDA_RESERVADA}
+              </span>{' '}
+              · {galeria}
+            </>
+          ) : (
+            galeria
+          )}{' '}
+          · Actualizado ahora
         </span>
       </div>
       <span className="text-nota text-detalle">
         {conSesion
-          ? 'Los vendedores ven tu tienda, tu stand y el precio si lo haces visible.'
+          ? tiendaVisible
+            ? 'Los vendedores ven tu tienda, tu stand y el precio si lo haces visible.'
+            : 'Los vendedores ven «Tienda reservada» y tu galería, y te escriben solo por el chat.'
           : 'Los visitantes no ven precio, tienda ni stand.'}
       </span>
     </aside>

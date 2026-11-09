@@ -167,6 +167,10 @@ En [`apps/web/src/shared/ui`](../apps/web/src/shared/ui):
 | `miniatura` | La foto pequeña de un producto |
 | `interruptor` y `segmentado` | Controles de sí o no y de opciones |
 | `ventana` | Las ventanas de confirmación («Vendido», bloquear, eliminar) |
+| `hoja` | La hoja de «Filtros»: centrada en la computadora, desde abajo en el celular, con pie fijo |
+| `barra-inferior` | La barra de abajo del celular (RNF-55) y `reservar-abajo` (avisa su alto en `--abajo`) |
+| `boton-compartir` | «Compartir» de la ficha: menú del sistema o copiar el enlace |
+| `features/catalogo/tarjeta-resultado` y `barra-filtros` | La tarjeta de resultados con la oferta destacada y la fila de filtros con su hoja |
 | `pie-pagina` | El pie en azul pase (PIE_D), en el catálogo y en las páginas del vendedor: franja de beneficios en blanco arriba, la marca con `sobrePase` (símbolo blanco), la invitación (`invitacion-pie`, cliente), Contáctanos con íconos de Tabler, columnas que en el celular son acordeones (`<details>`), redes en círculos blancos y sellos. Lee sus datos de `shared/contacto.ts` |
 | `pie-compacto` | El pie de una línea (C_FooterCompacto), solo en Mensajes |
 | `marco-pagina` | La barra y el pie de siempre para las pantallas fuera de los layouts del catálogo y del vendedor: ingreso, panel del equipo y el 404 general |

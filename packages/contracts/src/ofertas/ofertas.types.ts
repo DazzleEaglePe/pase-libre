@@ -54,6 +54,8 @@ export interface OfertaPropia {
   precio: Precio | null;
   moneda: Precio['moneda'];
   precio_visible: boolean;
+  /** «Mostrar el nombre de mi tienda»: apagado, las demás tiendas ven «Tienda reservada». */
+  tienda_visible: boolean;
   descripcion: string | null;
   fotos: Foto[];
   estado: EstadoOfertaPropia;

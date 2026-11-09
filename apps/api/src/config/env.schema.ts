@@ -37,6 +37,11 @@ export const envSchema = z
      * muestra nada. Se enciende en local para construirlo y en producción cuando se decida.
      */
     EN_VIVO: z.stringbool().default(false),
+    /**
+     * Soles por dólar. Solo sirve para comparar: «Más barato» y «Más barato primero» ponen en
+     * la misma vara un precio en S/ y uno en US$. Nunca se convierte lo que se muestra.
+     */
+    TIPO_CAMBIO: z.coerce.number().positive().max(100).default(3.75),
   })
   .transform((entorno) => ({
     ...entorno,

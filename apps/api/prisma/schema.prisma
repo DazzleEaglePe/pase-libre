@@ -377,6 +377,9 @@ model Oferta {
   precioCentimos BigInt?      @map("precio_centimos")
   moneda         Moneda       @default(USD)
   precioVisible  Boolean      @default(false) @map("precio_visible")
+  /// «Mostrar el nombre de mi tienda». Apagado, las demás tiendas ven «Tienda reservada»: sin
+  /// nombre, stand ni WhatsApp, y se escribe solo por chat. La dueña y el equipo la ven igual.
+  tiendaVisible  Boolean      @default(true) @map("tienda_visible")
   descripcion    String?      @db.VarChar(500)
   estado         EstadoOferta @default(ACTIVA)
   /// `true` mientras no esté eliminada y nulo al eliminarla. Con él, el índice único

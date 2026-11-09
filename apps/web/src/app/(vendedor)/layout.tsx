@@ -7,6 +7,7 @@ import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
 import { consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { Cabecera } from '@/shared/ui/cabecera';
+import { BarraInferior } from '@/shared/ui/barra-inferior';
 import { Pie } from '@/shared/ui/pie';
 
 /**
@@ -38,6 +39,7 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
             {children}
           </main>
           <Pie conSesion />
+          <BarraInferior conTienda />
         </div>
       </ProveedorEnVivo>
     </ProveedorTiempoReal>

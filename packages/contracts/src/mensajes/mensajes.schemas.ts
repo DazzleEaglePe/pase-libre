@@ -12,7 +12,7 @@ export const contactarSchema = z.strictObject({
 
 /** `GET /v1/conversaciones` (RF-55): Todas, No leídos y Archivados, con buscador. */
 export const filtroConversacionesSchema = z.object({
-  filtro: z.enum(['todas', 'no_leidas', 'archivadas']).default('todas'),
+  filtro: z.enum(['todas', 'no_leidas', 'pases', 'archivadas']).default('todas'),
   q: z.string().trim().max(80).default(''),
 });
 

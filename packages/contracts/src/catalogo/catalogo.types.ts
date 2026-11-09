@@ -8,6 +8,12 @@ import type { TipoTienda } from '../sesion/sesion.types.js';
  * - `equipo`: como el vendedor, y además los precios ocultos de todos.
  */
 export type Audiencia = 'visitante' | 'vendedor' | 'equipo';
+
+/**
+ * Lo que ven las demás tiendas cuando una oferta no muestra el nombre de su tienda
+ * (`tienda_visible` apagado): ni nombre, ni stand, ni WhatsApp. La galería sí se ve.
+ */
+export const TIENDA_RESERVADA = 'Tienda reservada';
 export type Condicion = 'NUEVO' | 'USADO';
 
 export interface CategoriaResumen {
@@ -56,8 +62,32 @@ export interface ProductoEnLista {
   ofertas: ResumenOfertas;
 }
 
+/**
+ * Solo con sesión: la oferta que la tarjeta pone al frente, para comparar y escribir sin abrir
+ * la ficha. Es la más barata con stock; si ninguna tiene precio visible, la más reciente.
+ */
+export interface OfertaDestacada {
+  id: string;
+  condicion: Condicion;
+  stock: number;
+  /** Nombre de la galería, o «Independientes». */
+  galeria: string;
+  /** Nulo si está al interno: aquí no se cuenta ni el precio oculto de la tienda dueña. */
+  precio: Precio | null;
+  /** Con la tienda reservada: «Tienda reservada» y sin stand (salvo para la dueña y el equipo). */
+  tienda: { nombre: string; stand: string | null };
+  tienda_visible: boolean;
+  propia: boolean;
+  /**
+   * La más barata de todos los resultados con stock (de cualquier página). Compara en
+   * dólares con el tipo de cambio de la API; el precio que se muestra no se convierte.
+   */
+  mas_barata: boolean;
+}
+
 export interface ProductoEnListaConPrecio extends Omit<ProductoEnLista, 'ofertas'> {
   ofertas: ResumenOfertas & ResumenPrecios;
+  oferta_destacada: OfertaDestacada;
 }
 
 interface BaseBusqueda {
@@ -105,7 +135,14 @@ export interface OfertaPublica {
 }
 
 export interface OfertaConVendedor extends OfertaPublica {
+  /** Con la tienda reservada: `id` vacío, «Tienda reservada» y sin stand (salvo para la dueña y el equipo). */
   tienda: { id: string; nombre: string; stand: string | null };
+  tienda_visible: boolean;
+  /**
+   * Cuánto tarda la tienda, en minutos, en contestar el primer mensaje de un hilo (la mediana
+   * de los últimos 60 días). Nulo con menos de 3 hilos contestados, o con la tienda reservada.
+   */
+  responde_en_min: number | null;
   /** Nulo si el precio está al interno (o no tiene monto). La tienda dueña y el equipo sí lo ven. */
   precio: Precio | null;
   precio_visible: boolean;
@@ -182,6 +219,7 @@ export interface TarjetaOferta {
 
 export interface TarjetaOfertaConVendedor extends TarjetaOferta {
   tienda: { nombre: string; stand: string | null };
+  tienda_visible: boolean;
   /** Nulo si está al interno, salvo para la tienda dueña y el equipo. */
   precio: Precio | null;
   precio_visible: boolean;

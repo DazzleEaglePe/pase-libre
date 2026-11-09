@@ -115,11 +115,23 @@ function Fila({
                 oferta.precio_visible ? 'bg-ok-fondo text-ok' : 'bg-superficie text-secundario'
               }`}
             >
-              {oferta.precio_visible ? 'Visible' : 'Oculto · al interno'}
+              {oferta.precio_visible ? 'Precio visible' : 'Precio al interno'}
             </button>
           ) : (
             <span className="text-[12px] font-medium text-secundario">Al interno</span>
           )}
+          <button
+            type="button"
+            aria-pressed={oferta.tienda_visible}
+            aria-label={`Mostrar el nombre de mi tienda en ${titulo}`}
+            title="Cambiar si las tiendas ven tu nombre o «Tienda reservada»"
+            onClick={() => alCambiar({ tienda_visible: !oferta.tienda_visible })}
+            className={`flex h-6 items-center rounded-full px-2 text-[12px] font-medium ${
+              oferta.tienda_visible ? 'bg-ok-fondo text-ok' : 'bg-superficie text-secundario'
+            }`}
+          >
+            {oferta.tienda_visible ? 'Tienda visible' : 'Tienda reservada'}
+          </button>
         </span>
 
         <span className="flex flex-col items-start gap-0.5 lg:col-start-5 lg:row-start-1">
@@ -273,6 +285,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
               ...o,
               stock: cambios.stock ?? o.stock,
               precio_visible: cambios.precio_visible ?? o.precio_visible,
+              tienda_visible: cambios.tienda_visible ?? o.tienda_visible,
               estado: cambios.estado ?? o.estado,
             }
           : o,

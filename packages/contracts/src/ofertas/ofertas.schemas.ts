@@ -89,6 +89,7 @@ export const publicarSchema = z
     moneda: monedaSchema.optional(),
     precio: montoSchema.default(null),
     precio_visible: z.boolean().optional(),
+    tienda_visible: z.boolean().optional(),
     descripcion: descripcionSchema.default(null),
     fotos: fotosSchema.default([]),
   })
@@ -125,6 +126,7 @@ export const editarOfertaSchema = z
     moneda: monedaSchema.optional(),
     precio: montoSchema.optional(),
     precio_visible: z.boolean().optional(),
+    tienda_visible: z.boolean().optional(),
     descripcion: descripcionSchema.optional(),
     fotos: fotosSchema.optional(),
     estado: z.enum(['ACTIVA', 'PAUSADA']).optional(),

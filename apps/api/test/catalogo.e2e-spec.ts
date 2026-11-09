@@ -20,6 +20,10 @@ interface Producto {
     precios_desde?: Array<{ moneda: string; centimos: number }>;
     al_interno?: number;
   };
+  oferta_destacada: {
+    precio: { moneda: string; centimos: number; monto: string } | null;
+    mas_barata: boolean;
+  };
 }
 interface Oferta {
   tienda: { nombre: string };
@@ -175,6 +179,89 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
         [VENTUS, 3],
         ['zotac-gaming-geforce-rtx-3070-twin-edge-8-gb', 1],
       ]);
+    });
+
+    it('con sesión cada producto trae su oferta más barata para escribirle', async () => {
+      const respuesta = await http()
+        .get('/v1/buscar?q=rtx%203070&orden=precio_asc')
+        .set('Cookie', await como('tiendab'))
+        .expect(200);
+      const destacadas = new Map(
+        (respuesta.body.productos as Producto[]).map((p) => [p.slug, p.oferta_destacada]),
+      );
+      // Ventus: la de 240 es de la propia Tienda B, así que se destaca la de afuera más barata
+      // (Tienda A, 250), que igual es la más barata de todos los resultados.
+      expect(destacadas.get(VENTUS)).toMatchObject({
+        condicion: 'USADO',
+        stock: 2,
+        galeria: expect.any(String),
+        precio: { moneda: 'USD', centimos: 25000 },
+        tienda: { nombre: 'Tienda A' },
+        propia: false,
+        mas_barata: true,
+      });
+      // Para otra tienda, la de Tienda B es la más barata y no es suya.
+      const deOtra = await http()
+        .get('/v1/buscar?q=rtx%203070')
+        .set('Cookie', await como('tiendaa'))
+        .expect(200);
+      const ventus = (deOtra.body.productos as Producto[]).find((p) => p.slug === VENTUS);
+      expect(ventus?.oferta_destacada).toMatchObject({
+        tienda: { nombre: 'Tienda B' },
+        precio: { centimos: 24000 },
+        propia: false,
+      });
+      // Si la única oferta es la propia, se destaca igual y va marcada.
+      const propia = await http()
+        .get('/v1/buscar?q=antryx')
+        .set('Cookie', await como('tiendab'))
+        .expect(200);
+      expect(propia.body.productos[0]?.oferta_destacada).toMatchObject({
+        tienda: { nombre: 'Tienda B' },
+        propia: true,
+      });
+      // Solo una por todos los resultados lleva «Más barato».
+      const baratas = (respuesta.body.productos as Producto[]).filter(
+        (p) => p.oferta_destacada?.mas_barata,
+      );
+      expect(baratas.map((p) => p.slug)).toEqual([VENTUS]);
+      // Sin stock ni precio visible: la oferta sale, sin precio y sin marcar.
+      const zotac = destacadas.get('zotac-gaming-geforce-rtx-3070-twin-edge-8-gb');
+      expect(zotac).toMatchObject({ stock: 0, precio: null, mas_barata: false });
+    });
+
+    it('«Más barato primero» compara soles con dólares', async () => {
+      const respuesta = await http()
+        .get('/v1/buscar?orden=precio_asc')
+        .set('Cookie', await como('tiendab'))
+        .expect(200);
+      const productos = respuesta.body.productos as Producto[];
+      const posicion = (slug: string) => productos.findIndex((p) => p.slug === slug);
+      // Kingston US$ 98; el mouse de S/ 420 son ~US$ 112; el monitor de S/ 799, ~US$ 213;
+      // la Ventus de US$ 240. Solo en una misma vara el monitor queda antes que la Ventus.
+      const kingston = posicion('kingston-fury-beast-ddr-5-32-gb-2-16-6000-mhz');
+      const mouse = posicion('logitech-g-502-x-plus-inalambrico');
+      const monitor = posicion('lg-ultragear-27-gs-60-f-27-180-hz');
+      expect(kingston).toBeGreaterThanOrEqual(0);
+      expect(kingston).toBeLessThan(mouse);
+      expect(mouse).toBeLessThan(monitor);
+      expect(monitor).toBeLessThan(posicion(VENTUS));
+      expect(productos[kingston]?.oferta_destacada.mas_barata).toBe(true);
+      // Lo que se muestra no se convierte: el mouse sigue en soles.
+      expect(productos[mouse]?.oferta_destacada.precio).toEqual({
+        moneda: 'PEN',
+        centimos: 42000,
+        monto: '420.00',
+      });
+    });
+
+    it('el visitante no recibe oferta destacada, ni tienda, ni stand', async () => {
+      const respuesta = await http().get('/v1/buscar?q=rtx%203070').expect(200);
+      expect(respuesta.body.audiencia).toBe('visitante');
+      for (const producto of respuesta.body.productos as Array<Record<string, unknown>>) {
+        expect(producto).not.toHaveProperty('oferta_destacada');
+      }
+      expect(JSON.stringify(respuesta.body)).not.toMatch(/Tienda [A-Z]|tienda|stand/i);
     });
 
     it('quien aún tiene la clave temporal busca como visitante', async () => {
