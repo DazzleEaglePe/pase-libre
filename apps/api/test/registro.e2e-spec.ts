@@ -30,7 +30,7 @@ const HORARIO = {
   desde: '10:00',
   hasta: '20:00',
 };
-const CLAVE = 'mi-clave-de-tienda';
+const CLAVE = 'mi-clave-de-tienda-26';
 
 describe('Registro propio de tiendas (RF-01, RF-04)', () => {
   let apagada: INestApplication;

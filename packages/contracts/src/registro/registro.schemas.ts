@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { whatsappSchema } from '../equipo/equipo.schemas.js';
+import { claveNuevaSchema } from '../sesion/sesion.schemas.js';
 
 /**
  * Registro propio de tiendas (RF-01, RF-04; sección 3 del lienzo «Versión final», D-54):
@@ -130,10 +131,8 @@ export function horarioATexto(horario: Horario): string {
   return `${tramos.join(', ')}, de ${horaLegible(horario.desde)} a ${horaLegible(horario.hasta)}`;
 }
 
-const claveRegistro = z
-  .string()
-  .min(8, 'La contraseña lleva al menos 8 caracteres.')
-  .max(128, 'La contraseña es demasiado larga.');
+/** Las mismas reglas que «Crea tu contraseña»: 8 caracteres y un número. */
+const claveRegistro = claveNuevaSchema;
 
 const comunes = {
   nombre_comercial: z

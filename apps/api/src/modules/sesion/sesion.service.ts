@@ -10,6 +10,7 @@ import type {
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { olvidarSesion, recordarSesionValida } from '../../shared/sesiones-validas';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 import {
   cifrarClave,
@@ -67,7 +68,7 @@ const credencialesInvalidas = () =>
   new ApiHttpException(
     HttpStatus.UNAUTHORIZED,
     'CREDENCIALES_INVALIDAS',
-    'El usuario o la contraseña no coinciden.',
+    'El usuario o la contraseña no coinciden. Después de 5 intentos hay que esperar 15 minutos.',
   );
 
 @Injectable()
@@ -96,15 +97,14 @@ export class SesionService {
     }
 
     const ahora = new Date();
+    const claveCorrecta = await verificarClave(usuario.claveHash, entrada.clave);
+    // Con la cuenta en espera se responde igual que con la clave mal (y tardando lo mismo): un
+    // aviso distinto diría qué usuarios (o qué celulares) existen.
     if (usuario.bloqueadoHasta && usuario.bloqueadoHasta > ahora) {
-      throw new ApiHttpException(
-        HttpStatus.TOO_MANY_REQUESTS,
-        'CUENTA_BLOQUEADA_TEMPORALMENTE',
-        'Hubo demasiados intentos con esta cuenta. Espera 15 minutos o pídele ayuda al equipo de PaseLibre.',
-      );
+      throw credencialesInvalidas();
     }
 
-    if (!(await verificarClave(usuario.claveHash, entrada.clave))) {
+    if (!claveCorrecta) {
       await this.registrarIntentoFallido(usuario, ahora);
       throw credencialesInvalidas();
     }
@@ -143,6 +143,8 @@ export class SesionService {
         },
       }),
     ]);
+    // Desde el primer pedido, el límite «por persona» la cuenta por su cookie.
+    recordarSesionValida(hashToken(token));
 
     return { token, expiraEn, usuario: actualizado };
   }
@@ -154,7 +156,10 @@ export class SesionService {
       include: { usuario: { include: INCLUIR_TIENDA } },
     });
     const ahora = new Date();
-    if (!sesion || sesion.revocadaEn || sesion.expiraEn <= ahora) return null;
+    if (!sesion || sesion.revocadaEn || sesion.expiraEn <= ahora) {
+      olvidarSesion(hashToken(token));
+      return null;
+    }
 
     const { usuario } = sesion;
     if (usuario.estado === 'SUSPENDIDO' || usuario.tienda?.estado === 'SUSPENDIDA') {
@@ -162,6 +167,7 @@ export class SesionService {
       return null;
     }
 
+    recordarSesionValida(sesion.tokenHash);
     let nuevaExpiracion: Date | undefined;
     if (ahora.getTime() - sesion.usadaEn.getTime() > REFRESCO_USO_MS) {
       nuevaExpiracion = sesion.recordar
@@ -241,21 +247,24 @@ export class SesionService {
     return actualizado;
   }
 
+  /**
+   * Un intento fallido, contado en una sola sentencia: con 60 intentos a la vez, cada uno leería
+   * «0 fallidos» y escribiría 1 si se contara en la aplicación. Postgres evalúa cada SET con la
+   * fila de antes, por eso la cuenta nueva se repite en `bloqueado_hasta`. Un intento nunca quita
+   * una espera ya puesta.
+   */
   private async registrarIntentoFallido(usuario: UsuarioConTienda, ahora: Date): Promise<void> {
-    const ventanaVencida =
-      !usuario.intentosDesde ||
-      ahora.getTime() - usuario.intentosDesde.getTime() > VENTANA_INTENTOS_MS;
-    const intentos = ventanaVencida ? 1 : usuario.intentosFallidos + 1;
-    await this.prisma.usuario.update({
-      where: { id: usuario.id },
-      data: {
-        intentosFallidos: intentos,
-        intentosDesde: ventanaVencida ? ahora : usuario.intentosDesde,
-        bloqueadoHasta:
-          intentos >= MAX_INTENTOS_FALLIDOS
-            ? new Date(ahora.getTime() + VENTANA_INTENTOS_MS)
-            : null,
-      },
-    });
+    const desde = new Date(ahora.getTime() - VENTANA_INTENTOS_MS);
+    const hasta = new Date(ahora.getTime() + VENTANA_INTENTOS_MS);
+    await this.prisma.$executeRaw`
+      UPDATE usuario SET
+        intentos_fallidos = CASE WHEN intentos_desde IS NULL OR intentos_desde < ${desde}
+                                 THEN 1 ELSE intentos_fallidos + 1 END,
+        intentos_desde = CASE WHEN intentos_desde IS NULL OR intentos_desde < ${desde}
+                              THEN ${ahora} ELSE intentos_desde END,
+        bloqueado_hasta = CASE WHEN (CASE WHEN intentos_desde IS NULL OR intentos_desde < ${desde}
+                                          THEN 1 ELSE intentos_fallidos + 1 END) >= ${MAX_INTENTOS_FALLIDOS}
+                               THEN ${hasta} ELSE bloqueado_hasta END
+      WHERE id = ${usuario.id}::uuid`;
   }
 }

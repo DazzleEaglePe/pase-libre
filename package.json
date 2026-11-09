@@ -29,7 +29,8 @@
     "datos:raspar": "node tools/datos-demo/raspar.mjs",
     "datos:cargar": "node tools/datos-demo/cargar.mjs --pases",
     "datos:limpiar": "node tools/datos-demo/cargar.mjs --limpiar",
-    "qa": "node tools/datos-demo/verificar.mjs"
+    "qa": "node tools/datos-demo/verificar.mjs",
+    "carga": "node tools/carga/carga.mjs"
   },
   "devDependencies": {
     "prettier": "3.9.6",

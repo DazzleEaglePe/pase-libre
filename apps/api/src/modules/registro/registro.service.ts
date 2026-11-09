@@ -99,7 +99,29 @@ export class RegistroService {
 
   async pedirCodigo(celular: string): Promise<RespuestaCodigo> {
     this.exigirActivo();
-    const ultimos = await this.prisma.codigoCelular.findMany({
+    const codigo = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    // Un candado por celular: dos pedidos a la vez no pasan juntos el «3 por hora».
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'codigo:' + celular}))`;
+      await this.revisarYCrearCodigo(tx, celular, codigo);
+    });
+    await this.sms.enviar(
+      celular,
+      `Tu código de PaseLibre es ${codigo}. Vale ${MINUTOS_DEL_CODIGO} minutos. No lo compartas.`,
+    );
+    return {
+      enviado: true,
+      reenviar_en_s: SEGUNDOS_PARA_REENVIAR,
+      codigo_prueba: this.sms.simulado ? codigo : null,
+    };
+  }
+
+  private async revisarYCrearCodigo(
+    tx: Prisma.TransactionClient,
+    celular: string,
+    codigo: string,
+  ): Promise<void> {
+    const ultimos = await tx.codigoCelular.findMany({
       where: { celular, creadoEn: { gt: new Date(Date.now() - 60 * 60_000) } },
       orderBy: { creadoEn: 'desc' },
       select: { creadoEn: true },
@@ -120,23 +142,13 @@ export class RegistroService {
       );
     }
 
-    const codigo = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.prisma.codigoCelular.create({
+    await tx.codigoCelular.create({
       data: {
         celular,
         codigoHash: sha256(`${celular}:${codigo}`),
         expiraEn: enMinutos(MINUTOS_DEL_CODIGO),
       },
     });
-    await this.sms.enviar(
-      celular,
-      `Tu código de PaseLibre es ${codigo}. Vale ${MINUTOS_DEL_CODIGO} minutos. No lo compartas.`,
-    );
-    return {
-      enviado: true,
-      reenviar_en_s: SEGUNDOS_PARA_REENVIAR,
-      codigo_prueba: this.sms.simulado ? codigo : null,
-    };
   }
 
   async verificarCodigo(celular: string, codigo: string): Promise<RespuestaVerificacion> {
@@ -146,7 +158,13 @@ export class RegistroService {
       orderBy: { creadoEn: 'desc' },
     });
     if (!fila) throw invalido('Ese código venció. Pide uno nuevo.');
-    if (fila.intentos >= INTENTOS_DEL_CODIGO) {
+    // Se cuenta el intento antes de comparar y en una sola sentencia: con 50 intentos a la vez
+    // todos leerían «0 intentos» si se contara después.
+    const contado = await this.prisma.codigoCelular.updateMany({
+      where: { id: fila.id, intentos: { lt: INTENTOS_DEL_CODIGO } },
+      data: { intentos: { increment: 1 } },
+    });
+    if (contado.count === 0) {
       throw new ApiHttpException(
         HttpStatus.TOO_MANY_REQUESTS,
         'DEMASIADAS_SOLICITUDES',
@@ -155,7 +173,6 @@ export class RegistroService {
     }
     if (!igualesEnTiempoConstante(fila.codigoHash, sha256(`${celular}:${codigo}`))) {
       const intentos = fila.intentos + 1;
-      await this.prisma.codigoCelular.update({ where: { id: fila.id }, data: { intentos } });
       const quedan = INTENTOS_DEL_CODIGO - intentos;
       throw invalido(
         quedan > 0

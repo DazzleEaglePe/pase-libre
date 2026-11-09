@@ -39,8 +39,11 @@ import { REQUEST_ID_HEADER } from '../../shared/middleware/request-id.middleware
               req: (req: { id: string; method: string; url?: string }) => ({
                 id: req.id,
                 method: req.method,
-                // Sin la consulta: las búsquedas no van al registro.
-                url: req.url?.split('?', 1)[0],
+                // Sin la consulta (las búsquedas no van al registro) ni el código con el que
+                // quien se registró ve su solicitud: quien lo tenga podría leerla.
+                url: req.url
+                  ?.split('?', 1)[0]
+                  ?.replace(/(\/registro\/solicitudes\/)[^/]+/, '$1[oculto]'),
               }),
               res: (res: { statusCode: number }) => ({ statusCode: res.statusCode }),
             },

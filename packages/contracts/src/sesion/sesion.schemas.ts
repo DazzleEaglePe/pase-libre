@@ -4,7 +4,7 @@ import { z } from 'zod';
 const identificadorSchema = z
   .string()
   .trim()
-  .min(1, 'Escribe tu correo o usuario.')
+  .min(1, 'Escribe tu celular, correo o usuario.')
   .max(254)
   .transform((valor) => valor.toLowerCase());
 

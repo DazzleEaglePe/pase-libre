@@ -18,7 +18,9 @@ x-registro: &registro
 
 # La contraseña forma parte de la dirección de la base: tiene que ser segura para una URL
 # (por ejemplo `openssl rand -hex 24`).
-x-base: &direccion-base postgresql://${POSTGRES_USER:?Define POSTGRES_USER}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-paselibre}
+# `connection_limit=15`: sin él Prisma abre CPUs×2+1 conexiones (5 en un VPS de 2 núcleos), y una
+# búsqueda con errores de tipeo ya usa varias a la vez. `pool_timeout=20`: espera antes de fallar.
+x-base: &direccion-base postgresql://${POSTGRES_USER:?Define POSTGRES_USER}:${POSTGRES_PASSWORD:?Define POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-paselibre}?connection_limit=15&pool_timeout=20
 
 services:
   postgres:

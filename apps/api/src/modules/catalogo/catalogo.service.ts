@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { conSesion, precioPara, tiendaPara } from './visibilidad';
 
@@ -137,7 +138,24 @@ function compararPorPrecio(a: OfertaConVendedorFila, b: OfertaConVendedorFila): 
 export class CatalogoService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
-  async categorias(): Promise<CategoriaResumen[]> {
+  /**
+   * Categorías, galerías y totales cambian poco y los pide cada página (la barra, la portada):
+   * un minuto en memoria. «Responde en ~N min» se guarda 15 minutos por tienda.
+   */
+  private readonly categoriasEnMemoria = recordarPor(60_000, () => this.cargarCategorias());
+  private readonly galeriasEnMemoria = recordarPor(60_000, () => this.cargarGalerias());
+  private readonly totalesEnMemoria = recordarPor(60_000, () => this.cargarTotales());
+  private readonly respondeEnMemoria = new MemoriaPorClave<number | null>(15 * 60_000);
+
+  categorias(): Promise<CategoriaResumen[]> {
+    return this.categoriasEnMemoria();
+  }
+
+  galerias(): Promise<GaleriaResumen[]> {
+    return this.galeriasEnMemoria();
+  }
+
+  private async cargarCategorias(): Promise<CategoriaResumen[]> {
     return this.prisma.$queryRaw<CategoriaResumen[]>`
       SELECT c.slug::text AS slug, c.nombre, count(DISTINCT p.id)::int AS productos
       FROM categoria c
@@ -173,7 +191,7 @@ export class CatalogoService {
     };
   }
 
-  async galerias(): Promise<GaleriaResumen[]> {
+  private async cargarGalerias(): Promise<GaleriaResumen[]> {
     const filas = await this.prisma.$queryRaw<
       Array<{ slug: string | null; nombre: string | null; ofertas: number }>
     >`
@@ -203,7 +221,10 @@ export class CatalogoService {
       : consulta.galeria === INDEPENDIENTES.slug
         ? { tienda: { estado: 'ACTIVA', galeriaId: null } }
         : { tienda: { estado: 'ACTIVA', galeria: { slug: consulta.galeria } } };
-    const where: Prisma.OfertaWhereInput = { AND: [OFERTA_VIGENTE, filtroGaleria] };
+    // «Recién publicado» muestra lo que se puede pasar hoy: sin las que quedaron en 0.
+    const where: Prisma.OfertaWhereInput = {
+      AND: [OFERTA_VIGENTE, filtroGaleria, { stock: { gt: 0 } }],
+    };
     const orderBy = [
       { actualizadaEn: 'desc' },
       { creadaEn: 'desc' },
@@ -212,7 +233,7 @@ export class CatalogoService {
     const [categorias, galerias, totales] = await Promise.all([
       this.categorias(),
       this.galerias(),
-      this.totales(),
+      this.totalesEnMemoria(),
     ]);
     const base = { categorias, galerias, totales };
 
@@ -347,8 +368,15 @@ export class CatalogoService {
    * persona de la tienda (el hilo se puede traspasar), no los mensajes del sistema. Con menos
    * de 3 hilos contestados no se muestra: sería más ruido que dato.
    */
-  async respondeEn(tiendaIds: string[]): Promise<Map<string, number>> {
-    if (tiendaIds.length === 0) return new Map();
+  async respondeEn(todas: string[]): Promise<Map<string, number>> {
+    const resultado = new Map<string, number>();
+    const tiendaIds = todas.filter((id) => {
+      if (!this.respondeEnMemoria.tiene(id)) return true;
+      const minutos = this.respondeEnMemoria.leer(id);
+      if (minutos != null) resultado.set(id, minutos);
+      return false;
+    });
+    if (tiendaIds.length === 0) return resultado;
     const filas = await this.prisma.$queryRaw<Array<{ tienda_id: string; minutos: number }>>`
       WITH preguntas AS (
         SELECT c.id, c.tienda_vendedora_id, c.comprador_id, min(m.creado_en) AS pregunta
@@ -373,10 +401,16 @@ export class CatalogoService {
       WHERE minutos IS NOT NULL
       GROUP BY tienda_vendedora_id
       HAVING count(*) >= 3`;
-    return new Map(filas.map((f) => [f.tienda_id, Math.max(1, Math.round(f.minutos))]));
+    const calculadas = new Map(filas.map((f) => [f.tienda_id, Math.max(1, Math.round(f.minutos))]));
+    for (const id of tiendaIds) {
+      const minutos = calculadas.get(id) ?? null;
+      this.respondeEnMemoria.guardar(id, minutos);
+      if (minutos !== null) resultado.set(id, minutos);
+    }
+    return resultado;
   }
 
-  private async totales(): Promise<RespuestaPortada['totales']> {
+  private async cargarTotales(): Promise<RespuestaPortada['totales']> {
     const [fila] = await this.prisma.$queryRaw<Array<RespuestaPortada['totales']>>`
       SELECT count(DISTINCT o.producto_id)::int AS productos,
              count(DISTINCT o.tienda_id)::int AS tiendas,

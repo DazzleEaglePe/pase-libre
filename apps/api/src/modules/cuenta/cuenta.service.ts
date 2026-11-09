@@ -8,6 +8,7 @@ import type {
   SesionAbierta,
   TiendaBloqueada,
 } from '@paselibre/contracts';
+import { TIENDA_RESERVADA } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
@@ -284,6 +285,8 @@ export class CuentaService {
       where: { usuarioId },
       orderBy: { creadoEn: 'desc' },
       select: {
+        id: true,
+        reservada: true,
         creadoEn: true,
         tiendaBloqueada: {
           select: { id: true, nombre: true, galeria: { select: { nombre: true } } },
@@ -291,16 +294,23 @@ export class CuentaService {
       },
     });
     return bloqueos.map((b) => ({
-      tienda: {
-        id: b.tiendaBloqueada.id,
-        nombre: b.tiendaBloqueada.nombre,
-        galeria: b.tiendaBloqueada.galeria?.nombre ?? null,
-      },
+      // Bloqueada desde una oferta con la tienda reservada: ni su nombre ni su id, solo la
+      // galería (que el chat ya mostraba) y el id del bloqueo para poder deshacerlo.
+      tienda: b.reservada
+        ? { id: b.id, nombre: TIENDA_RESERVADA, galeria: b.tiendaBloqueada.galeria?.nombre ?? null }
+        : {
+            id: b.tiendaBloqueada.id,
+            nombre: b.tiendaBloqueada.nombre,
+            galeria: b.tiendaBloqueada.galeria?.nombre ?? null,
+          },
       desde: b.creadoEn.toISOString(),
     }));
   }
 
-  async desbloquear(usuarioId: string, tiendaId: string): Promise<void> {
-    await this.prisma.bloqueo.deleteMany({ where: { usuarioId, tiendaBloqueadaId: tiendaId } });
+  /** Recibe el id de la tienda o, si se bloqueó con la tienda reservada, el del bloqueo. */
+  async desbloquear(usuarioId: string, id: string): Promise<void> {
+    await this.prisma.bloqueo.deleteMany({
+      where: { usuarioId, OR: [{ tiendaBloqueadaId: id }, { id }] },
+    });
   }
 }

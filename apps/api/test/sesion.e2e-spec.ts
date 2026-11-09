@@ -95,8 +95,25 @@ describe('Sesión (RF-02, RF-50, RF-60)', () => {
     for (let intento = 0; intento < 5; intento += 1) {
       await ingresar('tiendaa', 'mala-clave-1').expect(401);
     }
-    const respuesta = await ingresar('tiendaa').expect(429);
-    expect(respuesta.body.error.codigo).toBe('CUENTA_BLOQUEADA_TEMPORALMENTE');
+    // Con la clave correcta tampoco entra, y la respuesta es la misma que con una clave mala:
+    // un aviso distinto diría qué usuarios existen.
+    const respuesta = await ingresar('tiendaa').expect(401);
+    const inventado = await ingresar('no-existe-nadie', 'mala-clave-1').expect(401);
+    expect(respuesta.body.error).toMatchObject({
+      codigo: 'CREDENCIALES_INVALIDAS',
+      mensaje: inventado.body.error.mensaje,
+    });
+  });
+
+  it('los intentos fallidos a la vez se cuentan todos (no se pisan)', async () => {
+    const { usuario } = await crearTiendaConDueno(prisma, { usuario: 'tiendaa' });
+    await Promise.all(
+      Array.from({ length: 8 }, () => ingresar('tiendaa', 'mala-clave-1').expect(401)),
+    );
+    const fila = await prisma.usuario.findUniqueOrThrow({ where: { id: usuario.id } });
+    expect(fila.intentosFallidos).toBe(8);
+    expect(fila.bloqueadoHasta).not.toBeNull();
+    await ingresar('tiendaa').expect(401);
   });
 
   it('una cuenta suspendida no entra y su sesión abierta deja de valer', async () => {
@@ -128,7 +145,7 @@ describe('Sesión (RF-02, RF-50, RF-60)', () => {
       .expect(400);
     expect(respuesta.body.error).toMatchObject({
       codigo: 'DATOS_INVALIDOS',
-      mensaje: 'Escribe tu correo o usuario.',
+      mensaje: 'Escribe tu celular, correo o usuario.',
     });
   });
 

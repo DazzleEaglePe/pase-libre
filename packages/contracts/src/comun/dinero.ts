@@ -21,7 +21,9 @@ export const MAX_CENTIMOS = 999_999_999;
  * Lee un monto escrito a mano y lo devuelve en céntimos, o nulo si no se entiende.
  * Acepta «250», «1699.9», «1,699.90», «1.699,90» y «250,50»: si hay punto y coma, el
  * último es el decimal; si hay un solo separador con 1 o 2 cifras detrás, es el decimal;
- * en otro caso separa miles. Nunca pasa por números con coma flotante.
+ * en otro caso separa miles, y entonces cada grupo después del primero lleva 3 cifras: así
+ * «1.699.90» o «1,699,90» (¿1 699,90 o 169 990?) se rechazan en vez de leerse 100 veces más
+ * caros. Nunca pasa por números con coma flotante.
  */
 export function centimosDeMonto(texto: string): number | null {
   const limpio = texto.replace(/\s/g, '');
@@ -41,6 +43,8 @@ export function centimosDeMonto(texto: string): number | null {
       decimales = detras;
     }
   }
+  if (/[.,]/.test(entero) && !/^\d{1,3}(?:\.\d{3})+$|^\d{1,3}(?:,\d{3})+$/.test(entero))
+    return null;
   entero = entero.replace(/[.,]/g, '');
   if (!/^\d+$/.test(entero) || !/^\d{0,2}$/.test(decimales)) return null;
 

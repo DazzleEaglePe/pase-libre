@@ -50,6 +50,10 @@ export async function crearApp(
     carpetaMedia: CARPETA_MEDIA_PRUEBAS,
   });
   await app.init();
+  // Escucha una vez, en 127.0.0.1: sin esto supertest abre y cierra un servidor por pedido en
+  // `::`, y en macOS a veces le toca un puerto que otro programa ya tiene en 127.0.0.1 y la
+  // conexión se corta («socket hang up», la falla de limites.e2e-spec).
+  await app.listen(0, '127.0.0.1');
   return app;
 }
 

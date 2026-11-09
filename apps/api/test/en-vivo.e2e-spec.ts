@@ -402,4 +402,64 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
       });
     });
   });
+
+  describe('con la tienda reservada', () => {
+    it('una publicación con la tienda reservada no se remata: el remate muestra la tienda', async () => {
+      const ventusA = await ofertaDe(SLUG_VENTUS, 'Tienda A');
+      await prisma.oferta.update({ where: { id: ventusA.id }, data: { tiendaVisible: false } });
+      try {
+        const respuesta = await como('tiendaa')
+          .post('/v1/en-vivo', {
+            tipo: 'FLASH',
+            oferta: ventusA.id,
+            precio: '200',
+            duracion: '3h',
+            cantidad: 1,
+          })
+          .expect(400);
+        expect(respuesta.body.error.mensaje).toContain('tienda reservada');
+      } finally {
+        await prisma.oferta.update({ where: { id: ventusA.id }, data: { tiendaVisible: true } });
+      }
+    });
+
+    it('quien responde a un busco con una oferta reservada sigue sin nombre', async () => {
+      const busco = (
+        await como('tiendac')
+          .post('/v1/en-vivo', {
+            tipo: 'BUSCO',
+            titulo: 'RTX 3070 reservada',
+            categoria: 'graficas',
+            duracion: '1h',
+          })
+          .expect(201)
+      ).body as EnVivoPropio;
+      const ventusA = await ofertaDe(SLUG_VENTUS, 'Tienda A');
+      await prisma.oferta.update({ where: { id: ventusA.id }, data: { tiendaVisible: false } });
+      try {
+        const respuesta = (
+          await como('tiendaa')
+            .post(`/v1/en-vivo/${busco.id}/respuestas`, { oferta: ventusA.id, texto: 'La tengo.' })
+            .expect(201)
+        ).body as RespuestaResponderEnVivo;
+        const mensajes = (
+          await como('tiendac')
+            .get(`/v1/conversaciones/${respuesta.conversacion_id}/mensajes`)
+            .expect(200)
+        ).body.mensajes as Array<{ texto: string }>;
+        expect(mensajes[0]?.texto).toBe(
+          'Tienda reservada respondió «¡Lo tengo!» al busco «RTX 3070 reservada»',
+        );
+        const mios = (await como('tiendac').get('/v1/en-vivo/mios').expect(200))
+          .body as RespuestaMisEnVivo;
+        const suyo = mios.en_vivo.find((e) => e.id === busco.id);
+        expect(suyo?.respuestas_recibidas).toEqual([
+          expect.objectContaining({ tienda: 'Tienda reservada' }),
+        ]);
+        expect(JSON.stringify(mios)).not.toContain('Tienda A');
+      } finally {
+        await prisma.oferta.update({ where: { id: ventusA.id }, data: { tiendaVisible: true } });
+      }
+    });
+  });
 });

@@ -102,7 +102,6 @@ describe('Mensajes, campanita, bloqueo y «Vendido» (RF-39, RF-40, RF-47, RF-55
     await sembrarBase(prisma);
     await sembrarDemo(prisma);
     app = await crearApp();
-    await app.listen(0, '127.0.0.1');
     base = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
     for (const usuario of ['tiendaa', 'tiendaa.kevin', 'tiendab', 'tiendac', 'equipo']) {
       cookies[usuario] = await ingresar(usuario);

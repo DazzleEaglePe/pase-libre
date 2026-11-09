@@ -13,7 +13,11 @@ function lista<T extends z.ZodType>(item: T) {
   );
 }
 
-const slug = z.string().max(80);
+/** Como los arma `slugDe`: un carácter raro (un NUL, por ejemplo) ni llega a la base. */
+const slug = z
+  .string()
+  .max(80)
+  .regex(/^[a-z0-9-]*$/, 'Esa categoría o galería no existe.');
 
 /**
  * Consulta de `GET /v1/buscar` (RF-12 a RF-18). El filtro y el orden por precio

@@ -160,6 +160,15 @@ describe('centimosDeMonto', () => {
     expect(centimosDeMonto('250,50')).toBe(25050);
     expect(centimosDeMonto('1,699')).toBe(169900);
     expect(centimosDeMonto('1 699')).toBe(169900);
+    expect(centimosDeMonto('1.699.900')).toBe(169990000);
+    expect(centimosDeMonto('1,699,900.50')).toBe(169990050);
+  });
+
+  it('no adivina cuando los separadores se contradicen (antes leía 100 veces más)', () => {
+    expect(centimosDeMonto('1.699.90')).toBeNull();
+    expect(centimosDeMonto('1,699,90')).toBeNull();
+    expect(centimosDeMonto('12,34,567')).toBeNull();
+    expect(centimosDeMonto('1.69.900,50')).toBeNull();
   });
 
   it('rechaza lo que no es un monto válido', () => {
@@ -309,7 +318,7 @@ describe('crearSolicitudSchema', () => {
     referencia: null,
     horario: { dias: ['lun'], desde: '10:00', hasta: '20:00' },
     encargado: 'Rosa Mendoza',
-    clave: 'una-clave-larga',
+    clave: 'una-clave-larga-1',
     acepta_terminos: true,
   };
   const conDni = { ...comun, metodo: 'SIN_RUC_DNI', dni: '45678912' };

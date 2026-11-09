@@ -406,6 +406,8 @@ model Oferta {
   @@index([productoId, estado])
   @@index([tiendaId, estado])
   @@index([responsableId])
+  /// «Recién publicado» de la portada.
+  @@index([estado, actualizadaEn])
   @@map("oferta")
 }
 
@@ -463,6 +465,8 @@ model Conversacion {
   @@unique([ofertaId, compradorId])
   @@index([compradorId, ultimoMensajeEn])
   @@index([vendedorId, ultimoMensajeEn])
+  /// «Responde en ~N min»: los hilos de una tienda que vende, de los últimos 60 días.
+  @@index([tiendaVendedoraId, creadaEn])
   @@map("conversacion")
 }
 
@@ -514,8 +518,12 @@ model RespuestaRapida {
 
 /// Quien bloquea, bloquea a la tienda entera (docs/05 §8).
 model Bloqueo {
+  /// Para deshacer un bloqueo hecho con la tienda reservada sin dar el id de la tienda.
+  id                String   @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   usuarioId         String   @map("usuario_id") @db.Uuid
   tiendaBloqueadaId String   @map("tienda_bloqueada_id") @db.Uuid
+  /// Se bloqueó desde el chat de una oferta con la tienda reservada: la lista no la nombra.
+  reservada         Boolean  @default(false)
   creadoEn          DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   usuario         Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
@@ -582,6 +590,7 @@ model Aviso {
 
   @@unique([usuarioId, conversacionId])
   @@index([usuarioId, leidoEn, visibleDesde])
+  @@index([usuarioId, actualizadoEn])
   @@map("aviso")
 }
 
@@ -641,6 +650,8 @@ model EnVivo {
 
   @@index([estado, venceEn])
   @@index([autorId, estado])
+  /// «Cerrados hoy».
+  @@index([cerradoEn])
   @@map("en_vivo")
 }
 

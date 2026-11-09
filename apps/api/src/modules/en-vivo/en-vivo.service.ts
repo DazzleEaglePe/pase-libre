@@ -19,6 +19,7 @@ import {
   type RespuestaOpcionesEnVivo,
   type RespuestaResponderEnVivo,
   type ResponderEnVivoDatos,
+  TIENDA_RESERVADA,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -331,9 +332,18 @@ export class EnVivoService {
         condicion: true,
         responsableId: true,
         productoId: true,
+        tiendaVisible: true,
         producto: { select: { titulo: true, categoriaId: true } },
       },
     });
+    if (oferta && !oferta.tiendaVisible) {
+      // El remate muestra la tienda y el stand a todas: chocaría con la reserva.
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'Esta publicación tiene la tienda reservada: no se puede rematar en Pases del día.',
+      );
+    }
     if (!oferta) {
       throw new ApiHttpException(
         HttpStatus.NOT_FOUND,
@@ -546,6 +556,8 @@ export class EnVivoService {
       tiendaVendedoraId: string;
     };
     let ofertaOfrecida: string | null = null;
+    // Quien responde a un busco con una oferta de tienda reservada sigue sin nombre en el chat.
+    let reservada = false;
     if (enVivo.tipo === 'BUSCO') {
       const oferta = datos.oferta
         ? await this.prisma.oferta.findFirst({
@@ -556,7 +568,7 @@ export class EnVivoService {
               estado: 'ACTIVA',
               stock: { gt: 0 },
             },
-            select: { id: true },
+            select: { id: true, tiendaVisible: true },
           })
         : null;
       if (!oferta) {
@@ -567,6 +579,7 @@ export class EnVivoService {
         );
       }
       ofertaOfrecida = oferta.id;
+      reservada = !oferta.tiendaVisible;
       hilo = {
         ofertaId: oferta.id,
         compradorId: enVivo.autorId,
@@ -591,7 +604,7 @@ export class EnVivoService {
       };
     }
 
-    const remitente = usuario.tienda?.nombre ?? usuario.nombre;
+    const remitente = reservada ? TIENDA_RESERVADA : (usuario.tienda?.nombre ?? usuario.nombre);
     const respuesta = enVivo.tipo === 'BUSCO' ? '¡Lo tengo!' : '¡Lo quiero!';
     const destino = enVivo.tipo === 'BUSCO' ? 'al busco' : 'al remate';
     let conversacionId: string;
@@ -904,6 +917,7 @@ export class EnVivoService {
             creadaEn: true,
             conversacionId: true,
             tienda: { select: { nombre: true } },
+            oferta: { select: { tiendaVisible: true } },
           },
           orderBy: { creadaEn: 'desc' },
         },
@@ -924,7 +938,7 @@ export class EnVivoService {
           avisadas: f.avisadas,
           vendidas: f.vendidas,
           respuestas_recibidas: f.respuestas.map((r) => ({
-            tienda: r.tienda.nombre,
+            tienda: r.oferta && !r.oferta.tiendaVisible ? TIENDA_RESERVADA : r.tienda.nombre,
             conversacion_id: r.conversacionId,
             creada_en: r.creadaEn.toISOString(),
           })),

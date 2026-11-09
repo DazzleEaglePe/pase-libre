@@ -17,8 +17,11 @@ const FORMATOS = new Set(['jpeg', 'png', 'webp']);
 export const MAX_BYTES_FOTO = 8 * 1024 * 1024;
 /** Lado mayor de la foto guardada: alcanza para la ficha en pantallas grandes. */
 const LADO_MAXIMO = 1600;
-/** Evita que una imagen pequeña en bytes pero enorme en píxeles agote la memoria. */
-const MAX_PIXELES = 50_000_000;
+/**
+ * Evita que una imagen pequeña en bytes pero enorme en píxeles agote la memoria: 24 MP ya
+ * pasan los ~100 MB al decodificarse, y la API corre con 512 MB. Una foto de celular tiene 12.
+ */
+const MAX_PIXELES = 24_000_000;
 
 const FOTO_INVALIDA = 'Sube una foto JPEG, PNG o WebP.';
 

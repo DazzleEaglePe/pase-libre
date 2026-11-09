@@ -88,11 +88,8 @@ const SELECT_CONVERSACION = {
       },
     },
   },
-  mensajes: {
-    select: SELECT_MENSAJE,
-    orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
-    take: 1,
-  },
+  // El último mensaje NO va aquí: con un `take: 1` anidado Prisma trae todos los mensajes de
+  // cada hilo y corta en memoria. Lo busca `ultimos()` con DISTINCT ON.
 } satisfies Prisma.ConversacionSelect;
 
 const SELECT_PARTICIPACION = {
@@ -113,7 +110,8 @@ type ParticipacionFila = Prisma.ParticipacionGetPayload<{ select: typeof SELECT_
 function persona(u: PersonaFila, reservada = false): PersonaChat {
   if (reservada) {
     return {
-      id: u.id,
+      // Ni el id: cruzándolo con los chats de sus ofertas visibles delataría a la tienda.
+      id: '',
       nombre: TIENDA_RESERVADA,
       tienda: {
         id: '',
@@ -287,8 +285,14 @@ export class MensajesService {
       }),
       noLeidosPorConversacion(this.prisma, usuarioId),
     ]);
+    const ultimos = await this.ultimos(participaciones.map((p) => p.conversacion.id));
     const todas = participaciones.map((p) =>
-      this.enLista(p, usuarioId, noLeidos.get(p.conversacion.id) ?? 0),
+      this.enLista(
+        p,
+        usuarioId,
+        noLeidos.get(p.conversacion.id) ?? 0,
+        ultimos.get(p.conversacion.id),
+      ),
     );
     const sinLeer = (c: ConversacionEnLista) => c.no_leidos > 0 || c.no_leida;
     const conteos = {
@@ -317,7 +321,8 @@ export class MensajesService {
   async detalle(id: string, usuario: UsuarioConTienda): Promise<DetalleConversacion> {
     const participacion = await this.participacion(id, usuario.id);
     const noLeidos = await noLeidosPorConversacion(this.prisma, usuario.id, id);
-    const base = this.enLista(participacion, usuario.id, noLeidos.get(id) ?? 0);
+    const ultimos = await this.ultimos([id]);
+    const base = this.enLista(participacion, usuario.id, noLeidos.get(id) ?? 0, ultimos.get(id));
     const { conversacion } = participacion;
     const otro = base.rol === 'vendedor' ? conversacion.comprador : conversacion.vendedor;
     const { oferta } = conversacion;
@@ -333,12 +338,14 @@ export class MensajesService {
         })
       : null;
 
+    // «En línea» y «Activo hace 2 h» también servirían para adivinar quién es.
+    const reservada = base.rol === 'comprador' && !oferta.tiendaVisible;
     return {
       ...base,
       otro: {
         ...base.otro,
-        en_linea: this.tiempoReal.enLinea(otro.id),
-        ultima_conexion: otro.ultimaConexionEn?.toISOString() ?? null,
+        en_linea: reservada ? false : this.tiempoReal.enLinea(otro.id),
+        ultima_conexion: reservada ? null : (otro.ultimaConexionEn?.toISOString() ?? null),
       },
       oferta: {
         ...base.oferta,
@@ -402,10 +409,30 @@ export class MensajesService {
     return participacion;
   }
 
-  private enLista(p: ParticipacionFila, usuarioId: string, noLeidos: number): ConversacionEnLista {
+  /** El último mensaje de cada hilo: una consulta por el índice (conversacion_id, creado_en). */
+  private async ultimos(ids: string[]): Promise<Map<string, MensajeFila>> {
+    if (ids.length === 0) return new Map();
+    const filas = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT DISTINCT ON (conversacion_id) id::text AS id
+      FROM mensaje
+      WHERE conversacion_id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
+      ORDER BY conversacion_id, creado_en DESC, id DESC`;
+    if (filas.length === 0) return new Map();
+    const mensajes = await this.prisma.mensaje.findMany({
+      where: { id: { in: filas.map((f) => f.id) } },
+      select: { ...SELECT_MENSAJE, conversacionId: true },
+    });
+    return new Map(mensajes.map((m) => [m.conversacionId, m]));
+  }
+
+  private enLista(
+    p: ParticipacionFila,
+    usuarioId: string,
+    noLeidos: number,
+    ultimo: MensajeFila | undefined,
+  ): ConversacionEnLista {
     const c = p.conversacion;
     const rol = c.vendedorId === usuarioId ? 'vendedor' : 'comprador';
-    const [ultimo] = c.mensajes;
     return {
       id: c.id,
       rol,
@@ -607,10 +634,13 @@ export class MensajesService {
     if (!otro.tienda) throw noExiste();
     const clave = { usuarioId: usuario.id, tiendaBloqueadaId: otro.tienda.id };
     if (bloquear) {
+      // Desde el chat de una oferta con la tienda reservada, la lista de bloqueadas tampoco la nombra.
+      const reservada =
+        conversacion.compradorId === usuario.id && !conversacion.oferta.tiendaVisible;
       await this.prisma.bloqueo.upsert({
         where: { usuarioId_tiendaBloqueadaId: clave },
         update: {},
-        create: clave,
+        create: { ...clave, reservada },
       });
     } else {
       await this.prisma.bloqueo.deleteMany({ where: clave });
