@@ -160,6 +160,8 @@ model Tienda {
   nombre               String       @db.VarChar(120)
   galeriaId            String?      @map("galeria_id") @db.Uuid
   stand                String?      @db.VarChar(20)
+  /// «Sótano», «1», «2»… Lo trae el registro propio; el equipo lo completa en las demás.
+  piso                 String?      @db.VarChar(20)
   whatsapp             String       @db.VarChar(20)
   horario              String?      @db.VarChar(120)
   descripcion          String?      @db.VarChar(500)
@@ -749,4 +751,94 @@ model Auditoria {
 
   @@index([creadaEn])
   @@map("auditoria")
+}
+
+enum EstadoSolicitud {
+  /// Espera a una persona del equipo (máx. 3 h para quien se registra sin RUC).
+  PENDIENTE
+  /// El equipo pidió corregir algo; quien se registra lo ve y reenvía.
+  REQUIERE_CAMBIOS
+  APROBADA
+  RECHAZADA
+
+  @@map("estado_solicitud")
+}
+
+enum MetodoSolicitud {
+  RUC
+  SIN_RUC_DNI
+  SIN_RUC_RECOMENDACION
+  SIN_RUC_CREDENCIAL
+
+  @@map("metodo_solicitud")
+}
+
+/// Pedido de cuenta hecho por la propia tienda (RF-01, RF-04; sección 3 del lienzo «Versión final»).
+/// Con RUC activo y habido en SUNAT se aprueba sola; sin RUC, una persona del equipo la revisa.
+/// Los ids de quien revisó y de lo que se creó no llevan llave foránea: la solicitud es un
+/// registro de lo que pasó y no debe impedir borrar una cuenta (auditoría guarda el resto).
+model Solicitud {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Quien se registra consulta su estado con un código que solo ella conoce: aquí va su sha256.
+  consultaHash        String          @unique @map("consulta_hash") @db.Char(64)
+  /// Los 9 dígitos. Es también el usuario con el que entrará.
+  celular             String          @db.VarChar(9)
+  celularVerificadoEn DateTime        @map("celular_verificado_en") @db.Timestamptz(6)
+  metodo              MetodoSolicitud
+  ruc                 String?         @db.VarChar(11)
+  /// Lo que contestó SUNAT: razón social, estado, condición y domicilio fiscal.
+  rucDatos            Json?           @map("ruc_datos")
+  /// Solo lo ve el equipo y se borra al resolver la solicitud (minimizar datos, Ley 29733).
+  dni                 String?         @db.VarChar(8)
+  /// Texto libre: la tienda verificada que la conoce, tal como la escribió.
+  recomiendaTienda    String?         @map("recomienda_tienda") @db.VarChar(120)
+  nombreComercial     String          @map("nombre_comercial") @db.VarChar(120)
+  categorias          String[]
+  galeriaId           String?         @map("galeria_id") @db.Uuid
+  /// Si la galería no está registrada todavía: el nombre que escribió.
+  galeriaOtra         String?         @map("galeria_otra") @db.VarChar(120)
+  piso                String?         @db.VarChar(20)
+  stand               String          @db.VarChar(20)
+  referencia          String?         @db.VarChar(200)
+  /// Ya armado para mostrar: «Lun a sáb, de 10:00 a. m. a 8:00 p. m.».
+  horario             String          @db.VarChar(120)
+  /// Lo mismo por partes (días, apertura y cierre), para volver a llenar el formulario al corregir.
+  horarioDatos        Json            @map("horario_datos")
+  encargado           String          @db.VarChar(120)
+  claveHash           String          @map("clave_hash") @db.VarChar(255)
+  aceptoTerminosEn    DateTime        @map("acepto_terminos_en") @db.Timestamptz(6)
+  estado              EstadoSolicitud @default(PENDIENTE)
+  /// Se aprobó sola por el RUC: queda a la vista del equipo por si el RUC era de otra persona.
+  aprobadaSola        Boolean         @default(false) @map("aprobada_sola")
+  /// Lo que el equipo le dice: qué corregir, o por qué no.
+  mensajeEquipo       String?         @map("mensaje_equipo") @db.VarChar(500)
+  venceEn             DateTime?       @map("vence_en") @db.Timestamptz(6)
+  revisadaPorId       String?         @map("revisada_por_id") @db.Uuid
+  revisadaEn          DateTime?       @map("revisada_en") @db.Timestamptz(6)
+  tiendaId            String?         @unique @map("tienda_id") @db.Uuid
+  usuarioId           String?         @unique @map("usuario_id") @db.Uuid
+  creadaEn            DateTime        @default(now()) @map("creada_en") @db.Timestamptz(6)
+  actualizadaEn       DateTime        @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
+
+  @@index([estado, creadaEn])
+  @@index([celular])
+  @@map("solicitud")
+}
+
+/// El código de 6 dígitos que llega por SMS al celular de quien se registra. Verificado el
+/// código, se entrega un token de un solo uso (su hash va aquí) para enviar la solicitud.
+model CodigoCelular {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  celular       String    @db.VarChar(9)
+  codigoHash    String    @map("codigo_hash") @db.Char(64)
+  expiraEn      DateTime  @map("expira_en") @db.Timestamptz(6)
+  intentos      Int       @default(0) @db.SmallInt
+  verificadoEn  DateTime? @map("verificado_en") @db.Timestamptz(6)
+  tokenHash     String?   @unique @map("token_hash") @db.Char(64)
+  tokenExpiraEn DateTime? @map("token_expira_en") @db.Timestamptz(6)
+  consumidoEn   DateTime? @map("consumido_en") @db.Timestamptz(6)
+  creadoEn      DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  @@index([celular, creadoEn])
+  @@map("codigo_celular")
 }

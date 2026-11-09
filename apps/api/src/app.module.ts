@@ -15,6 +15,7 @@ import { InterruptorEnVivoModule } from './modules/en-vivo/interruptor';
 import { EquipoModule } from './modules/equipo/equipo.module';
 import { MensajesModule } from './modules/mensajes/mensajes.module';
 import { OfertasModule } from './modules/ofertas/ofertas.module';
+import { RegistroModule } from './modules/registro/registro.module';
 import { SaludModule } from './modules/salud/salud.module';
 import { SesionModule } from './modules/sesion/sesion.module';
 import { TiempoRealModule } from './modules/tiempo-real/tiempo-real.module';
@@ -43,6 +44,7 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     MensajesModule,
     EnVivoModule,
     EquipoModule,
+    RegistroModule,
     SaludModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

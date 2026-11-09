@@ -6,6 +6,12 @@ import { centimosDeMonto, formatearPrecio, montoParaCampo, precioDe } from './co
 import { crearCuentaSchema, whatsappSchema } from './equipo/equipo.schemas';
 import { enviarMensajeSchema, historialSchema } from './mensajes/mensajes.schemas';
 import { editarOfertaSchema, publicarSchema } from './ofertas/ofertas.schemas';
+import {
+  crearSolicitudSchema,
+  horarioATexto,
+  rucSchema,
+  rucValido,
+} from './registro/registro.schemas';
 import { cambiarClaveSchema, ingresarSchema } from './sesion/sesion.schemas';
 
 describe('normalizarTexto', () => {
@@ -246,5 +252,93 @@ describe('enviarMensajeSchema', () => {
     expect(historialSchema.parse({})).toEqual({ limite: 50 });
     expect(historialSchema.safeParse({ antes: '2026-10-27T15:00:00.000Z' }).success).toBe(true);
     expect(historialSchema.safeParse({ antes: 'ayer' }).success).toBe(false);
+  });
+});
+
+describe('RUC', () => {
+  it('acepta los de SUNAT y descarta errores de tipeo con el dígito de control', () => {
+    expect(rucValido('20512345671')).toBe(true);
+    expect(rucValido('20512345678')).toBe(false);
+    expect(rucValido('10456789126')).toBe(rucValido('10456789126'));
+    // Debe empezar con 10, 15, 16, 17 o 20, y tener 11 dígitos.
+    expect(rucValido('30512345671')).toBe(false);
+    expect(rucValido('2051234567')).toBe(false);
+  });
+
+  it('el esquema da el mensaje en español', () => {
+    expect(rucSchema.safeParse('1234').success).toBe(false);
+    expect(rucSchema.parse(' 20512345671 ')).toBe('20512345671');
+  });
+});
+
+describe('horarioATexto', () => {
+  const h = (dias: string[], desde: string, hasta: string) =>
+    horarioATexto({ dias: dias as never, desde, hasta });
+
+  it('junta los días seguidos con «a» y pone a. m. y p. m.', () => {
+    expect(h(['lun', 'mar', 'mie', 'jue', 'vie', 'sab'], '10:00', '20:00')).toBe(
+      'Lun a sáb, de 10:00 a. m. a 8:00 p. m.',
+    );
+    expect(h(['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'], '09:30', '18:00')).toBe(
+      'Lun a dom, de 9:30 a. m. a 6:00 p. m.',
+    );
+  });
+
+  it('separa los días sueltos y las parejas', () => {
+    expect(h(['lun', 'mie', 'vie'], '10:00', '13:00')).toBe(
+      'Lun, Mié, Vie, de 10:00 a. m. a 1:00 p. m.',
+    );
+    expect(h(['sab', 'dom'], '12:00', '14:00')).toBe('Sáb y dom, de 12:00 p. m. a 2:00 p. m.');
+    // Sin importar el orden en que se marcaron.
+    expect(h(['vie', 'lun', 'mar'], '10:00', '20:00')).toBe(
+      'Lun y mar, Vie, de 10:00 a. m. a 8:00 p. m.',
+    );
+  });
+});
+
+describe('crearSolicitudSchema', () => {
+  /** Lo común a todas las formas de acreditar la tienda. */
+  const comun = {
+    token_celular: 'a'.repeat(43),
+    nombre_comercial: 'Tienda Nueva',
+    categorias: ['Gráficas'],
+    galeria: 'cyberplaza',
+    galeria_otra: null,
+    piso: null,
+    stand: '118',
+    referencia: null,
+    horario: { dias: ['lun'], desde: '10:00', hasta: '20:00' },
+    encargado: 'Rosa Mendoza',
+    clave: 'una-clave-larga',
+    acepta_terminos: true,
+  };
+  const conDni = { ...comun, metodo: 'SIN_RUC_DNI', dni: '45678912' };
+  const ok = (datos: object) => crearSolicitudSchema.safeParse(datos).success;
+
+  it('pide lo que corresponde a cada forma de acreditar la tienda', () => {
+    expect(ok(conDni)).toBe(true);
+    expect(ok({ ...conDni, dni: '123' })).toBe(false);
+    expect(ok({ ...comun, metodo: 'RUC' })).toBe(false);
+    expect(ok({ ...comun, metodo: 'RUC', ruc: '20512345671' })).toBe(true);
+    expect(
+      ok({ ...comun, metodo: 'SIN_RUC_RECOMENDACION', recomienda_tienda: 'Computer Shock' }),
+    ).toBe(true);
+    expect(ok({ ...comun, metodo: 'SIN_RUC_CREDENCIAL' })).toBe(true);
+    // Un dato de otra forma de acreditar no se cuela.
+    expect(ok({ ...comun, metodo: 'SIN_RUC_CREDENCIAL', dni: '45678912' })).toBe(false);
+  });
+
+  it('una galería de la lista o el nombre de otra, nunca las dos ni ninguna', () => {
+    expect(ok({ ...conDni, galeria: null })).toBe(false);
+    expect(ok({ ...conDni, galeria: null, galeria_otra: 'Galería Nueva' })).toBe(true);
+    expect(ok({ ...conDni, galeria_otra: 'Otra' })).toBe(false);
+  });
+
+  it('cierra después de abrir y exige los términos y una categoría', () => {
+    expect(ok({ ...conDni, horario: { dias: ['lun'], desde: '20:00', hasta: '10:00' } })).toBe(
+      false,
+    );
+    expect(ok({ ...conDni, acepta_terminos: false })).toBe(false);
+    expect(ok({ ...conDni, categorias: [] })).toBe(false);
   });
 });

@@ -42,6 +42,13 @@ export const envSchema = z
      * la misma vara un precio en S/ y uno en US$. Nunca se convierte lo que se muestra.
      */
     TIPO_CAMBIO: z.coerce.number().positive().max(100).default(3.75),
+    /**
+     * Registro propio de tiendas (RF-01, RF-04): celular con código por SMS, RUC contra SUNAT
+     * y revisión del equipo. Apagado, sus rutas responden 404 y la web sigue con «pide tu
+     * cuenta» al equipo. Hoy el SMS y la consulta a SUNAT son simulados (el código vuelve en la
+     * respuesta), así que **no se puede encender en producción** hasta tener proveedores reales.
+     */
+    REGISTRO_PROPIO: z.stringbool().default(false),
   })
   .transform((entorno) => ({
     ...entorno,
@@ -55,6 +62,14 @@ export const envSchema = z
         code: 'custom',
         path: ['SESION_COOKIE_SEGURA'],
         message: 'En producción la cookie de sesión debe ser segura (HTTPS).',
+      });
+    }
+    if (entorno.REGISTRO_PROPIO) {
+      context.addIssue({
+        code: 'custom',
+        path: ['REGISTRO_PROPIO'],
+        message:
+          'El registro propio aún usa un SMS y una consulta a SUNAT simulados: déjalo apagado en producción.',
       });
     }
     if (entorno.LOG_LEVEL === 'debug' || entorno.LOG_LEVEL === 'trace') {
