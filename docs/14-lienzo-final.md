@@ -13,7 +13,7 @@ El lienzo **PaseLibre Demo 1** ([enlace](https://claude.ai/artifact/EPB8HopVtygj
 
 | # | Decisión | Por qué importa | Propuesta |
 |---|---|---|---|
-| L-1 | **Paleta.** El lienzo final está en **verde esmeralda** (barra y pie `#006B47`, acción `#00875A`, tinta `#0F1412`, naranja `#F97316` para contadores). La web está en **Hielo** azul (D-52) | Cambia el color de toda pantalla que se construya desde hoy | Seguir en Hielo hasta que Grimm y My cierren. Si gana el verde, el cambio es de tokens (un día) **si primero se hacen los colores como variables** (día 1 del [plan de modo oscuro](13-modo-oscuro.md)) |
+| L-1 | **Paleta.** El lienzo final está en **verde esmeralda** y la web estaba en **Hielo** azul (D-52) | Cambia el color de toda pantalla que se construya | **Decidido el 08/11: verde esmeralda (D-54).** Tokens, logo e íconos ya cambiados; la barra de arriba sigue blanca y pasa a verde con la sección 1 (§2) |
 | L-2 | **Nombres.** El lienzo dice «Pedidos en vivo» y «Remato»; el código dice «Pases del día» y `FLASH` (D-53) | Textos, rutas y avisos | Decidir uno. Cambiar el texto es barato; la ruta `/pases-del-dia` lleva redirección |
 | L-3 | **Chat por tienda.** El lienzo muestra un chat por pareja de tiendas, con los productos como tarjetas adentro. La base guarda un chat por oferta y comprador (`@@unique([ofertaId, compradorId])`) | Es el único cambio que toca datos existentes | Para salir: agrupar por tienda **en la bandeja** sin tocar la base. Migrar el modelo después, si hace falta |
 | L-4 | **Lo que era fase 2 y el lienzo trae adentro:** registro propio y aprobación (RF-01, RF-04), precio por rol (RF-37), reputación, seguir y tienda pública (RF-63 a RF-65), aviso fuera de la app (RF-42) | Cambia el alcance de la primera salida | Confirmar con Fabrizio qué entra al piloto y actualizar los documentos 02 y 04 |
@@ -56,7 +56,7 @@ Los diseñadores ordenaron lo que falta así (tablero «Lo que falta»): registr
 
 | Ola | Qué | Por qué en este lugar |
 |---|---|---|
-| **0** · 1 a 2 días | Decidir L-1 a L-3, hacer commit de lo pendiente (§5) y dejar los colores como variables | Todo lo demás se construye sobre esto |
+| **0** · 1 a 2 días | Decidir L-2 y L-3, hacer commit de lo pendiente (§5) y dejar los colores como variables (con el verde ya puesto, cambiar de paleta otra vez sería solo cambiar valores) | Todo lo demás se construye sobre esto |
 | **1** · Confianza | Seguir, perfil de otra tienda y opiniones (§2.15) · Reportar, bloquear, «Mis reportes» y chat oficial (§2.18) | Sin proveedor externo, con tablas chicas, y son lo que más protege el piloto |
 | **2** · Avisos | Campanita con acciones, configuración y horario silencioso (§2.17) · estados vacíos (§2.19) | Hacen que Ola 1 se note; el push espera su proveedor |
 | **3** · Entrada | Registro con verificación y la cola en el panel (§2.3, parte de §2.20) | El más grande. Mientras tanto el equipo sigue creando las cuentas (RF-35). Empezar el trámite del SMS y de SUNAT durante la Ola 1 |
@@ -75,6 +75,9 @@ Secciones S (4, 7, 9, 12 y 2) se hacen de paso, junto al color final.
 - [ ] Probada en Chrome sin ventana (celular, tableta y computadora) con `pnpm qa`
 - [ ] El [documento 09](09-ux-y-flujos.md) y el [06](06-modelo-de-datos.md) al día, si cambia la pantalla o la base
 
-## 5. Estado del árbol de trabajo (08/11)
+## 5. Estado del trabajo (08/11)
 
-Hay trabajo sin commit de dos sesiones en la misma carpeta: el **carrusel C** y el plan de modo oscuro, y **«Demo · lo aprobado»** (resultados en tarjetas, tienda reservada, barra inferior, «Responde en ~N min»). Cuatro archivos tienen cambios de las dos: `(publico)/page.tsx`, `catalogo.service.ts`, `catalogo.e2e-spec.ts` y `CHECKLIST.md`. Hay que decidir si va en uno o dos commits antes de empezar la Ola 1.
+- **Commits:** `337347f` («Demo · lo aprobado») y `228e7f7` (carrusel C y los documentos 13 y 14). Sin subir a `origin`.
+- **Paleta verde (D-54):** hecha en tokens, logo, íconos, hoja de marca y colores sueltos de la web. Falta la barra de arriba (sección 1), que en el lienzo es verde y en la web sigue blanca.
+- **Registro de tienda (sección 3):** es lo que sigue; ver el avance en el [CHECKLIST](CHECKLIST.md).
+- **`cabecera.tsx`:** tiene una edición a mano ajena a estas sesiones (la franja de ventajas comentada). Deja `pnpm lint` en rojo por un `VENTAJAS` sin usar y no entra en ningún commit hasta que su dueño la termine.

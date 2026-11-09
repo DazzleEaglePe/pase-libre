@@ -33,7 +33,7 @@
 }
 
 /*
- * Pases del día: un brillo azul gira sin parar por el borde de la tarjeta mini y de la barra
+ * Pases del día: un brillo verde gira sin parar por el borde de la tarjeta mini y de la barra
  * del celular, como el chat de VS Code. Va en un ::before con máscara, para no pisar la
  * animación de entrada. Sin @property (navegadores viejos) el borde queda quieto; con
  * «reducir movimiento», también.
@@ -66,16 +66,16 @@
   animation: girar-en-vivo 2.4s linear infinite;
 }
 
-/* El borde: gris de siempre, con la luz azul que da vueltas. */
+/* El borde: gris de siempre, con la luz verde que da vueltas. */
 .borde-en-vivo::before {
   padding: 2px;
   background: conic-gradient(
     from var(--giro-en-vivo),
-    #e3e7ef 0 55%,
-    #8fa9ff 74%,
-    #2f5bff 88%,
-    #8fa9ff 94%,
-    #e3e7ef 100%
+    #e2e7e4 0 55%,
+    #22d37a 74%,
+    #00875a 88%,
+    #22d37a 94%,
+    #e2e7e4 100%
   );
 }
 
@@ -85,7 +85,7 @@
   background: conic-gradient(
     from var(--giro-en-vivo),
     transparent 0 60%,
-    rgb(47 91 255 / 0.22) 86%,
+    rgb(0 135 90 / 0.22) 86%,
     transparent 100%
   );
   filter: blur(6px);

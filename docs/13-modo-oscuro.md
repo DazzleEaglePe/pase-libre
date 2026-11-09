@@ -4,6 +4,8 @@
 
 Poder cambiar la web entre **Claro**, **Oscuro** y **Sistema** (sigue el celular o la computadora), desde cualquier pantalla, y que se recuerde. Este documento trae lo que hay que decidir, cómo está la web hoy, la paleta oscura con su contraste medido, el sprint día por día y los checklists para ir marcando.
 
+> **Actualización 08/11:** este plan se escribió con la web en Hielo (azul). Desde el 08/11 la línea es verde esmeralda (D-54), así que la paleta oscura «Noche» de §4 hay que rehacerla sobre el verde antes del día 1; la estructura del sprint, los roles de color y los checklists siguen valiendo.
+
 > Entendí «blanco y negro» como modo claro/oscuro. Si la idea era una web en escala de grises, avisen: es otro trabajo, mucho más chico (un filtro CSS), y este plan no aplica.
 
 ---

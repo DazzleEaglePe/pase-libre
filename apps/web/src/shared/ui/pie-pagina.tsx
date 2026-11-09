@@ -79,7 +79,7 @@ function Beneficio({
       <span className="flex text-pase">{icono}</span>
       <b className="mt-1 text-apoyo font-semibold text-tinta lg:text-cuerpo">{titulo}</b>
       <span className="text-nota text-secundario">{texto}</span>
-      <Link href={href} className="text-nota font-semibold text-[#1F3FC2]">
+      <Link href={href} className="text-nota font-semibold text-pase-texto">
         {enlace}
       </Link>
     </div>
@@ -265,7 +265,7 @@ function ColumnaEnlaces({ titulo, enlaces }: (typeof COLUMNAS)[number]) {
 
 /**
  * Pie de página (D del lienzo, elegido el 06/11): en el celular el pie D y en computadora el
- * diseño de la E, los dos en azul pase. Arriba, la franja de beneficios; en el pie, la marca
+ * diseño de la E, los dos en el verde de la marca. Arriba, la franja de beneficios; en el pie, la marca
  * con la invitación a pedir cuenta (o a invitar a otra tienda), Contáctanos con íconos, tres
  * columnas de enlaces (acordeones en el celular) con el Libro de Reclamaciones, las redes,
  * dos sellos de confianza y la línea legal. Lo que falta del equipo no sale en producción.
@@ -275,12 +275,12 @@ export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
   return (
     <>
       <FranjaBeneficios />
-      <footer className="bg-pase text-white">
+      <footer className="bg-marca text-white">
         <div className="mx-auto max-w-[1280px] px-4 sm:px-8">
           <div className="flex flex-wrap items-center gap-x-12 gap-y-6 pt-8 lg:pt-12">
             <div className="flex flex-[0_1_340px] flex-col gap-2.5">
               <span className="text-white">
-                <Marca sobrePase />
+                <Marca sobreMarca />
               </span>
               <p className="text-cuerpo">
                 El catálogo para pasarse productos entre tiendas de Wilson. Gratis para el piloto.
@@ -313,7 +313,7 @@ export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={`PaseLibre en ${nombre}`}
-                          className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-pase hover:bg-pase-suave"
+                          className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-marca hover:bg-pase-suave"
                         >
                           {REDES_ICONO[red]}
                         </a>

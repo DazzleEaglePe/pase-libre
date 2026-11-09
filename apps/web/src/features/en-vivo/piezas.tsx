@@ -20,7 +20,7 @@ export function EtiquetaTipo({ tipo }: { tipo: TipoEnVivo }) {
   return (
     <span
       className={`shrink-0 rounded-full px-2.5 py-0.5 text-nota font-semibold ${
-        tipo === 'BUSCO' ? 'bg-pase-suave text-[#1F3FC2]' : 'bg-aviso-fondo text-aviso'
+        tipo === 'BUSCO' ? 'bg-pase-suave text-pase-texto' : 'bg-aviso-fondo text-aviso'
       }`}
     >
       {etiquetaTipo(tipo)}
@@ -30,7 +30,7 @@ export function EtiquetaTipo({ tipo }: { tipo: TipoEnVivo }) {
 
 /**
  * El botón «¡Lo tengo!» / «¡Lo quiero!» sin alto: cada lugar pone el suyo. Va como el botón
- * principal del pie: píldora en azul pase, texto blanco y un rayo de línea delante.
+ * principal del pie: píldora en verde pase, texto blanco y un rayo de línea delante.
  */
 const baseResponder =
   'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-pase font-semibold text-white no-underline hover:bg-[#1F3FC2]';

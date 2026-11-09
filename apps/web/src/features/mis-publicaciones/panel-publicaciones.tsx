@@ -392,7 +392,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
             type="button"
             disabled={confirmando}
             onClick={confirmarTodas}
-            className="h-10 rounded-full border border-[#5C2A00] px-4 text-apoyo font-medium"
+            className="h-10 rounded-full border border-[#7C2D12] px-4 text-apoyo font-medium"
           >
             {confirmando ? 'Confirmando…' : 'Siguen igual'}
           </button>
@@ -437,7 +437,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#2E3A5A"
+            stroke="#2E3833"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"

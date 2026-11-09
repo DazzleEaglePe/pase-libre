@@ -43,7 +43,7 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 - [ ] **Antes de salir:** unir productos duplicados (RF-54). La base tiene `fusionado_en_id` y la web redirige con 301, pero el equipo no puede unirlos. Mínimo: un script
 - [ ] Reporte de uso (RF-31, RF-32): las tablas `Busqueda` y `Contacto` existen; falta la consulta lista, una por semana y galería
 - [ ] Averiguar por qué `limites.e2e-spec` falla una vez de cada tantas corridas («socket hang up»), para que la CI no dé falsos rojos
-- [ ] Ajuste de forma de Hielo: botones de 10 px y tarjetas de 12 px (hoy son píldoras)
+- [x] Ajuste de forma de Hielo: ya no aplica, el lienzo «Versión final» usa píldoras como la web (D-54)
 - [ ] Modo claro y oscuro (Claro / Oscuro / Sistema) en toda la web: sprint del 09 al 13/11 con sus checklists en [13 · Modo oscuro](13-modo-oscuro.md)
 - [ ] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): qué falta, decisiones y orden por olas en [14 · Lienzo final](14-lienzo-final.md)
 - [ ] **Fase 2:** perfil privado, «Quién puede escribirte», respuesta automática, idioma y aviso por correo en Configuración
@@ -53,7 +53,7 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 
 **Grimm y My**
 
-- [ ] Pasar el lienzo de diseño de Inter y lima a Hielo (Figtree, azul noche, azul pase y grises fríos). La web ya está en Hielo y el lienzo quedó atrás
+- [x] El lienzo «Versión final» ya está en la línea nueva (verde esmeralda y Figtree) y la web la sigue desde el 08/11 (D-54)
 - [ ] Revisar la web en celular, en las pantallas de la primera salida, y avisar de lo que se vea mal
 - [x] En vivo (busco y ofertas flash) diseñado en el lienzo; elegida la propuesta E el 29/10 (D-53)
 - [ ] Cerrar la pregunta sobre la maquetación de Grimm (pendiente 8 del [04](04-decisiones-para-la-reunion.md)): la web se construyó desde el lienzo, así que probablemente ya no aplica

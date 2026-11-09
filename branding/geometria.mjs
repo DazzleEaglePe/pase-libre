@@ -4,7 +4,7 @@ import opentype from 'opentype.js';
 
 /**
  * La geometría de la marca de PaseLibre: el símbolo de la entrada con muesca y la línea
- * gráfica Hielo (D-52).
+ * gráfica verde esmeralda del lienzo «Versión final» (D-54).
  *
  * El símbolo es una entrada, el «pase»: un rectángulo de esquinas redondeadas con una
  * muesca semicircular en cada lado y, vaciada en el centro, una flecha que apunta hacia
@@ -15,11 +15,12 @@ import opentype from 'opentype.js';
  */
 
 export const COLOR = {
-  tinta: '#0A1633',
-  pase: '#2F5BFF',
-  acento: '#8FA9FF',
+  tinta: '#0F1412',
+  marca: '#006B47',
+  pase: '#00875A',
+  acento: '#22D37A',
   blanco: '#FFFFFF',
-  borde: '#C8CFDD',
+  borde: '#C6CEC9',
 };
 
 /** Redondea para que los trazos pesen poco. */

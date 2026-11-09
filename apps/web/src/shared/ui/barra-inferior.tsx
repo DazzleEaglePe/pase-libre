@@ -38,7 +38,7 @@ function ContadorMensajes() {
   const { mensajes } = useContadores();
   if (mensajes <= 0) return null;
   return (
-    <span className="absolute -right-1 -top-1 min-w-[17px] rounded-full bg-pase px-1 text-center text-[10px] font-semibold leading-[17px] text-white">
+    <span className="absolute -right-1 -top-1 min-w-[17px] rounded-full bg-contador px-1 text-center text-[10px] font-semibold leading-[17px] text-tinta">
       {mensajes > 9 ? '9+' : mensajes}
       <span className="sr-only"> sin leer</span>
     </span>

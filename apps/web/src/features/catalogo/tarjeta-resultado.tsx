@@ -135,7 +135,7 @@ export function TarjetaResultado({
           ) : puedeChatear ? (
             <Link
               href={`/mensajes?oferta=${destacada.id}`}
-              className={`${ACCION} bg-pase-suave text-[#1F3FC2]`}
+              className={`${ACCION} bg-pase-suave text-pase-texto`}
             >
               <IconMessageCircle size={16} stroke={1.8} aria-hidden="true" />
               Chatear ahora

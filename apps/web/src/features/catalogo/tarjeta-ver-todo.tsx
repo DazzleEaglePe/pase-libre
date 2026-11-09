@@ -25,7 +25,7 @@ export function TarjetaVerTodo({
       >
         <IconArrowRight size={20} stroke={1.8} />
       </span>
-      <span className="text-tarjeta text-[#1F3FC2]">{titulo}</span>
+      <span className="text-tarjeta text-pase-texto">{titulo}</span>
       <span className="text-nota text-detalle">{detalle}</span>
     </Link>
   );

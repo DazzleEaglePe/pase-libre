@@ -26,13 +26,13 @@ export function useContadores(): Contadores {
   return contadores;
 }
 
-/** Insignia azul del contador; «9+» para no romper el círculo. */
+/** Insignia naranja del contador; «9+» para no romper el círculo. */
 export function Insignia({ cantidad }: { cantidad: number }) {
   if (cantidad <= 0) return null;
   return (
     <span
       aria-hidden="true"
-      className="absolute right-[3px] top-[3px] min-w-[17px] rounded-full bg-pase px-1 text-center text-[10px] font-semibold leading-[17px] text-white"
+      className="absolute right-[3px] top-[3px] min-w-[17px] rounded-full bg-contador px-1 text-center text-[10px] font-semibold leading-[17px] text-tinta"
     >
       {cantidad > 9 ? '9+' : cantidad}
     </span>

@@ -43,36 +43,42 @@ const enLinea = (svg, { alto, ancho, etiqueta = 'PaseLibre', estilo = '' } = {})
 };
 
 const PALETA = [
-  ['Azul noche', COLOR.tinta, 'Texto, fondos oscuros y avatares.'],
+  ['Tinta', COLOR.tinta, 'Texto, fondos oscuros y avatares.'],
+  ['Verde marca', COLOR.marca, 'La barra de arriba y el pie.'],
   [
-    'Azul pase',
+    'Verde pase',
     COLOR.pase,
-    'Actuar: el botón principal, el símbolo y los contadores. Un botón principal por pantalla.',
+    'Actuar: el botón principal y el símbolo. Un botón principal por pantalla.',
   ],
-  ['Azul suave', '#EAF0FF', 'Fondo de lo elegido o resaltado.'],
+  ['Verde suave', '#EBFAF1', 'Fondo de lo elegido o resaltado.'],
+  ['Verde medio', '#D5F5E3', 'Insignias de «verificado».'],
+  ['Verde de texto', '#007A51', 'Enlaces y acciones sobre blanco.'],
   ['Acento', COLOR.acento, 'El símbolo y los subrayados sobre fondos oscuros.'],
-  ['Superficie', '#F2F4F8', 'Fondos de tarjetas, campos y fichas.'],
-  ['Línea', '#E3E7EF', 'Separadores y bordes suaves.'],
+  ['Contador', '#F97316', 'Contadores e insignias de aviso. El número va en tinta.'],
+  ['Superficie', '#F6F8F7', 'Fondos de tarjetas, campos y fichas.'],
+  ['Línea', '#E2E7E4', 'Separadores y bordes suaves.'],
   ['Borde', COLOR.borde, 'Bordes de tarjetas e interruptores apagados.'],
-  ['Borde de control', '#66728F', 'Bordes de campos y botones: 3 : 1 como mínimo.'],
-  ['Secundario', '#2E3A5A', 'Texto de apoyo.'],
-  ['Detalle', '#5A6785', 'Notas, fechas y ayudas.'],
+  ['Borde de control', '#6B7872', 'Bordes de campos y botones: 3 : 1 como mínimo.'],
+  ['Secundario', '#2E3833', 'Texto de apoyo.'],
+  ['Detalle', '#59645E', 'Notas, fechas y ayudas.'],
 ];
 
 const ESTADOS = [
-  ['OK', '#0B6B4A', '#DDF4EA', 'Confirmado, visible'],
-  ['Aviso', '#8A3F00', '#FFF0E3', 'Para revisar'],
-  ['Error', '#8A1C12', '#FDECEA', 'Algo falló'],
+  ['OK', '#006B47', '#D5F5E3', 'Confirmado, visible'],
+  ['Aviso', '#9A3412', '#FFF0E3', 'Para revisar'],
+  ['Error', '#B42318', '#FDECEA', 'Algo falló'],
 ];
 
 const PAREJAS = [
-  ['Azul noche sobre blanco', COLOR.tinta, '#FFFFFF'],
-  ['Blanco sobre azul pase', '#FFFFFF', COLOR.pase],
-  ['Azul pase sobre blanco', COLOR.pase, '#FFFFFF'],
-  ['Blanco sobre azul noche', '#FFFFFF', COLOR.tinta],
-  ['Acento sobre azul noche', COLOR.acento, COLOR.tinta],
-  ['Secundario sobre blanco', '#2E3A5A', '#FFFFFF'],
-  ['Detalle sobre blanco', '#5A6785', '#FFFFFF'],
+  ['Tinta sobre blanco', COLOR.tinta, '#FFFFFF'],
+  ['Blanco sobre verde pase', '#FFFFFF', COLOR.pase],
+  ['Blanco sobre verde marca', '#FFFFFF', COLOR.marca],
+  ['Verde de texto sobre blanco', '#007A51', '#FFFFFF'],
+  ['Blanco sobre tinta', '#FFFFFF', COLOR.tinta],
+  ['Acento sobre tinta', COLOR.acento, COLOR.tinta],
+  ['Tinta sobre contador', COLOR.tinta, '#F97316'],
+  ['Secundario sobre blanco', '#2E3833', '#FFFFFF'],
+  ['Detalle sobre blanco', '#59645E', '#FFFFFF'],
   ['Acento sobre blanco', COLOR.acento, '#FFFFFF'],
 ];
 
@@ -133,7 +139,7 @@ const VOZ = [
 ];
 
 const CSS = `
-:root{--tinta:#0A1633;--pase:#2F5BFF;--superficie:#F2F4F8;--linea:#E3E7EF;--borde:#C8CFDD;--secundario:#2E3A5A;--detalle:#5A6785;--ok:#0B6B4A;--error:#8A1C12}
+:root{--tinta:#0F1412;--pase:#00875A;--superficie:#F6F8F7;--linea:#E2E7E4;--borde:#C6CEC9;--secundario:#2E3833;--detalle:#59645E;--ok:#006B47;--error:#B42318}
 *{box-sizing:border-box}
 body{margin:0;background:#fff;color:var(--tinta);font:400 15px/22px Figtree,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:1120px;margin:0 auto;padding:40px 24px 96px}
@@ -148,13 +154,13 @@ section:last-of-type{border-bottom:0}
 .cuadricula{display:grid;gap:16px;margin-top:24px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .tarjeta{border:1px solid var(--linea);border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:12px;min-width:0}
 .lienzo{display:flex;align-items:center;justify-content:center;min-height:120px;border-radius:12px;padding:16px}
-.claro{background:#fff;border:1px solid var(--linea)}.oscuro{background:var(--tinta)}.azul{background:var(--pase)}.gris{background:var(--superficie)}
+.claro{background:#fff;border:1px solid var(--linea)}.oscuro{background:var(--tinta)}.verde{background:var(--pase)}.gris{background:var(--superficie)}
 code{font:500 12px/16px ui-monospace,Menlo,monospace;background:var(--superficie);border-radius:6px;padding:2px 6px;color:var(--secundario)}
 .muestra{height:72px;border-radius:12px;border:1px solid rgba(10,22,51,.08)}
 table{width:100%;border-collapse:collapse;margin-top:16px;font-size:14px}
 th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--linea)}th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--detalle);font-weight:600}
 .etiqueta{display:inline-block;border-radius:999px;padding:0 10px;font-size:12px;line-height:22px;font-weight:600}
-.si{background:#DDF4EA;color:var(--ok)}.no{background:#FDECEA;color:var(--error)}
+.si{background:#D5F5E3;color:var(--ok)}.no{background:#FDECEA;color:var(--error)}
 .iconos{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:12px;margin-top:24px}
 .icono{display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid var(--linea);border-radius:12px;padding:16px 8px;font-size:13px;color:var(--secundario)}
 .icono svg{width:28px;height:28px;fill:none;stroke:var(--tinta);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
@@ -176,14 +182,8 @@ export function hojaDeMarca({ svgs }) {
       'Sobre blanco o claro. Es la que se usa por defecto.',
       44,
     ],
-    ['Sobre oscuro', 'horizontal-oscuro.svg', 'oscuro', 'Sobre azul noche o fotos oscuras.', 44],
-    [
-      'Un color · azul noche',
-      'horizontal-tinta.svg',
-      'claro',
-      'Sellos, facturas y una sola tinta.',
-      36,
-    ],
+    ['Sobre oscuro', 'horizontal-oscuro.svg', 'oscuro', 'Sobre la tinta o fotos oscuras.', 44],
+    ['Un color · tinta', 'horizontal-tinta.svg', 'claro', 'Sellos, facturas y una sola tinta.', 36],
     [
       'Un color · blanco',
       'horizontal-blanco.svg',
@@ -199,7 +199,7 @@ export function hojaDeMarca({ svgs }) {
       'Símbolo',
       'simbolo.svg',
       'claro',
-      'Solo la entrada, en azul pase, azul noche, blanco o acento.',
+      'Solo la entrada, en verde pase, tinta, blanco o acento.',
       44,
     ],
     ['Pequeño', 'favicon.svg', 'gris', 'De 16 a 32 px: muescas hondas y flecha gruesa.', 48],
@@ -259,11 +259,11 @@ export function hojaDeMarca({ svgs }) {
     <div class="tarjeta">
       <div class="lienzo claro" style="min-height:220px">
         <svg viewBox="0 0 108 88" style="height:180px" role="img" aria-label="Espacio libre alrededor del símbolo: la mitad de su alto, en cada lado">
-          <rect x=".5" y=".5" width="107" height="87" rx="6" fill="none" stroke="#66728F" stroke-width="1" stroke-dasharray="3 3"/>
-          <rect x="22" y="22" width="64" height="44" fill="none" stroke="#C8CFDD" stroke-width=".8"/>
+          <rect x=".5" y=".5" width="107" height="87" rx="6" fill="none" stroke="#6B7872" stroke-width="1" stroke-dasharray="3 3"/>
+          <rect x="22" y="22" width="64" height="44" fill="none" stroke="#C6CEC9" stroke-width=".8"/>
           <g transform="translate(22 22)">${svgs['simbolo.svg'].replace(/^[\s\S]*?<path/, '<path').replace(/<\/svg>\s*$/, '')}</g>
-          <g fill="#8FA9FF" stroke="#0A1633" stroke-width=".8"><rect x="0" y="33" width="22" height="22"/><rect x="86" y="33" width="22" height="22"/><rect x="43" y="0" width="22" height="22"/><rect x="43" y="66" width="22" height="22"/></g>
-          <g font-family="Figtree,sans-serif" font-size="9" font-weight="600" fill="#0A1633" text-anchor="middle"><text x="11" y="47">x</text><text x="97" y="47">x</text><text x="54" y="15">x</text><text x="54" y="81">x</text></g>
+          <g fill="#22D37A" stroke="#0F1412" stroke-width=".8"><rect x="0" y="33" width="22" height="22"/><rect x="86" y="33" width="22" height="22"/><rect x="43" y="0" width="22" height="22"/><rect x="43" y="66" width="22" height="22"/></g>
+          <g font-family="Figtree,sans-serif" font-size="9" font-weight="600" fill="#0F1412" text-anchor="middle"><text x="11" y="47">x</text><text x="97" y="47">x</text><text x="54" y="15">x</text><text x="54" y="81">x</text></g>
         </svg>
       </div>
       <p class="nota"><b>x</b> es la mitad del alto del símbolo. Alrededor del logo queda libre al menos ese espacio: sin textos, bordes ni imágenes encima.</p>
@@ -296,7 +296,7 @@ export function hojaDeMarca({ svgs }) {
 
 <section>
   <h2>Color</h2>
-  <p class="apoyo" style="max-width:680px">Poco color: azul noche y blanco hacen casi todo, y el azul pase aparece solo para actuar. Los valores son los de <code>packages/ui</code>.</p>
+  <p class="apoyo" style="max-width:680px">Poco color: tinta y blanco hacen casi todo, el verde de la marca viste la barra y el pie, y el verde pase aparece solo para actuar. Los valores son los de <code>packages/ui</code>.</p>
   <div class="cuadricula" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
     ${PALETA.map(
       ([nombre, hex, uso]) =>
@@ -334,7 +334,7 @@ export function hojaDeMarca({ svgs }) {
 
 <section>
   <h2>Íconos</h2>
-  <p class="apoyo" style="max-width:680px">De línea, sobre una rejilla de 24: trazo de 1,5, extremos y uniones redondeados, sin relleno y en azul noche. Nunca dentro de un cuadrado de color: el color es del azul pase, y el azul pase es para actuar.</p>
+  <p class="apoyo" style="max-width:680px">De línea, sobre una rejilla de 24: trazo de 1,5, extremos y uniones redondeados, sin relleno y en tinta. Nunca dentro de un cuadrado de color: el color es del verde pase, y el verde pase es para actuar.</p>
   <div class="iconos">
     ${ICONOS.map(([nombre, trazo]) => `<div class="icono"><svg viewBox="0 0 24 24" aria-hidden="true">${trazo}</svg>${nombre}</div>`).join('\n    ')}
   </div>

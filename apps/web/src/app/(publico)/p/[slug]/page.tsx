@@ -37,7 +37,7 @@ export async function generateMetadata({
   return { title: producto.titulo };
 }
 
-/** `/p/:producto` (B_Producto en Hielo): el producto con todas sus ofertas. */
+/** `/p/:producto` (B_Producto): el producto con todas sus ofertas. */
 export default async function Ficha({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const ficha = await cargarFicha(slug);

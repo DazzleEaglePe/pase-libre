@@ -81,7 +81,7 @@ function Avatar({ oferta, chico = false }: { oferta: OfertaVista; chico?: boolea
 }
 
 /**
- * La ficha de un producto, con la estructura de B_Producto en Hielo: fotos, el producto con
+ * La ficha de un producto, con la estructura de B_Producto: fotos, el producto con
  * su precio y «Lo que tienes que saber», la caja para contactar con el vendedor, la tabla de
  * otras ofertas y los detalles. Elegir otra oferta cambia el precio, el vendedor, las fotos y
  * la descripción. Contactar abre el chat o WhatsApp (RF-21, RF-23).

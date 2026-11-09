@@ -1,25 +1,38 @@
 /**
- * Tokens de la línea gráfica Hielo (D-52): azul noche para el texto, azul pase para actuar
- * y grises fríos para todo lo demás. Los nombres de uso se mantienen desde la línea del
- * lienzo (D-49, RNF-51); cambiaron los valores. La web los usa como tema de Tailwind y la
- * app del celular podrá leer los mismos.
+ * Tokens de la línea gráfica verde esmeralda del lienzo «Versión final» (D-54, que reemplaza a
+ * Hielo, D-52): tinta casi negra para el texto, verde para actuar y grises con un toque
+ * verde para todo lo demás. Los nombres de uso se mantienen desde la línea del lienzo
+ * (D-49, RNF-51); cambiaron los valores y se sumaron `marca`, `pase-texto`, `pase-medio`
+ * y `contador`. La web los usa como tema de Tailwind y la app del celular podrá leer los mismos.
  */
 export const color = {
-  tinta: '#0A1633',
-  pase: '#2F5BFF',
-  'pase-suave': '#EAF0FF',
-  acento: '#8FA9FF',
-  superficie: '#F2F4F8',
-  linea: '#E3E7EF',
-  borde: '#C8CFDD',
-  'borde-control': '#66728F',
-  secundario: '#2E3A5A',
-  detalle: '#5A6785',
-  ok: '#0B6B4A',
-  'ok-fondo': '#DDF4EA',
-  aviso: '#8A3F00',
+  /** Texto, fondos oscuros (la banda de categorías) y avatares. */
+  tinta: '#0F1412',
+  /** La barra de arriba y el pie: el verde profundo de la marca. */
+  marca: '#006B47',
+  /** Actuar: el botón principal y el símbolo sobre fondo claro. */
+  pase: '#00875A',
+  /** Fondo de lo elegido o resaltado. */
+  'pase-suave': '#EBFAF1',
+  /** Insignias y fondos de «verificado»; sobre `marca` también sirve de texto de apoyo. */
+  'pase-medio': '#D5F5E3',
+  /** Enlaces y texto de acción sobre blanco o sobre `pase-suave` (el `pase` solo no llega a 4,5 : 1 ahí). */
+  'pase-texto': '#007A51',
+  /** El símbolo y los subrayados **sobre fondo oscuro**. Nunca como texto sobre blanco. */
+  acento: '#22D37A',
+  /** Contadores e insignias de aviso (campanita, mensajes, pedidos en vivo). Texto en `tinta`. */
+  contador: '#F97316',
+  superficie: '#F6F8F7',
+  linea: '#E2E7E4',
+  borde: '#C6CEC9',
+  'borde-control': '#6B7872',
+  secundario: '#2E3833',
+  detalle: '#59645E',
+  ok: '#006B47',
+  'ok-fondo': '#D5F5E3',
+  aviso: '#9A3412',
   'aviso-fondo': '#FFF0E3',
-  error: '#8A1C12',
+  error: '#B42318',
   'error-fondo': '#FDECEA',
 } as const;
 

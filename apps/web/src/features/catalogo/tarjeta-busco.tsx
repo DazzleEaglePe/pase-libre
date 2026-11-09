@@ -55,7 +55,7 @@ export function TarjetaBusco({
         >
           {titulo}
         </b>
-        <span className="text-apoyo text-[#C9D3F5]">{texto}</span>
+        <span className="text-apoyo text-[#C7D2CC]">{texto}</span>
       </div>
       <Link
         href={href}

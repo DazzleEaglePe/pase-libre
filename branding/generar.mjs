@@ -40,7 +40,7 @@ export const SVGS = {
   'simbolo-tinta.svg': envolver(64, 44, simbolo(COLOR.tinta)),
   'simbolo-blanco.svg': envolver(64, 44, simbolo(COLOR.blanco)),
   'simbolo-acento.svg': envolver(64, 44, simbolo(COLOR.acento)),
-  'icono.svg': envolver(64, 64, icono({ fondo: COLOR.pase, figura: COLOR.blanco })),
+  'icono.svg': envolver(64, 64, icono({ fondo: COLOR.marca, figura: COLOR.blanco })),
   'icono-tinta.svg': envolver(64, 64, icono({ fondo: COLOR.tinta, figura: COLOR.acento })),
   'horizontal.svg': pieza(horizontal({ marca: 'simbolo', colores: sobreClaro })),
   'horizontal-oscuro.svg': pieza(horizontal({ marca: 'simbolo', colores: sobreOscuro })),
@@ -56,7 +56,7 @@ export const SVGS = {
   'favicon.svg': envolver(
     64,
     64,
-    icono({ fondo: COLOR.pase, figura: COLOR.blanco, esquina: 14, escala: 0.88, pequeno: true }),
+    icono({ fondo: COLOR.marca, figura: COLOR.blanco, esquina: 14, escala: 0.88, pequeno: true }),
   ),
 };
 
@@ -117,7 +117,7 @@ const svgIcono = SVGS['icono.svg'];
 const svgAppleIcono = envolver(
   64,
   64,
-  icono({ fondo: COLOR.pase, figura: COLOR.blanco, esquina: 0, escala: 0.66 }),
+  icono({ fondo: COLOR.marca, figura: COLOR.blanco, esquina: 0, escala: 0.66 }),
 );
 const svgFavicon = SVGS['favicon.svg'];
 const svgOg = vistaAlCompartir();

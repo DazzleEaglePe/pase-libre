@@ -2,7 +2,7 @@
 
 **Versión:** 0.1 · **Fecha:** 28/10/2026 · **Responsable:** Dazz, para revisar con Grimm y My
 
-La línea gráfica **Hielo** (D-52) y cómo se usa en la web: color, tipografía, medidas, íconos, logo, componentes y voz. Las pantallas y sus recorridos están en el [documento 09](09-ux-y-flujos.md).
+La línea gráfica **verde esmeralda** (D-54, que reemplaza a Hielo, D-52) y cómo se usa en la web: color, tipografía, medidas, íconos, logo, componentes y voz. Las pantallas y sus recorridos están en el [documento 09](09-ux-y-flujos.md).
 
 **Dónde vive cada cosa:**
 
@@ -14,13 +14,13 @@ La línea gráfica **Hielo** (D-52) y cómo se usa en la web: color, tipografía
 | Componentes | [`apps/web/src/shared/ui`](../apps/web/src/shared/ui) | Barras, buscador, campanita, ventanas y controles |
 | Recetas de clases | [`apps/web/src/shared/ui/estilos.ts`](../apps/web/src/shared/ui/estilos.ts) | Campos y botones |
 
-**Historia corta:** el lienzo empezó con tinta y lima, con Space Grotesk y Plus Jakarta Sans; pasó a Inter (D-49); y el 27/10 se eligió Hielo entre cuatro propuestas (Papel, Hielo, Musgo y Noche, en [`branding/propuestas`](../branding/propuestas/index.html)). La web ya está en Hielo; **el lienzo de diseño sigue en Inter y lima** y falta pasarlo.
+**Historia corta:** el lienzo empezó con tinta y lima, con Space Grotesk y Plus Jakarta Sans; pasó a Inter (D-49); el 27/10 se eligió Hielo, azul, entre cuatro propuestas (Papel, Hielo, Musgo y Noche, en [`branding/propuestas`](../branding/propuestas/index.html)); y el 08/11 llegó el lienzo «Versión final» en **verde esmeralda** y se pasó la web a esa paleta (D-54). Los tonos que el lienzo no define (verde de texto, verde medio y borde de control) se derivaron y se midieron: falta que Grimm y My los confirmen.
 
 ---
 
 ## 1. Principios
 
-1. **Poco color.** Azul noche y blanco hacen casi todo. El azul pase aparece solo para actuar.
+1. **Poco color.** Tinta y blanco hacen casi todo; el verde de la marca viste la barra y el pie, y el verde pase aparece solo para actuar.
 2. **Un botón principal por pantalla.** Es el único en azul pase.
 3. **Una familia y una escala.** Figtree en 400, 500 y 600, y ocho niveles de texto. Nada fuera de la escala.
 4. **Se lee en la galería.** Contraste de 4,5 : 1 como mínimo para todo texto y botones de 44 px como mínimo (RNF-07), porque se usa de pie, con el celular y con luz de tienda.
@@ -30,38 +30,45 @@ La línea gráfica **Hielo** (D-52) y cómo se usa en la web: color, tipografía
 
 | Token | Valor | Para qué |
 | --- | --- | --- |
-| `tinta` (azul noche) | `#0A1633` | Texto, fondos oscuros y avatares |
-| `pase` (azul pase) | `#2F5BFF` | Actuar: el botón principal, el símbolo y los contadores |
-| `pase-suave` | `#EAF0FF` | Fondo de lo elegido o resaltado |
-| `acento` | `#8FA9FF` | El símbolo y los subrayados **sobre fondo oscuro**. Nunca como texto sobre blanco |
-| `superficie` | `#F2F4F8` | Fondos de tarjetas, campos y fichas |
-| `linea` | `#E3E7EF` | Separadores y bordes suaves |
-| `borde` | `#C8CFDD` | Bordes de tarjetas e interruptores apagados |
-| `borde-control` | `#66728F` | Bordes de campos y botones (3 : 1 como mínimo) |
-| `secundario` | `#2E3A5A` | Texto de apoyo |
-| `detalle` | `#5A6785` | Notas, fechas y ayudas |
+| `tinta` | `#0F1412` | Texto, fondos oscuros (la banda de categorías) y avatares |
+| `marca` (verde marca) | `#006B47` | La barra de arriba y el pie |
+| `pase` (verde pase) | `#00875A` | Actuar: el botón principal y el símbolo sobre fondo claro |
+| `pase-suave` | `#EBFAF1` | Fondo de lo elegido o resaltado |
+| `pase-medio` | `#D5F5E3` | Insignias de «verificado»; sobre `marca`, texto de apoyo |
+| `pase-texto` | `#007A51` | Enlaces y texto de acción sobre blanco o sobre `pase-suave` |
+| `acento` | `#22D37A` | El símbolo y los subrayados **sobre fondo oscuro**. Nunca como texto sobre blanco |
+| `contador` | `#F97316` | Contadores e insignias de aviso (campanita, mensajes). El número va en `tinta` |
+| `superficie` | `#F6F8F7` | Fondos de tarjetas, campos y fichas |
+| `linea` | `#E2E7E4` | Separadores y bordes suaves |
+| `borde` | `#C6CEC9` | Bordes de tarjetas e interruptores apagados |
+| `borde-control` | `#6B7872` | Bordes de campos y botones (3 : 1 como mínimo) |
+| `secundario` | `#2E3833` | Texto de apoyo |
+| `detalle` | `#59645E` | Notas, fechas y ayudas |
 
 **Estados** (texto sobre su fondo):
 
 | Estado | Texto | Fondo | Para qué |
 | --- | --- | --- | --- |
-| `ok` | `#0B6B4A` | `#DDF4EA` | Confirmado, visible |
-| `aviso` | `#8A3F00` | `#FFF0E3` | Para revisar («Revísala») |
-| `error` | `#8A1C12` | `#FDECEA` | Algo falló |
+| `ok` | `#006B47` | `#D5F5E3` | Confirmado, visible |
+| `aviso` | `#9A3412` | `#FFF0E3` | Para revisar («Revísala») |
+| `error` | `#B42318` | `#FDECEA` | Algo falló |
 
-**Contrastes** (WCAG; 4,5 : 1 es el mínimo para texto):
+**Contrastes** (WCAG, medidos el 08/11; 4,5 : 1 es el mínimo para texto):
 
 | Pareja | Contraste | ¿Para texto? |
 | --- | --- | --- |
-| Azul noche sobre blanco | 17,9 : 1 | Sí |
-| Secundario sobre blanco | 11,2 : 1 | Sí |
-| Acento sobre azul noche | 7,9 : 1 | Sí |
-| Detalle sobre blanco | 5,7 : 1 | Sí |
-| Blanco sobre azul pase (botón principal) | 5,2 : 1 | Sí |
-| Detalle sobre superficie | 5,1 : 1 | Sí |
-| Borde de control sobre blanco | 4,8 : 1 | Para bordes |
-| Ok, aviso y error sobre su fondo | 5,7 a 8,1 : 1 | Sí |
-| **Acento sobre blanco** | **2,3 : 1** | **No** |
+| Tinta sobre blanco | 18,6 : 1 | Sí |
+| Secundario sobre blanco | 12,1 : 1 | Sí |
+| Acento sobre tinta | 9,5 : 1 | Sí |
+| Blanco sobre verde marca (barra y pie) | 6,6 : 1 | Sí |
+| Tinta sobre contador | 6,6 : 1 | Sí |
+| Detalle sobre blanco | 6,2 : 1 | Sí |
+| Detalle sobre superficie | 5,8 : 1 | Sí |
+| Verde de texto sobre blanco | 5,4 : 1 | Sí |
+| Ok, aviso y error sobre su fondo | 5,6 a 6,6 : 1 | Sí |
+| Borde de control sobre blanco | 4,6 : 1 | Para bordes |
+| Blanco sobre verde pase (botón principal) | 4,6 : 1 | Sí, por poco |
+| **Acento sobre blanco** | **2,0 : 1** | **No** |
 
 ## 3. Tipografía
 
@@ -96,13 +103,13 @@ La línea gráfica **Hielo** (D-52) y cómo se usa en la web: color, tipografía
 - Campos: 12 px (`rounded-xl`).
 - Tarjetas y ventanas: entre 12 y 24 px.
 
-**Pendiente:** Hielo pide botones de 10 px y tarjetas de 12 px. Se dejaron las píldoras para no rehacer la web antes de salir; es un ajuste aparte ([checklist](CHECKLIST.md)).
+**Ya no hay pendiente de forma:** el lienzo «Versión final» usa botones en píldora y tarjetas de 18 a 22 px, como la web. El ajuste a 10 px y 12 px que pedía Hielo queda sin efecto.
 
 **Recetas** de [`estilos.ts`](../apps/web/src/shared/ui/estilos.ts):
 
 | Receta | Cómo se ve | Cuándo |
 | --- | --- | --- |
-| `botonPrincipal` | Azul pase, texto blanco | La acción principal de la pantalla; una sola |
+| `botonPrincipal` | Verde pase, texto blanco | La acción principal de la pantalla; una sola |
 | `botonSecundario` | Blanco con borde | Las demás acciones |
 | `botonPeligro` | Rojo de error, texto blanco | Acciones que borran o cortan algo |
 | `botonLista` | Blanco con borde, 40 px | Acciones dentro de una fila |
@@ -111,7 +118,7 @@ La línea gráfica **Hielo** (D-52) y cómo se usa en la web: color, tipografía
 
 ## 5. Íconos y logo
 
-**Íconos:** de línea, sobre una rejilla de 24, con trazo de 1,5, extremos y uniones redondeados, sin relleno y en azul noche. **Nunca dentro de un cuadrado de color:** el color es del azul pase, y el azul pase es para actuar. Las categorías sin foto usan su propio glifo (`glifo-categoria.tsx`). En la web, los demás salen de [Tabler](https://tabler.io/icons) (`@tabler/icons-react`, versión fija) con `stroke={1.5}`: los controles (pausa, flechas, cerrar) y las marcas (WhatsApp, Facebook, Instagram y TikTok), que así tienen el mismo trazo que el resto.
+**Íconos:** de línea, sobre una rejilla de 24, con trazo de 1,5, extremos y uniones redondeados, sin relleno y en tinta. **Nunca dentro de un cuadrado de color:** el color es del verde pase, y el verde pase es para actuar. Las categorías sin foto usan su propio glifo (`glifo-categoria.tsx`). En la web, los demás salen de [Tabler](https://tabler.io/icons) (`@tabler/icons-react`, versión fija) con `stroke={1.5}`: los controles (pausa, flechas, cerrar) y las marcas (WhatsApp, Facebook, Instagram y TikTok), que así tienen el mismo trazo que el resto.
 
 **Logo:** una entrada con muesca y una flecha (el «pase»), junto a la palabra PaseLibre.
 

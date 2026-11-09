@@ -275,7 +275,7 @@ export function FormularioPublicar({
           height="36"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#0B6B4A"
+          stroke="#006B47"
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
