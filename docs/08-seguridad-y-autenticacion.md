@@ -124,6 +124,17 @@ Cada contador es **por ruta**: `@nestjs/throttler` arma su clave con el nombre d
 - No se guardan pagos ni datos financieros (RNF-37).
 - Los respaldos de la base y de las fotos van a B2 ([RESPALDOS.md](../tools/deploy/RESPALDOS.md)).
 
+## 8.1 Registro propio (08/11)
+
+- **Celular comprobado:** código de 6 dígitos al azar (`randomInt`), guardado como sha256, que vence en 10 minutos, con 5 intentos, uno por minuto y 3 por hora por celular. La comparación es de tiempo constante.
+- **Token de un solo uso:** comprobar el código da un token de 32 bytes que dura 30 minutos; se gasta dentro de la misma transacción que crea la solicitud.
+- **Consulta:** el código para ver la solicitud son 24 bytes al azar; la base guarda solo su sha256. La página que lo usa no se indexa y no manda `Referer`.
+- **Contraseña:** la elige quien se registra (mínimo 8, sin las comunes); se guarda con argon2id y pasa tal cual a la cuenta al aprobarse.
+- **DNI:** solo lo ve el equipo y se borra al resolver la solicitud.
+- **Límites por IP**, altos porque una galería sale por un mismo wifi: 60 códigos, 120 verificaciones y 30 solicitudes por hora.
+- **Riesgo aceptado por diseño:** SUNAT dice que el RUC existe y está activo, no que sea de quien lo escribe. Las cuentas aprobadas por RUC quedan marcadas en la cola del equipo («Aprobada sola por el RUC») para revisarlas.
+- **Producción:** el SMS y SUNAT todavía son simulados (el código vuelve en la respuesta). La API no arranca con `REGISTRO_PROPIO=true` en producción hasta que haya proveedores reales.
+
 ## 9. Lo que falta
 
 | Qué | Requerimiento | Estado |

@@ -202,6 +202,21 @@ En la web se llama **«Pases del día»** y los tipos se leen **«Busco»** y **
 3. **El chat** muestra arriba la tarjeta en vivo. Quien publicó el busco tiene «Ya lo conseguí»; quien publicó la oferta flash, «Vendido».
 4. **Tus pases del día** (en `/pases-del-dia`): cuánto falta, quién respondió, «Sumar 1 hora», «Ya lo conseguí» o «Cerrar remate».
 
+### 3.9 La tienda crea su cuenta (registro propio, 08/11)
+
+Sección 3 del lienzo «Versión final» (REG_Web, REG_Cel y REG_Admin). Solo con `REGISTRO_PROPIO` encendido; apagado, «Crear cuenta» sigue con el aviso y el WhatsApp del equipo.
+
+1. `/ingresar` › «Crear cuenta» › **«Crear la cuenta de mi tienda»** lleva a `/registro`.
+2. **Tu celular:** escribe el celular, le llega un código por SMS y lo usa.
+3. **Tu negocio:** con RUC lo verifica con SUNAT; sin RUC elige DNI del encargado, una tienda que lo recomienda o la credencial de la galería. Nombre con el que lo conocen y qué vende.
+4. **Tu stand:** galería (u «Otra galería» con su nombre), piso, número, referencia y horario.
+5. **Encargado y contraseña:** nombre, la contraseña con la que entrará y los términos.
+6. En la **computadora** se ve todo en una página; en el **celular**, de a un paso con «Siguiente», que no avanza si falta algo.
+7. Al enviar va a `/registro/solicitud/<código>`: **aprobada** (con RUC activo y habido) con «Iniciar sesión»; **en revisión** con el plazo de 3 h, que se actualiza sola; **falta algo** con el mensaje del equipo y «Corregir»; o **rechazada** con el motivo.
+8. El equipo la ve en **Panel del equipo › Solicitudes** (con la cuenta de las que esperan), aprueba, pide un cambio o rechaza. Si eligió una galería que no está en la lista, elige la galería antes de aprobar.
+
+**Distinto del lienzo, a propósito:** se agregó «Crea tu contraseña» (el lienzo no dice cómo entra la tienda); la recomendación es texto libre y no una lista de tiendas (no se muestran tiendas a quien aún no tiene cuenta); las fotos del stand y la credencial no se suben en el formulario, se mandan después al equipo; y no hay todavía el «Sí, la conozco» de la tienda que recomienda.
+
 ## 4. Estados y mensajes
 
 - **Vacíos:** cada lista dice qué hacer («Todavía no publicas nada. Busca tu producto en el catálogo y publícalo en un par de minutos.»). Nunca «No hay datos».

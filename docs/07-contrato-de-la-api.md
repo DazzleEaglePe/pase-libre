@@ -195,6 +195,25 @@ Construidas el 29/10. **Con `EN_VIVO` apagado responden 404**, como si no existi
 
 «Vendido» sigue siendo `POST /ofertas/:id/vendido`: si el hilo viene de una oferta flash, además resta una unidad de la oferta y la cierra al llegar a 0. `GET /conversaciones/:id` trae `en_vivo` con la tarjeta del hilo, y `GET /cuenta/avisos` suma `campanita.EN_VIVO` solo con el interruptor encendido.
 
+### 2.9 Registro propio (RF-01, RF-04)
+
+Sin sesión. Apagado (`REGISTRO_PROPIO`), todo responde 404 menos `opciones`. Nada se cachea.
+
+| Ruta | Qué hace |
+| --- | --- |
+| `GET /registro/opciones` | `{ activo, galerias, categorias }`. La web lo usa para decidir si ofrece «Crear cuenta» |
+| `POST /registro/celular` | Manda el código por SMS. 429 si se pide antes de un minuto o más de 3 veces por hora. Con los proveedores simulados trae `codigo_prueba` |
+| `POST /registro/celular/verificar` | Con el código bueno devuelve `token_celular` (30 min, un solo uso). 5 intentos por código |
+| `POST /registro/ruc` | Dígito de control y SUNAT: `{ encontrado, apto, datos }` |
+| `POST /registro/solicitudes` | Envía la solicitud con el token. Devuelve el estado y `consulta`, el código para volver a verla (solo esta vez) |
+| `GET /registro/solicitudes/:consulta` | Estado, mensaje del equipo y los datos para corregir (sin DNI ni clave) |
+| `PUT /registro/solicitudes/:consulta` | Corrige lo que pidió el equipo; solo en REQUIERE_CAMBIOS |
+| `GET /equipo/solicitudes?estado=` | La cola del equipo, con `resumen` (pendientes, vencidas…). Solo EQUIPO |
+| `GET /equipo/solicitudes/:id` | Una solicitud, con el DNI mientras siga abierta |
+| `POST /equipo/solicitudes/:id/aprobar` | Crea la tienda y la cuenta. `{ galeria }` obligatoria si eligió una que no está en la lista |
+| `POST /equipo/solicitudes/:id/pedir-cambios` | `{ mensaje }`: vuelve a quien se registró para que corrija |
+| `POST /equipo/solicitudes/:id/rechazar` | `{ mensaje }`: el motivo, que lo lee quien se registró |
+
 ## 3. Tiempo real
 
 El navegador abre un socket de socket.io en `/tiempo-real` (fuera de `/v1`) con su cookie. Solo entra una sesión vigente con contraseña propia, y el *handshake* revisa el origen: CORS no protege a un WebSocket.

@@ -1,8 +1,9 @@
+import type { RespuestaOpcionesRegistro } from '@paselibre/contracts';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 
 import { FormularioAcceso } from '@/features/acceso/formulario-acceso';
-import { obtenerSesion } from '@/shared/api/servidor';
+import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 import { MarcoPagina } from '@/shared/ui/marco-pagina';
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default async function PaginaIngresar({
     redirect(sesion.usuario.rol === 'EQUIPO' ? '/equipo/cuentas' : '/');
   }
   const { pestana } = await searchParams;
+  const { cuerpo: registro } = await consultarApi<RespuestaOpcionesRegistro>('/registro/opciones');
 
   // La barra va como la de un visitante: aquí o no hay sesión o es la clave temporal, y con ella
   // todavía se ve el catálogo como visitante (docs/08 §2).
@@ -31,6 +33,7 @@ export default async function PaginaIngresar({
         <FormularioAcceso
           primerIngreso={sesion?.usuario.debe_cambiar_clave ? sesion.usuario.usuario : null}
           pestanaInicial={pestana === 'crear' ? 'crear' : 'ingresar'}
+          registroActivo={registro?.activo === true}
         />
       </main>
     </MarcoPagina>

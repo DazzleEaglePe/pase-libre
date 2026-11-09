@@ -79,5 +79,5 @@ Secciones S (4, 7, 9, 12 y 2) se hacen de paso, junto al color final.
 
 - **Commits:** `337347f` («Demo · lo aprobado») y `228e7f7` (carrusel C y los documentos 13 y 14). Sin subir a `origin`.
 - **Paleta verde (D-54):** hecha en tokens, logo, íconos, hoja de marca y colores sueltos de la web. Falta la barra de arriba (sección 1), que en el lienzo es verde y en la web sigue blanca.
-- **Registro de tienda (sección 3):** es lo que sigue; ver el avance en el [CHECKLIST](CHECKLIST.md).
+- **Registro de tienda (sección 3), hecho el 08/11 detrás de `REGISTRO_PROPIO`:** API (`5d4d52a`), formulario en `/registro` (todo junto en computadora, de a un paso en celular), página de estado y cola en Panel del equipo › Solicitudes. Comprobado con 24 pruebas de la API, 9 de contratos y un recorrido de 20 puntos en Chrome (con RUC en computadora, sin RUC en celular y la aprobación del equipo). **Falta para producción:** contratar el SMS y la consulta a SUNAT (L-5); subir fotos del stand y de la credencial; el «Sí, la conozco» de la tienda que recomienda; y confirmar con Grimm y My que se agregue «Crea tu contraseña», que el lienzo no tiene.
 - **`cabecera.tsx`:** tiene una edición a mano ajena a estas sesiones (la franja de ventajas comentada). Deja `pnpm lint` en rojo por un `VENTAJAS` sin usar y no entra en ningún commit hasta que su dueño la termine.

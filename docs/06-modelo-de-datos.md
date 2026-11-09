@@ -184,6 +184,15 @@ Y estas las cuida la API:
 2. **Las migraciones solo avanzan y agregan.** Cada una tiene que funcionar con la versión anterior del código, porque revertir las imágenes no deshace una migración ([DESPLIEGUE.md](../tools/deploy/DESPLIEGUE.md#5-despliegues-siguientes)).
 3. En el servidor las aplica `desplegar.sh`, después de respaldar la base.
 
+### Registro propio (RF-01, RF-04; 08/11, migración `20261108120000_registro_propio`)
+
+- **`solicitud`:** el pedido de cuenta de una tienda. Guarda el celular comprobado (9 dígitos, que será su usuario), cómo se acredita (`metodo`: RUC, o sin RUC con DNI, recomendación o credencial), lo que contestó SUNAT (`ruc_datos`), el nombre comercial, las categorías, la galería (o `galeria_otra` si no está en la lista), piso, stand, referencia, el horario como texto y por partes (`horario_datos`), el encargado y el hash de la contraseña que eligió. `estado`: PENDIENTE, REQUIERE_CAMBIOS, APROBADA o RECHAZADA; `vence_en` es el plazo de 3 h; `aprobada_sola` marca las que aprobó el RUC.
+- **Quien se registró** consulta su solicitud con un código propio: aquí solo va su sha256 (`consulta_hash`, único).
+- **El DNI** se borra al aprobar o rechazar.
+- **Al aprobar** se crean la `tienda` y el `usuario` (dueño, `usuario` = celular, sin clave temporal); sus ids quedan en `tienda_id` y `usuario_id` **sin llave foránea**: la solicitud es el registro de lo que pasó y no debe impedir borrar una cuenta. Quién revisó va en `revisada_por_id` y en `auditoria`.
+- **`codigo_celular`:** el código de 6 dígitos (sha256 de celular y código), sus intentos, cuándo se comprobó y el token de un solo uso que sale de comprobarlo (`token_hash`, `token_expira_en`, `consumido_en`).
+- **`tienda.piso`:** nuevo, lo llena el registro; para «Tiendas por piso» (sección 8 del lienzo).
+
 ## 6. Fase 2 prevista
 
 Se agregan con migraciones nuevas, sin tocar las tablas de arriba: `pedido_pase`, `pregunta`, `favorito`, `seguimiento` y `precio_rol`. `tienda.perfil_privado` y `carga_planilla` ya existen y esperan su pantalla.

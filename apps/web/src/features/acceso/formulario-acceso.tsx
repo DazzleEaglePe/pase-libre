@@ -1,6 +1,7 @@
 'use client';
 
 import type { RespuestaYo } from '@paselibre/contracts';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
@@ -30,10 +31,13 @@ const enlaceBoton = 'h-9 self-start text-apoyo font-medium underline';
 export function FormularioAcceso({
   primerIngreso,
   pestanaInicial,
+  registroActivo = false,
 }: {
   /** Usuario con la clave temporal todavía activa, o nulo. */
   primerIngreso: string | null;
   pestanaInicial: Pestana;
+  /** Con el registro propio encendido, «Crear cuenta» lleva al formulario en vez de al aviso. */
+  registroActivo?: boolean;
 }) {
   const router = useRouter();
   const [paso, setPaso] = useState<'login' | 'primer' | 'listo'>(
@@ -84,6 +88,7 @@ export function FormularioAcceso({
   return (
     <Ingreso
       pestanaInicial={pestanaInicial}
+      registroActivo={registroActivo}
       alIngresar={(yo) => {
         if (yo.usuario.debe_cambiar_clave) {
           setUsuarioPrimer(yo.usuario.usuario);
@@ -99,9 +104,11 @@ export function FormularioAcceso({
 
 function Ingreso({
   pestanaInicial,
+  registroActivo,
   alIngresar,
 }: {
   pestanaInicial: Pestana;
+  registroActivo: boolean;
   alIngresar: (yo: RespuestaYo) => void;
 }) {
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
@@ -266,7 +273,21 @@ function Ingreso({
       ) : (
         <div className="flex flex-col gap-4">
           <h1 className="text-titulo">Crear cuenta</h1>
-          <div className="flex flex-col gap-2 rounded-2xl border border-linea p-5">
+          {registroActivo && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-linea p-5">
+              <b className="text-tarjeta">Crea la cuenta de tu tienda</b>
+              <span className="text-apoyo text-secundario">
+                Gratis durante el piloto. Con tu celular y tu RUC (o sin RUC) la revisamos en
+                minutos.
+              </span>
+              <Link href="/registro" className={`${botonPrincipal} self-start`}>
+                Crear la cuenta de mi tienda
+              </Link>
+            </div>
+          )}
+          <div
+            className={`flex flex-col gap-2 rounded-2xl border border-linea p-5 ${registroActivo ? 'hidden' : ''}`}
+          >
             <b className="text-tarjeta">Estamos en mantenimiento; pronto podrás crear tu cuenta</b>
             <span className="text-apoyo text-secundario">
               Mientras dura el piloto, el equipo de PaseLibre crea las cuentas de las tiendas de
