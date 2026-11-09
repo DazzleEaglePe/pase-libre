@@ -42,7 +42,7 @@ export function TarjetaBusco({
       <div className="flex min-w-0 flex-[1_1_260px] flex-col items-start gap-1.5">
         {grande && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-[3px] text-etiqueta uppercase">
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#FF7A66]" />
+            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
             Pases del día
           </span>
         )}

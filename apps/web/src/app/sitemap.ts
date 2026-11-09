@@ -1,6 +1,8 @@
 import type { CategoriaResumen, RespuestaMapaDelSitio } from '@paselibre/contracts';
 import type { MetadataRoute } from 'next';
 
+import { unstable_cache } from 'next/cache';
+
 import { cargarApiPublica } from '@/shared/api/servidor';
 import { URL_SITIO } from '@/shared/sitio';
 
@@ -8,14 +10,25 @@ import { URL_SITIO } from '@/shared/sitio';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Lo que pide a la API, guardado una hora: el sitemap lo piden los buscadores (y cualquiera),
+ * y cada pedido sin esto haría una consulta pesada con el límite de la IP del servidor web.
+ */
+const datosDelMapa = unstable_cache(
+  () =>
+    Promise.all([
+      cargarApiPublica<RespuestaMapaDelSitio>('/mapa-del-sitio'),
+      cargarApiPublica<CategoriaResumen[]>('/categorias'),
+    ]),
+  ['mapa-del-sitio'],
+  { revalidate: 3600 },
+);
+
+/**
  * `/sitemap.xml` (RNF-42): la portada, las categorías con productos, cada ficha que ve un
  * visitante y las páginas de información. Nada que pida sesión.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [mapa, categorias] = await Promise.all([
-    cargarApiPublica<RespuestaMapaDelSitio>('/mapa-del-sitio'),
-    cargarApiPublica<CategoriaResumen[]>('/categorias'),
-  ]);
+  const [mapa, categorias] = await datosDelMapa();
 
   return [
     { url: `${URL_SITIO}/`, changeFrequency: 'hourly', priority: 1 },

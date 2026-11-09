@@ -1,7 +1,7 @@
 'use client';
 
 import type { RespuestaOpcionesRegistro, RespuestaSolicitud } from '@paselibre/contracts';
-import { IconCheck, IconClockHour4 } from '@tabler/icons-react';
+import { IconCheck } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -13,7 +13,16 @@ import { FormularioRegistro } from './formulario-registro';
 
 const CADA_CUANTO_MS = 30_000;
 
-/** «1 h 20 min», «45 min» o «menos de 1 min». */
+/** «7:12 p. m.», en hora de Lima. */
+function horaDeLima(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-PE', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Lima',
+  });
+}
+
+/** «1 h 20 min», «45 min» o «3 h». */
 function tiempoRestante(hasta: string, ahora: number): string | null {
   const minutos = Math.ceil((new Date(hasta).getTime() - ahora) / 60_000);
   if (minutos <= 0) return null;
@@ -109,11 +118,11 @@ export function EstadoSolicitud({
 
   if (solicitud.estado === 'APROBADA') {
     return (
-      <Aviso
-        icono={<IconCheck size={32} stroke={2.2} aria-hidden="true" />}
-        titulo={`¡Tu cuenta está aprobada!`}
-        verde
-      >
+      <Aviso titulo="¡Tu cuenta está aprobada!">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-pase-medio px-3 py-1 text-apoyo font-semibold text-ok">
+          <IconCheck size={16} stroke={2.4} aria-hidden="true" />
+          Cuenta verificada por PaseLibre
+        </span>
         <p>
           Bienvenida, <b className="font-semibold">{datos.nombre_comercial}</b>.{' '}
           {solicitud.aprobada_sola
@@ -127,6 +136,15 @@ export function EstadoSolicitud({
         <Link href="/ingresar" className={botonPrincipal}>
           Iniciar sesión
         </Link>
+        <div className="flex w-full flex-col gap-2 border-t border-linea pt-4">
+          <b className="text-tarjeta">Tus primeros pasos</b>
+          <Link href="/publicar" className="text-cuerpo font-medium">
+            Publica tu primer producto ›
+          </Link>
+          <Link href="/cuenta/configuracion" className="text-cuerpo font-medium">
+            Completa los datos de tu tienda ›
+          </Link>
+        </div>
       </Aviso>
     );
   }
@@ -170,17 +188,14 @@ export function EstadoSolicitud({
 
   const quedan = solicitud.vence_en ? tiempoRestante(solicitud.vence_en, ahora) : null;
   return (
-    <Aviso
-      icono={<IconClockHour4 size={32} stroke={2} aria-hidden="true" />}
-      titulo="Estamos revisando tu solicitud"
-    >
+    <Aviso titulo="Estamos revisando tu solicitud">
       <p>
         Una persona de nuestro equipo la revisa y te avisamos en un máximo de 3 horas. Gracias por
         tu paciencia.
       </p>
       <p className="text-apoyo font-semibold">
-        {quedan
-          ? `Te respondemos antes de ${quedan}.`
+        {quedan && solicitud.vence_en
+          ? `Te respondemos antes de las ${horaDeLima(solicitud.vence_en)} · quedan ${quedan}.`
           : 'Ya pasó el plazo: la estamos viendo ahora mismo. Si tarda, escríbenos.'}
       </p>
       <ul className="flex flex-col gap-2 rounded-2xl border border-linea p-4 text-apoyo">
@@ -198,28 +213,9 @@ export function EstadoSolicitud({
   );
 }
 
-function Aviso({
-  titulo,
-  icono,
-  verde = false,
-  children,
-}: {
-  titulo: string;
-  icono?: React.ReactNode;
-  verde?: boolean;
-  children: React.ReactNode;
-}) {
+function Aviso({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col items-start gap-4 rounded-2xl border border-linea bg-white p-6 sm:p-8">
-      {icono && (
-        <span
-          className={`flex h-16 w-16 items-center justify-center rounded-full ${
-            verde ? 'bg-pase text-white' : 'bg-pase-medio text-marca'
-          }`}
-        >
-          {icono}
-        </span>
-      )}
       <h1 className="text-titulo">{titulo}</h1>
       <div className="flex w-full flex-col items-start gap-4 text-cuerpo">{children}</div>
     </div>

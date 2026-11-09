@@ -1,12 +1,11 @@
 import type { RespuestaPortada } from '@paselibre/contracts';
 import Link from 'next/link';
 
-import { TarjetaCategoria } from '@/features/catalogo/tarjeta-categoria';
 import { TarjetaOfertaPortada } from '@/features/catalogo/tarjeta-oferta';
 import { TarjetaVerTodo } from '@/features/catalogo/tarjeta-ver-todo';
 import { cargarApi, obtenerSesion } from '@/shared/api/servidor';
 import { Carrusel } from '@/shared/ui/carrusel';
-import { botonLista, botonPrincipal } from '@/shared/ui/estilos';
+import { botonLista, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 
 /**
  * La portada (F_Portada): la bienvenida o «Tu cuenta», lo recién publicado con
@@ -77,39 +76,25 @@ export default async function Portada({
           )}
         </section>
       ) : (
-        <section
-          aria-label="Bienvenida"
-          className="flex flex-wrap items-end justify-between gap-x-12 gap-y-6 rounded-2xl bg-superficie p-6 sm:p-8"
-        >
-          <div className="flex max-w-[620px] flex-col gap-3">
-            <h1 className="text-titulo">Lo que hay para pase en las galerías de Wilson</h1>
-            <p className="text-secundario">
-              Busca componentes y mira en qué galería están. Los precios y el contacto con la tienda
-              se ven al iniciar sesión; las cuentas las entrega el equipo de PaseLibre.
-            </p>
-            <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2">
-              <Link href="/ingresar" className={`${botonPrincipal} no-underline`}>
-                Iniciar sesión
-              </Link>
-              <Link href="/ingresar?pestana=crear" className="text-apoyo font-medium">
-                ¿Cómo pido una cuenta?
-              </Link>
-            </div>
+        <section aria-label="Bienvenida" className="flex flex-col gap-3 sm:max-w-[720px]">
+          <h1 className="text-titulo">Lo que hay para pase en las galerías de Wilson</h1>
+          <p className="text-cuerpo text-secundario">
+            Busca componentes y mira en qué galería están. Los precios y el contacto con la tienda
+            se ven al iniciar sesión.
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <Link href="/ingresar" className={`${botonPrincipal} no-underline`}>
+              Iniciar sesión
+            </Link>
+            <Link href="/ingresar?pestana=crear" className={`${botonSecundario} no-underline`}>
+              ¿Cómo pido una cuenta?
+            </Link>
           </div>
-          <dl className="flex gap-8">
-            {(
-              [
-                ['productos', portada.totales.productos],
-                ['tiendas', portada.totales.tiendas],
-                ['galerías', portada.totales.galerias],
-              ] as const
-            ).map(([nombre, cantidad]) => (
-              <div key={nombre} className="flex flex-col-reverse">
-                <dt className="text-nota text-detalle">{nombre}</dt>
-                <dd className="text-[28px] font-semibold leading-9">{cantidad}</dd>
-              </div>
-            ))}
-          </dl>
+          <p className="text-apoyo text-detalle">
+            <b className="font-semibold text-tinta">{portada.totales.productos}</b> productos ·{' '}
+            <b className="font-semibold text-tinta">{portada.totales.tiendas}</b> tiendas ·{' '}
+            <b className="font-semibold text-tinta">{portada.totales.galerias}</b> galerías
+          </p>
         </section>
       )}
 
@@ -118,8 +103,8 @@ export default async function Portada({
           <h2 id="recientes" className="text-seccion">
             Recién publicado
           </h2>
-          <Link href="/buscar" className="text-apoyo font-medium">
-            Ver todo
+          <Link href={verTodo.href} className="text-apoyo font-medium">
+            {verTodo.titulo}
           </Link>
         </div>
         <div aria-label="Galería" className="flex flex-wrap gap-2">
@@ -131,7 +116,7 @@ export default async function Portada({
                   key={opcion.slug || 'todas'}
                   href={opcion.slug ? `/?galeria=${opcion.slug}` : '/'}
                   aria-current={activa ? 'true' : undefined}
-                  className={`flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-apoyo font-medium no-underline ${
+                  className={`flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-apoyo font-medium no-underline md:h-9 ${
                     activa
                       ? 'border-tinta bg-tinta text-white'
                       : 'border-borde bg-white text-tinta hover:border-borde-control'
@@ -171,18 +156,22 @@ export default async function Portada({
         <h2 id="explora" className="text-seccion">
           Explora por categoría
         </h2>
-        {/* La misma tarjeta que arriba de los resultados y en la página sin resultados (J). */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
-          {portada.categorias.map((categoria) => (
-            <TarjetaCategoria
-              key={categoria.slug}
-              href={`/buscar?categoria=${categoria.slug}`}
-              slug={categoria.slug}
-              nombre={categoria.nombre}
-              productos={categoria.productos}
-            />
-          ))}
-        </div>
+        {/* En texto, con cuántos productos tiene (FI_WebNormal del lienzo «Versión final»). */}
+        <ul className="flex flex-wrap gap-2">
+          {portada.categorias
+            .filter((categoria) => categoria.productos > 0)
+            .map((categoria) => (
+              <li key={categoria.slug}>
+                <Link
+                  href={`/buscar?categoria=${categoria.slug}`}
+                  className="flex h-11 items-center gap-2 rounded-full border border-borde bg-white px-4 text-cuerpo font-semibold text-tinta no-underline hover:border-borde-control"
+                >
+                  {categoria.nombre}
+                  <span className="text-apoyo font-normal text-detalle">{categoria.productos}</span>
+                </Link>
+              </li>
+            ))}
+        </ul>
       </section>
     </div>
   );

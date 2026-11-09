@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { horaCorta } from '@/shared/fechas';
+import { useAgrupado } from '@/shared/agrupar';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
 
 const FILTROS: Array<[FiltroConversacion, string]> = [
@@ -124,8 +125,10 @@ export function Bandeja({ children }: { children: ReactNode }) {
   useEffect(() => {
     void cargar();
   }, [cargar, conexion]);
-  useEvento(EVENTOS.mensajeNuevo, () => void cargar());
-  useEvento(EVENTOS.contadores, () => void cargar());
+  // Un mensaje dispara los dos eventos: se piden juntos, una vez.
+  const recargar = useAgrupado(() => void cargar());
+  useEvento(EVENTOS.mensajeNuevo, recargar);
+  useEvento(EVENTOS.contadores, recargar);
 
   return (
     <div className="flex gap-5 lg:h-[calc(100dvh-229px)] lg:min-h-[560px]">

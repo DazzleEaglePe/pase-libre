@@ -41,24 +41,31 @@ export function TarjetaOfertaPortada({
         glifo={96}
         grosor={2}
       />
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-nota text-detalle">
-          {textoEstado(tarjeta.condicion)} · {textoStock(tarjeta.stock)}
-        </span>
+      {/* Como D_Portada: el producto, luego estado · lugar · cuándo, y el precio. */}
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="line-clamp-2 text-apoyo font-semibold text-tinta">
           {tarjeta.producto.titulo}
         </span>
-        {conTienda ? (
-          tarjeta.precio_visible && tarjeta.precio ? (
-            <span className="text-precio text-tinta">{formatearPrecio(tarjeta.precio)}</span>
-          ) : (
-            <span className="text-apoyo font-semibold text-secundario">Al interno · consultar</span>
-          )
-        ) : (
-          <PrecioConSesion className="text-apoyo text-secundario" />
-        )}
         <span className="text-nota text-detalle">
-          {lugar.filter(Boolean).join(' · ')} · {haceCuanto(tarjeta.actualizada_en)}
+          {[textoEstado(tarjeta.condicion), ...lugar, haceCuanto(tarjeta.actualizada_en)]
+            .filter(Boolean)
+            .join(' · ')}
+        </span>
+        {tarjeta.stock === 0 && (
+          <span className="text-nota font-semibold text-aviso">{textoStock(0)}</span>
+        )}
+        <span className="mt-auto pt-1">
+          {conTienda ? (
+            tarjeta.precio_visible && tarjeta.precio ? (
+              <span className="text-precio text-tinta">{formatearPrecio(tarjeta.precio)}</span>
+            ) : (
+              <span className="text-apoyo font-semibold text-secundario">
+                Al interno · consultar
+              </span>
+            )
+          ) : (
+            <PrecioConSesion className="text-apoyo text-secundario" />
+          )}
         </span>
       </span>
     </Link>

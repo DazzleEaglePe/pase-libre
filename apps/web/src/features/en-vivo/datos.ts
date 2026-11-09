@@ -4,6 +4,7 @@ import { EVENTOS, type RespuestaEnVivo } from '@paselibre/contracts';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { useAgrupado } from '@/shared/agrupar';
 import { useEvento } from '@/shared/tiempo-real';
 
 /** Sin socket (el visitante no abre uno), la lista se vuelve a pedir cada minuto. */
@@ -35,9 +36,13 @@ export function useEnVivo(consulta = '') {
     return () => clearInterval(reloj);
   }, [activo, cargar]);
 
-  useEvento(EVENTOS.enVivoCambio, () => {
+  // Cada cambio llega a todas las pestañas a la vez: cada una espera un poco distinto (hasta
+  // 2 s) para que la API no reciba cientos de pedidos en el mismo segundo.
+  const [espera] = useState(() => 300 + Math.round(Math.random() * 1700));
+  const recargar = useAgrupado(() => {
     if (activo) void cargar();
-  });
+  }, espera);
+  useEvento(EVENTOS.enVivoCambio, recargar);
 
   return { datos, activo, recargar: cargar };
 }

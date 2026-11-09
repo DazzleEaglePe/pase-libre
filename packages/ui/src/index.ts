@@ -22,6 +22,8 @@ export const color = {
   acento: '#22D37A',
   /** Contadores e insignias de aviso (campanita, mensajes, pedidos en vivo). Texto en `tinta`. */
   contador: '#F97316',
+  /** El punto que late en «En vivo»: siempre decorativo, nunca como texto. */
+  vivo: '#EF4444',
   superficie: '#F6F8F7',
   linea: '#E2E7E4',
   borde: '#C6CEC9',
@@ -37,14 +39,15 @@ export const color = {
 } as const;
 
 /**
- * Una sola escala. Tamaño, alto de línea y peso de cada nivel. Los nombres no se
+ * Una sola escala. Tamaño, alto de línea y peso de cada nivel. Títulos, secciones y precios
+ * en 700, como en el lienzo «Versión final»: con todo en 600 las páginas se leían planas. Los nombres no se
  * repiten con los colores para que `text-…` no choque en Tailwind.
  */
 export const tipografia = {
-  titulo: ['28px', { lineHeight: '36px', fontWeight: '600', letterSpacing: '-0.01em' }],
-  seccion: ['20px', { lineHeight: '28px', fontWeight: '600' }],
+  titulo: ['28px', { lineHeight: '36px', fontWeight: '700', letterSpacing: '-0.01em' }],
+  seccion: ['20px', { lineHeight: '28px', fontWeight: '700' }],
   tarjeta: ['16px', { lineHeight: '24px', fontWeight: '600' }],
-  precio: ['18px', { lineHeight: '24px', fontWeight: '600' }],
+  precio: ['18px', { lineHeight: '24px', fontWeight: '700' }],
   cuerpo: ['15px', { lineHeight: '22px' }],
   apoyo: ['14px', { lineHeight: '20px' }],
   nota: ['13px', { lineHeight: '18px' }],

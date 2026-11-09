@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 import { haceRato } from '@/shared/fechas';
+import { useAgrupado } from '@/shared/agrupar';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
 
 /**
@@ -20,9 +21,11 @@ export function useContadores(): Contadores {
   }, []);
 
   useEffect(pedir, [pedir, conexion]);
-  useEvento(EVENTOS.mensajeNuevo, pedir);
-  useEvento(EVENTOS.avisoNuevo, pedir);
-  useEvento(EVENTOS.contadores, pedir);
+  // Un mensaje dispara hasta tres eventos seguidos: una sola consulta.
+  const agrupado = useAgrupado(pedir);
+  useEvento(EVENTOS.mensajeNuevo, agrupado);
+  useEvento(EVENTOS.avisoNuevo, agrupado);
+  useEvento(EVENTOS.contadores, agrupado);
   return contadores;
 }
 

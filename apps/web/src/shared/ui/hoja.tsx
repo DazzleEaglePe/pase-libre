@@ -38,7 +38,7 @@ export function Hoja({
       onClick={(evento) => {
         if (evento.target === ref.current) alCerrar();
       }}
-      className="m-auto w-[720px] max-w-[calc(100%-32px)] overflow-hidden rounded-3xl bg-white p-0 text-tinta shadow-[0_24px_64px_rgba(10,22,51,0.24)] backdrop:bg-tinta/40 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none"
+      className="m-auto w-[720px] max-w-[calc(100%-32px)] overflow-hidden rounded-3xl bg-white p-0 text-tinta shadow-[0_24px_64px_rgba(15,20,18,0.24)] backdrop:bg-tinta/40 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none"
     >
       <div className="flex max-h-[min(780px,calc(100dvh-48px))] flex-col max-sm:max-h-[88dvh]">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-linea py-3 pl-6 pr-3 sm:pl-7">

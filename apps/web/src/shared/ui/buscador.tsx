@@ -316,7 +316,7 @@ function Formulario({
       className={`relative flex items-center gap-2.5 ${className}`}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex h-[52px] items-center gap-2 rounded-full border-2 border-tinta bg-white pl-4 pr-1.5">
+        <div className="flex h-[52px] items-center gap-2 rounded-full border-2 border-tinta bg-white pl-4 pr-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-pase">
           <svg
             width="18"
             height="18"
@@ -354,7 +354,7 @@ function Formulario({
             onFocus={abrir}
             onKeyDown={teclas}
             autoComplete="off"
-            placeholder="Busca por modelo, marca o código"
+            placeholder="Modelo, marca o código"
             className="h-full min-w-0 flex-1 bg-transparent text-cuerpo text-tinta outline-none placeholder:text-detalle [&::-webkit-search-cancel-button]:hidden"
           />
           {texto && (
@@ -402,7 +402,7 @@ function Formulario({
             aria-label="Sugerencias de búsqueda"
             // Que el clic en el panel no le quite el foco al campo.
             onMouseDown={(evento) => evento.preventDefault()}
-            className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 flex max-h-[min(70vh,560px)] flex-col overflow-y-auto rounded-[20px] border border-linea bg-white p-2 shadow-[0_18px_40px_rgba(10,22,51,0.16)]"
+            className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 flex max-h-[min(70vh,560px)] flex-col overflow-y-auto rounded-[20px] border border-linea bg-white p-2 shadow-[0_18px_40px_rgba(15,20,18,0.16)]"
           >
             {escribiendo ? (
               <>

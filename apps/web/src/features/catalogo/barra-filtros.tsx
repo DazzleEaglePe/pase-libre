@@ -229,7 +229,7 @@ export function BarraFiltros({
                     aria-current={orden === valor ? 'true' : undefined}
                     className={`flex h-10 flex-1 items-center justify-center rounded-full px-2 text-center text-apoyo no-underline ${
                       orden === valor
-                        ? 'bg-white font-semibold text-tinta shadow-[0_1px_2px_rgba(10,22,51,0.16)]'
+                        ? 'bg-white font-semibold text-tinta shadow-[0_1px_2px_rgba(15,20,18,0.16)]'
                         : 'font-medium text-secundario'
                     }`}
                   >
@@ -277,7 +277,7 @@ export function BarraFiltros({
                     aria-current={activo ? 'true' : undefined}
                     className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-apoyo no-underline ${
                       activo
-                        ? 'bg-white font-semibold text-tinta shadow-[0_1px_2px_rgba(10,22,51,0.16)]'
+                        ? 'bg-white font-semibold text-tinta shadow-[0_1px_2px_rgba(15,20,18,0.16)]'
                         : 'font-medium text-secundario'
                     }`}
                   >

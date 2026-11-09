@@ -18,10 +18,10 @@ function inicioPara(yo: RespuestaYo): string {
 const campo =
   'h-12 rounded-xl border border-borde px-3.5 text-cuerpo font-normal text-tinta placeholder:text-detalle';
 const botonPrincipal =
-  'h-12 rounded-full bg-pase text-cuerpo font-semibold text-white disabled:bg-borde-control';
+  'inline-flex h-12 items-center justify-center rounded-full bg-pase px-5 text-cuerpo font-semibold text-white no-underline disabled:bg-borde-control';
 const botonSecundario =
   'flex h-12 items-center justify-center rounded-full border border-borde text-cuerpo font-semibold no-underline';
-const enlaceBoton = 'h-9 self-start text-apoyo font-medium underline';
+const enlaceBoton = 'min-h-11 self-start text-apoyo font-medium underline';
 
 /**
  * Pantalla «Iniciar sesión y primer ingreso» del lienzo (F_Acceso): ingresar con
@@ -129,7 +129,7 @@ function Ingreso({
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (!usuario.trim() || !clave) {
-      setError('Escribe tu correo o usuario y tu contraseña.');
+      setError('Escribe tu celular, correo o usuario y tu contraseña.');
       return;
     }
     setEnviando(true);
@@ -193,7 +193,7 @@ function Ingreso({
             </p>
           )}
           <label htmlFor="usuario" className="flex flex-col gap-1.5 text-apoyo font-medium">
-            Correo o usuario
+            Celular, correo o usuario
             <input
               id="usuario"
               type="text"

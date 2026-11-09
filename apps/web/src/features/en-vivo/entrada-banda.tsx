@@ -24,7 +24,7 @@ export function EntradaEnVivo() {
         aqui ? 'border-acento' : 'border-transparent hover:border-white/40'
       }`}
     >
-      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#FF7A66]" />
+      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
       Pases del día
       {cantidad > 0 && (
         <span className="rounded-full bg-white/15 px-1.5 text-nota font-semibold">{cantidad}</span>

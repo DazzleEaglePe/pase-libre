@@ -16,7 +16,7 @@ import {
 import { IconCheck } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
@@ -72,7 +72,7 @@ function Tarjeta({
       }`}
     >
       <div className="flex flex-col gap-1">
-        <h2 id={`registro-${numero}`} className="text-seccion">
+        <h2 id={`registro-${numero}`} tabIndex={-1} className="text-seccion outline-none">
           {titulo}
         </h2>
         {nota && <p className="text-apoyo text-detalle">{nota}</p>}
@@ -99,14 +99,26 @@ function Campo({
     <div className={etiqueta}>
       <label htmlFor={nombre}>{texto}</label>
       {children}
-      {ayuda && !error && <span className="text-nota font-normal text-detalle">{ayuda}</span>}
+      {ayuda && !error && (
+        <span id={`${nombre}-ayuda`} className="text-nota font-normal text-detalle">
+          {ayuda}
+        </span>
+      )}
       {error && (
-        <span role="alert" className="text-nota font-normal text-error">
+        <span id={`${nombre}-error`} role="alert" className="text-nota font-normal text-error">
           {error}
         </span>
       )}
     </div>
   );
+}
+
+/** Lo que un campo le pasa a su `<input>` para que el lector de pantalla diga ayuda y error. */
+function describir(nombre: string, error: string | undefined, conAyuda = false) {
+  return {
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? `${nombre}-error` : conAyuda ? `${nombre}-ayuda` : undefined,
+  } as const;
 }
 
 /**
@@ -161,10 +173,28 @@ export function FormularioRegistro({
   const [acepta, setAcepta] = useState(Boolean(corregir));
 
   const [errores, setErrores] = useState<Errores>({});
+  const primerRender = useRef(true);
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null);
 
   const celularListo = Boolean(corregir) || Boolean(token);
   const digitosCelular = celular.replace(/\D/g, '').replace(/^51(?=9\d{8}$)/, '');
+
+  // En el celular, al cambiar de paso el foco va a su título (y la página sube hasta él).
+  useEffect(() => {
+    if (primerRender.current) {
+      primerRender.current = false;
+      return;
+    }
+    const titulo = document.getElementById(`registro-${paso}`);
+    titulo?.focus();
+    titulo?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [paso]);
+
+  // Después de un envío con errores, el foco va al primero (la página de la computadora es larga).
+  useEffect(() => {
+    const primero = document.querySelector<HTMLElement>('form [aria-invalid="true"]');
+    primero?.focus();
+  }, [errores]);
 
   // La cuenta regresiva para pedir otro código.
   useEffect(() => {
@@ -265,9 +295,8 @@ export function FormularioRegistro({
     }
     if (numero === 4) {
       if (encargado.trim().length < 2) e.encargado = 'Escribe el nombre del encargado.';
-      if (!corregir && clave.length < 8) e.clave = 'La contraseña lleva al menos 8 caracteres.';
-      if (corregir && clave && clave.length < 8)
-        e.clave = 'La contraseña lleva al menos 8 caracteres.';
+      if ((!corregir || clave) && (clave.length < 8 || !/\d/.test(clave)))
+        e.clave = 'La contraseña lleva al menos 8 caracteres y un número.';
       if (!acepta) e.acepta = 'Acepta los términos para continuar.';
     }
     return e;
@@ -412,6 +441,7 @@ export function FormularioRegistro({
                   </span>
                   <input
                     id="celular"
+                    {...describir('celular', errores.celular)}
                     name="celular"
                     type="tel"
                     inputMode="numeric"
@@ -445,6 +475,7 @@ export function FormularioRegistro({
                   >
                     <input
                       id="codigo"
+                      {...describir('codigo', errores.codigo, true)}
                       name="codigo"
                       inputMode="numeric"
                       autoComplete="one-time-code"
@@ -532,6 +563,7 @@ export function FormularioRegistro({
               <div className="flex gap-2">
                 <input
                   id="ruc"
+                  {...describir('ruc', errores.ruc)}
                   name="ruc"
                   inputMode="numeric"
                   maxLength={11}
@@ -625,6 +657,7 @@ export function FormularioRegistro({
               >
                 <input
                   id="dni"
+                  {...describir('dni', errores.dni, true)}
                   name="dni"
                   inputMode="numeric"
                   maxLength={8}
@@ -644,6 +677,7 @@ export function FormularioRegistro({
               >
                 <input
                   id="recomienda"
+                  {...describir('recomienda', errores.recomienda, true)}
                   name="recomienda"
                   value={recomienda}
                   onChange={(e) => setRecomienda(e.target.value)}
@@ -668,6 +702,7 @@ export function FormularioRegistro({
         >
           <input
             id="nombre"
+            {...describir('nombre', errores.nombre)}
             name="nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
@@ -736,6 +771,7 @@ export function FormularioRegistro({
             <Campo nombre="galeria-otra" texto="Nombre de la galería" error={errores.galeriaOtra}>
               <input
                 id="galeria-otra"
+                {...describir('galeria-otra', errores.galeriaOtra)}
                 value={galeriaOtra}
                 onChange={(e) => setGaleriaOtra(e.target.value)}
                 maxLength={120}
@@ -768,6 +804,7 @@ export function FormularioRegistro({
           <Campo nombre="stand" texto="Número de stand" error={errores.stand}>
             <input
               id="stand"
+              {...describir('stand', errores.stand)}
               value={stand}
               onChange={(e) => setStand(e.target.value)}
               maxLength={20}
@@ -837,6 +874,7 @@ export function FormularioRegistro({
         <Campo nombre="encargado" texto="Nombre del encargado" error={errores.encargado}>
           <input
             id="encargado"
+            {...describir('encargado', errores.encargado)}
             value={encargado}
             onChange={(e) => setEncargado(e.target.value)}
             maxLength={120}
@@ -850,13 +888,14 @@ export function FormularioRegistro({
           ayuda={
             corregir
               ? 'Déjala vacía para conservar la que elegiste.'
-              : 'Mínimo 8 caracteres. Entrarás con tu celular y esta contraseña.'
+              : 'Mínimo 8 caracteres y un número. Entrarás con tu celular y esta contraseña.'
           }
           error={errores.clave}
         >
           <div className="relative">
             <input
               id="clave"
+              {...describir('clave', errores.clave, true)}
               type={verClave ? 'text' : 'password'}
               autoComplete="new-password"
               value={clave}

@@ -10,7 +10,7 @@ import { cuantoQueda, etiquetaTipo, lineaLugar, type ItemEnVivo } from './textos
 export function PildoraEnVivo() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-error-fondo px-2.5 py-[3px] text-etiqueta uppercase text-error">
-      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#C8331F]" />
+      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
       Pases del día
     </span>
   );
@@ -33,7 +33,7 @@ export function EtiquetaTipo({ tipo }: { tipo: TipoEnVivo }) {
  * principal del pie: píldora en verde pase, texto blanco y un rayo de línea delante.
  */
 const baseResponder =
-  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-pase font-semibold text-white no-underline hover:bg-[#1F3FC2]';
+  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-pase font-semibold text-white no-underline hover:bg-marca';
 /** En las filas y en la tarjeta mini: 36 px, porque van con el mouse. */
 export const botonResponder = `${baseResponder} h-9 pl-2.5 pr-3.5 text-nota`;
 /** En las tarjetas de la página y en la barra del celular: 40 px, para el dedo. */

@@ -46,10 +46,9 @@ function plazo(vence: string | null, ahora: number): { texto: string; vencida: b
   const minutos = Math.round((new Date(vence).getTime() - ahora) / 60_000);
   if (minutos < 0) return { texto: `Vencida hace ${Math.abs(minutos)} min`, vencida: true };
   const h = Math.floor(minutos / 60);
-  return {
-    texto: h > 0 ? `Quedan ${h} h ${minutos % 60} min` : `Quedan ${minutos} min`,
-    vencida: false,
-  };
+  const m = minutos % 60;
+  const texto = h === 0 ? `${m} min` : m === 0 ? `${h} h` : `${h} h ${m} min`;
+  return { texto: `Quedan ${texto}`, vencida: false };
 }
 
 type Accion = { id: string; tipo: 'cambios' | 'rechazar' };
@@ -191,7 +190,9 @@ export function PanelSolicitudes() {
 
       {datos && datos.solicitudes.length === 0 && (
         <p className="rounded-2xl border border-linea p-6 text-center text-cuerpo text-detalle">
-          No hay solicitudes en este estado.
+          {filtro === 'PENDIENTE'
+            ? 'Nada por revisar. Las que pasaron solas con RUC están en «Aprobadas».'
+            : 'No hay solicitudes en este estado.'}
         </p>
       )}
 

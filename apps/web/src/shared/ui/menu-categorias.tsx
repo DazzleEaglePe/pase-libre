@@ -143,7 +143,7 @@ export function MenuCategorias({
       {abierto && (
         <div
           id="menu-categorias"
-          className="absolute left-0 right-0 top-full z-40 border-y border-linea bg-white shadow-[0_18px_40px_rgba(10,22,51,0.14)]"
+          className="absolute left-0 right-0 top-full z-40 border-y border-linea bg-white shadow-[0_18px_40px_rgba(15,20,18,0.14)]"
         >
           <div className="mx-auto grid max-w-[1280px] grid-cols-[300px_minmax(0,1fr)] px-8">
             <div className="flex flex-col border-r border-linea py-3">
@@ -155,7 +155,7 @@ export function MenuCategorias({
                     className="flex min-h-[60px] items-center gap-3 pl-1 pr-4 text-tinta no-underline hover:bg-superficie"
                   >
                     <span aria-hidden="true" className="flex w-12 shrink-0 justify-center">
-                      <span className="h-2.5 w-2.5 rounded-full bg-[#C8331F]" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-vivo" />
                     </span>
                     <span className="flex min-w-0 flex-1 flex-col">
                       <span className="text-cuerpo font-semibold">Pases del día</span>

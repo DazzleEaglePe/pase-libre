@@ -53,6 +53,8 @@ export async function consultarApiCompartida<T>(
  * Se pide una sola vez por página aunque la usen el layout y la página.
  */
 export const obtenerSesion = cache(async (): Promise<RespuestaYo | null> => {
+  // Sin la cookie (`pl_sesion`) es un visitante: un pedido menos a la API por página.
+  if (!(await cookies()).get('pl_sesion')) return null;
   try {
     const respuesta = await llamarApiServidor('/yo');
     return respuesta.ok ? ((await respuesta.json()) as RespuestaYo) : null;

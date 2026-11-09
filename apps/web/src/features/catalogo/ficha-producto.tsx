@@ -208,6 +208,7 @@ export function FichaProducto({
               className="aspect-square w-full rounded-[20px]"
               glifo={240}
               grosor={0.8}
+              prioridad
             />
             {fotos.length > 1 && (
               <span className="absolute bottom-3.5 left-4 rounded-full bg-white/90 px-2.5 text-nota text-secundario">

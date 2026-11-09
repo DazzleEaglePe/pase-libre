@@ -1,23 +1,20 @@
 'use client';
 
-import { IconBrandWhatsapp, IconBuildingStore, IconCheck, IconCopy } from '@tabler/icons-react';
+import { IconBrandWhatsapp, IconCheck, IconCopy } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { CONTACTO } from '@/shared/contacto';
-
 const boton =
-  'inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-[18px] text-cuerpo font-semibold no-underline';
-const principal = `${boton} bg-pase text-white`;
-const secundario = `${boton} border border-borde bg-white text-tinta hover:border-borde-control`;
+  'inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-cuerpo font-semibold no-underline';
+const principal = `${boton} bg-white text-marca hover:bg-pase-suave`;
+const secundario = `${boton} border border-pase-medio text-white hover:bg-white/10`;
 
 /**
- * La invitación del pie (D): donde la referencia ponía «suscríbete a ofertas», aquí se pide
- * la cuenta; con sesión, se invita a una tienda vecina con el enlace del sitio.
+ * La banda verde del pie (D_Pie): quien no tiene cuenta la pide; quien la tiene invita a una
+ * tienda vecina con el enlace del sitio.
  */
 export function InvitacionPie({ conSesion }: { conSesion: boolean }) {
   const [copiado, setCopiado] = useState(false);
-  const whatsapp = CONTACTO.whatsapp?.href ?? null;
 
   function enlace(): string {
     return window.location.origin;
@@ -39,24 +36,25 @@ export function InvitacionPie({ conSesion }: { conSesion: boolean }) {
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 rounded-3xl bg-white p-6 text-tinta sm:px-7">
-      <div className="flex min-w-0 flex-[1_1_300px] flex-col gap-1.5">
-        <IconBuildingStore size={28} stroke={1.5} aria-hidden="true" />
-        <b className="text-seccion">
-          {conSesion ? 'Invita a una tienda vecina' : '¿Tienes tienda en Galería Wilson?'}
-        </b>
-        <span className="text-cuerpo text-secundario">
+    <section className="flex flex-wrap items-center justify-between gap-x-10 gap-y-5 rounded-3xl bg-marca px-6 py-6 sm:px-8 sm:py-7">
+      <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-1.5">
+        <h2 className="text-seccion">
           {conSesion
-            ? 'Mientras más tiendas haya en PaseLibre, más fácil consigues lo que te falta.'
-            : 'Pide tu cuenta gratis: publicas en un minuto y ves los precios de las demás tiendas.'}
-        </span>
+            ? '¿Conoces una tienda que debería estar aquí?'
+            : '¿Tienes tienda en Galería Wilson?'}
+        </h2>
+        <p className="text-cuerpo text-pase-medio">
+          {conSesion
+            ? 'Invítala: entre más tiendas, más encuentras sin salir del stand.'
+            : 'Pide tu cuenta gratis: publicas en un minuto y ves los precios de las demás tiendas. Solo para tiendas de las galerías de Wilson.'}
+        </p>
       </div>
       <div className="flex flex-wrap gap-2.5">
         {conSesion ? (
           <>
             <button type="button" onClick={compartir} className={principal}>
               <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
-              Compartir por WhatsApp
+              Invitar por WhatsApp
             </button>
             <button type="button" onClick={() => void copiar()} className={secundario}>
               {copiado ? (
@@ -72,15 +70,12 @@ export function InvitacionPie({ conSesion }: { conSesion: boolean }) {
             <Link href="/ingresar?pestana=crear" className={principal}>
               Pedir mi cuenta
             </Link>
-            {whatsapp && (
-              <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={secundario}>
-                <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
-                Escribir por WhatsApp
-              </a>
-            )}
+            <Link href="/ingresar" className={secundario}>
+              Ya tengo cuenta
+            </Link>
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

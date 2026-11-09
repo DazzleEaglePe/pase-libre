@@ -252,7 +252,7 @@ function Ventana({
       <aside
         aria-label="Pases del día: busco y remates"
         onKeyDown={alTeclear}
-        className="fixed right-6 top-[304px] z-30 hidden max-h-[calc(100dvh-328px)] w-[404px] flex-col overflow-y-auto rounded-2xl border border-linea bg-white px-5 pb-4 pt-3 shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
+        className="fixed right-6 top-[304px] z-30 hidden max-h-[calc(100dvh-328px)] w-[404px] flex-col overflow-y-auto rounded-2xl border border-linea bg-white px-5 pb-4 pt-3 shadow-[0_18px_48px_rgba(15,20,18,0.18),0_2px_6px_rgba(15,20,18,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
         {cabecera}
         {lista}
@@ -261,7 +261,7 @@ function Ventana({
       <section
         aria-label="Pases del día: busco y remates"
         onKeyDown={alTeclear}
-        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[70dvh] flex-col overflow-y-auto rounded-t-[20px] bg-white px-4 pb-5 pt-2 shadow-[0_-12px_40px_rgba(10,22,51,0.2)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex max-h-[70dvh] flex-col overflow-y-auto rounded-t-[20px] bg-white px-4 pb-5 pt-2 shadow-[0_-12px_40px_rgba(15,20,18,0.2)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <span aria-hidden="true" className="mb-1.5 h-1 w-10 self-center rounded-full bg-borde" />
         {cabecera}
@@ -366,7 +366,7 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        className="borde-en-vivo fixed bottom-6 right-6 z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(10,22,51,0.18),0_2px_6px_rgba(10,22,51,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
+        className="fixed bottom-6 right-6 border border-linea z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,20,18,0.18),0_2px_6px_rgba(15,20,18,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
         <div className="flex items-center justify-between gap-1 pl-3 pr-2 pt-2">
           <span className="flex items-center gap-0.5">
@@ -448,7 +448,7 @@ function Mini({
       <aside
         aria-label="Pases del día: busco y remates"
         {...controles}
-        className="borde-en-vivo fixed inset-x-3 bottom-[calc(0.75rem+var(--abajo,0px))] z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(10,22,51,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
+        className="fixed inset-x-3 border border-linea bottom-[calc(0.75rem+var(--abajo,0px))] z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(15,20,18,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
         <div className="flex items-center gap-1 py-2.5 pl-2.5 pr-1.5">
           <div className="min-w-0 flex-1 overflow-hidden">
@@ -474,7 +474,7 @@ function Mini({
                     />
                     <span
                       aria-hidden="true"
-                      className="absolute left-1 top-1 h-2 w-2 rounded-full bg-[#C8331F] ring-2 ring-superficie"
+                      className="absolute left-1 top-1 h-2 w-2 rounded-full bg-vivo ring-2 ring-superficie"
                     />
                   </button>
                   <Link
