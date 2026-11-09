@@ -38,6 +38,7 @@ La línea gráfica **verde esmeralda** (D-54, que reemplaza a Hielo, D-52) y có
 | `pase-texto` | `#007A51` | Enlaces y texto de acción sobre blanco o sobre `pase-suave` |
 | `acento` | `#22D37A` | El símbolo y los subrayados **sobre fondo oscuro**. Nunca como texto sobre blanco |
 | `contador` | `#F97316` | Contadores e insignias de aviso (campanita, mensajes). El número va en `tinta` |
+| `vivo` | `#EF4444` | El punto que late en «en vivo». Solo decorativo, nunca texto |
 | `superficie` | `#F6F8F7` | Fondos de tarjetas, campos y fichas |
 | `linea` | `#E2E7E4` | Separadores y bordes suaves |
 | `borde` | `#C6CEC9` | Bordes de tarjetas e interruptores apagados |
@@ -72,13 +73,13 @@ La línea gráfica **verde esmeralda** (D-54, que reemplaza a Hielo, D-52) y có
 
 ## 3. Tipografía
 
-**Figtree**, de código abierto (licencia SIL OFL), cargada con `next/font` en la variable `--fuente-base`. La interfaz usa 400 (texto), 500 (etiquetas y enlaces) y 600 (títulos y botones).
+**Figtree**, de código abierto (licencia SIL OFL), cargada con `next/font` en la variable `--fuente-base`. La interfaz usa 400 (texto), 500 (etiquetas y enlaces), 600 (botones y títulos de tarjeta) y 700 (títulos de página y de sección, y precios), como el lienzo «Versión final».
 
 | Token (`text-…`) | Tamaño / alto de línea | Peso | Para qué |
 | --- | --- | --- | --- |
-| `titulo` | 28 / 36 | 600, −0,01 em | Título de la página |
-| `seccion` | 20 / 28 | 600 | Título de una sección |
-| `precio` | 18 / 24 | 600 | El precio en la ficha y las tarjetas |
+| `titulo` | 28 / 36 | 700, −0,01 em | Título de la página |
+| `seccion` | 20 / 28 | 700 | Título de una sección |
+| `precio` | 18 / 24 | 700 | El precio en la ficha y las tarjetas |
 | `tarjeta` | 16 / 24 | 600 | Título de una tarjeta o fila |
 | `cuerpo` | 15 / 22 | 400 | Texto normal, campos y botones |
 | `apoyo` | 14 / 20 | 400 | Texto secundario y botones de lista |
