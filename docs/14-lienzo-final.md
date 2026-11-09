@@ -1,0 +1,80 @@
+# 14 · Lienzo «Versión final»: qué falta construir
+
+**Fecha:** domingo 08/11/2026 · **Estado:** análisis y orden propuesto, sin código · **Para revisar con:** Dazz, Grimm, My y Fabrizio
+
+El lienzo **PaseLibre Demo 1** ([enlace](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7)) tiene una página, **★ VERSIÓN FINAL · todas las pantallas elegidas**, con **163 tableros en 20 secciones** (más una por decidir). Este documento pone cada sección frente a lo que la web ya hace, dice qué falta y propone en qué orden construirlo.
+
+> **Cómo leer el lienzo.** Cada tablero `FIN_X` solo importa al tablero `X`: el diseño real está en el archivo sin el prefijo (`FIN_BUS_Web` → `BUS_Web`). Las variantes (`BUS_WebSug`, `BUS_WebNum`…) son el mismo archivo con otro estado.
+> El lienzo menciona un documento **«PaseLibre · Especificación para desarrollo»** que no está en el repo. Si existe, hay que traerlo: tendrá las reglas que los tableros no muestran.
+
+---
+
+## 1. Lo que hay que decidir antes de empezar
+
+| # | Decisión | Por qué importa | Propuesta |
+|---|---|---|---|
+| L-1 | **Paleta.** El lienzo final está en **verde esmeralda** (barra y pie `#006B47`, acción `#00875A`, tinta `#0F1412`, naranja `#F97316` para contadores). La web está en **Hielo** azul (D-52) | Cambia el color de toda pantalla que se construya desde hoy | Seguir en Hielo hasta que Grimm y My cierren. Si gana el verde, el cambio es de tokens (un día) **si primero se hacen los colores como variables** (día 1 del [plan de modo oscuro](13-modo-oscuro.md)) |
+| L-2 | **Nombres.** El lienzo dice «Pedidos en vivo» y «Remato»; el código dice «Pases del día» y `FLASH` (D-53) | Textos, rutas y avisos | Decidir uno. Cambiar el texto es barato; la ruta `/pases-del-dia` lleva redirección |
+| L-3 | **Chat por tienda.** El lienzo muestra un chat por pareja de tiendas, con los productos como tarjetas adentro. La base guarda un chat por oferta y comprador (`@@unique([ofertaId, compradorId])`) | Es el único cambio que toca datos existentes | Para salir: agrupar por tienda **en la bandeja** sin tocar la base. Migrar el modelo después, si hace falta |
+| L-4 | **Lo que era fase 2 y el lienzo trae adentro:** registro propio y aprobación (RF-01, RF-04), precio por rol (RF-37), reputación, seguir y tienda pública (RF-63 a RF-65), aviso fuera de la app (RF-42) | Cambia el alcance de la primera salida | Confirmar con Fabrizio qué entra al piloto y actualizar los documentos 02 y 04 |
+| L-5 | **Proveedores externos:** SMS para el código del registro, consulta de RUC a SUNAT, avisos push con el celular bloqueado, descarga en Excel | Algunos tardan días en contratarse | Empezar los trámites ya, aunque el código llegue después |
+| L-6 | **Nombres pendientes que el propio lienzo deja abiertos** (tablero «Lo que falta»): insignia de la lista («Recomendado» o «Más vendido»); nombre del precio especial («Socio», «pata», «amigo» o «preferente»); revisión legal de términos, privacidad y libro de reclamaciones | Textos y una tabla sin dueño (hoy «Recomendado» no tiene campo) | Que Grimm y My elijan; el abogado, aparte |
+| L-7 | **«Por decidir»:** cotización con toda la galería (`CAT_Web2` y `CAT_Cel2`) | No la eligieron todavía | Fuera hasta que decidan |
+
+## 2. Sección por sección
+
+**Hecho** = ya está en la web (no necesariamente en `main`: ver §5). **Parcial** = existe una parte. **Nuevo** = no hay nada. Tamaño: S = un día o menos, M = 2 a 3, L = una semana, XL = más de una semana o depende de un proveedor.
+
+| # | Sección (tableros) | Hoy | Falta | Tam. |
+|---|---|---|---|---|
+| 1 | **Barra y «Todas las categorías»** (4) · `D_Barra`, `CAT_Web1`, `NAVB_CelB`, `CAT_Cel1` | Parcial: barra fija y menú J | Entradas «Remates de hoy», «Recién llegados +N hoy», «De tiendas que sigues», «Wilson en vivo» y «Ayuda» (abre el chat con el equipo). En el menú, columna con «Pedidos en vivo» y «Lo más buscado hoy» (sale de la tabla `Busqueda`). En celular, burbujas con destacados | M |
+| 2 | **Primer ingreso, estilo B** (5) · `OB_Web`, `OB_Cel` | Parcial: solo el cambio de clave | 4 pantallas de bienvenida con «Saltar», una sola vez (columna nueva en `Usuario`) | S |
+| 3 | **Registro de tienda** (12) · `REG_Web`, `REG_Cel` | Nuevo: solo cuentas que crea el equipo (RF-35) | Solicitud propia: celular con código por SMS, RUC contra SUNAT, camino «sin RUC» (DNI, una tienda verificada que te conozca, credencial del stand), galería, stand, horario, fotos, revisión de una persona en máx. 3 h y la cola en el panel | XL |
+| 4 | **Iniciar sesión** (2) · `D_Acceso`, `M_Acceso` | Hecho | Solo el color | S |
+| 5 | **Inicio: crece solo** (9) · `FI_Web`, `FI_Cel`, `FI_*Normal`, `SG_*Feed`, `D_Portada` | Parcial: Recién publicado y el carrusel | Variantes por cantidad (día 1, primera semana, 2 filas de 6 mezcladas por tienda), «De tiendas que sigues» y la portada de visitante | M |
+| 6 | **Buscador que nunca te deja sin nada** (8) · `BUS_Web`, `BUS_Cel` | Parcial: corrige errores de tipeo (RF-13) | Sugerencias mientras escribes, números en palabras («treinta sesenta» → 3060) y, sin resultados exactos, parecidas + «Pedirla en vivo» + «Avísame cuando alguien la publique» | L |
+| 7 | **Resultados y ficha** (6) · `D_Resultados`, `D_Ficha`, `M_*` | Hecho, **sin commit** (§5) | Pasarlo a la paleta final | S |
+| 8 | **Wilson en vivo, seguidas y categoría** (8) · `CAT_Web3`, `CAT_Web4`, `SEG_Web`, `CAT_Cel3/4`, `SEG_Cel` | Parcial: `/buscar` filtra por galería | Página por galería con «Tiendas por piso», página de categoría (Gráficas) y «De tiendas que sigues» | L |
+| 9 | **Pedidos en vivo: ver, Busco y Remato** (8) · `D_Pases`, `M_Pases`, `PUB_*Vivo` | Hecho como «Pases del día» (L-2) | Nombres y revisar el flujo de 3 pasos | S |
+| 10 | **Publicar producto** (10) · `PUB_WebProducto`, `PUB_CelProducto` | Parcial: catálogo, fotos, «Publicar uno igual» | «Publicación rápida» (escribes «gigabte 30 60» y eliges) y el bloque de precio con «pase» y «facturado» | M |
+| 11 | **Precio socio y tus socios** (4) · `PS_Precio`, `PS_SociosWeb/Cel` | Nuevo: `Oferta` guarda un solo precio | Tabla de socios, precio pase y precio facturado (con IGV) y quién ve qué: tienda cualquiera, socio, sin sesión («Precio por chat», «Pedir precio») | XL |
+| 12 | **Mis publicaciones** (4) · `MP_Web`, `MP_Cel` | Hecho en lo principal | «Vendidos del mes», pausar y «Revísala» en celular | S |
+| 13 | **Chat por tienda, fotos, cómo llegar, cerrar la venta** (15) · `PCH_*`, `SIM_Chat` | Parcial: fotos, «Vendido» con comprador, respuestas rápidas | Ver L-3. Falta «cómo llegar al stand», calificar al cerrar y la lista con una fila por tienda. `SIM_Chat` es un simulador para la demo, no se construye | XL |
+| 14 | **Tu perfil y tu cuenta** (8) · `P_WebCuentaD2`, `D_Cuenta`, `M_Cuenta` | Parcial: Configuración | Perfil D2 con el «ojito» (cómo te ven las demás) y «Tu cuenta» con atajos y contadores | M |
+| 15 | **Perfil de otra tienda: seguir y opiniones** (6) · `SG_Web`, `SG_Cel` | Nuevo | Tablas de seguimiento y de opiniones; solo opina quien le compró (sale de `Venta`); la tienda responde; el mensaje de la primera vez | L |
+| 16 | **Historial con celebraciones** (4) · `HI_A2_Web`, `HI_A2_Cel` | Parcial: la tabla `Venta` | Página «Mis ventas y compras», medallas a los 10 y 20 items y descarga en Excel | M |
+| 17 | **Avisos (la campanita)** (6) · `AV_*` | Parcial: campanita y preferencias | Acciones dentro del aviso (Aceptar, «Ahora no», «Sumar 1 hora», «¡Lo tengo!»), filtros, configuración con horario silencioso y avisos con el celular bloqueado | L (el push: XL) |
+| 18 | **Reportar, bloquear y chat oficial del equipo** (20) · `REP_*` | Parcial: `Denuncia`, `Bloqueo` y el menú ⋯ | Flujo de 3 motivos con detalle y «qué sigue», «Mis reportes», «Tiendas bloqueadas» con deshacer y el chat oficial (fijado arriba, insignia «Oficial», el equipo escribe primero) | L |
+| 19 | **Estados vacíos y errores** (11) · `EV_Web`, `EV_Cel` | Parcial | «Pedirla en vivo» y «Avísame», «ya se vendió: otras 3 tiendas la tienen», «sin conexión» con «Reintentar» | M |
+| 20 | **Panel del equipo** (11) · `ADM_Web`, `ADM_Cel`, `REG_Admin*`, `REP_WebEquipo` | Parcial: cuentas, clave temporal, traspaso y suspender | Inicio con lo de hoy y números, solicitudes, reportes, tiendas con historial y advertencia, «WhatsApp bloqueados» tras 3 «Ahora no», comunicados y equipo (turnos, horario, actividad) | XL |
+
+**Datos que no existen hoy:** seguimiento, opinión, socio, solicitud de registro, comunicado, turno del equipo, alerta de búsqueda, suscripción push y chat oficial. Lo demás se apoya en tablas que ya están (`Venta`, `Denuncia`, `Bloqueo`, `Aviso`, `EnVivo`, `Busqueda`).
+
+## 3. Orden propuesto
+
+Los diseñadores ordenaron lo que falta así (tablero «Lo que falta»): registro, avisos, perfil y opiniones, reportar y bloquear, panel. Este orden lo respeta, pero mueve el registro porque depende de proveedores:
+
+| Ola | Qué | Por qué en este lugar |
+|---|---|---|
+| **0** · 1 a 2 días | Decidir L-1 a L-3, hacer commit de lo pendiente (§5) y dejar los colores como variables | Todo lo demás se construye sobre esto |
+| **1** · Confianza | Seguir, perfil de otra tienda y opiniones (§2.15) · Reportar, bloquear, «Mis reportes» y chat oficial (§2.18) | Sin proveedor externo, con tablas chicas, y son lo que más protege el piloto |
+| **2** · Avisos | Campanita con acciones, configuración y horario silencioso (§2.17) · estados vacíos (§2.19) | Hacen que Ola 1 se note; el push espera su proveedor |
+| **3** · Entrada | Registro con verificación y la cola en el panel (§2.3, parte de §2.20) | El más grande. Mientras tanto el equipo sigue creando las cuentas (RF-35). Empezar el trámite del SMS y de SUNAT durante la Ola 1 |
+| **4** · Precio | Precio socio, pase y facturado (§2.11) · historial con Excel (§2.16) | Toca la privacidad de los precios: va con pruebas de contrato nuevas |
+| **5** · Estructura | Chat por tienda (§2.13, si L-3 lo pide) · panel completo (comunicados, equipo) · buscador y Wilson en vivo (§2.6, §2.8) · inicio que crece solo (§2.5) | Lo más grande y lo menos urgente para el piloto |
+
+Secciones S (4, 7, 9, 12 y 2) se hacen de paso, junto al color final.
+
+## 4. Cuándo una pantalla está terminada
+
+- [ ] Se parece al tablero `FIN_*` en **celular 390** y **web 1440**, con los textos tal cual
+- [ ] Están sus variantes: con sesión, sin sesión y equipo; vacía, con error y cargando
+- [ ] Un visitante nunca recibe lo que no debe ver (precio, tienda, WhatsApp): prueba de contrato en la API
+- [ ] Texto con contraste de 4,5 : 1 y botones de 44 px (RNF-07); se usa con el teclado
+- [ ] Pruebas nuevas de API y de web; `pnpm format:check`, `lint`, `typecheck` y `test` en verde
+- [ ] Probada en Chrome sin ventana (celular, tableta y computadora) con `pnpm qa`
+- [ ] El [documento 09](09-ux-y-flujos.md) y el [06](06-modelo-de-datos.md) al día, si cambia la pantalla o la base
+
+## 5. Estado del árbol de trabajo (08/11)
+
+Hay trabajo sin commit de dos sesiones en la misma carpeta: el **carrusel C** y el plan de modo oscuro, y **«Demo · lo aprobado»** (resultados en tarjetas, tienda reservada, barra inferior, «Responde en ~N min»). Cuatro archivos tienen cambios de las dos: `(publico)/page.tsx`, `catalogo.service.ts`, `catalogo.e2e-spec.ts` y `CHECKLIST.md`. Hay que decidir si va en uno o dos commits antes de empezar la Ola 1.

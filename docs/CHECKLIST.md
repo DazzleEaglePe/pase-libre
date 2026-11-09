@@ -44,6 +44,8 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 - [ ] Reporte de uso (RF-31, RF-32): las tablas `Busqueda` y `Contacto` existen; falta la consulta lista, una por semana y galería
 - [ ] Averiguar por qué `limites.e2e-spec` falla una vez de cada tantas corridas («socket hang up»), para que la CI no dé falsos rojos
 - [ ] Ajuste de forma de Hielo: botones de 10 px y tarjetas de 12 px (hoy son píldoras)
+- [ ] Modo claro y oscuro (Claro / Oscuro / Sistema) en toda la web: sprint del 09 al 13/11 con sus checklists en [13 · Modo oscuro](13-modo-oscuro.md)
+- [ ] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): qué falta, decisiones y orden por olas en [14 · Lienzo final](14-lienzo-final.md)
 - [ ] **Fase 2:** perfil privado, «Quién puede escribirte», respuesta automática, idioma y aviso por correo en Configuración
 - [ ] **Fase 2:** registro propio con aprobación, precio por rol, requerimientos, pedir pase, preguntas públicas, reputación, favoritos, tienda pública, notificaciones y la app
 

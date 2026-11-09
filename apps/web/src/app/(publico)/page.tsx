@@ -3,7 +3,9 @@ import Link from 'next/link';
 
 import { TarjetaCategoria } from '@/features/catalogo/tarjeta-categoria';
 import { TarjetaOfertaPortada } from '@/features/catalogo/tarjeta-oferta';
+import { TarjetaVerTodo } from '@/features/catalogo/tarjeta-ver-todo';
 import { cargarApi, obtenerSesion } from '@/shared/api/servidor';
+import { Carrusel } from '@/shared/ui/carrusel';
 import { botonLista, botonPrincipal } from '@/shared/ui/estilos';
 
 /**
@@ -28,6 +30,25 @@ export default async function Portada({
         .filter(Boolean)
         .join(' · ') || 'Independiente'
     : null;
+
+  const galeriaElegida = galeria ? portada.galerias.find((g) => g.slug === galeria) : undefined;
+  const verTodo = galeriaElegida
+    ? {
+        href: `/buscar?galeria=${encodeURIComponent(galeriaElegida.slug)}`,
+        titulo:
+          galeriaElegida.ofertas === 1
+            ? 'Ver la publicación'
+            : `Ver las ${galeriaElegida.ofertas} publicaciones`,
+        detalle: `en ${galeriaElegida.nombre}`,
+      }
+    : {
+        href: '/buscar',
+        titulo:
+          portada.totales.productos === 1
+            ? 'Ver el producto'
+            : `Ver los ${portada.totales.productos} productos`,
+        detalle: 'en todas las galerías',
+      };
 
   return (
     <div className="flex flex-col gap-12">
@@ -132,7 +153,8 @@ export default async function Portada({
             Todavía no hay publicaciones en esta galería.
           </p>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
+          // `key`: al cambiar de galería la fila vuelve al principio.
+          <Carrusel key={galeria ?? 'todas'} etiqueta="Recién publicado">
             {portada.recien_publicado.map((tarjeta) => (
               <TarjetaOfertaPortada
                 key={tarjeta.oferta_id}
@@ -140,7 +162,8 @@ export default async function Portada({
                 audiencia={portada.audiencia}
               />
             ))}
-          </div>
+            <TarjetaVerTodo key="ver-todo" {...verTodo} />
+          </Carrusel>
         )}
       </section>
 

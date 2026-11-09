@@ -4,6 +4,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { CLAVE_DEMO, sembrarBase, sembrarDemo } from '../prisma/semilla';
+import { PORTADA_RECIENTES } from '../src/modules/catalogo/catalogo.service';
 import { CABECERAS, cookieDe, crearApp, usarBaseDePruebas, vaciarBase } from './ayudas';
 
 const url = usarBaseDePruebas();
@@ -468,7 +469,8 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
         'independientes',
       ]);
       expect(respuesta.body.totales).toEqual({ productos: 13, tiendas: 6, galerias: 2 });
-      expect(respuesta.body.recien_publicado).toHaveLength(8);
+      // La fila de «Recién publicado» se desliza: la base de pruebas tiene más ofertas que el tope.
+      expect(respuesta.body.recien_publicado).toHaveLength(PORTADA_RECIENTES);
       // La web dibuja el ícono de la categoría cuando el producto aún no tiene fotos.
       for (const tarjeta of respuesta.body.recien_publicado) {
         expect(tarjeta.producto.categoria).toEqual({

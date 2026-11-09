@@ -72,6 +72,12 @@ const PRODUCTO_TARJETA = {
 type OfertaPublicaFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_PUBLICA }>;
 type OfertaConVendedorFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_CON_VENDEDOR }>;
 
+/**
+ * Cuántas ofertas trae «Recién publicado» en la portada. La web las muestra en una fila que
+ * se desliza (4 por página en computadora): 16 son 4 páginas, y la tarjeta «Ver todos» cierra la fila.
+ */
+export const PORTADA_RECIENTES = 16;
+
 /** Pseudo-galería para quienes venden sin galería. */
 export const INDEPENDIENTES = { slug: 'independientes', nombre: 'Independientes' } as const;
 
@@ -214,7 +220,7 @@ export class CatalogoService {
       const ofertas = await this.prisma.oferta.findMany({
         where,
         orderBy,
-        take: 8,
+        take: PORTADA_RECIENTES,
         select: { ...SELECT_OFERTA_PUBLICA, producto: PRODUCTO_TARJETA },
       });
       return {
@@ -239,7 +245,7 @@ export class CatalogoService {
     const ofertas = await this.prisma.oferta.findMany({
       where,
       orderBy,
-      take: 8,
+      take: PORTADA_RECIENTES,
       select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
     });
     return {
