@@ -10,6 +10,7 @@ import type {
 import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { conPlural } from '@/shared/plural';
 import {
   botonLista,
   botonPeligro,
@@ -123,7 +124,7 @@ export function PanelCuentas() {
           <h1 className="text-titulo">Cuentas del piloto</h1>
           <span className="text-apoyo text-secundario">
             {resumen
-              ? `${resumen.total} cuentas · ${resumen.activas} activas · ${resumen.sin_primer_ingreso} sin primer ingreso`
+              ? `${conPlural(resumen.total, 'cuenta', 'cuentas')} · ${conPlural(resumen.activas, 'activa', 'activas')} · ${resumen.sin_primer_ingreso} sin primer ingreso`
               : 'Cargando…'}
           </span>
         </div>

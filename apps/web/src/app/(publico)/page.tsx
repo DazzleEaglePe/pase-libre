@@ -7,6 +7,7 @@ import { InicioTienda } from '@/features/inicio/inicio-tienda';
 import { TarjetaOfertaPortada } from '@/features/catalogo/tarjeta-oferta';
 import { TarjetaVerTodo } from '@/features/catalogo/tarjeta-ver-todo';
 import { cargarApi, consultarApi, obtenerSesion } from '@/shared/api/servidor';
+import { enPlural } from '@/shared/plural';
 import { Carrusel } from '@/shared/ui/carrusel';
 import { botonLista, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 
@@ -115,9 +116,12 @@ export default async function Portada({
             </Link>
           </div>
           <p className="text-apoyo text-detalle">
-            <b className="font-semibold text-tinta">{portada.totales.productos}</b> productos ·{' '}
-            <b className="font-semibold text-tinta">{portada.totales.tiendas}</b> tiendas ·{' '}
-            <b className="font-semibold text-tinta">{portada.totales.galerias}</b> galerías
+            <b className="font-semibold text-tinta">{portada.totales.productos}</b>{' '}
+            {enPlural(portada.totales.productos, 'producto', 'productos')} ·{' '}
+            <b className="font-semibold text-tinta">{portada.totales.tiendas}</b>{' '}
+            {enPlural(portada.totales.tiendas, 'tienda', 'tiendas')} ·{' '}
+            <b className="font-semibold text-tinta">{portada.totales.galerias}</b>{' '}
+            {enPlural(portada.totales.galerias, 'galería', 'galerías')}
           </p>
         </section>
       )}

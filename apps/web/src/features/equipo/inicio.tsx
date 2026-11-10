@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { cuandoFue } from '@/shared/fechas';
 import { iniciales } from '@/shared/iniciales';
+import { conPlural } from '@/shared/plural';
 
 const FECHA = new Intl.DateTimeFormat('es-PE', {
   weekday: 'long',
@@ -101,7 +102,7 @@ export function InicioEquipo({ nombre, datos }: { nombre: string; datos: Respues
             titulo="Reportes"
             detalle={
               primero
-                ? `${reportes.urgentes > 0 ? `${reportes.urgentes} urgente: ` : ''}${primero.motivo.toLowerCase()} · ${primero.tienda ?? 'sin tienda'} · ${quedan(primero.vence_en)}`
+                ? `${reportes.urgentes > 0 ? `${conPlural(reportes.urgentes, 'urgente', 'urgentes')}: ` : ''}${primero.motivo.toLowerCase()} · ${primero.tienda ?? 'sin tienda'} · ${quedan(primero.vence_en)}`
                 : 'Nada por revisar'
             }
           />

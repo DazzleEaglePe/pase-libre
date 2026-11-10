@@ -305,7 +305,12 @@ export class NovedadesService {
               ? ['Muy bien calificada', 50 + promedio]
               : tienda.creadaEn.getTime() > hace30
                 ? ['Nueva en PaseLibre', 30]
-                : [`${tienda._count.ofertas} publicaciones`, tienda._count.ofertas / 100];
+                : [
+                    tienda._count.ofertas === 1
+                      ? '1 publicación'
+                      : `${tienda._count.ofertas} publicaciones`,
+                    tienda._count.ofertas / 100,
+                  ];
         return {
           id: tienda.id,
           nombre: tienda.nombre,

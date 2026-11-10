@@ -16,6 +16,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 import { iniciales } from '@/shared/iniciales';
+import { conPlural } from '@/shared/plural';
 import { Interruptor } from '@/shared/ui/interruptor';
 
 const MES = new Intl.DateTimeFormat('es-PE', {
@@ -207,7 +208,7 @@ export function TuCuenta({ tienda }: { tienda: TiendaDeSesion }) {
             <Fila
               href="/mensajes"
               titulo="Mensajes"
-              detalle={`${resumen?.chats_abiertos ?? 0} chats abiertos · ${contadores?.mensajes ?? 0} sin leer`}
+              detalle={`${conPlural(resumen?.chats_abiertos ?? 0, 'chat abierto', 'chats abiertos')} · ${contadores?.mensajes ?? 0} sin leer`}
               cuenta={contadores?.mensajes}
             />
             <Fila

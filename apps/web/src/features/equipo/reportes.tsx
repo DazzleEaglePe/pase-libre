@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue, diaCorto, hora } from '@/shared/fechas';
+import { conPlural } from '@/shared/plural';
 
 const ACCIONES: Array<[AccionReporte, string, string]> = [
   [
@@ -208,7 +209,7 @@ export function ColaReportes() {
                       {detalle.tienda_reportada.estrellas !== null
                         ? `★ ${detalle.tienda_reportada.estrellas.toLocaleString('es-PE')} · `
                         : ''}
-                      {detalle.tienda_reportada.ventas} ventas ·{' '}
+                      {conPlural(detalle.tienda_reportada.ventas, 'venta', 'ventas')} ·{' '}
                       {detalle.tienda_reportada.advertencias}{' '}
                       {detalle.tienda_reportada.advertencias === 1 ? 'advertencia' : 'advertencias'}
                     </li>

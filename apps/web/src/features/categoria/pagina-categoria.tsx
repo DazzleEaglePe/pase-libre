@@ -12,6 +12,7 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 
+import { conPlural } from '@/shared/plural';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 
 import { FiltrosPrecios } from './filtros-precios';
@@ -142,7 +143,8 @@ export function PaginaCategoria({
           <span className="flex min-w-0 flex-1 flex-col pl-1">
             <b className="truncate text-[20px] font-bold leading-6">{datos.categoria.nombre}</b>
             <span className="truncate text-nota text-white/85">
-              {resumen.publicadas} publicadas · {resumen.tiendas} tiendas
+              {conPlural(resumen.publicadas, 'publicada', 'publicadas')} ·{' '}
+              {conPlural(resumen.tiendas, 'tienda', 'tiendas')}
             </span>
           </span>
         }

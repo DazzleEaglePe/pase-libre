@@ -29,6 +29,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue, haceCuanto } from '@/shared/fechas';
+import { conPlural } from '@/shared/plural';
 import { useEvento } from '@/shared/tiempo-real';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Contador } from '@/shared/ui/contador';
@@ -61,8 +62,6 @@ function lineaDeEstado(oferta: OfertaPropia): string {
       : 'Usado';
   return `${estado} · ${TEXTO_MODO_VENTA[oferta.modo_venta]}`;
 }
-
-const conPlural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /** «Lleva 9 días sin cambios». */
 function diasSinCambios(iso: string): string {

@@ -38,6 +38,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { EtiquetaTipo } from '@/features/en-vivo/piezas';
 import { llamarApi } from '@/shared/api/cliente';
 import { haceRato } from '@/shared/fechas';
+import { conPlural, enPlural } from '@/shared/plural';
 import { Miniatura } from '@/shared/ui/miniatura';
 
 import { ListaOpiniones } from './opiniones';
@@ -353,14 +354,15 @@ export function PerfilPropio({ perfil }: { perfil: PerfilTienda }) {
               <span className="text-apoyo text-secundario">
                 <b className="font-bold text-tinta">{perfil.seguidores}</b>{' '}
                 {perfil.seguidores === 1 ? 'tienda te sigue' : 'tiendas te siguen'} ·{' '}
-                <b className="font-bold text-tinta">{perfil.total_productos}</b> productos
+                <b className="font-bold text-tinta">{perfil.total_productos}</b>{' '}
+                {enPlural(perfil.total_productos, 'producto', 'productos')}
                 {estrellas !== null && (
                   <>
                     {' '}
                     · <b className="font-bold text-tinta">
                       {estrellas.toLocaleString('es-PE')} ★
                     </b>{' '}
-                    de {perfil.reputacion.opiniones} opiniones
+                    de {conPlural(perfil.reputacion.opiniones, 'opinión', 'opiniones')}
                   </>
                 )}
               </span>

@@ -2,7 +2,7 @@ import type { RespuestaNovedades } from '@paselibre/contracts';
 import type { Metadata } from 'next';
 
 import { PaginaSeguidas } from '@/features/seguidas/pagina-seguidas';
-import { cargarApi } from '@/shared/api/servidor';
+import { cargarApi, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = { title: 'De tiendas que sigues', robots: { index: false } };
 
@@ -14,6 +14,10 @@ export default async function TiendasQueSigues({
 }: {
   searchParams: Promise<{ tienda?: string; tipo?: string }>;
 }) {
+  // Sin sesión con tienda el layout manda a ingresar. La página se renderiza a la vez que el
+  // layout: si pidiera los datos igual, la API respondería 401 y quedaría un error en el registro.
+  const sesion = await obtenerSesion();
+  if (!sesion?.tienda || sesion.usuario.debe_cambiar_clave) return null;
   const consulta = await searchParams;
   const tipo = TIPOS.find((valor) => valor === consulta.tipo) ?? 'todo';
   const tienda =

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue } from '@/shared/fechas';
 import { iniciales } from '@/shared/iniciales';
+import { conPlural } from '@/shared/plural';
 
 const FILTROS: Record<(typeof FILTROS_TIENDAS_PANEL)[number], string> = {
   todas: 'Todas',
@@ -134,7 +135,7 @@ export function TiendasPanel() {
             ))}
           </div>
           <span className="text-nota text-secundario">
-            {lista ? `${lista.length} tiendas` : 'Cargando…'}
+            {lista ? conPlural(lista.length, 'tienda', 'tiendas') : 'Cargando…'}
           </span>
           <ul className="m-0 flex max-h-[620px] list-none flex-col overflow-y-auto p-0">
             {lista?.map((tienda) => (
@@ -233,7 +234,10 @@ export function TiendasPanel() {
                   ['WhatsApp', detalle.whatsapp],
                   ['Horario', detalle.horario ?? '—'],
                   ['Cuentas', String(detalle.cuentas)],
-                  ['Publicaciones', `${detalle.publicaciones} · ${detalle.ventas} ventas`],
+                  [
+                    'Publicaciones',
+                    `${detalle.publicaciones} · ${conPlural(detalle.ventas, 'venta', 'ventas')}`,
+                  ],
                   ['En PaseLibre desde', cuandoFue(detalle.desde)],
                 ].map(([clave, valor]) => (
                   <div key={clave} className="flex flex-col rounded-xl bg-superficie px-3 py-2.5">

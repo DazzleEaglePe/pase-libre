@@ -9,6 +9,7 @@ import Link from 'next/link';
 
 import { PrecioConSesion } from '@/features/catalogo/precio-con-sesion';
 import { haceRato } from '@/shared/fechas';
+import { conPlural } from '@/shared/plural';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Miniatura } from '@/shared/ui/miniatura';
 
@@ -27,8 +28,6 @@ function distancia(galeria: GaleriaEnVivo): string | null {
   return `a ${galeria.minutos} min caminando`;
 }
 
-const conPlural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
-
 /**
  * «Wilson en vivo» (CAT_Web3, CAT_Cel3, sección 8 del lienzo final): la avenida como mapa de
  * calor (más oscuro, más publicado), lo último de la galería elegida y sus tiendas por piso.
@@ -42,7 +41,10 @@ export function PaginaWilson({
   vista: 'publicado' | 'tiendas';
 }) {
   const mayor = Math.max(0, ...datos.galerias.map((galeria) => galeria.productos));
-  const queCosa = datos.categoria ? datos.categoria.nombre.toLowerCase() : 'productos';
+  // «tarjetas de video» con una categoría elegida; con una sola cosa, «producto» (la categoría ya
+  // se ve elegida arriba).
+  const cosas = datos.categoria ? datos.categoria.nombre.toLowerCase() : 'productos';
+  const queCosa = (n: number) => (n === 1 ? 'producto' : cosas);
   const enlace = (cambios: { galeria?: string; categoria?: string | null; vista?: string }) => {
     const parametros = new URLSearchParams();
     const categoria = cambios.categoria === undefined ? datos.categoria?.slug : cambios.categoria;
@@ -131,7 +133,8 @@ export function PaginaWilson({
                   <span className="flex flex-col">
                     <b className="text-[28px] font-bold leading-9">{galeria.productos}</b>
                     <span className={`text-nota ${chico}`}>
-                      {queCosa} · {conPlural(galeria.tiendas, 'tienda', 'tiendas')}
+                      {queCosa(galeria.productos)} ·{' '}
+                      {conPlural(galeria.tiendas, 'tienda', 'tiendas')}
                     </span>
                     {lejos && <span className={`text-nota ${chico}`}>{lejos}</span>}
                   </span>
@@ -144,7 +147,7 @@ export function PaginaWilson({
           Av. Garcilaso de la Vega (Wilson)
         </div>
         <span className="text-nota text-secundario">
-          Más oscuro = más {queCosa} publicados. Toca una galería para ver qué hay.
+          Más oscuro = más productos publicados. Toca una galería para ver qué hay.
         </span>
       </section>
 
@@ -162,7 +165,7 @@ export function PaginaWilson({
                     : elegida.minutos !== null
                       ? `A ${elegida.minutos} min caminando desde tu stand`
                       : null,
-                  `${elegida.productos} ${queCosa}`,
+                  `${elegida.productos} ${queCosa(elegida.productos)}`,
                   'lo más nuevo primero',
                 ]
                   .filter(Boolean)
@@ -236,7 +239,7 @@ export function PaginaWilson({
             )
           ) : datos.ofertas.length === 0 ? (
             <p className="m-0 rounded-2xl border border-linea px-5 py-8 text-center text-secundario">
-              Aún no hay {queCosa} publicados en {elegida.nombre}.
+              Aún no hay {cosas} en {elegida.nombre}.
             </p>
           ) : (
             <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-4">

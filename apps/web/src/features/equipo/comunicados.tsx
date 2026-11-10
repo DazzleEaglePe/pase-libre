@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue } from '@/shared/fechas';
+import { conPlural } from '@/shared/plural';
 
 /**
  * «Comunicados» (ADM_WebComunicados, sección 20 del lienzo final): un mensaje del equipo para
@@ -152,8 +153,8 @@ export function Comunicados() {
                   <b className="text-apoyo font-bold">{comunicado.titulo}</b>
                   <span className="text-apoyo text-secundario">{comunicado.texto}</span>
                   <span className="text-nota text-detalle">
-                    {comunicado.para} · {comunicado.enviados} personas · {comunicado.autor} ·{' '}
-                    {cuandoFue(comunicado.fecha)}
+                    {comunicado.para} · {conPlural(comunicado.enviados, 'persona', 'personas')} ·{' '}
+                    {comunicado.autor} · {cuandoFue(comunicado.fecha)}
                   </span>
                 </li>
               ))}
