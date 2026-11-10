@@ -93,7 +93,12 @@ export interface DetalleReporte extends ReporteEnCola {
   /** Qué se reportó: «Chat · Tienda A», «Publicación · RTX 3070». */
   sobre: string;
   /** El chat adjunto; nulo si no lo adjuntó. */
-  chat: Array<{ id: string; texto: string | null; de_reportada: boolean; creado_en: string }> | null;
+  chat: Array<{
+    id: string;
+    texto: string | null;
+    de_reportada: boolean;
+    creado_en: string;
+  }> | null;
   tienda_reportada: {
     id: string;
     nombre: string;

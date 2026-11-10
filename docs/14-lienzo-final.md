@@ -77,9 +77,42 @@ Secciones S (4, 7, 9, 12 y 2) se hacen de paso, junto al color final.
 - [ ] Probada en Chrome sin ventana (celular, tableta y computadora) con `pnpm qa`
 - [ ] El [documento 09](09-ux-y-flujos.md) y el [06](06-modelo-de-datos.md) al día, si cambia la pantalla o la base
 
-## 5. Estado del trabajo (08/11)
+## 5. Estado del trabajo (11/11)
 
-- **Commits:** `337347f` («Demo · lo aprobado») y `228e7f7` (carrusel C y los documentos 13 y 14). Sin subir a `origin`.
-- **Paleta verde (D-54):** hecha en tokens, logo, íconos, hoja de marca y colores sueltos de la web. Falta la barra de arriba (sección 1), que en el lienzo es verde y en la web sigue blanca.
-- **Registro de tienda (sección 3), hecho el 08/11 detrás de `REGISTRO_PROPIO`:** API (`5d4d52a`), formulario en `/registro` (todo junto en computadora, de a un paso en celular), página de estado y cola en Panel del equipo › Solicitudes. Comprobado con 24 pruebas de la API, 9 de contratos y un recorrido de 20 puntos en Chrome (con RUC en computadora, sin RUC en celular y la aprobación del equipo). **Falta para producción:** contratar el SMS y la consulta a SUNAT (L-5); subir fotos del stand y de la credencial; el «Sí, la conozco» de la tienda que recomienda; y confirmar con Grimm y My que se agregue «Crea tu contraseña», que el lienzo no tiene.
-- **`cabecera.tsx`:** tiene una edición a mano ajena a estas sesiones (la franja de ventajas comentada). Deja `pnpm lint` en rojo por un `VENTAJAS` sin usar y no entra en ningún commit hasta que su dueño la termine.
+Las 20 secciones de la página «★ VERSIÓN FINAL» están en `main`, en 15 commits locales **sin subir a `origin`** (de `c7e3759` a `dfc619d`, uno por sección o por par de secciones). Pruebas al cerrar: API 282, web 27, contratos 38; lint, tipos y formato en verde. Cada pantalla se comparó con su tablero en Chrome sin ventana (computadora 1440 y celular 390).
+
+| # | Sección | Commit | Qué quedó |
+|---|---|---|---|
+| 1 | Barra y «Todas las categorías» | `c7e3759` | Barra verde, banda negra con Pedidos en vivo, Remates de hoy, Recién llegados, De tiendas que sigues, Wilson en vivo (Nuevo) y Ayuda (con tienda abre el chat con el equipo); burbujas en el celular |
+| 2 | Primer ingreso | `a3a4dae` | Bienvenida de 4 pantallas, una sola vez |
+| 3 | Registro | `dfc619d` (y el 08/11) | Pasos numerados, «Tu solicitud» y «¿Qué pasa después?»; la referencia del stand pasa a «Cómo llegar» al aprobar |
+| 4 | Iniciar sesión | `68c2ab0` | D_Acceso / M_Acceso |
+| 5 | Inicio que crece solo | `b756d8d` | `GET /v1/inicio`: fase día 1 / pocas (< 12 de otras tiendas) / normal; «De tiendas que sigues», pedidos en vivo, 2 filas de 6 mezcladas por tienda, precios protegidos, «Lo que más se pide», «Tiendas que ya están», piloto con meta de 20 y «Primeros pasos»; portada de visitante |
+| 6 | Buscador | `b756d8d` | Números en palabras, modelos partidos, la categoría nombrada, «Buscar … tal cual», «desde» en el desplegable con sesión, «Ver todo en {categoría}» |
+| 7 | Resultados y ficha | `1608483` | D_Resultados, D_Ficha y M_* |
+| 8 | Wilson en vivo, categoría, seguidas | `b756d8d` | `/wilson-en-vivo` (mapa de calor, tiendas por piso), `/categorias/<slug>` (precios por modelo con 30 días), `/tiendas-que-sigues` (novedades y sugerencias) |
+| 9 | Pedidos en vivo | `99a3988` | D_Pases con «Tus pedidos en vivo»; publicar en 4 pasos con vista previa, «Mostrarlo» y «Avisar a quienes me siguen» |
+| 10–11 | Publicar y precio socio | `a931b24` | 6 secciones + publicación rápida; pase, facturado, socio |
+| 12 | Mis publicaciones | `cec71c8` | Precio en la fila, pausa con razón, «Vendidos», vistas y chats de la semana |
+| 13 | Chat por tienda | `99a3988` | Bandeja por tienda (la base sigue por producto: L-3), «Hablan de», venta cerrada con reclamo de 48 h y calificar, «Cómo llegar», panel de la tienda; chat oficial con el equipo |
+| 14 | Tu perfil y tu cuenta | `d5428de` | Vista de dueña con el ojito, `/cuenta` con atajos |
+| 15 | Perfil de otra tienda | `0e4ecfc` | Seguir, opiniones y respuesta |
+| 16 | Historial | `cec71c8` | Ventas y compras por mes, logros de 10 y 20, Excel, «Recordarle», calificar |
+| 17 | Avisos | `f2f56c8` | Campanita con acciones, filtros y horario silencioso |
+| 18 | Reportar y bloquear | `74e0d15` | 3 motivos, «Mis reportes», bloqueadas; el chat oficial llegó con la 13 |
+| 19 | Estados vacíos y errores | `d79ec8d` | Sin resultados, sin conexión, vitrina vacía |
+| 20 | Panel del equipo | `10bfc4d` | Barra propia, inicio con lo de hoy, cola de reportes con decisión, tiendas con advertencias y suspensión, chats y comunicados |
+
+**Datos nuevos (14 migraciones del 10 y 11/11; las de esta tanda):** precio de la venta, vistas por día, razón de pausa, distancia de las galerías (`galeria.metros`, la pone el equipo), precio anterior de la oferta, precio de pase por día (`precio_diario`, se pone al día al abrir la categoría), `en_vivo.mostrar_precio`, `tienda.indicaciones`, chat con el equipo (`hilo_equipo`, `mensaje_equipo`), advertencias, comunicados y `registro_equipo`.
+
+**Se simplificó (para que lo vean Grimm y My):**
+
+- El chat sigue siendo uno por producto: la bandeja junta los hilos por tienda y «Hablan de» salta entre ellos (no hay una sola línea de tiempo mezclada).
+- «Contactar por WhatsApp · Toca para pedir permiso», «Tiendas que pueden escribirte» y la sección «WhatsApp bloqueados» del panel no se hicieron: el permiso de WhatsApp todavía no existe.
+- «Mostrar el nombre de mi tienda» sigue siendo por publicación (no hay un interruptor de cuenta).
+- En la categoría, «Marca» es la marca del producto (MSI, ASUS), no la del chip; no hay filtros de memoria ni versión.
+- La distancia «a 3 min caminando» sale solo si el equipo cargó `metros` en las galerías.
+- Las opiniones muestran autor y estrellas aunque el lienzo diga «La otra tienda no ve quién dio cada estrella».
+- La sección «Equipo» del panel (turnos, horario) no se hizo; «Lo último del equipo» anota reportes, advertencias, suspensiones y comunicados.
+
+**Falta:** subir fotos del stand y de la credencial en el registro; el SMS, la consulta a SUNAT y el aviso con el celular bloqueado (L-5); recordatorios programados; descuento socio por tienda (hoy uno por defecto y otro por publicación). Y subir los commits y desplegar, cuando se apruebe.

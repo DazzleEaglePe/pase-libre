@@ -39,13 +39,15 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 - [x] La web recibe `WEB_URL` y `ENTORNO` en `compose.yml`: sin eso, la vista al compartir habría salido con `localhost` en producción (28/10)
 - [ ] **Antes de salir:** revisar en la web lo que quedó sin verificar: el orden, la paginación, el filtro de precio, el clic de WhatsApp y la vista del equipo
 - [ ] **Antes de salir:** una forma de cargar el piloto sin publicar uno por uno. La carga en bloque (RF-34) pasó a la fase 2, así que o cada vendedor publica a mano o se escribe un script chico a partir de la plantilla del bloque 4
-- [ ] **Antes de salir:** decidir qué hacer con las denuncias. Se guardan en la tabla `Denuncia`, pero el equipo no tiene dónde verlas (RF-28, RNF-53). Mínimo: una consulta SQL documentada en la guía del equipo
+- [x] Las denuncias ya tienen dónde verse: Panel del equipo › Reportes, con la decisión y el aviso a quien reportó (sección 20 del lienzo, 11/11)
 - [ ] **Antes de salir:** unir productos duplicados (RF-54). La base tiene `fusionado_en_id` y la web redirige con 301, pero el equipo no puede unirlos. Mínimo: un script
 - [ ] Reporte de uso (RF-31, RF-32): las tablas `Busqueda` y `Contacto` existen; falta la consulta lista, una por semana y galería
 - [x] `limites.e2e-spec` fallaba una de cada tres veces («socket hang up»): era supertest abriendo un servidor por pedido; ahora la app de pruebas escucha una vez en 127.0.0.1 (09/11, [15](15-calidad.md))
 - [x] Ajuste de forma de Hielo: ya no aplica, el lienzo «Versión final» usa píldoras como la web (D-54)
 - [ ] Modo claro y oscuro (Claro / Oscuro / Sistema) en toda la web: sprint del 09 al 13/11 con sus checklists en [13 · Modo oscuro](13-modo-oscuro.md)
-- [ ] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): qué falta, decisiones y orden por olas en [14 · Lienzo final](14-lienzo-final.md)
+- [x] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): las 20 secciones en `main`, 15 commits locales sin subir (11/11). Estado, simplificaciones y pendientes en [14 · Lienzo final](14-lienzo-final.md) §5
+- [ ] **Antes de salir:** subir los commits del lienzo final y desplegarlos (traen 14 migraciones nuevas, de `20261110120000` a `20261111130000`: hacer el respaldo antes)
+- [ ] Cargar `metros` de cada galería para que «Wilson en vivo» diga «a N min caminando» (lo hace el equipo; sin eso no se muestra)
 - [ ] Registro propio (sección 3 del lienzo): hecho y apagado (`REGISTRO_PROPIO`). Para encenderlo en producción faltan un proveedor de SMS y uno de consulta a SUNAT, y subir las fotos del stand ([14](14-lienzo-final.md) §5)
 - [ ] Lo que quedó de la auditoría de calidad (seguridad, rendimiento, pruebas y diseño): lista ordenada en [15 · Calidad](15-calidad.md) §6
 - [ ] **Fase 2:** perfil privado, «Quién puede escribirte», respuesta automática, idioma y aviso por correo en Configuración
