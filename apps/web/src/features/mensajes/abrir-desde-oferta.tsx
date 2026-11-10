@@ -33,7 +33,7 @@ export function AbrirDesdeOferta({ ofertaId }: { ofertaId: string }) {
   }, [ofertaId, router]);
 
   return (
-    <section className="flex flex-1 flex-col items-center justify-center gap-3 rounded-3xl border-[1.5px] border-linea p-8 text-center">
+    <section className="flex flex-1 flex-col items-center justify-center gap-3 rounded-3xl border-[1.5px] border-linea p-8 lg:rounded-none lg:border-0 text-center">
       {error ? (
         <>
           <p role="alert" className="text-secundario">

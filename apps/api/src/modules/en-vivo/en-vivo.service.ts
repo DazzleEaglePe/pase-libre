@@ -70,6 +70,7 @@ const SELECT_CON_VENDEDOR = {
   tiendaId: true,
   precioCentimos: true,
   moneda: true,
+  mostrarPrecio: true,
   nota: true,
   avisadas: true,
   vendidas: true,
@@ -302,7 +303,8 @@ export class EnVivoService {
       });
     });
 
-    if (datos.tipo === 'BUSCO') await this.avisarBusco(id, usuario);
+    const avisados = datos.tipo === 'BUSCO' ? await this.avisarBusco(id, usuario) : [];
+    if (datos.avisar_seguidores) await this.avisarSeguidores(id, usuario, avisados);
     this.tiempoReal.emitirATodos(EVENTOS.enVivoCambio, { id });
     const [propio] = await this.propios([id], usuario, new Date());
     return propio as EnVivoPropio;
@@ -313,6 +315,7 @@ export class EnVivoService {
       tipo: 'BUSCO' as const,
       cantidad: datos.cantidad,
       condicion: datos.condicion,
+      mostrarPrecio: datos.mostrar_precio,
       precioCentimos: datos.presupuesto === null ? null : BigInt(datos.presupuesto),
       moneda: datos.moneda,
       ofertaId: null,
@@ -749,7 +752,7 @@ export class EnVivoService {
         where: { id: consulta.producto, fusionadoEnId: null },
         select: { id: true, titulo: true, categoriaId: true },
       });
-      if (!producto) return { tiendas: 0 };
+      if (!producto) return { tiendas: 0, seguidores: 0 };
       base = {
         productoId: producto.id,
         titulo: producto.titulo,
@@ -764,8 +767,13 @@ export class EnVivoService {
         : null;
       base = { productoId: null, titulo: consulta.q, categoriaId: categoria?.id ?? null };
     }
-    const destinatarios = await this.destinatarios(base, usuario.tiendaId ?? '');
-    return { tiendas: new Set(destinatarios.map((d) => d.tiendaId)).size };
+    const [destinatarios, seguidores] = await Promise.all([
+      this.destinatarios(base, usuario.tiendaId ?? ''),
+      this.prisma.seguimiento.count({
+        where: { seguidaId: usuario.tiendaId ?? '', avisos: { not: 'NINGUNO' } },
+      }),
+    ]);
+    return { tiendas: new Set(destinatarios.map((d) => d.tiendaId)).size, seguidores };
   }
 
   /**
@@ -820,7 +828,7 @@ export class EnVivoService {
    * Un aviso por persona en la campanita (tipo EN_VIVO), salvo a quien lo apagó en
    * Configuración. Con «No molestar», aparece al terminar el horario.
    */
-  private async avisarBusco(id: string, usuario: UsuarioConTienda): Promise<void> {
+  private async avisarBusco(id: string, usuario: UsuarioConTienda): Promise<string[]> {
     const busco = await this.prisma.enVivo.findUniqueOrThrow({
       where: { id },
       select: {
@@ -830,10 +838,11 @@ export class EnVivoService {
         cantidad: true,
         precioCentimos: true,
         moneda: true,
+        mostrarPrecio: true,
       },
     });
     const destinatarios = await this.destinatarios(busco, usuario.tiendaId ?? '');
-    if (destinatarios.length === 0) return;
+    if (destinatarios.length === 0) return [];
 
     const ids = [...new Set(destinatarios.map((d) => d.usuarioId))];
     const [apagados, personas] = await Promise.all([
@@ -856,7 +865,7 @@ export class EnVivoService {
     const quien = usuario.tienda?.nombre ?? usuario.nombre;
     const extracto = [
       busco.cantidad > 1 ? `${busco.cantidad} unidades` : null,
-      busco.precioCentimos !== null
+      busco.precioCentimos !== null && busco.mostrarPrecio
         ? `Paga hasta ${formatearPrecio(precioDe(Number(busco.precioCentimos), busco.moneda))}`
         : null,
       'Respóndele antes de que venza.',
@@ -882,6 +891,62 @@ export class EnVivoService {
       this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.avisoNuevo, campanita);
       this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.contadores);
     }
+    return reciben.map((persona) => persona.id);
+  }
+
+  /**
+   * «Avisar a quienes me siguen» (PUB_WebVivo): un aviso de «Tiendas que sigues» a quien sigue
+   * a la tienda con avisos (todos o los importantes: remates y pedidos en vivo), salvo a quien
+   * ya le llegó como busco.
+   */
+  private async avisarSeguidores(
+    id: string,
+    usuario: UsuarioConTienda,
+    yaAvisados: string[],
+  ): Promise<void> {
+    const seguidores = await this.prisma.seguimiento.findMany({
+      where: {
+        seguidaId: usuario.tiendaId ?? '',
+        avisos: { not: 'NINGUNO' },
+        usuario: { estado: 'ACTIVO' },
+        usuarioId: { notIn: yaAvisados },
+      },
+      select: { usuarioId: true },
+    });
+    if (seguidores.length === 0) return;
+    const enVivo = await this.prisma.enVivo.findUniqueOrThrow({
+      where: { id },
+      select: {
+        tipo: true,
+        titulo: true,
+        precioCentimos: true,
+        moneda: true,
+        mostrarPrecio: true,
+      },
+    });
+    const quien = usuario.tienda?.nombre ?? usuario.nombre;
+    const precio =
+      enVivo.precioCentimos !== null && enVivo.mostrarPrecio
+        ? formatearPrecio(precioDe(Number(enVivo.precioCentimos), enVivo.moneda))
+        : null;
+    await this.avisos.crear([...new Set(seguidores.map((s) => s.usuarioId))], {
+      tipo: 'SEGUIDA',
+      titulo: `${quien} ${enVivo.tipo === 'BUSCO' ? 'busca' : 'remata'} ${enVivo.titulo}`.slice(
+        0,
+        160,
+      ),
+      extracto: [
+        precio && (enVivo.tipo === 'BUSCO' ? `Paga hasta ${precio}` : precio),
+        'Una tienda que sigues, en vivo.',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      enlace: `/pedidos-en-vivo?id=${id}`,
+      accion:
+        enVivo.tipo === 'BUSCO'
+          ? { tipo: 'LO_TENGO', enlace: `/pedidos-en-vivo?id=${id}` }
+          : { tipo: 'ABRIR', texto: '¡Lo quiero!', enlace: `/pedidos-en-vivo?id=${id}` },
+    });
   }
 
   // ── Armar las respuestas ──────────────────────────────────────────────────
@@ -915,7 +980,11 @@ export class EnVivoService {
     return {
       ...this.publico(f, ahora),
       tienda: { nombre: f.tienda.nombre, stand: f.tienda.stand },
-      precio: f.precioCentimos === null ? null : precioDe(Number(f.precioCentimos), f.moneda),
+      // «Mostrarlo» apagado: las demás tiendas ven «Presupuesto: consultar»; la dueña, el suyo.
+      precio:
+        f.precioCentimos === null || (!f.mostrarPrecio && f.tiendaId !== mirada.tiendaId)
+          ? null
+          : precioDe(Number(f.precioCentimos), f.moneda),
       nota: f.nota,
       propio: f.tiendaId === mirada.tiendaId,
       mio: f.autorId === mirada.usuarioId,

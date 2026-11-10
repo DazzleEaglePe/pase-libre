@@ -25,3 +25,4 @@ export * from './historial/historial.schemas.js';
 export * from './historial/historial.types.js';
 export * from './wilson/wilson.schemas.js';
 export * from './wilson/wilson.types.js';
+export * from './soporte/soporte.js';

@@ -466,4 +466,62 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
       }
     });
   });
+
+  describe('«Mostrarlo» y «Avisar a quienes me siguen» (PUB_WebVivo)', () => {
+    it('sin «Mostrarlo» las demás ven «Presupuesto: consultar» y los seguidores reciben aviso', async () => {
+      const tiendaC = await prisma.tienda.findFirstOrThrow({ where: { nombre: 'Tienda C' } });
+      await como('tiendab').post(`/v1/tiendas/${tiendaC.id}/seguir`, {}).expect(200);
+      const alcance = await como('tiendac')
+        .get('/v1/en-vivo/alcance?q=Cooler 212&categoria=refrigeracion')
+        .expect(200);
+      expect(alcance.body.seguidores).toBe(1);
+
+      const publicado = await como('tiendac')
+        .post('/v1/en-vivo', {
+          tipo: 'BUSCO',
+          titulo: 'Cooler Master Hyper 212',
+          categoria: 'refrigeracion',
+          presupuesto: '35',
+          mostrar_precio: false,
+          duracion: '1h',
+        })
+        .expect(201);
+      // Quien lo publicó sí ve su presupuesto.
+      expect(publicado.body.precio).toMatchObject({ centimos: 3500 });
+
+      const visto = (
+        (await como('tiendab').get('/v1/en-vivo?tipo=busco').expect(200)).body
+          .en_vivo as EnVivoConVendedor[]
+      ).find((item) => item.id === publicado.body.id);
+      expect(visto?.precio).toBeNull();
+
+      const avisos = ((await como('tiendab').get('/v1/avisos').expect(200)).body as RespuestaAvisos)
+        .avisos;
+      const deSeguida = avisos.find((aviso) => aviso.tipo === 'SEGUIDA');
+      expect(deSeguida).toMatchObject({
+        titulo: 'Tienda C busca Cooler Master Hyper 212',
+        enlace: `/pedidos-en-vivo?id=${publicado.body.id}`,
+      });
+      expect(deSeguida?.extracto).not.toContain('35');
+    });
+
+    it('sin «Avisar a quienes me siguen» no les llega', async () => {
+      const antes = (
+        (await como('tiendab').get('/v1/avisos').expect(200)).body as RespuestaAvisos
+      ).avisos.filter((aviso) => aviso.tipo === 'SEGUIDA').length;
+      await como('tiendac')
+        .post('/v1/en-vivo', {
+          tipo: 'BUSCO',
+          titulo: 'Arctic Liquid Freezer III 240',
+          categoria: 'refrigeracion',
+          avisar_seguidores: false,
+          duracion: '1h',
+        })
+        .expect(201);
+      const despues = (
+        (await como('tiendab').get('/v1/avisos').expect(200)).body as RespuestaAvisos
+      ).avisos.filter((aviso) => aviso.tipo === 'SEGUIDA').length;
+      expect(despues).toBe(antes);
+    });
+  });
 });

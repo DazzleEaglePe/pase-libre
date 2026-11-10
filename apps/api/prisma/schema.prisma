@@ -186,6 +186,8 @@ model Tienda {
   piso                 String?      @db.VarChar(20)
   whatsapp             String       @db.VarChar(20)
   horario              String?      @db.VarChar(120)
+  /// «Cómo llegar» (PCH_WebLlegar): «Subes por la escalera central y es el segundo pasillo…».
+  indicaciones         String?      @db.VarChar(240)
   descripcion          String?      @db.VarChar(500)
   logo                 String?      @db.VarChar(300)
   /// Valores por defecto al publicar (D-37): precio oculto y en dólares.
@@ -224,6 +226,7 @@ model Tienda {
   /// Las tiendas que tienen a esta como socia.
   socioDe              Socio[]           @relation("SocioDe")
   vistasDeOfertas      VistaOferta[]
+  hiloEquipo           HiloEquipo?
 
   @@index([galeriaId])
   @@map("tienda")
@@ -286,6 +289,8 @@ model Usuario {
   archivos             Archivo[]
   enVivo               EnVivo[]
   respuestasEnVivo     EnVivoRespuesta[]
+
+  mensajesEquipo MensajeEquipo[] @relation("MensajesEquipo")
 
   @@index([tiendaId])
   @@map("usuario")
@@ -644,6 +649,8 @@ model Denuncia {
   denunciante      Usuario @relation(fields: [denuncianteId], references: [id])
   tiendaDenunciada Tienda? @relation("DenunciaContra", fields: [tiendaDenunciadaId], references: [id])
 
+  mensajesEquipo MensajeEquipo[]
+
   @@index([estado, creadaEn])
   @@index([denuncianteId, creadaEn(sort: Desc)])
   @@map("denuncia")
@@ -810,6 +817,8 @@ model EnVivo {
   precioCentimos BigInt?      @map("precio_centimos")
   moneda         Moneda       @default(USD)
   nota           String?      @db.VarChar(120)
+  /// «Mostrarlo» (PUB_WebVivo): apagado, las tiendas ven «Presupuesto: consultar».
+  mostrarPrecio  Boolean      @default(true) @map("mostrar_precio")
   /// A cuántas tiendas les llegó el aviso al publicar el busco.
   avisadas       Int          @default(0) @db.SmallInt
   venceEn        DateTime     @map("vence_en") @db.Timestamptz(6)
@@ -1126,4 +1135,41 @@ model PrecioDiario {
 
   @@id([productoId, dia])
   @@map("precio_diario")
+}
+
+/// El chat oficial con el equipo (REP_WebChatEquipo): uno por tienda, fijado arriba en Mensajes.
+/// El equipo puede escribir primero (por un reporte, por ejemplo) y la tienda contesta.
+model HiloEquipo {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId         String    @unique @map("tienda_id") @db.Uuid
+  ultimoMensajeEn  DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
+  /// Hasta dónde leyó la tienda y hasta dónde el equipo.
+  leidoTiendaHasta DateTime? @map("leido_tienda_hasta") @db.Timestamptz(6)
+  leidoEquipoHasta DateTime? @map("leido_equipo_hasta") @db.Timestamptz(6)
+  creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  tienda   Tienda          @relation(fields: [tiendaId], references: [id], onDelete: Cascade)
+  mensajes MensajeEquipo[]
+
+  @@index([ultimoMensajeEn])
+  @@map("hilo_equipo")
+}
+
+model MensajeEquipo {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  hiloId     String   @map("hilo_id") @db.Uuid
+  autorId    String   @map("autor_id") @db.Uuid
+  /// Lo escribió alguien del equipo (si no, alguien de la tienda).
+  deEquipo   Boolean  @map("de_equipo")
+  texto      String   @db.VarChar(2000)
+  /// «Caso R-1031 · No cumplió con lo descrito»: el reporte del que se habla.
+  denunciaId String?  @map("denuncia_id") @db.Uuid
+  creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  hilo     HiloEquipo @relation(fields: [hiloId], references: [id], onDelete: Cascade)
+  autor    Usuario    @relation("MensajesEquipo", fields: [autorId], references: [id])
+  denuncia Denuncia?  @relation(fields: [denunciaId], references: [id], onDelete: SetNull)
+
+  @@index([hiloId, creadoEn])
+  @@map("mensaje_equipo")
 }

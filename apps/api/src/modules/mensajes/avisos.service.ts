@@ -254,6 +254,15 @@ export class AvisosService {
       ...[...noLeidos.keys()].filter((id) => !archivadas.has(id)),
       ...manuales.map((p) => p.conversacionId),
     ]);
-    return { mensajes: conAlgoSinLeer.size, avisos };
+    // El chat oficial con el equipo cuenta como una conversación más (REP_WebChatEquipo).
+    const [equipo] = await this.prisma.$queryRaw<Array<{ hay: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1 FROM hilo_equipo h
+        JOIN usuario u ON u.tienda_id = h.tienda_id
+        JOIN mensaje_equipo m ON m.hilo_id = h.id
+        WHERE u.id = ${usuarioId}::uuid AND m.de_equipo
+          AND (h.leido_tienda_hasta IS NULL OR m.creado_en > h.leido_tienda_hasta)
+      ) AS hay`;
+    return { mensajes: conAlgoSinLeer.size + (equipo?.hay ? 1 : 0), avisos };
   }
 }

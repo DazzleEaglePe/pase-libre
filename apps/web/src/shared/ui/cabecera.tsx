@@ -244,10 +244,11 @@ function BandaComputadora({
           Wilson en vivo
           {nuevo}
         </Link>
+        {/* Con tienda, «Ayuda» abre el chat oficial con el equipo (D_Barra). */}
         <Link
-          href="/ayuda"
-          aria-current={ruta === '/ayuda' ? 'page' : undefined}
-          className={`${clase(ruta === '/ayuda')} ml-auto !text-acento`}
+          href={conTienda ? '/mensajes/equipo' : '/ayuda'}
+          aria-current={ruta === '/ayuda' || ruta === '/mensajes/equipo' ? 'page' : undefined}
+          className={`${clase(ruta === '/ayuda' || ruta === '/mensajes/equipo')} ml-auto !text-acento`}
         >
           Ayuda
         </Link>

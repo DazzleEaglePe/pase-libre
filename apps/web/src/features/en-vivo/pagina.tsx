@@ -1,32 +1,30 @@
 'use client';
 
-import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
+import { IconClock, IconPlus } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { botonPrincipal } from '@/shared/ui/estilos';
-import { Miniatura } from '@/shared/ui/miniatura';
 import { Segmentado } from '@/shared/ui/segmentado';
 
+import { useEnVivoMontado } from './contexto';
 import { useAhora, useEnVivo } from './datos';
 import { LoTuyo } from './lo-tuyo';
-import { EtiquetaTipo, PildoraEnVivo, botonResponderGrande } from './piezas';
+import { EtiquetaTipo } from './piezas';
 import { BotonResponder } from './responder';
 import {
   conVendedor,
-  cuantoQueda,
-  datoPrecio,
-  lineaCantidad,
+  lineaPrecio,
+  terminaEn,
   textoCierre,
+  etiquetaTipo,
   type ItemEnVivo,
 } from './textos';
 
 export type Tipo = 'todo' | 'busco' | 'flash';
 
-const etiquetaFiltro = 'text-nota font-medium text-detalle';
-/** Del alto del «Todo · Busco · Remates» (44 px), para que la fila de filtros quede pareja. */
-const selector =
-  'h-11 w-full rounded-xl border border-borde bg-white px-3.5 text-apoyo font-normal text-tinta';
+/** El botón naranja de las tarjetas (D_Pases): «¡Lo tengo!» o «¡Lo quiero!». */
+const botonNaranja =
+  'inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline hover:brightness-95';
 
 function Tarjeta({
   item,
@@ -37,51 +35,47 @@ function Tarjeta({
   ahora: number;
   resaltada: boolean;
 }) {
+  const unidades =
+    item.tipo === 'BUSCO' ? (item.cantidad === 1 ? '1 unidad' : `${item.cantidad} unidades`) : null;
   const detalle = [
     conVendedor(item) ? item.tienda.nombre : null,
     item.galeria ?? 'Independiente',
-    lineaCantidad(item),
+    unidades,
   ]
     .filter(Boolean)
     .join(' · ');
   return (
     <article
       id={`en-vivo-${item.id}`}
-      className={`flex scroll-mt-40 flex-col gap-2 rounded-2xl border bg-white p-3.5 ${
+      className={`flex scroll-mt-40 flex-col gap-2 rounded-[20px] border bg-white p-4 sm:p-5 ${
         resaltada ? 'border-tinta ring-2 ring-pase-suave' : 'border-linea'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <EtiquetaTipo tipo={item.tipo} />
-        <span className="text-nota font-semibold text-aviso">
-          {cuantoQueda(item.vence_en, ahora)}
+        <span className="flex items-center gap-1 text-nota font-bold text-aviso">
+          <IconClock size={14} stroke={2} aria-hidden="true" />
+          {terminaEn(item.vence_en, ahora)}
         </span>
       </div>
-      <Miniatura
-        ruta={item.producto?.foto ?? null}
-        categoria={item.categoria.slug}
-        className="h-[104px] w-full rounded-xl"
-        glifo={80}
-        grosor={3.4}
-      />
       {item.producto ? (
         <Link
           href={`/p/${item.producto.slug}`}
-          className="text-tarjeta no-underline hover:underline"
+          className="text-[19px] font-bold leading-6 text-tinta no-underline hover:underline"
         >
           {item.titulo}
         </Link>
       ) : (
-        <b className="text-tarjeta">{item.titulo}</b>
+        <b className="text-[19px] font-bold leading-6">{item.titulo}</b>
       )}
-      {conVendedor(item) && item.nota && <p className="text-apoyo text-secundario">{item.nota}</p>}
-      <span className="text-nota text-detalle">{detalle}</span>
-      <div className="mt-auto flex h-14 items-end justify-between gap-2 border-t border-linea pb-0.5">
-        <b className="pb-2 text-cuerpo font-semibold">{datoPrecio(item)}</b>
+      {conVendedor(item) && item.nota && <p className="m-0 text-cuerpo text-tinta">{item.nota}</p>}
+      <span className="text-apoyo text-secundario">{detalle}</span>
+      <div className="mt-auto flex items-center justify-between gap-3 border-t border-linea pt-3">
+        <b className="text-cuerpo font-bold">{lineaPrecio(item)}</b>
         {conVendedor(item) && item.propio ? (
-          <span className="pb-2 text-nota font-medium text-detalle">Es tuyo</span>
+          <span className="text-nota font-bold text-detalle">Es tuyo</span>
         ) : (
-          <BotonResponder item={item} className={botonResponderGrande} />
+          <BotonResponder item={item} className={botonNaranja} />
         )}
       </div>
     </article>
@@ -89,33 +83,24 @@ function Tarjeta({
 }
 
 /**
- * `/pedidos-en-vivo` (EV_Todos, RF-75): los busco y remates vigentes, con filtros por tipo,
- * categoría y galería, los cerrados de hoy y, con sesión, «Lo tuyo en vivo». `?id=` resalta uno (los
- * avisos de la campanita llegan así).
+ * `/pedidos-en-vivo` (D_Pases, M_Pases, sección 9 del lienzo final): los busco y remates
+ * vigentes, lo que vence primero arriba; los cerrados de hoy en una línea y, con sesión, «Tus
+ * pedidos en vivo». `?id=` resalta uno (los avisos de la campanita llegan así).
  */
 export function PaginaEnVivo({
   conSesion,
-  categorias,
-  galerias,
   resaltar,
   tipoInicial = 'todo',
 }: {
   conSesion: boolean;
-  categorias: CategoriaResumen[];
-  galerias: GaleriaResumen[];
   resaltar: string | null;
   /** «Remates de hoy» de la barra llega con `?tipo=remato`. */
   tipoInicial?: Tipo;
 }) {
   const [tipo, setTipo] = useState<Tipo>(tipoInicial);
-  const [categoria, setCategoria] = useState('');
-  const [galeria, setGaleria] = useState('');
-  const consulta = new URLSearchParams({
-    tipo,
-    ...(categoria ? { categoria } : {}),
-    ...(galeria ? { galeria } : {}),
-  }).toString();
-  const { datos } = useEnVivo(`?${consulta}`);
+  const { datos } = useEnVivo(`?tipo=${tipo}`);
+  // El total de «Todos · 4» sale de la lista que ya tiene la barra.
+  const todos = useEnVivoMontado()?.datos;
   const ahora = useAhora();
 
   useEffect(() => {
@@ -125,133 +110,84 @@ export function PaginaEnVivo({
 
   const enVivo = datos?.en_vivo ?? [];
   const cerrados = datos?.cerrados_hoy ?? [];
+  const total = todos?.en_vivo.length;
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <PildoraEnVivo />
-          <h1 className="text-titulo">Busco y remates</h1>
-          {datos && <span className="text-apoyo text-detalle">{enVivo.length} ahora</span>}
+      {/* La banda negra de arriba, de lado a lado de la pantalla. */}
+      <header className="-mt-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 bg-tinta pb-7 pt-6 text-white shadow-[0_0_0_100vmax_#0F1412] [clip-path:inset(0_-100vmax)]">
+        <div className="flex flex-col gap-2">
+          <nav aria-label="Ruta" className="flex gap-2 text-nota text-white/70">
+            <Link href="/" className="text-white/80">
+              Inicio
+            </Link>
+            <span aria-hidden="true">›</span>
+            <span>Pedidos en vivo</span>
+          </nav>
+          <h1 className="flex items-center gap-3 text-[30px] font-bold leading-9 sm:text-[36px] sm:leading-[44px]">
+            <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full bg-vivo" />
+            Pedidos en vivo
+          </h1>
+          <p className="m-0 text-cuerpo text-white/85">
+            Lo que las tiendas necesitan o rematan hoy. Responde antes de que termine.
+          </p>
         </div>
         <Link
           href={conSesion ? '/pedidos-en-vivo/publicar' : '/ingresar'}
-          className={`${botonPrincipal} no-underline max-sm:w-full`}
+          className="flex h-12 items-center gap-2 rounded-full bg-pase px-6 font-bold text-white no-underline max-sm:w-full max-sm:justify-center"
         >
+          <IconPlus size={18} stroke={2.2} aria-hidden="true" />
           Publicar busco o remate
         </Link>
-      </div>
-      <p className="-mt-3 max-w-[640px] text-secundario">
-        Lo que las tiendas necesitan para un cliente o rematan hoy. Responde antes de que venza: la
-        respuesta abre el chat con la tienda.
-      </p>
+      </header>
 
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
-        <div className="flex flex-col gap-1.5 max-sm:w-full">
-          <span aria-hidden="true" className={etiquetaFiltro}>
-            Mostrar
-          </span>
-          <Segmentado
-            llenoEnCelular
-            etiqueta="Qué mostrar"
-            valor={tipo}
-            alCambiar={setTipo}
-            opciones={[
-              ['todo', 'Todo'],
-              ['busco', 'Busco'],
-              ['flash', 'Remates'],
-            ]}
-          />
-        </div>
-        <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto">
-          <label className={`${etiquetaFiltro} flex min-w-0 flex-col gap-1.5 sm:w-44`}>
-            Categoría
-            <select
-              value={categoria}
-              onChange={(evento) => setCategoria(evento.target.value)}
-              className={selector}
-            >
-              <option value="">Todas</option>
-              {categorias.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={`${etiquetaFiltro} flex min-w-0 flex-col gap-1.5 sm:w-44`}>
-            Galería
-            <select
-              value={galeria}
-              onChange={(evento) => setGaleria(evento.target.value)}
-              className={selector}
-            >
-              <option value="">Todas</option>
-              {galerias.map((g) => (
-                <option key={g.slug} value={g.slug}>
-                  {g.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_364px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Segmentado
+              llenoEnCelular
+              etiqueta="Qué mostrar"
+              valor={tipo}
+              alCambiar={setTipo}
+              opciones={[
+                ['todo', total === undefined ? 'Todos' : `Todos · ${total}`],
+                ['busco', 'Busco'],
+                ['flash', 'Remato'],
+              ]}
+            />
+            <span className="text-apoyo text-secundario">
+              Orden: <b className="font-bold text-tinta">vence primero</b>
+            </span>
+          </div>
 
-      <div className="flex flex-wrap items-start gap-6">
-        <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-6">
           {!datos && <p className="text-secundario">Cargando…</p>}
           {datos && enVivo.length === 0 && (
-            <p className="rounded-2xl bg-superficie p-5 text-secundario">
-              Ahora no hay pedidos en vivo
-              {tipo !== 'todo' || categoria || galeria ? ' con esos filtros' : ''}. Publica lo que
-              buscas para un cliente y les avisamos a las tiendas que lo tienen.
+            <p className="m-0 rounded-[20px] border border-linea bg-white p-6 text-secundario">
+              Ahora no hay {tipo === 'busco' ? 'busco' : tipo === 'flash' ? 'remates' : 'pedidos'}{' '}
+              en vivo. Publica lo que buscas para un cliente y les avisamos a las tiendas que lo
+              tienen.
             </p>
           )}
           {enVivo.length > 0 && (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {enVivo.map((item) => (
                 <Tarjeta key={item.id} item={item} ahora={ahora} resaltada={item.id === resaltar} />
               ))}
             </div>
           )}
           {cerrados.length > 0 && (
-            <section aria-labelledby="cerrados" className="flex flex-col gap-2">
-              <h2 id="cerrados" className="text-tarjeta">
-                Cerrados hoy{' '}
-                <span className="text-apoyo font-normal text-detalle">{cerrados.length}</span>
-              </h2>
-              <ul className="flex flex-col rounded-2xl border border-linea">
-                {cerrados.map((item) => (
-                  <li
-                    key={item.id}
-                    id={`en-vivo-${item.id}`}
-                    className="flex flex-col gap-1 border-t border-linea px-4 py-2.5 first:border-t-0 sm:flex-row sm:items-center sm:gap-3"
-                  >
-                    {/* En el celular, el título tiene su propia línea y no se corta. */}
-                    <span className="flex min-w-0 flex-1 items-center gap-3">
-                      <EtiquetaTipo tipo={item.tipo} />
-                      <b className="min-w-0 truncate text-apoyo font-semibold">{item.titulo}</b>
-                    </span>
-                    <span className="flex items-center justify-between gap-3 sm:justify-end">
-                      <span className="text-nota text-detalle">
-                        {conVendedor(item) ? `${item.tienda.nombre} · ` : ''}
-                        {item.galeria ?? 'Independiente'}
-                      </span>
-                      <span className="text-nota font-semibold text-secundario">
-                        {textoCierre(item)}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <p className="m-0 text-apoyo text-secundario">
+              Cerrados hoy · {cerrados.length} ·{' '}
+              {cerrados
+                .map(
+                  (item) =>
+                    `${etiquetaTipo(item.tipo)} ${item.titulo}, ${textoCierre(item).toLowerCase()}`,
+                )
+                .join(' · ')}
+            </p>
           )}
         </div>
-        {conSesion && (
-          <div className="flex min-w-0 flex-[1_1_300px] flex-col">
-            <LoTuyo ahora={ahora} />
-          </div>
-        )}
+        {conSesion && <LoTuyo ahora={ahora} />}
       </div>
     </div>
   );

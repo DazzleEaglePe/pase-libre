@@ -57,6 +57,10 @@ export const publicarEnVivoSchema = z.discriminatedUnion('tipo', [
       condicion: z.enum(['NUEVO', 'USADO']).nullable().default(null),
       moneda: monedaSchema,
       presupuesto: montoSchema.default(null),
+      /** «Mostrarlo» (PUB_WebVivo): apagado, las tiendas ven «Presupuesto: consultar». */
+      mostrar_precio: z.boolean().default(true),
+      /** «Avisar a quienes me siguen» (PUB_WebVivo). */
+      avisar_seguidores: z.boolean().default(true),
       duracion: duracionSchema,
       nota: notaSchema,
     })
@@ -74,6 +78,7 @@ export const publicarEnVivoSchema = z.discriminatedUnion('tipo', [
     precio: montoSchema.refine((centimos) => centimos !== null, 'Escribe el precio de pase.'),
     moneda: monedaSchema,
     cantidad: cantidadSchema,
+    avisar_seguidores: z.boolean().default(true),
     duracion: duracionSchema,
     nota: notaSchema,
   }),

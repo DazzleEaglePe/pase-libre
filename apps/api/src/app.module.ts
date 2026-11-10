@@ -16,6 +16,7 @@ import { EquipoModule } from './modules/equipo/equipo.module';
 import { MensajesModule } from './modules/mensajes/mensajes.module';
 import { OfertasModule } from './modules/ofertas/ofertas.module';
 import { HistorialModule } from './modules/historial/historial.module';
+import { SoporteModule } from './modules/soporte/soporte.module';
 import { TiendasModule } from './modules/tiendas/tiendas.module';
 import { RegistroModule } from './modules/registro/registro.module';
 import { SaludModule } from './modules/salud/salud.module';
@@ -49,6 +50,7 @@ import { RequestIdMiddleware } from './shared/middleware/request-id.middleware';
     RegistroModule,
     TiendasModule,
     HistorialModule,
+    SoporteModule,
     SaludModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

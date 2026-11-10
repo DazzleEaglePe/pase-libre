@@ -63,3 +63,37 @@ export function textoCierre(item: { estado: EstadoEnVivo }): string {
   if (item.estado === 'CERRADO') return 'Cerrado';
   return 'Venció';
 }
+
+const HORA_LIMA = new Intl.DateTimeFormat('es-PE', {
+  timeZone: 'America/Lima',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+});
+
+/**
+ * «Termina en 1 h 40 min», o «Termina a las 8:00 p. m.» si falta más de 3 horas (lo que dura
+ * hasta el cierre), como D_Pases.
+ */
+export function terminaEn(venceEn: string, ahora: number): string {
+  const minutos = Math.ceil((new Date(venceEn).getTime() - ahora) / 60_000);
+  if (minutos <= 0) return 'Venció';
+  if (minutos > 180) {
+    const hora = HORA_LIMA.format(new Date(venceEn)).replace(/\s?([ap])\.?\s?m\.?/i, ' $1. m.');
+    return `Termina a las ${hora}`;
+  }
+  return `Termina en ${cuantoQueda(venceEn, ahora, true)}`;
+}
+
+/**
+ * La línea de abajo de una tarjeta (D_Pases): «Paga hasta US$ 300», «Presupuesto: consultar»
+ * o «US$ 289 · 3 disponibles». Sin sesión, lo que se ve al iniciarla.
+ */
+export function lineaPrecio(item: ItemEnVivo): string {
+  if (!conVendedor(item)) return datoPrecio(item);
+  if (item.tipo === 'BUSCO') {
+    return item.precio ? `Paga hasta ${formatearPrecio(item.precio)}` : 'Presupuesto: consultar';
+  }
+  const disponibles = item.cantidad === 1 ? '1 disponible' : `${item.cantidad} disponibles`;
+  return item.precio ? `${formatearPrecio(item.precio)} · ${disponibles}` : disponibles;
+}

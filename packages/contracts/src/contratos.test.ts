@@ -87,6 +87,7 @@ describe('buscarSchema', () => {
       moneda: 'USD',
       orden: 'recientes',
       pagina: 1,
+      tal_cual: false,
     });
   });
 

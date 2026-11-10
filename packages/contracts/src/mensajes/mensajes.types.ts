@@ -85,6 +85,39 @@ export interface DetalleConversacion extends Omit<ConversacionEnLista, 'otro' | 
   puede_vender: boolean;
   /** El busco o la oferta flash de la que nació el hilo (D-53). */
   en_vivo?: EnVivoEnChat | null;
+  /**
+   * «Hablan de» (PCH_WebTienda): los productos de los que hablas con esa tienda, este primero.
+   * Cada uno es su propio hilo; con la tienda reservada, solo este.
+   */
+  hablan_de: Array<{
+    conversacion_id: string;
+    titulo: string;
+    foto: string | null;
+    categoria: string;
+    precio: Precio | null;
+    actualizada_en: string;
+  }>;
+  /** La última venta marcada en este hilo: «Venta cerrada» y «¿Cómo te fue?». */
+  venta: {
+    id: string;
+    precio: Precio | null;
+    fecha: string;
+    mi_lado: 'comprador' | 'vendedor';
+    /** Ya diste tu opinión de la otra tienda por esta venta. */
+    calificaste: boolean;
+    /** «¿No fue así? Avísanos (48 h)»: hasta cuándo quien compró puede reclamar. */
+    reclamo_hasta: string;
+  } | null;
+  /** «Cómo llegar» y la reputación de la otra tienda; nulo con la tienda reservada. */
+  sobre_tienda: {
+    galeria: string | null;
+    piso: string | null;
+    stand: string | null;
+    horario: string | null;
+    indicaciones: string | null;
+    estrellas: number | null;
+    opiniones: number;
+  } | null;
 }
 
 export interface RespuestaMensajes {

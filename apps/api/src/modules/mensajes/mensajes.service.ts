@@ -341,6 +341,12 @@ export class MensajesService {
 
     // «En línea» y «Activo hace 2 h» también servirían para adivinar quién es.
     const reservada = base.rol === 'comprador' && !oferta.tiendaVisible;
+    const otraTiendaId = reservada ? null : (otro.tienda?.id ?? null);
+    const [hablanDe, venta, sobreTienda] = await Promise.all([
+      this.hablanDe(id, usuario, otraTiendaId),
+      this.ventaDelHilo(id, usuario),
+      otraTiendaId ? this.sobreTienda(otraTiendaId) : null,
+    ]);
     return {
       ...base,
       otro: {
@@ -364,6 +370,139 @@ export class MensajesService {
       en_vivo: conversacion.enVivoId
         ? await this.enVivoDelHilo(conversacion.enVivoId, usuario.id)
         : null,
+      hablan_de: hablanDe,
+      venta,
+      sobre_tienda: sobreTienda,
+    };
+  }
+
+  /**
+   * «Hablan de» (PCH_WebTienda): los hilos de quien mira con esa tienda, de un lado o del otro,
+   * del más reciente al más viejo y con este primero. Lo que esa tienda vende en reservado no
+   * entra: la delataría.
+   */
+  private async hablanDe(
+    id: string,
+    usuario: UsuarioConTienda,
+    otraTiendaId: string | null,
+  ): Promise<DetalleConversacion['hablan_de']> {
+    const miTienda = usuario.tiendaId ?? '';
+    const filas = await this.prisma.conversacion.findMany({
+      where: otraTiendaId
+        ? {
+            participaciones: { some: { usuarioId: usuario.id } },
+            OR: [
+              { id },
+              {
+                tiendaCompradoraId: miTienda,
+                tiendaVendedoraId: otraTiendaId,
+                oferta: { tiendaVisible: true },
+              },
+              { tiendaVendedoraId: miTienda, tiendaCompradoraId: otraTiendaId },
+            ],
+          }
+        : { id },
+      orderBy: { ultimoMensajeEn: 'desc' },
+      take: 8,
+      select: {
+        id: true,
+        ultimoMensajeEn: true,
+        oferta: {
+          select: {
+            tiendaId: true,
+            precioCentimos: true,
+            moneda: true,
+            precioVisible: true,
+            producto: {
+              select: {
+                titulo: true,
+                categoria: { select: { slug: true } },
+                fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+              },
+            },
+          },
+        },
+      },
+    });
+    const mirada = {
+      audiencia: 'vendedor' as const,
+      tiendaId: usuario.tiendaId,
+      usuarioId: usuario.id,
+    };
+    const lista = filas.map((fila) => ({
+      conversacion_id: fila.id,
+      titulo: fila.oferta.producto.titulo,
+      foto: fila.oferta.producto.fotos[0]?.ruta ?? null,
+      categoria: fila.oferta.producto.categoria.slug,
+      precio: precioPara(fila.oferta, mirada),
+      actualizada_en: fila.ultimoMensajeEn.toISOString(),
+    }));
+    return [
+      ...lista.filter((hilo) => hilo.conversacion_id === id),
+      ...lista.filter((hilo) => hilo.conversacion_id !== id),
+    ];
+  }
+
+  /** «Venta cerrada» (PCH_WebPorConfirmar) y si quien mira ya calificó (PCH_WebCalificar). */
+  private async ventaDelHilo(
+    id: string,
+    usuario: UsuarioConTienda,
+  ): Promise<DetalleConversacion['venta']> {
+    const venta = await this.prisma.venta.findFirst({
+      where: { conversacionId: id },
+      orderBy: { creadaEn: 'desc' },
+      select: {
+        id: true,
+        creadaEn: true,
+        precioCentimos: true,
+        moneda: true,
+        tiendaCompradoraId: true,
+        opiniones: { where: { autorTiendaId: usuario.tiendaId ?? '' }, select: { id: true } },
+      },
+    });
+    if (!venta) return null;
+    return {
+      id: venta.id,
+      precio:
+        venta.precioCentimos === null || venta.moneda === null
+          ? null
+          : precioDe(Number(venta.precioCentimos), venta.moneda),
+      fecha: venta.creadaEn.toISOString(),
+      mi_lado: venta.tiendaCompradoraId === usuario.tiendaId ? 'comprador' : 'vendedor',
+      calificaste: venta.opiniones.length > 0,
+      reclamo_hasta: new Date(venta.creadaEn.getTime() + 48 * 3_600_000).toISOString(),
+    };
+  }
+
+  /** «Cyberplaza · Piso 2 · Stand 118», horario, cómo llegar y sus estrellas. */
+  private async sobreTienda(tiendaId: string): Promise<DetalleConversacion['sobre_tienda']> {
+    const [tienda, opiniones] = await Promise.all([
+      this.prisma.tienda.findUnique({
+        where: { id: tiendaId },
+        select: {
+          piso: true,
+          stand: true,
+          horario: true,
+          indicaciones: true,
+          galeria: { select: { nombre: true } },
+        },
+      }),
+      this.prisma.opinion.aggregate({
+        where: { tiendaId },
+        _avg: { estrellas: true },
+        _count: { _all: true },
+      }),
+    ]);
+    if (!tienda) return null;
+    const promedio = opiniones._avg.estrellas;
+    return {
+      galeria: tienda.galeria?.nombre ?? null,
+      piso: tienda.piso,
+      stand: tienda.stand,
+      horario: tienda.horario,
+      indicaciones: tienda.indicaciones,
+      estrellas: promedio === null ? null : Math.round(promedio * 10) / 10,
+      opiniones: opiniones._count._all,
     };
   }
 

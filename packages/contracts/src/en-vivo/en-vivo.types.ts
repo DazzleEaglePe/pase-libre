@@ -93,7 +93,10 @@ export interface RespuestaOpcionesEnVivo {
 
 /** `GET /v1/en-vivo/alcance`: la vista previa de Publicar («Les avisamos a 3 tiendas»). */
 export interface RespuestaAlcanceEnVivo {
+  /** Las tiendas que tienen ese producto publicado con stock: les llega el aviso. */
   tiendas: number;
+  /** Las que siguen a tu tienda y quieren sus avisos: «+ 86 que te siguen». */
+  seguidores: number;
 }
 
 export interface RespuestaResponderEnVivo {

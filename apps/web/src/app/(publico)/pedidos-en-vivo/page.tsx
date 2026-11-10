@@ -1,9 +1,8 @@
-import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
 import { PaginaEnVivo } from '@/features/en-vivo/pagina';
-import { consultarApi, consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
+import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
   title: 'Pedidos en vivo · busco y remates',
@@ -19,14 +18,11 @@ export default async function PedidosEnVivo({
 }: {
   searchParams: Promise<{ id?: string; tipo?: string }>;
 }) {
-  const [{ estado }, sesion, { cuerpo: categorias }, { cuerpo: galerias }, { id, tipo }] =
-    await Promise.all([
-      consultarApi('/en-vivo'),
-      obtenerSesion(),
-      consultarApiCompartida<CategoriaResumen[]>('/categorias'),
-      consultarApiCompartida<GaleriaResumen[]>('/galerias'),
-      searchParams,
-    ]);
+  const [{ estado }, sesion, { id, tipo }] = await Promise.all([
+    consultarApi('/en-vivo'),
+    obtenerSesion(),
+    searchParams,
+  ]);
   if (estado === 404) notFound();
   const tipoInicial = tipo === 'remato' ? 'flash' : tipo === 'busco' ? 'busco' : 'todo';
 
@@ -36,8 +32,6 @@ export default async function PedidosEnVivo({
       key={tipoInicial}
       tipoInicial={tipoInicial}
       conSesion={Boolean(sesion?.tienda)}
-      categorias={categorias ?? []}
-      galerias={galerias ?? []}
       resaltar={id ?? null}
     />
   );

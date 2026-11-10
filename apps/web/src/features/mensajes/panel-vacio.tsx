@@ -21,10 +21,13 @@ export function PanelVacio() {
     );
   }, []);
 
-  if (hay === null) return <section className="flex-1 rounded-3xl border-[1.5px] border-linea" />;
+  if (hay === null)
+    return (
+      <section className="flex-1 rounded-3xl border-[1.5px] border-linea lg:rounded-none lg:border-0" />
+    );
   if (hay) {
     return (
-      <section className="flex flex-1 flex-col items-center justify-center gap-2 rounded-3xl border-[1.5px] border-linea p-8 text-center">
+      <section className="flex flex-1 flex-col items-center justify-center gap-2 rounded-3xl border-[1.5px] border-linea p-8 lg:rounded-none lg:border-0 text-center">
         <p className="text-tarjeta">Elige una conversación</p>
         <p className="max-w-[360px] text-apoyo text-secundario">
           Para escribirle a otra tienda, entra a un producto y toca «Chatear ahora».
@@ -33,7 +36,7 @@ export function PanelVacio() {
     );
   }
   return (
-    <section className="flex flex-1 flex-col items-center justify-center gap-5 rounded-3xl border-[1.5px] border-linea px-6 py-10 text-center">
+    <section className="flex flex-1 flex-col items-center justify-center gap-5 rounded-3xl border-[1.5px] border-linea px-6 py-10 lg:rounded-none lg:border-0 text-center">
       <div className="flex flex-col gap-1.5">
         <h2 className="text-[24px] font-bold leading-8">Aún no tienes chats</h2>
         <p className="m-0 text-cuerpo text-secundario">

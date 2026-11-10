@@ -11,10 +11,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { useEvento } from '@/shared/tiempo-real';
-import { botonLista } from '@/shared/ui/estilos';
 
 import { EtiquetaTipo } from './piezas';
-import { cuantoQueda, textoCierre } from './textos';
+import { terminaEn, textoCierre } from './textos';
+
+const boton =
+  'flex h-10 items-center rounded-full px-4 text-apoyo font-bold no-underline whitespace-nowrap';
 
 function Propio({
   item,
@@ -25,51 +27,80 @@ function Propio({
   ahora: number;
   alCambiar: (accion: 'sumar_hora' | 'cerrar') => void;
 }) {
+  const [verChats, setVerChats] = useState(false);
   const vivo = item.estado === 'VIVO';
   const respuestas = item.respuestas_recibidas.length;
   const resumen =
     item.tipo === 'FLASH'
-      ? `${respuestas === 1 ? '1 interesado' : `${respuestas} interesados`} · vendiste ${item.vendidas}`
+      ? `${respuestas === 1 ? '1 interesado' : `${respuestas} interesados`} · vendiste ${item.vendidas} de ${item.cantidad + item.vendidas}`
       : respuestas === 0
         ? `Nadie respondió aún · avisamos a ${item.avisadas} ${item.avisadas === 1 ? 'tienda' : 'tiendas'}`
         : `${respuestas} ${respuestas === 1 ? 'tienda respondió' : 'tiendas respondieron'}`;
 
   return (
-    <li className="flex flex-col gap-2 border-t border-linea py-3 first:border-t-0">
-      <span className="flex flex-wrap items-center gap-1.5">
+    <li className="flex flex-col gap-2 rounded-2xl bg-white p-4">
+      <span className="flex items-center justify-between gap-2">
         <EtiquetaTipo tipo={item.tipo} />
-        <span className={`text-nota font-semibold ${vivo ? 'text-aviso' : 'text-detalle'}`}>
-          {vivo ? cuantoQueda(item.vence_en, ahora) : textoCierre(item)}
+        <span className={`text-nota font-bold ${vivo ? 'text-aviso' : 'text-detalle'}`}>
+          {vivo ? terminaEn(item.vence_en, ahora) : textoCierre(item)}
         </span>
       </span>
-      <b className="text-apoyo font-semibold">{item.titulo}</b>
-      <span className="text-nota text-secundario">{resumen}</span>
-      {respuestas > 0 && (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1">
-          {item.respuestas_recibidas.map((r) => (
-            <li key={r.conversacion_id}>
-              <Link href={`/mensajes/${r.conversacion_id}`} className="text-nota font-medium">
-                Chat con {r.tienda}
+      <b className="text-cuerpo font-bold">{item.titulo}</b>
+      <span className="text-apoyo text-secundario">{resumen}</span>
+      <span className="mt-1 flex flex-wrap gap-2">
+        {respuestas > 0 && (
+          <button
+            type="button"
+            aria-expanded={verChats}
+            onClick={() => setVerChats(!verChats)}
+            className={`${boton} bg-pase-suave text-marca`}
+          >
+            Ver chats ({respuestas})
+          </button>
+        )}
+        {vivo && respuestas === 0 && (
+          <button
+            type="button"
+            onClick={() => alCambiar('sumar_hora')}
+            className={`${boton} border border-borde bg-white`}
+          >
+            Sumar 1 hora
+          </button>
+        )}
+        {vivo && (
+          <button
+            type="button"
+            onClick={() => alCambiar('cerrar')}
+            className={`${boton} ${
+              item.tipo === 'BUSCO' ? 'bg-tinta text-white' : 'border border-borde bg-white'
+            }`}
+          >
+            {item.tipo === 'BUSCO' ? 'Ya lo conseguí' : 'Cerrar remate'}
+          </button>
+        )}
+      </span>
+      {verChats && (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {item.respuestas_recibidas.map((respuesta) => (
+            <li key={respuesta.conversacion_id}>
+              <Link
+                href={`/mensajes/${respuesta.conversacion_id}`}
+                className="text-apoyo font-bold text-pase-texto"
+              >
+                Chat con {respuesta.tienda} ›
               </Link>
             </li>
           ))}
         </ul>
       )}
-      {vivo && (
-        <span className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => alCambiar('sumar_hora')} className={botonLista}>
-            Sumar 1 hora
-          </button>
-          <button type="button" onClick={() => alCambiar('cerrar')} className={botonLista}>
-            {item.tipo === 'BUSCO' ? 'Ya lo conseguí' : 'Cerrar remate'}
-          </button>
-        </span>
-      )}
     </li>
   );
 }
 
-/** «Lo tuyo en vivo» (EV_Todos, RF-75): sumar una hora, cerrar y los chats de cada respuesta. */
+/**
+ * «Tus pedidos en vivo» (D_Pases, RF-75): sumar una hora, cerrar y los chats de cada
+ * respuesta, en la columna gris de la derecha.
+ */
 export function LoTuyo({ ahora }: { ahora: number }) {
   const [datos, setDatos] = useState<RespuestaMisEnVivo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +109,7 @@ export function LoTuyo({ ahora }: { ahora: number }) {
     try {
       setDatos(await llamarApi<RespuestaMisEnVivo>('/en-vivo/mios'));
     } catch {
-      setError('No pudimos cargar lo tuyo en vivo.');
+      setError('No pudimos cargar tus pedidos en vivo.');
     }
   }, []);
   useEffect(() => {
@@ -100,30 +131,33 @@ export function LoTuyo({ ahora }: { ahora: number }) {
   return (
     <section
       aria-labelledby="lo-tuyo"
-      className="flex flex-col gap-1 rounded-2xl border border-linea p-4"
+      className="flex flex-col gap-3 rounded-[24px] bg-superficie p-5"
     >
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="lo-tuyo" className="text-tarjeta">
-          Lo tuyo en vivo
+        <h2 id="lo-tuyo" className="text-[19px] font-bold">
+          Tus pedidos en vivo
         </h2>
         {datos && (
-          <span className="text-nota text-detalle">
+          <span className="text-apoyo text-secundario">
             {usados} de {MAX_EN_VIVO_POR_CUENTA}
           </span>
         )}
       </div>
       {error && (
-        <p role="alert" className="text-nota text-error">
+        <p role="alert" className="m-0 text-nota text-error">
           {error}
         </p>
       )}
       {datos && datos.en_vivo.length === 0 && datos.cerrados_hoy.length === 0 && (
-        <p className="text-apoyo text-secundario">
-          Publica lo que necesitas para un cliente o lo que quieres rematar hoy.
+        <p className="m-0 rounded-2xl bg-white p-4 text-apoyo text-secundario">
+          Publica lo que necesitas para un cliente o lo que quieres rematar hoy.{' '}
+          <Link href="/pedidos-en-vivo/publicar" className="font-bold text-pase-texto">
+            Publicar
+          </Link>
         </p>
       )}
       {datos && (
-        <ul className="flex flex-col">
+        <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {[...datos.en_vivo, ...datos.cerrados_hoy].map((item) => (
             <Propio
               key={item.id}
@@ -134,8 +168,9 @@ export function LoTuyo({ ahora }: { ahora: number }) {
           ))}
         </ul>
       )}
-      <p className="pt-1 text-nota text-detalle">
-        Cada respuesta llega a tu chat y a la campanita.
+      <p className="m-0 text-nota text-secundario">
+        Hasta {MAX_EN_VIVO_POR_CUENTA} a la vez. Duran 1 h, 3 h o hasta el cierre de hoy. Cada
+        respuesta llega a tu chat y a la campanita.
       </p>
     </section>
   );
