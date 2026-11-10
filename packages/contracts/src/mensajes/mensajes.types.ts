@@ -53,7 +53,7 @@ export interface ConversacionEnLista {
   no_leida: boolean;
   silenciada: boolean;
   archivada: boolean;
-  /** El hilo nació de un «¡Lo tengo!» o un «¡Lo quiero!» (Pases del día). */
+  /** El hilo nació de un «¡Lo tengo!» o un «¡Lo quiero!» (Pedidos en vivo). */
   pase_del_dia: boolean;
   actualizada_en: string;
 }

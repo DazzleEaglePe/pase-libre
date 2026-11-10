@@ -21,7 +21,7 @@ import {
   type ItemEnVivo,
 } from './textos';
 
-type Tipo = 'todo' | 'busco' | 'flash';
+export type Tipo = 'todo' | 'busco' | 'flash';
 
 const etiquetaFiltro = 'text-nota font-medium text-detalle';
 /** Del alto del «Todo · Busco · Remates» (44 px), para que la fila de filtros quede pareja. */
@@ -89,8 +89,8 @@ function Tarjeta({
 }
 
 /**
- * `/pases-del-dia` (EV_Todos, RF-75): los busco y remates vigentes, con filtros por tipo,
- * categoría y galería, los cerrados de hoy y, con sesión, «Tus pases del día». `?id=` resalta uno (los
+ * `/pedidos-en-vivo` (EV_Todos, RF-75): los busco y remates vigentes, con filtros por tipo,
+ * categoría y galería, los cerrados de hoy y, con sesión, «Lo tuyo en vivo». `?id=` resalta uno (los
  * avisos de la campanita llegan así).
  */
 export function PaginaEnVivo({
@@ -98,13 +98,16 @@ export function PaginaEnVivo({
   categorias,
   galerias,
   resaltar,
+  tipoInicial = 'todo',
 }: {
   conSesion: boolean;
   categorias: CategoriaResumen[];
   galerias: GaleriaResumen[];
   resaltar: string | null;
+  /** «Remates de hoy» de la barra llega con `?tipo=remato`. */
+  tipoInicial?: Tipo;
 }) {
-  const [tipo, setTipo] = useState<Tipo>('todo');
+  const [tipo, setTipo] = useState<Tipo>(tipoInicial);
   const [categoria, setCategoria] = useState('');
   const [galeria, setGaleria] = useState('');
   const consulta = new URLSearchParams({
@@ -132,7 +135,7 @@ export function PaginaEnVivo({
           {datos && <span className="text-apoyo text-detalle">{enVivo.length} ahora</span>}
         </div>
         <Link
-          href={conSesion ? '/pases-del-dia/publicar' : '/ingresar'}
+          href={conSesion ? '/pedidos-en-vivo/publicar' : '/ingresar'}
           className={`${botonPrincipal} no-underline max-sm:w-full`}
         >
           Publicar busco o remate

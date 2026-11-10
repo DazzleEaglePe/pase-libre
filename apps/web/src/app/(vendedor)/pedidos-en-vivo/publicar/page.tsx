@@ -7,15 +7,15 @@ import { FormularioEnVivo } from '@/features/en-vivo/publicar';
 import { consultarApi, consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
-  title: 'Publicar un pase del día',
+  title: 'Publicar un pedido en vivo',
   robots: { index: false },
 };
 
 /**
- * `/pases-del-dia/publicar` (EV_Publicar, RF-24 y RF-72): un busco o un remate. Desde
+ * `/pedidos-en-vivo/publicar` (EV_Publicar, RF-24 y RF-72): un busco o un remate. Desde
  * «Publicar un busco» de la búsqueda llega `?que=` con lo buscado y, si había, `?categoria=`.
  */
-export default async function PublicarPaseDelDia({
+export default async function PublicarPedidoEnVivo({
   searchParams,
 }: {
   searchParams: Promise<{ que?: string | string[]; categoria?: string | string[] }>;
@@ -36,8 +36,8 @@ export default async function PublicarPaseDelDia({
           Inicio
         </Link>
         <span aria-hidden="true">›</span>
-        <Link href="/pases-del-dia" className="text-secundario">
-          Pases del día
+        <Link href="/pedidos-en-vivo" className="text-secundario">
+          Pedidos en vivo
         </Link>
         <span aria-hidden="true">›</span>
         <span>Publicar</span>

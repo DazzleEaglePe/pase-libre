@@ -155,7 +155,7 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
       const [aviso] = await avisosEnVivo('tiendaa');
       expect(aviso).toMatchObject({
         titulo: 'Tienda B busca RTX 3070 8 GB',
-        enlace: `/pases-del-dia?id=${busco.id}`,
+        enlace: `/pedidos-en-vivo?id=${busco.id}`,
       });
       expect(aviso?.extracto).toContain('Paga hasta US$ 260');
       expect(await avisosEnVivo('tiendab')).toHaveLength(0);
@@ -249,7 +249,7 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
         respuestas: 1,
       });
 
-      // En Mensajes, el filtro «Pases del día» junta los hilos que nacieron de un pase.
+      // En Mensajes, el filtro «Pedidos en vivo» junta los hilos que nacieron de un pase.
       const pases = (await como('tiendab').get('/v1/conversaciones?filtro=pases').expect(200)).body;
       expect(pases.conteos.pases).toBeGreaterThanOrEqual(1);
       expect(pases.conversaciones.every((c: { pase_del_dia: boolean }) => c.pase_del_dia)).toBe(

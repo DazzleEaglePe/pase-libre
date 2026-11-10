@@ -46,7 +46,14 @@ export function Insignia({ cantidad }: { cantidad: number }) {
  * La campanita (RF-40, C_Header con `salida="primera"`): el contador y, al abrirla, los
  * avisos con su extracto. Abrir un aviso lleva a la conversación, que lo marca leído.
  */
-export function Campanita({ sinLeer }: { sinLeer: number }) {
+export function Campanita({
+  sinLeer,
+  sobreMarca = false,
+}: {
+  sinLeer: number;
+  /** En la fila verde de la barra (D_Barra): la campana en blanco. */
+  sobreMarca?: boolean;
+}) {
   const [abierta, setAbierta] = useState(false);
   const [datos, setDatos] = useState<RespuestaAvisos | null>(null);
   const caja = useRef<HTMLDivElement>(null);
@@ -82,7 +89,13 @@ export function Campanita({ sinLeer }: { sinLeer: number }) {
         aria-label={sinLeer > 0 ? `Avisos, ${sinLeer} sin leer` : 'Avisos'}
         aria-expanded={abierta}
         onClick={() => setAbierta(!abierta)}
-        className={`relative flex h-10 w-10 items-center justify-center rounded-full ${abierta ? 'bg-superficie' : ''}`}
+        className={`relative flex h-11 w-11 items-center justify-center rounded-full ${
+          sobreMarca
+            ? `text-white ${abierta ? 'bg-white/15' : 'hover:bg-white/15'}`
+            : abierta
+              ? 'bg-superficie'
+              : ''
+        }`}
       >
         <svg
           width="20"

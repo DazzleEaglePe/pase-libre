@@ -1,12 +1,10 @@
-import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
-import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
-import { consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
+import { obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
-import { Cabecera } from '@/shared/ui/cabecera';
+import { BarraDelSitio } from '@/shared/ui/barra-del-sitio';
 import { BarraInferior } from '@/shared/ui/barra-inferior';
 import { Pie } from '@/shared/ui/pie';
 
@@ -17,11 +15,7 @@ import { Pie } from '@/shared/ui/pie';
  * catálogo; en Mensajes va sin banda ni franja, para no restarle alto al chat.
  */
 export default async function LayoutVendedor({ children }: { children: ReactNode }) {
-  const [sesion, { cuerpo: categorias }, { cuerpo: galerias }] = await Promise.all([
-    obtenerSesion(),
-    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
-    consultarApiCompartida<GaleriaResumen[]>('/galerias'),
-  ]);
+  const sesion = await obtenerSesion();
   if (!sesion || sesion.usuario.debe_cambiar_clave) redirect('/ingresar');
   if (!sesion.tienda) redirect('/equipo/cuentas');
 
@@ -29,12 +23,7 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
     <ProveedorTiempoReal>
       <ProveedorEnVivo>
         <div className="flex min-h-dvh flex-col">
-          <Cabecera
-            sesion={sesion}
-            categorias={categorias ?? []}
-            galerias={galerias ?? []}
-            enBanda={<EntradaEnVivo />}
-          />
+          <BarraDelSitio sesion={sesion} />
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
             {children}
           </main>

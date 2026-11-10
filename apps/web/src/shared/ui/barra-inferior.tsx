@@ -27,7 +27,7 @@ export function enSeccionPrincipal(ruta: string): boolean {
   return (
     ruta === '/' ||
     ruta === '/buscar' ||
-    ruta === '/pases-del-dia' ||
+    ruta === '/pedidos-en-vivo' ||
     ruta === '/mensajes' ||
     ruta === '/mis-publicaciones' ||
     ruta.startsWith('/cuenta')
@@ -47,7 +47,7 @@ function ContadorMensajes() {
 
 /**
  * La barra inferior del celular (RNF-55, M_Portada): Inicio, Buscar, Publicar, Mensajes y
- * Cuenta con sesión; sin sesión, Pases del día e Ingresar en lugar de lo que pide cuenta.
+ * Cuenta con sesión; sin sesión, Pedidos en vivo e Ingresar en lugar de lo que pide cuenta.
  */
 export function BarraInferior({ conTienda }: { conTienda: boolean }) {
   const ruta = usePathname();
@@ -66,7 +66,7 @@ export function BarraInferior({ conTienda }: { conTienda: boolean }) {
     : [
         { href: '/', texto: 'Inicio', icono: IconHome },
         { href: '/buscar', texto: 'Buscar', icono: IconSearch },
-        { href: '/pases-del-dia', texto: 'Pases del día', icono: IconBolt },
+        { href: '/pedidos-en-vivo', texto: 'Pedidos en vivo', icono: IconBolt },
         { href: '/ingresar', texto: 'Ingresar', icono: IconUser },
       ];
 

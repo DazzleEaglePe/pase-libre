@@ -273,6 +273,8 @@ model Categoria {
   nombre  String  @db.VarChar(80)
   slug    String  @unique @db.Citext
   orden   Int     @default(0) @db.SmallInt
+  /// El grupo del menú «Todas las categorías» (Componentes, Equipos, Periféricos…).
+  grupo   String? @db.VarChar(40)
   padreId String? @map("padre_id") @db.Uuid
 
   padre     Categoria?  @relation("Subcategorias", fields: [padreId], references: [id])

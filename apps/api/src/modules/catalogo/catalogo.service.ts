@@ -145,6 +145,7 @@ export class CatalogoService {
   private readonly categoriasEnMemoria = recordarPor(60_000, () => this.cargarCategorias());
   private readonly galeriasEnMemoria = recordarPor(60_000, () => this.cargarGalerias());
   private readonly totalesEnMemoria = recordarPor(60_000, () => this.cargarTotales());
+  private readonly recienHoyEnMemoria = recordarPor(60_000, () => this.cargarRecienHoy());
   private readonly respondeEnMemoria = new MemoriaPorClave<number | null>(15 * 60_000);
 
   categorias(): Promise<CategoriaResumen[]> {
@@ -157,7 +158,7 @@ export class CatalogoService {
 
   private async cargarCategorias(): Promise<CategoriaResumen[]> {
     return this.prisma.$queryRaw<CategoriaResumen[]>`
-      SELECT c.slug::text AS slug, c.nombre, count(DISTINCT p.id)::int AS productos
+      SELECT c.slug::text AS slug, c.nombre, c.grupo, count(DISTINCT p.id)::int AS productos
       FROM categoria c
       LEFT JOIN producto p ON p.categoria_id = c.id AND p.fusionado_en_id IS NULL
         AND EXISTS (
@@ -408,6 +409,22 @@ export class CatalogoService {
       if (minutos !== null) resultado.set(id, minutos);
     }
     return resultado;
+  }
+
+  /** «Recién llegados +N hoy»: ofertas vigentes publicadas hoy, en hora de Lima. */
+  recienHoy(): Promise<number> {
+    return this.recienHoyEnMemoria();
+  }
+
+  private async cargarRecienHoy(): Promise<number> {
+    const [fila] = await this.prisma.$queryRaw<Array<{ cantidad: number }>>`
+      SELECT count(*)::int AS cantidad
+      FROM oferta o
+      JOIN tienda t ON t.id = o.tienda_id AND t.estado = 'ACTIVA'
+      JOIN producto p ON p.id = o.producto_id AND p.fusionado_en_id IS NULL
+      WHERE o.estado = 'ACTIVA' AND o.stock > 0
+        AND o.creada_en >= (date_trunc('day', now() AT TIME ZONE 'America/Lima') AT TIME ZONE 'America/Lima')`;
+    return fila?.cantidad ?? 0;
   }
 
   private async cargarTotales(): Promise<RespuestaPortada['totales']> {

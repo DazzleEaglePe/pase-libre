@@ -18,7 +18,16 @@ const ENLACES = [
  * «Mi cuenta» (C_Header): el botón abre el menú con la tienda arriba, Publicar,
  * Configuración y «Cerrar sesión» (RF-60: al cambio de contraseña se llega desde aquí).
  */
-export function MenuCuenta({ tienda, lugar }: { tienda: TiendaDeSesion; lugar: string }) {
+export function MenuCuenta({
+  tienda,
+  lugar,
+  sobreMarca = false,
+}: {
+  tienda: TiendaDeSesion;
+  lugar: string;
+  /** En la fila verde de la barra: el nombre de la tienda en blanco (D_Barra). */
+  sobreMarca?: boolean;
+}) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
   const [saliendo, setSaliendo] = useState(false);
@@ -60,7 +69,11 @@ export function MenuCuenta({ tienda, lugar }: { tienda: TiendaDeSesion; lugar: s
         aria-haspopup="menu"
         onClick={() => setAbierto(!abierto)}
         className={`flex items-center gap-2 rounded-full py-1 pl-1 pr-3 text-left text-apoyo ${
-          abierto ? 'bg-superficie' : 'hover:bg-superficie'
+          sobreMarca
+            ? `text-white ${abierto ? 'bg-white/15' : 'hover:bg-white/15'}`
+            : abierto
+              ? 'bg-superficie'
+              : 'hover:bg-superficie'
         }`}
       >
         <span
@@ -69,7 +82,9 @@ export function MenuCuenta({ tienda, lugar }: { tienda: TiendaDeSesion; lugar: s
         >
           {inicial}
         </span>
-        <span className="font-semibold max-sm:sr-only">Mi cuenta</span>
+        <span className="max-w-[160px] truncate font-semibold max-sm:sr-only">
+          {sobreMarca ? tienda.nombre : 'Mi cuenta'}
+        </span>
         <svg
           width="14"
           height="14"

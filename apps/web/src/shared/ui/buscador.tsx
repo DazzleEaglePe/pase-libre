@@ -135,9 +135,11 @@ const tituloGrupo = 'px-3 pb-1 pt-2 text-etiqueta uppercase text-detalle';
 function Formulario({
   className,
   categorias,
+  sobreMarca,
 }: {
   className: string;
   categorias: CategoriaResumen[];
+  sobreMarca: boolean;
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -313,10 +315,16 @@ function Formulario({
       onSubmit={enviar}
       ref={caja}
       // `relative`: el desplegable ocupa todo el ancho del buscador, botón incluido.
-      className={`relative flex items-center gap-2.5 ${className}`}
+      className={`relative flex items-center gap-2.5 text-tinta ${className}`}
     >
       <div className="min-w-0 flex-1">
-        <div className="flex h-[52px] items-center gap-2 rounded-full border-2 border-tinta bg-white pl-4 pr-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-pase">
+        <div
+          className={
+            sobreMarca
+              ? 'flex h-12 items-center gap-2 rounded-full bg-white pl-4 pr-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white'
+              : 'flex h-[52px] items-center gap-2 rounded-full border-2 border-tinta bg-white pl-4 pr-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-pase'
+          }
+        >
           <svg
             width="18"
             height="18"
@@ -354,7 +362,7 @@ function Formulario({
             onFocus={abrir}
             onKeyDown={teclas}
             autoComplete="off"
-            placeholder="Modelo, marca o código"
+            placeholder={sobreMarca ? 'Busca por modelo, marca o código' : 'Modelo, marca o código'}
             className="h-full min-w-0 flex-1 bg-transparent text-cuerpo text-tinta outline-none placeholder:text-detalle [&::-webkit-search-cancel-button]:hidden"
           />
           {texto && (
@@ -371,7 +379,16 @@ function Formulario({
               ×
             </button>
           )}
-          {categorias.length > 0 && (
+          {/* En la barra verde (D_Barra) «Buscar» va dentro de la píldora. */}
+          {sobreMarca && (
+            <button
+              type="submit"
+              className="flex h-[38px] shrink-0 items-center rounded-full bg-tinta px-5 text-apoyo font-semibold text-white max-md:hidden"
+            >
+              Buscar
+            </button>
+          )}
+          {!sobreMarca && categorias.length > 0 && (
             <>
               <label htmlFor="buscar-categoria" className="sr-only">
                 Categoría
@@ -500,12 +517,14 @@ function Formulario({
           </div>
         )}
       </div>
-      <button
-        type="submit"
-        className="h-[52px] shrink-0 rounded-full bg-pase px-6 text-cuerpo font-semibold text-white sm:px-7"
-      >
-        Buscar
-      </button>
+      {!sobreMarca && (
+        <button
+          type="submit"
+          className="h-[52px] shrink-0 rounded-full bg-pase px-6 text-cuerpo font-semibold text-white sm:px-7"
+        >
+          Buscar
+        </button>
+      )}
     </form>
   );
 }
@@ -518,13 +537,16 @@ function Formulario({
 export function Buscador({
   className = '',
   categorias = [],
+  sobreMarca = false,
 }: {
   className?: string;
   categorias?: CategoriaResumen[];
+  /** La píldora blanca de la barra verde (D_Barra), con «Buscar» adentro y sin categoría. */
+  sobreMarca?: boolean;
 }) {
   return (
-    <Suspense fallback={<div className={`h-[52px] ${className}`} />}>
-      <Formulario className={className} categorias={categorias} />
+    <Suspense fallback={<div className={`${sobreMarca ? 'h-12' : 'h-[52px]'} ${className}`} />}>
+      <Formulario className={className} categorias={categorias} sobreMarca={sobreMarca} />
     </Suspense>
   );
 }

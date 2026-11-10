@@ -82,7 +82,7 @@ const noExiste = () =>
   new ApiHttpException(
     HttpStatus.NOT_FOUND,
     'NO_ENCONTRADO',
-    'Este pase del día ya se cerró o venció.',
+    'Este pedido en vivo ya se cerró o venció.',
   );
 
 /** Lo que sigue en vivo: sin vencer, de una tienda activa y de una cuenta activa. */
@@ -341,7 +341,7 @@ export class EnVivoService {
       throw new ApiHttpException(
         HttpStatus.BAD_REQUEST,
         'DATOS_INVALIDOS',
-        'Esta publicación tiene la tienda reservada: no se puede rematar en Pases del día.',
+        'Esta publicación tiene la tienda reservada: no se puede rematar en Pedidos en vivo.',
       );
     }
     if (!oferta) {
@@ -825,7 +825,7 @@ export class EnVivoService {
         tipo: 'EN_VIVO' as const,
         titulo: `${quien} busca ${busco.titulo}`.slice(0, 160),
         extracto,
-        enlace: `/pases-del-dia?id=${id}`,
+        enlace: `/pedidos-en-vivo?id=${id}`,
         visibleDesde: visibleDesde(p.noMolestarDesde, p.noMolestarHasta, ahora),
       })),
     });

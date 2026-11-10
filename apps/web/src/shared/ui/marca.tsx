@@ -30,7 +30,7 @@ export function Marca({
       <svg
         viewBox={`0 0 ${logo.ancho} ${logo.alto}`}
         aria-hidden="true"
-        className={conFrase ? 'h-7 w-auto sm:h-8' : 'h-6 w-auto'}
+        className={conFrase ? 'h-7 w-auto' : 'h-6 w-auto'}
       >
         <path
           fill={sobreMarca ? '#FFFFFF' : sobreOscuro ? color.acento : color.pase}
@@ -43,7 +43,9 @@ export function Marca({
         </g>
       </svg>
       {conFrase && (
-        <span className="text-nota text-secundario max-sm:hidden">
+        <span
+          className={`text-[12px] leading-4 max-sm:hidden ${sobreMarca ? 'text-pase-medio' : 'text-secundario'}`}
+        >
           Pases entre tiendas de Wilson
         </span>
       )}

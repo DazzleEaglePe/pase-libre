@@ -38,7 +38,7 @@ export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
 
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <SiHayPasesDelDia>
-            <Ventaja titulo="Pases del día">
+            <Ventaja titulo="Pedidos en vivo">
               Publica un busco o un remate y te responden en minutos.
             </Ventaja>
           </SiHayPasesDelDia>

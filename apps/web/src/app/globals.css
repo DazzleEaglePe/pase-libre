@@ -37,3 +37,24 @@
     transform: translateY(32px);
   }
 }
+
+/* El punto rojo de «Pedidos en vivo» (D_Barra): late suave; quieto con «reducir movimiento». */
+@keyframes latido {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.animate-latido {
+  animation: latido 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-latido {
+    animation: none;
+  }
+}

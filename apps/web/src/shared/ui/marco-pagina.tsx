@@ -1,12 +1,10 @@
-import type { CategoriaResumen, GaleriaResumen, RespuestaYo } from '@paselibre/contracts';
+import type { RespuestaYo } from '@paselibre/contracts';
 import type { ReactNode } from 'react';
 
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
-import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
-import { consultarApiCompartida } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 
-import { Cabecera } from './cabecera';
+import { BarraDelSitio } from './barra-del-sitio';
 import { PiePagina } from './pie-pagina';
 
 /**
@@ -22,20 +20,10 @@ export async function MarcoPagina({
   sesion: RespuestaYo | null;
   children: ReactNode;
 }) {
-  const [{ cuerpo: categorias }, { cuerpo: galerias }] = await Promise.all([
-    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
-    consultarApiCompartida<GaleriaResumen[]>('/galerias'),
-  ]);
-
   const marco = (
     <ProveedorEnVivo>
       <div className="flex min-h-dvh flex-col">
-        <Cabecera
-          sesion={sesion}
-          categorias={categorias ?? []}
-          galerias={galerias ?? []}
-          enBanda={<EntradaEnVivo />}
-        />
+        <BarraDelSitio sesion={sesion} />
         {children}
         <PiePagina conSesion={Boolean(sesion?.tienda)} />
       </div>

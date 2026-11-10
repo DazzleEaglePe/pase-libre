@@ -7,7 +7,7 @@ import { useEnVivoMontado } from '@/features/en-vivo/contexto';
 /**
  * La tarjeta oscura «Publicar un busco» (J): al pie del menú de categorías, al final de los
  * resultados y en la página sin resultados, para que ninguna búsqueda termine en nada. Lleva
- * lo buscado al formulario. No aparece con Pases del día apagado (`EN_VIVO`).
+ * lo buscado al formulario. No aparece con Pedidos en vivo apagado (`EN_VIVO`).
  */
 export function TarjetaBusco({
   titulo,
@@ -31,7 +31,9 @@ export function TarjetaBusco({
     ...(que ? { que } : {}),
     ...(categoria ? { categoria } : {}),
   }).toString();
-  const href = conSesion ? `/pases-del-dia/publicar${consulta ? `?${consulta}` : ''}` : '/ingresar';
+  const href = conSesion
+    ? `/pedidos-en-vivo/publicar${consulta ? `?${consulta}` : ''}`
+    : '/ingresar';
 
   return (
     <section
@@ -43,7 +45,7 @@ export function TarjetaBusco({
         {grande && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-[3px] text-etiqueta uppercase">
             <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
-            Pases del día
+            Pedidos en vivo
           </span>
         )}
         <b

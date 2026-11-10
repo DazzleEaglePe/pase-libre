@@ -201,11 +201,11 @@ export function EnVivoFlotante({ conSesion }: { conSesion: boolean }) {
 function PieVentana({ conSesion }: { conSesion: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3 border-t border-linea pt-3">
-      <Link href="/pases-del-dia" className="text-apoyo font-semibold">
+      <Link href="/pedidos-en-vivo" className="text-apoyo font-semibold">
         Ver todo
       </Link>
       <Link
-        href={conSesion ? '/pases-del-dia/publicar' : '/ingresar'}
+        href={conSesion ? '/pedidos-en-vivo/publicar' : '/ingresar'}
         className="inline-flex h-11 items-center rounded-full border border-borde bg-white px-5 text-apoyo font-semibold no-underline"
       >
         Publicar busco o remate
@@ -250,7 +250,7 @@ function Ventana({
   return (
     <>
       <aside
-        aria-label="Pases del día: busco y remates"
+        aria-label="Pedidos en vivo: busco y remates"
         onKeyDown={alTeclear}
         className="fixed right-6 top-[304px] z-30 hidden max-h-[calc(100dvh-328px)] w-[404px] flex-col overflow-y-auto rounded-2xl border border-linea bg-white px-5 pb-4 pt-3 shadow-[0_18px_48px_rgba(15,20,18,0.18),0_2px_6px_rgba(15,20,18,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
@@ -259,7 +259,7 @@ function Ventana({
         <PieVentana conSesion={conSesion} />
       </aside>
       <section
-        aria-label="Pases del día: busco y remates"
+        aria-label="Pedidos en vivo: busco y remates"
         onKeyDown={alTeclear}
         className="fixed inset-x-0 bottom-0 z-40 flex max-h-[70dvh] flex-col overflow-y-auto rounded-t-[20px] bg-white px-4 pb-5 pt-2 shadow-[0_-12px_40px_rgba(15,20,18,0.2)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
@@ -364,7 +364,7 @@ function Mini({
     <>
       {/* Computadora: la tarjeta mini abajo a la derecha (EV_SigueE). */}
       <aside
-        aria-label="Pases del día: busco y remates"
+        aria-label="Pedidos en vivo: busco y remates"
         {...controles}
         className="fixed bottom-6 right-6 border border-linea z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,20,18,0.18),0_2px_6px_rgba(15,20,18,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
       >
@@ -425,7 +425,7 @@ function Mini({
                   grosor={4.5}
                 />
                 <Link
-                  href={`/pases-del-dia?id=${item.id}`}
+                  href={`/pedidos-en-vivo?id=${item.id}`}
                   className="flex min-w-0 flex-1 flex-col gap-0.5 no-underline"
                 >
                   <span className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap">
@@ -446,7 +446,7 @@ function Mini({
 
       {/* Celular: la barra flotante abajo (EV_SigueMovilBajar). */}
       <aside
-        aria-label="Pases del día: busco y remates"
+        aria-label="Pedidos en vivo: busco y remates"
         {...controles}
         className="fixed inset-x-3 border border-linea bottom-[calc(0.75rem+var(--abajo,0px))] z-30 flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_12px_32px_rgba(15,20,18,0.22)] motion-safe:animate-[subir-en-vivo_300ms_ease-out] md:hidden"
       >
@@ -462,7 +462,7 @@ function Mini({
                   <button
                     type="button"
                     onClick={alAbrir}
-                    aria-label="Abrir Pases del día"
+                    aria-label="Abrir Pedidos en vivo"
                     className="relative shrink-0"
                   >
                     <Miniatura
@@ -478,7 +478,7 @@ function Mini({
                     />
                   </button>
                   <Link
-                    href={`/pases-del-dia?id=${item.id}`}
+                    href={`/pedidos-en-vivo?id=${item.id}`}
                     className="flex min-w-0 flex-1 flex-col gap-0.5 no-underline"
                   >
                     <span className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap">

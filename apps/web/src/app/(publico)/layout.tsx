@@ -1,14 +1,12 @@
-import type { CategoriaResumen, GaleriaResumen } from '@paselibre/contracts';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
-import { EntradaEnVivo } from '@/features/en-vivo/entrada-banda';
 import { EnVivoFlotante } from '@/features/en-vivo/flotante';
-import { consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
+import { obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { BarraInferior } from '@/shared/ui/barra-inferior';
-import { Cabecera } from '@/shared/ui/cabecera';
+import { BarraDelSitio } from '@/shared/ui/barra-del-sitio';
 import { PiePagina } from '@/shared/ui/pie-pagina';
 
 /**
@@ -17,23 +15,13 @@ import { PiePagina } from '@/shared/ui/pie-pagina';
  * El resto de la barra es el mismo con sesión y sin ella.
  */
 export default async function LayoutPublico({ children }: { children: ReactNode }) {
-  const [sesion, { cuerpo: categorias }, { cuerpo: galerias }] = await Promise.all([
-    obtenerSesion(),
-    // Si la API no responde, la barra sale sin categorías y la página muestra su propio error.
-    consultarApiCompartida<CategoriaResumen[]>('/categorias'),
-    consultarApiCompartida<GaleriaResumen[]>('/galerias'),
-  ]);
+  const sesion = await obtenerSesion();
   if (sesion?.usuario.debe_cambiar_clave) redirect('/ingresar');
 
   const pagina = (
     <ProveedorEnVivo>
       <div className="flex min-h-dvh flex-col">
-        <Cabecera
-          sesion={sesion}
-          categorias={categorias ?? []}
-          galerias={galerias ?? []}
-          enBanda={<EntradaEnVivo />}
-        />
+        <BarraDelSitio sesion={sesion} />
         <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
           {children}
         </main>

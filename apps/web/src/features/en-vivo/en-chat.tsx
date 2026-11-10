@@ -17,7 +17,7 @@ import { EtiquetaTipo } from './piezas';
 import { cuantoQueda, textoCierre } from './textos';
 
 /**
- * La tarjeta del pase del día fija arriba del chat (EV_Responder): el busco o el remate del
+ * La tarjeta del pedido en vivo fija arriba del chat (EV_Responder): el busco o el remate del
  * que nació el hilo. Quien lo publicó lo cierra desde aquí («Ya lo conseguí» o «Cerrar
  * remate»); «Vendido» sigue en la barra del producto y le resta unidades al remate.
  */
@@ -56,7 +56,7 @@ export function EnVivoEnElChat({
       <EtiquetaTipo tipo={enVivo.tipo} />
       <span className="flex min-w-0 flex-[1_1_220px] flex-col">
         <Link
-          href={`/pases-del-dia?id=${enVivo.id}`}
+          href={`/pedidos-en-vivo?id=${enVivo.id}`}
           className="truncate text-apoyo font-semibold no-underline hover:underline"
         >
           {enVivo.titulo}

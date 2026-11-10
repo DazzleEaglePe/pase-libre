@@ -23,6 +23,7 @@ import {
   type RespuestaBuscar,
   type RespuestaFicha,
   type RespuestaMapaDelSitio,
+  type RespuestaBarra,
   type RespuestaMasBuscado,
   type RespuestaSugerenciasBusqueda,
   type RespuestaPortada,
@@ -71,6 +72,16 @@ export class CatalogoController {
   @Get('galerias')
   galerias(): Promise<GaleriaResumen[]> {
     return this.catalogo.galerias();
+  }
+
+  /** Los numeritos de la barra de arriba y del menú de categorías (D_Barra, CAT_Web1). */
+  @Get('barra')
+  async barra(): Promise<RespuestaBarra> {
+    const [recien, buscado] = await Promise.all([
+      this.catalogo.recienHoy(),
+      this.busqueda.masBuscadoDeHoy(),
+    ]);
+    return { recien_hoy: recien, mas_buscado: buscado.terminos, mas_buscado_hoy: buscado.hoy };
   }
 
   /** Para el `sitemap.xml` de la web (RNF-42): solo lo que ve un visitante. */

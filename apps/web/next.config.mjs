@@ -29,11 +29,18 @@ const nextConfig = {
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
   },
-  // En vivo se llamó así hasta el 29/10; en la web ahora es «Pases del día» (D-53).
+  // En vivo se llamó así hasta el 29/10 y «Pases del día» hasta el 09/11; el lienzo final le
+  // dice «Pedidos en vivo» (L-2 del documento 14).
   async redirects() {
     return [
-      { source: '/en-vivo', destination: '/pases-del-dia', permanent: true },
-      { source: '/en-vivo/publicar', destination: '/pases-del-dia/publicar', permanent: true },
+      { source: '/en-vivo', destination: '/pedidos-en-vivo', permanent: true },
+      { source: '/en-vivo/publicar', destination: '/pedidos-en-vivo/publicar', permanent: true },
+      { source: '/pases-del-dia', destination: '/pedidos-en-vivo', permanent: true },
+      {
+        source: '/pases-del-dia/publicar',
+        destination: '/pedidos-en-vivo/publicar',
+        permanent: true,
+      },
     ];
   },
   // La web y la API comparten origen: la cookie de sesión es del mismo sitio.

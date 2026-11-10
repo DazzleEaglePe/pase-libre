@@ -24,6 +24,11 @@ export const color = {
   contador: '#F97316',
   /** El punto que late en «En vivo»: siempre decorativo, nunca como texto. */
   vivo: '#EF4444',
+  /** Insignias de remate y de «Nuevo» (D_Barra): fondo ámbar con su texto. */
+  ambar: '#FEF3C7',
+  'ambar-texto': '#854D0E',
+  /** Separadores sobre `tinta` (la banda de abajo de la barra). */
+  'linea-oscura': '#3A4540',
   superficie: '#F6F8F7',
   linea: '#E2E7E4',
   borde: '#C6CEC9',

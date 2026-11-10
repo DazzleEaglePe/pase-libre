@@ -126,7 +126,7 @@ describe('Publicar, fotos y Mis publicaciones (RF-05 a RF-10, RF-53)', () => {
       const ventus = productos.find((p) => p.slug === SLUG_VENTUS);
       expect(ventus).toMatchObject({
         titulo: 'MSI GeForce RTX 3070 Ventus 3X OC 8 GB',
-        categoria: { slug: 'graficas', nombre: 'Gráficas' },
+        categoria: { slug: 'graficas', nombre: 'Tarjetas de video' },
         marca: 'MSI',
         ofertas: 4,
         propias: [{ condicion: 'USADO', estado: 'ACTIVA' }],

@@ -113,7 +113,7 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(facetas.con_stock).toBe(8);
       // Las tarjetas de categoría cuentan productos, no ofertas.
       expect(facetas.categorias).toEqual([
-        { slug: 'graficas', nombre: 'Gráficas', cantidad: rtx.total_productos },
+        { slug: 'graficas', nombre: 'Tarjetas de video', cantidad: rtx.total_productos },
       ]);
     });
 
@@ -325,7 +325,7 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(respuesta.body.producto).toMatchObject({
         titulo: 'MSI GeForce RTX 3070 Ventus 3X OC 8 GB',
         marca: 'MSI',
-        categoria: { slug: 'graficas', nombre: 'Gráficas' },
+        categoria: { slug: 'graficas', nombre: 'Tarjetas de video' },
         caracteristicas: { Memoria: '8 GB GDDR6, 256 bits' },
       });
       expect(respuesta.body.producto.etiquetas).toContain('RTX 3070');
@@ -452,17 +452,41 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
   });
 
   describe('portada', () => {
+    it('la barra trae «Recién llegados» de hoy y lo más buscado, igual para todos', async () => {
+      const visitante = await http().get('/v1/barra').expect(200);
+      // La semilla publica todo hoy: cada oferta vigente con stock cuenta como recién llegada.
+      const conStock = await prisma.oferta.count({
+        where: { estado: 'ACTIVA', stock: { gt: 0 }, tienda: { estado: 'ACTIVA' } },
+      });
+      expect(visitante.body.recien_hoy).toBe(conStock);
+      expect(Array.isArray(visitante.body.mas_buscado)).toBe(true);
+      expect(typeof visitante.body.mas_buscado_hoy).toBe('boolean');
+      expect(Object.keys(visitante.body).sort()).toEqual([
+        'mas_buscado',
+        'mas_buscado_hoy',
+        'recien_hoy',
+      ]);
+      const vendedor = await http()
+        .get('/v1/barra')
+        .set('Cookie', await como('tiendab'))
+        .expect(200);
+      expect(vendedor.body).toEqual(visitante.body);
+    });
+
     it('trae categorías con conteo, galerías con independientes y los totales', async () => {
       const respuesta = await http().get('/v1/portada').expect(200);
-      expect(respuesta.body.categorias.map((c: { slug: string }) => c.slug)).toEqual([
-        'graficas',
+      // Las 21 del lienzo final, en el orden del menú y con su grupo.
+      const categorias = respuesta.body.categorias as Array<{ slug: string; grupo: string }>;
+      expect(categorias).toHaveLength(21);
+      expect(categorias.slice(0, 4).map((c) => c.slug)).toEqual([
         'procesadores',
+        'graficas',
         'placas',
         'ram',
-        'cases',
-        'monitores',
-        'perifericos',
       ]);
+      expect(new Set(categorias.map((c) => c.grupo))).toEqual(
+        new Set(['Componentes', 'Equipos', 'Periféricos', 'Energía, redes y más']),
+      );
       expect(respuesta.body.galerias.map((g: { slug: string }) => g.slug)).toEqual([
         'maxiplaza',
         'cyberplaza',

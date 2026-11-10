@@ -28,7 +28,7 @@ export function useEnVivoCompartido(): EnVivoCompartido | null {
 
 /**
  * Como `useEnVivoCompartido`, pero nulo hasta que el componente se montó. El HTML del
- * servidor nunca trae Pases del día: si la lista llega antes de que una parte que se hidrata
+ * servidor nunca trae Pedidos en vivo: si la lista llega antes de que una parte que se hidrata
  * tarde (dentro de un Suspense, como la banda de categorías) termine de hidratarse, React
  * vería un enlace que el servidor no dibujó y rehace esa parte entera.
  */

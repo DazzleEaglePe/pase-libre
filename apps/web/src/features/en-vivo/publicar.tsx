@@ -48,7 +48,7 @@ function useDemorado<T>(valor: T, ms = 250): T {
 }
 
 /**
- * Publicar un pase del día (EV_Publicar, RF-24, RF-72 y RF-73). El busco pide un producto
+ * Publicar un pedido en vivo (EV_Publicar, RF-24, RF-72 y RF-73). El busco pide un producto
  * del catálogo o un texto («RTX 4060 o 5060, 8 GB»); el remate sale de una de tus
  * publicaciones. La vista previa dice a cuántas tiendas les llegará el aviso del busco.
  */
@@ -169,7 +169,7 @@ export function FormularioEnVivo({
         : { tipo, ...comun, oferta: oferta?.id, precio: monto };
     try {
       const creado = await llamarApi<EnVivoPropio>('/en-vivo', { metodo: 'POST', cuerpo });
-      router.push(`/pases-del-dia?id=${creado.id}`);
+      router.push(`/pedidos-en-vivo?id=${creado.id}`);
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No pudimos publicarlo. Vuelve a intentarlo.');
       setEnviando(false);
@@ -190,7 +190,7 @@ export function FormularioEnVivo({
     >
       <div className="flex min-w-0 flex-[999_1_560px] flex-col gap-5">
         <div>
-          <h1 className="text-titulo">Publicar un pase del día</h1>
+          <h1 className="text-titulo">Publicar un pedido en vivo</h1>
           <p className="text-secundario">
             Sale en la portada al instante y dura lo que elijas. Puedes tener hasta 3 a la vez.
           </p>
@@ -518,7 +518,7 @@ export function FormularioEnVivo({
           <button type="submit" disabled={!listo || enviando} className={botonPrincipal}>
             {enviando ? 'Publicando…' : 'Publicar'}
           </button>
-          <Link href="/pases-del-dia" className={`${botonSecundario} no-underline`}>
+          <Link href="/pedidos-en-vivo" className={`${botonSecundario} no-underline`}>
             Cancelar
           </Link>
         </div>
@@ -551,7 +551,7 @@ export function FormularioEnVivo({
         </div>
         <h2 className="pt-2 text-etiqueta uppercase text-detalle">Quién lo verá</h2>
         <p className="text-apoyo text-secundario">
-          Todas las tiendas, en la portada y en Pases del día.
+          Todas las tiendas, en la portada y en Pedidos en vivo.
           {tipo === 'BUSCO' &&
             alcance !== null &&
             (alcance === 0

@@ -203,6 +203,32 @@ export class BusquedaService {
     return { terminos };
   }
 
+  /**
+   * «Lo más buscado hoy» del menú de categorías: lo buscado hoy (hora de Lima) con resultados,
+   * de más a menos. Si hoy no hay al menos dos, lo de los últimos 30 días.
+   */
+  async masBuscadoDeHoy(): Promise<{ terminos: string[]; hoy: boolean }> {
+    const filas = await this.prisma.$queryRaw<Array<{ texto: string }>>`
+      SELECT regexp_replace(lower(trim(coalesce(texto_corregido, texto))), '[[:space:]]+', ' ', 'g') AS texto
+      FROM busqueda
+      WHERE resultados > 0
+        AND creada_en >= (date_trunc('day', now() AT TIME ZONE 'America/Lima') AT TIME ZONE 'America/Lima')
+      GROUP BY 1
+      ORDER BY count(*) DESC, 1
+      LIMIT 40`;
+    const vistos = new Set<string>();
+    const terminos: string[] = [];
+    for (const fila of filas) {
+      const clave = normalizarTexto(fila.texto);
+      if (!clave || vistos.has(clave)) continue;
+      vistos.add(clave);
+      terminos.push(fila.texto);
+      if (terminos.length === MAS_BUSCADOS) break;
+    }
+    if (terminos.length >= 2) return { terminos, hoy: true };
+    return { terminos: (await this.masBuscado()).terminos, hoy: false };
+  }
+
   /** Lo buscado al menos dos veces, de más a menos, con la forma que más se escribió. */
   private async terminosRepetidos(): Promise<string[]> {
     const filas = await this.prisma.$queryRaw<Array<{ texto: string; veces: number }>>`

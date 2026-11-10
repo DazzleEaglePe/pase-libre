@@ -19,6 +19,8 @@ export type Condicion = 'NUEVO' | 'USADO';
 export interface CategoriaResumen {
   slug: string;
   nombre: string;
+  /** El grupo del menú «Todas las categorías»: Componentes, Equipos, Periféricos… */
+  grupo: string | null;
   /** Productos con al menos una oferta vigente. */
   productos: number;
 }
@@ -191,6 +193,19 @@ export interface RespuestaSugerenciasBusqueda {
  */
 export interface RespuestaMasBuscado {
   terminos: string[];
+}
+
+/**
+ * `GET /v1/barra`: los numeritos de la barra de arriba (D_Barra) y del menú «Todas las
+ * categorías» (CAT_Web1) que no salen de Pedidos en vivo. Igual para todos: sin precios.
+ */
+export interface RespuestaBarra {
+  /** Ofertas vigentes publicadas hoy (hora de Lima): «Recién llegados +N hoy». */
+  recien_hoy: number;
+  /** «Lo más buscado hoy»; si hoy se buscó poco, lo de los últimos 30 días. */
+  mas_buscado: string[];
+  /** Si `mas_buscado` es de hoy. */
+  mas_buscado_hoy: boolean;
 }
 
 /**

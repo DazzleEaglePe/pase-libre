@@ -11,7 +11,7 @@ export function PildoraEnVivo() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-error-fondo px-2.5 py-[3px] text-etiqueta uppercase text-error">
       <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
-      Pases del día
+      Pedidos en vivo
     </span>
   );
 }
@@ -58,7 +58,7 @@ export function FilaEnVivo({ item, ahora }: { item: ItemEnVivo; ahora: number })
           </span>
         </span>
         <Link
-          href={`/pases-del-dia?id=${item.id}`}
+          href={`/pedidos-en-vivo?id=${item.id}`}
           className="truncate text-cuerpo font-semibold no-underline hover:underline"
         >
           {item.titulo}

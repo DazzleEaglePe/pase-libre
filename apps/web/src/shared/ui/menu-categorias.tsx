@@ -1,281 +1,232 @@
 'use client';
 
-import type {
-  CategoriaResumen,
-  Faceta,
-  RespuestaBuscar,
-  RespuestaMasBuscado,
-} from '@paselibre/contracts';
-import { IconArrowRight, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
+import { formatearPrecio, type CategoriaResumen, type RespuestaBarra } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
-import { MasBuscado } from '@/features/catalogo/mas-buscado';
-import { TarjetaBusco } from '@/features/catalogo/tarjeta-busco';
-import { textoProductos } from '@/features/catalogo/tarjeta-categoria';
 import { useEnVivoMontado } from '@/features/en-vivo/contexto';
-import { llamarApi } from '@/shared/api/cliente';
+import { conVendedor, cuantoQueda, etiquetaTipo, type ItemEnVivo } from '@/features/en-vivo/textos';
+import { haceRato } from '@/shared/fechas';
 
-import { botonPrincipal } from './estilos';
-import { GlifoCategoria } from './glifo-categoria';
-
-type Facetas = RespuestaBuscar['facetas'];
-
-const MAX_MARCAS = 8;
-
-function Grupo({ titulo, children }: { titulo: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2.5">
-      <span className="text-etiqueta uppercase text-detalle">{titulo}</span>
-      {children}
-    </div>
-  );
+/** Las categorías por su grupo, en el orden del menú (CAT_Web1). Sin grupo, al final. */
+export function agruparCategorias(
+  categorias: CategoriaResumen[],
+): Array<{ grupo: string; categorias: CategoriaResumen[] }> {
+  const grupos = new Map<string, CategoriaResumen[]>();
+  for (const categoria of categorias) {
+    const grupo = categoria.grupo ?? 'Más';
+    grupos.set(grupo, [...(grupos.get(grupo) ?? []), categoria]);
+  }
+  return [...grupos.entries()].map(([grupo, lista]) => ({ grupo, categorias: lista }));
 }
 
-function Chips({ facetas, enlace }: { facetas: Faceta[]; enlace: (slug: string) => string }) {
-  if (facetas.length === 0) return <span className="text-apoyo text-detalle">—</span>;
-  return (
-    <div className="flex flex-wrap gap-2">
-      {facetas.map((faceta) => (
-        <Link
-          key={faceta.slug}
-          href={enlace(faceta.slug)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-borde px-3.5 text-apoyo font-medium text-tinta no-underline hover:border-borde-control"
-        >
-          {faceta.nombre}
-          <span className="font-normal text-detalle">{faceta.cantidad}</span>
-        </Link>
-      ))}
-    </div>
-  );
+/** «21 categorías · 876 productos en Wilson». */
+export function resumenCategorias(categorias: CategoriaResumen[]): string {
+  const productos = categorias.reduce((total, categoria) => total + categoria.productos, 0);
+  return `${categorias.length} categorías · ${productos} ${productos === 1 ? 'producto' : 'productos'} en Wilson`;
 }
 
 /**
- * «Comprar por categoría» (J1): a la izquierda Pases del día y las categorías, con su dibujo
- * y cuántos productos hay; a la derecha, la que se señala: sus marcas, estado y galerías con
- * cuántas ofertas hay de cada una, lo más buscado en ella y, al pie, «Publicar un busco».
- * Los conteos salen de las facetas de `/v1/buscar?categoria=…` (sin texto, así que no se
- * registra como búsqueda) y lo más buscado de `/v1/buscar/populares?categoria=…`; ambos se
- * piden una vez por categoría.
+ * La línea de abajo de un pedido en vivo en el menú: «hasta US$ 820 · hace 6 min» o
+ * «US$ 205 · termina en 40 min». Sin sesión, sin precio (RF-77).
+ */
+function detallePedido(item: ItemEnVivo, ahora: number): string {
+  const precio =
+    conVendedor(item) && item.precio
+      ? item.tipo === 'BUSCO'
+        ? `hasta ${formatearPrecio(item.precio)}`
+        : formatearPrecio(item.precio)
+      : null;
+  const tiempo =
+    item.tipo === 'BUSCO'
+      ? haceRato(item.creado_en, new Date(ahora)).toLowerCase()
+      : `termina en ${cuantoQueda(item.vence_en, ahora, true)}`;
+  return [precio, tiempo].filter(Boolean).join(' · ');
+}
+
+/**
+ * «Todas las categorías» (CAT_Web1): el botón de la banda oscura abre, debajo de toda la barra,
+ * las categorías en cuatro columnas con cuántos productos hay en cada una y, a la derecha,
+ * los pedidos en vivo y lo más buscado hoy. Se cierra con Escape, al tocar afuera o al ir a
+ * otra página. El panel va con posición fija: la banda se desliza de costado y lo cortaría.
  */
 export function MenuCategorias({
   categorias,
+  barra,
   conSesion,
+  claseBoton,
+  icono,
 }: {
   categorias: CategoriaResumen[];
+  barra: RespuestaBarra | null;
   conSesion: boolean;
+  claseBoton: (activa: boolean) => string;
+  icono: ReactNode;
 }) {
   const ruta = usePathname();
   const [abierto, setAbierto] = useState(false);
-  const [elegida, setElegida] = useState(categorias[0]?.slug ?? '');
-  const [facetas, setFacetas] = useState<Record<string, Facetas>>({});
-  const [populares, setPopulares] = useState<Record<string, string[]>>({});
-  const caja = useRef<HTMLDivElement>(null);
+  const [arriba, setArriba] = useState(0);
+  const boton = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const enVivo = useEnVivoMontado();
-  const pases = enVivo?.activo && enVivo.datos ? enVivo.datos.en_vivo.length : null;
+  const pedidos = enVivo?.activo && enVivo.datos ? enVivo.datos.en_vivo : null;
 
   useEffect(() => setAbierto(false), [ruta]);
 
   useEffect(() => {
     if (!abierto) return;
+    const medir = () => {
+      const barraArriba = boton.current?.closest('header');
+      setArriba(barraArriba?.getBoundingClientRect().bottom ?? 0);
+    };
+    medir();
     const afuera = (evento: MouseEvent) => {
-      if (!caja.current?.contains(evento.target as Node)) setAbierto(false);
+      const objetivo = evento.target as Node;
+      if (!panel.current?.contains(objetivo) && !boton.current?.contains(objetivo)) {
+        setAbierto(false);
+      }
     };
     const escape = (evento: KeyboardEvent) => {
-      if (evento.key === 'Escape') setAbierto(false);
+      if (evento.key === 'Escape') {
+        setAbierto(false);
+        boton.current?.focus();
+      }
     };
+    window.addEventListener('resize', medir);
+    window.addEventListener('scroll', medir, { passive: true });
     document.addEventListener('mousedown', afuera);
     document.addEventListener('keydown', escape);
     return () => {
+      window.removeEventListener('resize', medir);
+      window.removeEventListener('scroll', medir);
       document.removeEventListener('mousedown', afuera);
       document.removeEventListener('keydown', escape);
     };
   }, [abierto]);
 
-  useEffect(() => {
-    if (!abierto || !elegida || facetas[elegida]) return;
-    const slug = encodeURIComponent(elegida);
-    llamarApi<RespuestaBuscar>(`/buscar?categoria=${slug}`).then(
-      (respuesta) => setFacetas((actuales) => ({ ...actuales, [elegida]: respuesta.facetas })),
-      () => undefined,
-    );
-    llamarApi<RespuestaMasBuscado>(`/buscar/populares?categoria=${slug}`).then(
-      (respuesta) => setPopulares((actuales) => ({ ...actuales, [elegida]: respuesta.terminos })),
-      () => undefined,
-    );
-  }, [abierto, elegida, facetas]);
-
   if (categorias.length === 0) return null;
-  const categoria = categorias.find((c) => c.slug === elegida) ?? categorias[0]!;
-  const datos = facetas[categoria.slug];
-  const enlace = (filtro: string) => (valor: string) =>
-    `/buscar?categoria=${categoria.slug}&${filtro}=${encodeURIComponent(valor)}`;
-  const sinNada =
-    datos !== undefined &&
-    datos.marcas.length === 0 &&
-    datos.condiciones.length === 0 &&
-    datos.galerias.length === 0;
+  const grupos = agruparCategorias(categorias);
+  const ahora = Date.now();
+  const posicion: CSSProperties = { top: arriba };
 
   return (
-    <div ref={caja} className="max-lg:hidden">
+    <>
       <button
+        ref={boton}
         type="button"
         aria-expanded={abierto}
         aria-controls="menu-categorias"
-        aria-label="Comprar por categoría"
         onClick={() => setAbierto(!abierto)}
-        className={`flex h-12 items-center gap-1.5 rounded-xl px-2.5 text-left text-nota font-medium leading-4 text-tinta ${
-          abierto ? 'bg-superficie' : 'hover:bg-superficie'
-        }`}
+        className={claseBoton(abierto || ruta === '/categorias')}
       >
-        Comprar por
-        <br />
-        categoría
-        <IconChevronDown
-          size={14}
-          stroke={1.5}
-          aria-hidden="true"
-          className={abierto ? 'rotate-180' : ''}
-        />
+        {icono}
+        Todas las categorías
       </button>
 
       {abierto && (
-        <div
-          id="menu-categorias"
-          className="absolute left-0 right-0 top-full z-40 border-y border-linea bg-white shadow-[0_18px_40px_rgba(15,20,18,0.14)]"
-        >
-          <div className="mx-auto grid max-w-[1280px] grid-cols-[300px_minmax(0,1fr)] px-8">
-            <div className="flex flex-col border-r border-linea py-3">
-              {/* Pases del día va primero, como las campañas de temporada de un menú de tienda. */}
-              {pases !== null && (
-                <>
-                  <Link
-                    href="/pases-del-dia"
-                    className="flex min-h-[60px] items-center gap-3 pl-1 pr-4 text-tinta no-underline hover:bg-superficie"
-                  >
-                    <span aria-hidden="true" className="flex w-12 shrink-0 justify-center">
-                      <span className="h-2.5 w-2.5 rounded-full bg-vivo" />
-                    </span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="text-cuerpo font-semibold">Pases del día</span>
-                      <span className="text-nota text-detalle">
-                        {pases === 0 ? 'Busco y remates de hoy' : `${pases} busco y remates ahora`}
-                      </span>
-                    </span>
-                    <IconChevronRight
-                      size={18}
-                      stroke={1.5}
-                      aria-hidden="true"
-                      className="text-detalle"
-                    />
-                  </Link>
-                  <div aria-hidden="true" className="my-1 ml-4 mr-4 h-px bg-linea" />
-                </>
-              )}
-              <div
-                role="tablist"
-                aria-label="Categorías"
-                aria-orientation="vertical"
-                className="flex flex-col"
-              >
-                {categorias.map((opcion) => {
-                  const activa = opcion.slug === categoria.slug;
-                  return (
-                    <button
-                      key={opcion.slug}
-                      type="button"
-                      role="tab"
-                      aria-selected={activa}
-                      onClick={() => setElegida(opcion.slug)}
-                      onMouseEnter={() => setElegida(opcion.slug)}
-                      onFocus={() => setElegida(opcion.slug)}
-                      className={`flex min-h-[60px] items-center gap-3 pl-1 pr-4 text-left ${
-                        activa ? 'bg-pase-suave font-semibold' : 'hover:bg-superficie'
-                      }`}
-                    >
-                      <span aria-hidden="true" className="flex w-12 shrink-0 justify-center">
-                        <GlifoCategoria categoria={opcion.slug} ancho={44} grosor={5} />
-                      </span>
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="text-cuerpo">{opcion.nombre}</span>
-                        <span className="text-nota font-normal text-detalle">
-                          {textoProductos(opcion.productos)}
-                        </span>
-                      </span>
-                      <IconChevronRight
-                        size={18}
-                        stroke={1.5}
-                        aria-hidden="true"
-                        className="text-detalle"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
+        <>
+          <div
+            aria-hidden="true"
+            className="fixed inset-x-0 bottom-0 z-30 bg-tinta/30"
+            style={posicion}
+          />
+          <div className="fixed inset-x-0 z-40 px-4 sm:px-8" style={posicion}>
             <div
-              role="tabpanel"
-              aria-label={categoria.nombre}
-              className="flex min-w-0 flex-col gap-6 py-7 pl-8"
+              ref={panel}
+              id="menu-categorias"
+              className="mx-auto grid max-h-[calc(100dvh-140px)] max-w-[1280px] grid-cols-[minmax(0,1fr)_312px] gap-9 overflow-y-auto rounded-b-[20px] bg-white py-6 pl-[35px] pr-6 text-tinta shadow-[0_18px_40px_rgba(15,20,18,0.18)] max-lg:grid-cols-1"
             >
-              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-                <div className="flex items-center gap-3.5">
-                  <GlifoCategoria categoria={categoria.slug} ancho={56} grosor={4.2} />
-                  <h2 className="text-seccion">{categoria.nombre}</h2>
+              <div className="flex min-w-0 flex-col gap-5 py-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+                  <h2 className="text-seccion">Todas las categorías</h2>
+                  <span className="text-nota text-secundario">{resumenCategorias(categorias)}</span>
                 </div>
-                <Link
-                  href={`/buscar?categoria=${categoria.slug}`}
-                  className={`${botonPrincipal} gap-1.5 no-underline`}
-                >
-                  Ver {textoProductos(categoria.productos)}
-                  <IconArrowRight size={18} stroke={1.8} aria-hidden="true" />
-                </Link>
+                <div className="grid grid-cols-4 gap-x-11 gap-y-6 max-xl:grid-cols-2">
+                  {grupos.map(({ grupo, categorias: lista }) => (
+                    <div key={grupo} className="flex min-w-0 flex-col">
+                      <span className="pb-2.5 text-etiqueta uppercase text-detalle">{grupo}</span>
+                      {lista.map((categoria) => (
+                        <Link
+                          key={categoria.slug}
+                          href={`/buscar?categoria=${categoria.slug}`}
+                          className="flex min-h-[43px] items-center justify-between gap-3 text-cuerpo font-semibold text-tinta no-underline hover:text-pase-texto"
+                        >
+                          <span className="min-w-0">{categoria.nombre}</span>
+                          <span className="text-nota font-normal text-detalle">
+                            {categoria.productos}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {!datos ? (
-                <p className="text-apoyo text-detalle">Cargando…</p>
-              ) : sinNada ? (
-                <p className="text-apoyo text-secundario">
-                  Todavía no hay productos publicados en {categoria.nombre}.
-                </p>
-              ) : (
-                <>
-                  <Grupo titulo="Marcas">
-                    <Chips facetas={datos.marcas.slice(0, MAX_MARCAS)} enlace={enlace('marca')} />
-                  </Grupo>
-                  <div className="grid grid-cols-2 gap-6">
-                    <Grupo titulo="Estado">
-                      <Chips facetas={datos.condiciones} enlace={enlace('condicion')} />
-                    </Grupo>
-                    <Grupo titulo="Galería">
-                      <Chips facetas={datos.galerias} enlace={enlace('galeria')} />
-                    </Grupo>
-                  </div>
-                  {(populares[categoria.slug]?.length ?? 0) > 0 && (
-                    <Grupo titulo={`Lo más buscado en ${categoria.nombre}`}>
-                      <MasBuscado
-                        terminos={populares[categoria.slug] ?? []}
-                        categoria={categoria.slug}
-                      />
-                    </Grupo>
-                  )}
-                </>
-              )}
-
-              <div className="mt-auto pt-2">
-                <TarjetaBusco
-                  titulo="¿Buscas algo para un cliente?"
-                  texto="Publica un busco y te avisan las tiendas que lo tienen."
-                  conSesion={conSesion}
-                  categoria={categoria.slug}
-                />
-              </div>
+              <aside className="flex flex-col gap-3 self-start rounded-2xl bg-superficie p-4">
+                {pedidos !== null && (
+                  <>
+                    <Link
+                      href="/pedidos-en-vivo"
+                      className="flex items-center gap-2 text-etiqueta uppercase text-secundario no-underline hover:text-tinta"
+                    >
+                      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
+                      Pedidos en vivo · {pedidos.length}
+                    </Link>
+                    {pedidos.length === 0 ? (
+                      <p className="text-apoyo text-secundario">
+                        Ahora nadie busca ni remata. Cuando alguien publique, lo ves aquí.
+                      </p>
+                    ) : (
+                      pedidos.slice(0, 2).map((pedido) => (
+                        <Link
+                          key={pedido.id}
+                          href="/pedidos-en-vivo"
+                          className="flex flex-col gap-0.5 rounded-xl border border-linea bg-white px-3 py-2.5 no-underline hover:border-borde"
+                        >
+                          <b className="text-apoyo font-bold text-tinta">
+                            {etiquetaTipo(pedido.tipo)} {pedido.titulo}
+                          </b>
+                          <span className="text-[12px] leading-4 text-secundario">
+                            {detallePedido(pedido, ahora)}
+                          </span>
+                        </Link>
+                      ))
+                    )}
+                  </>
+                )}
+                {(barra?.mas_buscado.length ?? 0) > 0 && (
+                  <>
+                    <span className="pt-2 text-etiqueta uppercase text-secundario">
+                      {barra?.mas_buscado_hoy ? 'Lo más buscado hoy' : 'Lo más buscado'}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {barra?.mas_buscado.map((termino) => (
+                        <Link
+                          key={termino}
+                          href={`/buscar?q=${encodeURIComponent(termino)}`}
+                          className="flex h-9 items-center rounded-full border border-borde bg-white px-3 text-apoyo font-semibold text-tinta no-underline hover:border-borde-control"
+                        >
+                          {termino}
+                        </Link>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {!conSesion && (
+                  <p className="pt-1 text-nota text-secundario">
+                    Los precios y las tiendas se ven al{' '}
+                    <Link href="/ingresar" className="font-semibold text-pase-texto">
+                      iniciar sesión
+                    </Link>
+                    .
+                  </p>
+                )}
+              </aside>
             </div>
           </div>
-        </div>
+        </>
       )}
-    </div>
+    </>
   );
 }

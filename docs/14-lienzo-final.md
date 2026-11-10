@@ -4,6 +4,8 @@
 
 El lienzo **PaseLibre Demo 1** ([enlace](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7)) tiene una página, **★ VERSIÓN FINAL · todas las pantallas elegidas**, con **163 tableros en 20 secciones** (más una por decidir). Este documento pone cada sección frente a lo que la web ya hace, dice qué falta y propone en qué orden construirlo.
 
+> **Versión que se usa.** Página **★ VERSIÓN FINAL** (id `final`, la primera de las 23 del selector y la que abre el lienzo; [enlace](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7#page-9539465e2f90)), versión `1794196670-a4d1` del domingo 08/11 a las 10:57 p. m. El lunes 09/11 se comprobó que sigue siendo la última. Las demás 22 páginas son propuestas y comparaciones: si una pantalla de esas choca con la versión final, manda la final.
+
 > **Cómo leer el lienzo.** Cada tablero `FIN_X` solo importa al tablero `X`: el diseño real está en el archivo sin el prefijo (`FIN_BUS_Web` → `BUS_Web`). Las variantes (`BUS_WebSug`, `BUS_WebNum`…) son el mismo archivo con otro estado.
 > El lienzo menciona un documento **«PaseLibre · Especificación para desarrollo»** que no está en el repo. Si existe, hay que traerlo: tendrá las reglas que los tableros no muestran.
 

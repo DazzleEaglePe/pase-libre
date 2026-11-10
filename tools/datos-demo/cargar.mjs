@@ -213,6 +213,16 @@ function armarModelo(p) {
   return { marca, modelo };
 }
 
+/** «Periféricos» es un grupo desde el lienzo final: cada producto va a su categoría. */
+function categoriaDe(p) {
+  if (p.categoria !== 'perifericos') return p.categoria;
+  const t = p.titulo.toLowerCase();
+  if (/mouse/.test(t)) return 'mouse';
+  if (/teclado/.test(t)) return 'teclados';
+  if (/audifono|parlante/.test(t)) return 'audio';
+  return 'accesorios';
+}
+
 function etiquetasDe(p) {
   const base = {
     graficas: ['tarjeta de video', 'tarjeta grafica', 'gpu'],
@@ -407,7 +417,7 @@ for (const [i, p] of pendientes.entries()) {
     producto_id: null,
     slug: null,
     titulo: `${marca} ${modelo}`,
-    categoria: p.categoria,
+    categoria: categoriaDe(p),
     precio_pen_ref: p.precio_pen,
     ofertas: [],
   };
@@ -430,7 +440,7 @@ for (const [i, p] of pendientes.entries()) {
       const foto = p.foto ? await tienda.subirFoto(p.foto) : null;
       r = await tienda.llamar('POST', '/ofertas', {
         producto_nuevo: {
-          categoria: p.categoria,
+          categoria: categoriaDe(p),
           marca,
           modelo,
           etiquetas: etiquetasDe(p),

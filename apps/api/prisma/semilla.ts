@@ -20,14 +20,29 @@ const GALERIAS = [
   { nombre: 'Cyberplaza', slug: 'cyberplaza', orden: 2 },
 ];
 
+/** Las 21 del lienzo final (CAT_Web1), en el orden y los grupos del menú. */
 const CATEGORIAS = [
-  { nombre: 'Gráficas', slug: 'graficas' },
-  { nombre: 'Procesadores', slug: 'procesadores' },
-  { nombre: 'Placas', slug: 'placas' },
-  { nombre: 'RAM', slug: 'ram' },
-  { nombre: 'Cases', slug: 'cases' },
-  { nombre: 'Monitores', slug: 'monitores' },
-  { nombre: 'Periféricos', slug: 'perifericos' },
+  { nombre: 'Procesadores', slug: 'procesadores', grupo: 'Componentes' },
+  { nombre: 'Tarjetas de video', slug: 'graficas', grupo: 'Componentes' },
+  { nombre: 'Placas madre', slug: 'placas', grupo: 'Componentes' },
+  { nombre: 'Memoria RAM', slug: 'ram', grupo: 'Componentes' },
+  { nombre: 'Almacenamiento', slug: 'almacenamiento', grupo: 'Componentes' },
+  { nombre: 'Fuentes de poder', slug: 'fuentes', grupo: 'Componentes' },
+  { nombre: 'Cases', slug: 'cases', grupo: 'Componentes' },
+  { nombre: 'Refrigeración', slug: 'refrigeracion', grupo: 'Componentes' },
+  { nombre: 'Laptops', slug: 'laptops', grupo: 'Equipos' },
+  { nombre: 'PCs armadas', slug: 'pcs-armadas', grupo: 'Equipos' },
+  { nombre: 'Monitores', slug: 'monitores', grupo: 'Equipos' },
+  { nombre: 'Teclados', slug: 'teclados', grupo: 'Periféricos' },
+  { nombre: 'Mouse', slug: 'mouse', grupo: 'Periféricos' },
+  { nombre: 'Mouse pads', slug: 'mouse-pads', grupo: 'Periféricos' },
+  { nombre: 'Audífonos y parlantes', slug: 'audio', grupo: 'Periféricos' },
+  { nombre: 'Micrófonos y cámaras', slug: 'microfonos-camaras', grupo: 'Periféricos' },
+  { nombre: 'Estabilizadores y UPS', slug: 'energia', grupo: 'Energía, redes y más' },
+  { nombre: 'Redes', slug: 'redes', grupo: 'Energía, redes y más' },
+  { nombre: 'Sillas gamer', slug: 'sillas', grupo: 'Energía, redes y más' },
+  { nombre: 'Soportes', slug: 'soportes', grupo: 'Energía, redes y más' },
+  { nombre: 'Accesorios', slug: 'accesorios', grupo: 'Energía, redes y más' },
 ];
 
 const MARCAS = [
@@ -55,7 +70,11 @@ export async function sembrarBase(prisma: PrismaClient): Promise<void> {
     await prisma.galeria.upsert({ where: { slug: g.slug }, update: {}, create: g });
   }
   for (const [orden, c] of CATEGORIAS.entries()) {
-    await prisma.categoria.upsert({ where: { slug: c.slug }, update: {}, create: { ...c, orden } });
+    await prisma.categoria.upsert({
+      where: { slug: c.slug },
+      update: { nombre: c.nombre, grupo: c.grupo, orden: orden + 1 },
+      create: { ...c, orden: orden + 1 },
+    });
   }
   for (const nombre of MARCAS) {
     await prisma.marca.upsert({
@@ -270,7 +289,7 @@ const PRODUCTOS: ProductoDemo[] = [
   },
   {
     titulo: 'Logitech G502 X Plus inalámbrico',
-    categoria: 'perifericos',
+    categoria: 'mouse',
     marca: 'Logitech',
     modelo: 'G502 X Plus',
     etiquetas: ['Mouse', 'Inalámbrico', 'RGB'],
@@ -286,7 +305,7 @@ const PRODUCTOS: ProductoDemo[] = [
   },
   {
     titulo: 'Redragon Kumara K552 RGB',
-    categoria: 'perifericos',
+    categoria: 'teclados',
     marca: 'Redragon',
     modelo: 'Kumara K552',
     etiquetas: ['Teclado', 'Mecánico', 'RGB'],
