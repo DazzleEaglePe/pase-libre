@@ -478,21 +478,40 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
         </div>
         {datos === null && !error ? (
           <p className="py-8 text-secundario">Cargando…</p>
-        ) : ofertas.length === 0 ? (
-          <div className="flex flex-col items-start gap-3 py-8">
-            <p className="text-secundario">
-              {sinNada
-                ? 'Todavía no publicas nada. Busca tu producto en el catálogo y publícalo en un par de minutos.'
-                : q
-                  ? `Ninguna publicación coincide con «${q}».`
-                  : 'No tienes publicaciones en esta pestaña.'}
+        ) : sinNada ? (
+          // EV_WebProd: la vitrina vacía.
+          <div className="flex flex-col items-center gap-4 rounded-3xl border border-linea px-6 py-12 text-center">
+            <h2 className="text-[24px] font-bold leading-8">Tu vitrina está vacía</h2>
+            <p className="m-0 max-w-[480px] text-cuerpo text-secundario">
+              Publica tu primer producto. Si ya está en el catálogo, solo pones el estado, el precio
+              y el stock: menos de un minuto.
             </p>
-            {sinNada && (
-              <Link href="/publicar" className={`${botonSecundario} no-underline`}>
+            <div className="flex flex-wrap justify-center gap-2.5">
+              <Link
+                href="/publicar"
+                className="flex h-12 items-center rounded-full bg-pase px-5 font-bold text-white no-underline"
+              >
                 Publicar mi primer producto
               </Link>
-            )}
+              <Link
+                href="/pedidos-en-vivo/publicar"
+                className="flex h-12 items-center gap-2 rounded-full border border-borde px-5 font-bold text-tinta no-underline"
+              >
+                <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />O pide algo en
+                vivo
+              </Link>
+            </div>
+            <p className="m-0 max-w-[480px] text-nota text-secundario">
+              Las demás tiendas te encuentran por lo que publicas. Mientras tu vitrina esté vacía,
+              solo te ven por tus pedidos en vivo.
+            </p>
           </div>
+        ) : ofertas.length === 0 ? (
+          <p className="py-8 text-secundario">
+            {q
+              ? `Ninguna publicación coincide con «${q}».`
+              : 'No tienes publicaciones en esta pestaña.'}
+          </p>
         ) : (
           <ul aria-label="Publicaciones">
             {ofertas.map((oferta) => (

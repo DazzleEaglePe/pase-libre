@@ -98,16 +98,26 @@ export function FichaProducto({
   producto,
   ofertas,
   audiencia,
+  ofertaPedida = null,
 }: {
   producto: ProductoDetalle;
   ofertas: OfertaVista[];
   audiencia: Audiencia;
+  /** `?oferta=` (desde un chat o un aviso): se abre esa; si ya no está, «Ya no está disponible». */
+  ofertaPedida?: string | null;
 }) {
   const router = useRouter();
   const conSesion = audiencia !== 'visitante';
   const [elegida, setElegida] = useState(
-    () => (ofertas.find((oferta) => !oferta.propia) ?? ofertas[0])?.id ?? null,
+    () =>
+      ofertas.find((oferta) => oferta.id === ofertaPedida)?.id ??
+      (ofertas.find((oferta) => !oferta.propia) ?? ofertas[0])?.id ??
+      null,
   );
+  // EV_WebAgot: la publicación que se pidió se vendió o la quitaron (o ya no queda ninguna).
+  const noDisponible =
+    ofertas.length === 0 ||
+    (ofertaPedida !== null && !ofertas.some((oferta) => oferta.id === ofertaPedida));
   const [foto, setFoto] = useState(0);
   const [contactando, setContactando] = useState<'CHAT' | 'WHATSAPP' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -275,6 +285,20 @@ export function FichaProducto({
         </section>
 
         <section aria-label="Producto" className="flex min-w-0 flex-col gap-4">
+          {noDisponible && (
+            <div role="status" className="flex flex-col gap-1 rounded-2xl bg-aviso-fondo px-4 py-3">
+              <b className="text-cuerpo font-bold text-aviso">Ya no está disponible</b>
+              <span className="text-apoyo text-secundario">
+                {ofertas.length > 0
+                  ? `Esa publicación se vendió o la quitaron. Lo bueno: ${
+                      ofertas.length === 1
+                        ? 'otra tienda la tiene'
+                        : `otras ${ofertas.length} tiendas la tienen`
+                    }.`
+                  : 'Se vendió o la quitaron, y ahora ninguna otra tienda la tiene publicada.'}
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-3 max-md:hidden">
             <span className="text-nota text-secundario">
               {[producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
@@ -426,7 +450,21 @@ export function FichaProducto({
               )}
             </div>
           ) : (
-            <p className="text-secundario">Por ahora ninguna tienda lo tiene publicado.</p>
+            <div className="flex flex-col gap-3 rounded-[20px] border border-linea p-[22px]">
+              <span className="text-apoyo text-secundario">
+                Ninguna tienda lo tiene publicado ahora. Pídelo en vivo: alguna puede tenerlo en su
+                almacén.
+              </span>
+              {audiencia === 'vendedor' && (
+                <Link
+                  href={`/pedidos-en-vivo/publicar?que=${encodeURIComponent(producto.titulo)}&categoria=${producto.categoria.slug}`}
+                  className="flex h-12 items-center justify-center gap-2 rounded-full bg-contador font-bold text-tinta no-underline"
+                >
+                  <span aria-hidden="true" className="h-2 w-2 rounded-full bg-tinta" />
+                  Pedirlo en vivo
+                </Link>
+              )}
+            </div>
           )}
 
           {oferta?.descripcion && (

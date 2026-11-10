@@ -1,4 +1,10 @@
-import type { CategoriaResumen, RespuestaBuscar, RespuestaMasBuscado } from '@paselibre/contracts';
+import type {
+  CategoriaResumen,
+  ProductoEnLista,
+  ProductoEnListaConPrecio,
+  RespuestaBuscar,
+  RespuestaMasBuscado,
+} from '@paselibre/contracts';
 import { IconZoomCancel } from '@tabler/icons-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -7,6 +13,7 @@ import { BarraFiltros } from '@/features/catalogo/barra-filtros';
 import { MasBuscado } from '@/features/catalogo/mas-buscado';
 import { TarjetaBusco } from '@/features/catalogo/tarjeta-busco';
 import { TarjetaCategoria } from '@/features/catalogo/tarjeta-categoria';
+import { ExactoNoHay, SinResultados } from '@/features/catalogo/sin-resultados';
 import { TarjetaResultado } from '@/features/catalogo/tarjeta-resultado';
 import { Buscador } from '@/shared/ui/buscador';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
@@ -82,7 +89,8 @@ export default async function Resultados({ searchParams }: { searchParams: Param
 
   if (callejon) {
     return (
-      <SinResultados
+      <Callejon
+        parecidas={resultado.parecidas}
         filtros={filtros}
         titulo={titulo}
         nombreCategoria={nombreCategoria}
@@ -165,6 +173,9 @@ export default async function Resultados({ searchParams }: { searchParams: Param
             <b className="font-semibold">{resultado.correccion.mostramos}</b>. Buscaste «
             {resultado.correccion.buscaste}».
           </p>
+        )}
+        {resultado.correccion && resultado.audiencia === 'vendedor' && (
+          <ExactoNoHay q={resultado.correccion.buscaste} conSesion />
         )}
       </div>
 
@@ -309,7 +320,8 @@ export default async function Resultados({ searchParams }: { searchParams: Param
  * busco» con lo escrito y las categorías. Si se buscó dentro de una categoría y hay
  * resultados en otras, van primero.
  */
-function SinResultados({
+function Callejon({
+  parecidas,
   filtros,
   titulo,
   nombreCategoria,
@@ -319,6 +331,7 @@ function SinResultados({
   conSesion,
   conBusco,
 }: {
+  parecidas: Array<ProductoEnLista | ProductoEnListaConPrecio>;
   filtros: ReturnType<typeof leerFiltros>;
   titulo: string;
   nombreCategoria: string | null;
@@ -334,7 +347,7 @@ function SinResultados({
   return (
     <div className="flex flex-col gap-10">
       <CabeceraMovil centro={<Buscador sobreMarca className="min-w-0 flex-1 pr-2" />} />
-      <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle">
+      <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle max-md:hidden">
         <Link href="/" className="text-secundario">
           Inicio
         </Link>
@@ -342,30 +355,41 @@ function SinResultados({
         <span>{titulo}</span>
       </nav>
 
-      <div className="flex flex-wrap items-start gap-x-12 gap-y-6">
-        <div className="flex min-w-0 flex-[1_1_520px] items-start gap-5">
-          <IconZoomCancel
-            size={44}
-            stroke={1.4}
-            aria-hidden="true"
-            className="shrink-0 text-secundario max-sm:hidden"
-          />
-          <div className="flex flex-col gap-2.5">
-            <h1 className="text-titulo">{encabezado}</h1>
-            <p className="text-secundario">
-              {filtros.q
-                ? 'Revisa cómo se escribe o prueba con menos palabras: con la marca y el modelo basta.'
-                : 'Cuando una tienda publique algo aquí, lo verás en esta página.'}
-            </p>
+      {filtros.q ? (
+        <SinResultados
+          q={filtros.q}
+          nombreCategoria={nombreCategoria}
+          categoria={filtros.categoria}
+          conSesion={conSesion}
+          conBusco={conBusco}
+          parecidas={parecidas}
+        />
+      ) : (
+        <div className="flex flex-wrap items-start gap-x-12 gap-y-6">
+          <div className="flex min-w-0 flex-[1_1_520px] items-start gap-5">
+            <IconZoomCancel
+              size={44}
+              stroke={1.4}
+              aria-hidden="true"
+              className="shrink-0 text-secundario max-sm:hidden"
+            />
+            <div className="flex flex-col gap-2.5">
+              <h1 className="text-titulo">{encabezado}</h1>
+              <p className="text-secundario">
+                {filtros.q
+                  ? 'Revisa cómo se escribe o prueba con menos palabras: con la marca y el modelo basta.'
+                  : 'Cuando una tienda publique algo aquí, lo verás en esta página.'}
+              </p>
+            </div>
           </div>
         </div>
-        {populares.length > 0 && (
-          <aside className="flex max-w-[540px] flex-[1_1_380px] flex-col gap-3.5 rounded-[20px] border border-linea p-5 sm:px-6">
-            <h2 className="text-tarjeta">Lo más buscado en la galería</h2>
-            <MasBuscado terminos={populares} />
-          </aside>
-        )}
-      </div>
+      )}
+      {populares.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-tarjeta">Lo más buscado en la galería</h2>
+          <MasBuscado terminos={populares} />
+        </section>
+      )}
 
       {enOtras.length > 0 && (
         <section aria-labelledby="en-otras" className="flex flex-col gap-4">
@@ -387,7 +411,7 @@ function SinResultados({
         </section>
       )}
 
-      {conBusco && (
+      {conBusco && !filtros.q && (
         <TarjetaBusco
           grande
           titulo="¿Lo necesitas para un cliente?"

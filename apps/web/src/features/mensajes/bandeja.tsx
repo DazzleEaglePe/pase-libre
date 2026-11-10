@@ -197,7 +197,7 @@ export function Bandeja({ children }: { children: ReactNode }) {
               {q
                 ? `Ninguna conversación coincide con «${q}».`
                 : filtro === 'todas'
-                  ? 'Todavía no tienes conversaciones. Escríbele a una tienda desde la ficha de un producto.'
+                  ? 'Todavía nada por aquí.'
                   : 'No hay conversaciones aquí.'}
             </p>
           ) : (

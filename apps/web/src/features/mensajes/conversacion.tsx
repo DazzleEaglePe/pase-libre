@@ -108,6 +108,11 @@ export function Conversacion({ id }: { id: string }) {
   const [rapidas, setRapidas] = useState<RespuestaRapida[]>([]);
   const [borrador, setBorrador] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // EV_WebNet: sin señal se sigue escribiendo; se envía al volver.
+  const [enLinea, setEnLinea] = useState(true);
+  const [pendientes, setPendientes] = useState<string[]>([]);
+  const [cargadoEn, setCargadoEn] = useState(() => Date.now());
+  const [volvio, setVolvio] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [noExiste, setNoExiste] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -132,6 +137,7 @@ export function Conversacion({ id }: { id: string }) {
       ]);
       setDetalle(d);
       setMensajes(h.mensajes);
+      setCargadoEn(Date.now());
       setHayMas(h.hay_mas);
       setVistoHasta(h.visto_hasta);
       alFondo.current = true;
@@ -232,8 +238,45 @@ export function Conversacion({ id }: { id: string }) {
     evento.preventDefault();
     const texto = borrador.trim();
     if (!texto || enviando) return;
+    if (!enLinea) {
+      setPendientes((lista) => [...lista, texto]);
+      setBorrador('');
+      return;
+    }
     if (await enviar({ texto })) setBorrador('');
   }
+
+  // Sin conexión: el aviso arriba y los mensajes en espera; al volver, se envían en orden.
+  useEffect(() => {
+    setEnLinea(navigator.onLine);
+    const apagar = () => setEnLinea(false);
+    const prender = () => setEnLinea(true);
+    window.addEventListener('offline', apagar);
+    window.addEventListener('online', prender);
+    return () => {
+      window.removeEventListener('offline', apagar);
+      window.removeEventListener('online', prender);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!enLinea || pendientes.length === 0) return;
+    let cancelado = false;
+    void (async () => {
+      for (const texto of pendientes) {
+        if (cancelado) return;
+        await enviar({ texto });
+      }
+      if (cancelado) return;
+      setPendientes([]);
+      setVolvio(true);
+      setTimeout(() => setVolvio(false), 4000);
+    })();
+    return () => {
+      cancelado = true;
+    };
+    // `enviar` cambia en cada render; lo que dispara esto es volver a tener señal.
+  }, [enLinea]);
 
   async function enviarFoto(archivo: File | undefined) {
     if (!archivo) return;
@@ -548,9 +591,53 @@ export function Conversacion({ id }: { id: string }) {
             </Fragment>
           );
         })}
-        {visto && <span className="self-end text-[12px] text-detalle">Visto</span>}
+        {visto && pendientes.length === 0 && (
+          <span className="self-end text-[12px] text-detalle">Visto</span>
+        )}
+        {pendientes.map((texto, indice) => (
+          <div
+            key={`${indice}-${texto}`}
+            className="flex max-w-[78%] flex-col items-end gap-0.5 self-end"
+          >
+            <span className="rounded-2xl rounded-br-md bg-pase-medio px-3.5 py-2 text-cuerpo text-tinta opacity-70">
+              {texto}
+            </span>
+            <span className="text-[12px] text-detalle">Se envía cuando vuelva la señal</span>
+          </div>
+        ))}
       </div>
 
+      {!enLinea && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 border-t border-linea bg-aviso-fondo px-4 py-2.5"
+        >
+          <span className="text-apoyo">
+            <b className="font-bold text-aviso">Sin conexión</b> · Ves lo último que cargó, de{' '}
+            {haceRato(new Date(cargadoEn).toISOString()).toLowerCase()}.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (navigator.onLine) {
+                setEnLinea(true);
+                void cargar();
+              }
+            }}
+            className="h-9 shrink-0 rounded-full border border-borde bg-white px-3.5 text-nota font-bold"
+          >
+            Reintentar
+          </button>
+        </div>
+      )}
+      {volvio && (
+        <p
+          role="status"
+          className="border-t border-linea bg-pase-suave px-4 py-2.5 text-apoyo font-semibold text-marca"
+        >
+          Conectado otra vez · se envió tu mensaje
+        </p>
+      )}
       {error && (
         <p
           role="alert"
@@ -640,7 +727,7 @@ export function Conversacion({ id }: { id: string }) {
             <button
               type="submit"
               aria-label="Enviar"
-              disabled={enviando || !borrador.trim()}
+              disabled={(enviando && enLinea) || !borrador.trim()}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pase text-white disabled:bg-superficie disabled:text-borde-control"
             >
               <svg

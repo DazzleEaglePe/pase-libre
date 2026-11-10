@@ -425,4 +425,59 @@ describe('Perfil de otra tienda, seguir y opiniones (sección 15 del lienzo fina
       enlace: `/tiendas/${tiendaC}`,
     });
   });
+
+  it('«Avísame cuando alguien la publique» llega cuando otra tienda la publica (EV_WebRes)', async () => {
+    const producto = await prisma.producto.findFirstOrThrow({
+      where: { ofertas: { none: { tiendaId: tiendaA } } },
+      orderBy: { titulo: 'asc' },
+    });
+    const cookieE = await como('tiendae');
+    const alerta = await http()
+      .post('/v1/cuenta/alertas')
+      .set(CABECERAS)
+      .set('Cookie', cookieE)
+      .send({ texto: producto.titulo })
+      .expect(201);
+    // La misma búsqueda otra vez es la misma alerta.
+    const otraVez = await http()
+      .post('/v1/cuenta/alertas')
+      .set(CABECERAS)
+      .set('Cookie', cookieE)
+      .send({ texto: `  ${producto.titulo.toUpperCase()} ` })
+      .expect(201);
+    expect(otraVez.body.id).toBe(alerta.body.id);
+
+    await http()
+      .post('/v1/ofertas')
+      .set(CABECERAS)
+      .set('Cookie', await como('tiendaa'))
+      .send({ producto_id: producto.id, condicion: 'USADO', stock: 1, fotos: [] })
+      .expect(201);
+    const avisos = await http()
+      .get('/v1/avisos?categoria=PUBLICACIONES')
+      .set('Cookie', cookieE)
+      .expect(200);
+    const deAlerta = (avisos.body.avisos as Array<{ tipo: string; enlace: string }>).find(
+      (aviso) => aviso.tipo === 'ALERTA',
+    );
+    expect(deAlerta?.enlace).toBe(`/p/${producto.slug}`);
+
+    await http()
+      .delete(`/v1/cuenta/alertas/${alerta.body.id}`)
+      .set(CABECERAS)
+      .set('Cookie', cookieE)
+      .expect(204);
+    const quedan = await http().get('/v1/cuenta/alertas').set('Cookie', cookieE).expect(200);
+    expect(quedan.body).toEqual([]);
+  });
+
+  it('sin resultados trae «Parecidas que sí hay» con menos palabras', async () => {
+    const respuesta = await http()
+      .get('/v1/buscar?q=msi%20zzqq9')
+      .set('Cookie', await como('tiendab'))
+      .expect(200);
+    expect(respuesta.body.total_productos).toBe(0);
+    expect(respuesta.body.parecidas.length).toBeGreaterThan(0);
+    expect(respuesta.body.parecidas.length).toBeLessThanOrEqual(3);
+  });
 });

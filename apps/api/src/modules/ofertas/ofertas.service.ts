@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
+  formatearPrecio,
   normalizarTexto,
   precioDe,
   slugDe,
@@ -282,6 +283,7 @@ export class OfertasService {
         publicada.oferta.producto.titulo,
         datos.tienda_visible ?? true,
       );
+      await this.avisarAlertas(publicada.oferta.id, tienda.id);
       return publicada;
     } catch (error) {
       if (esUnicoRepetido(error, 'oferta_vigente_key')) {
@@ -337,6 +339,58 @@ export class OfertasService {
         extracto: 'Una tienda que sigues',
         enlace: `/tiendas/${tienda.id}`,
         accion: { tipo: 'ABRIR', texto: 'Ver sus productos', enlace: `/tiendas/${tienda.id}` },
+      },
+    );
+  }
+
+  /**
+   * «Avísame cuando alguien la publique» (EV_WebRes): las alertas cuyas palabras están todas en
+   * el producto recién publicado. No se avisa a la propia tienda.
+   */
+  private async avisarAlertas(ofertaId: string, tiendaId: string): Promise<void> {
+    const oferta = await this.prisma.oferta.findUniqueOrThrow({
+      where: { id: ofertaId },
+      select: {
+        condicion: true,
+        precioCentimos: true,
+        moneda: true,
+        precioVisible: true,
+        tienda: { select: { galeria: { select: { nombre: true } } } },
+        producto: { select: { slug: true, titulo: true, textoBusqueda: true } },
+      },
+    });
+    const filas = await this.prisma.$queryRaw<Array<{ id: string; usuario_id: string }>>`
+      SELECT a.id::text, a.usuario_id::text
+      FROM alerta_busqueda a
+      JOIN usuario u ON u.id = a.usuario_id
+      WHERE u.tienda_id IS DISTINCT FROM ${tiendaId}::uuid
+        AND NOT EXISTS (
+          SELECT 1 FROM unnest(string_to_array(a.palabras, ' ')) AS w(palabra)
+          WHERE (' ' || ${oferta.producto.textoBusqueda}) NOT LIKE ('% ' || w.palabra || '%')
+        )`;
+    if (filas.length === 0) return;
+    await this.prisma.alertaBusqueda.updateMany({
+      where: { id: { in: filas.map((fila) => fila.id) } },
+      data: { avisadaEn: new Date() },
+    });
+    const precio =
+      oferta.precioVisible && oferta.precioCentimos !== null
+        ? ` a ${formatearPrecio(precioDe(Number(oferta.precioCentimos), oferta.moneda))}`
+        : '';
+    await this.avisos.crear(
+      filas.map((fila) => fila.usuario_id),
+      {
+        tipo: 'ALERTA',
+        titulo: `Nueva ${oferta.producto.titulo}${precio}`,
+        extracto: [
+          'Tu alerta de búsqueda',
+          oferta.tienda.galeria?.nombre,
+          oferta.condicion === 'NUEVO' ? 'Nuevo' : 'Usado',
+        ]
+          .filter(Boolean)
+          .join(' · '),
+        enlace: `/p/${oferta.producto.slug}`,
+        accion: { tipo: 'ABRIR', texto: 'Verla', enlace: `/p/${oferta.producto.slug}` },
       },
     );
   }

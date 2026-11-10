@@ -109,3 +109,9 @@ export type ActualizarCuentaDatos = z.output<typeof actualizarCuentaSchema>;
 export type AvisosCuentaEntrada = z.input<typeof avisosCuentaSchema>;
 export type AvisosCuentaDatos = z.output<typeof avisosCuentaSchema>;
 export type RespuestasRapidasDatos = z.output<typeof respuestasRapidasSchema>;
+
+/** `POST /v1/cuenta/alertas`: «Avísame cuando alguien la publique» (EV_WebRes). */
+export const alertaBusquedaSchema = z.strictObject({
+  texto: z.string().trim().min(2, 'Escribe qué buscas.').max(120, 'Escribe hasta 120 caracteres.'),
+});
+export type AlertaBusquedaDatos = z.output<typeof alertaBusquedaSchema>;

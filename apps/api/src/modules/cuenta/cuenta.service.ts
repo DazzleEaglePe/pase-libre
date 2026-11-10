@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type {
+  AlertaBusqueda,
   MiReporte,
   ActualizarCuentaDatos,
   AvisosCuentaDatos,
@@ -9,7 +10,7 @@ import type {
   SesionAbierta,
   TiendaBloqueada,
 } from '@paselibre/contracts';
-import { TIENDA_RESERVADA } from '@paselibre/contracts';
+import { normalizarTexto, TIENDA_RESERVADA } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
@@ -306,6 +307,51 @@ export class CuentaService {
     });
     await this.tiempoReal.desconectarUsuario(sesion.usuario.id, sesion.sesionId);
     return { cerradas: count };
+  }
+
+  // ── Alertas de búsqueda (EV_WebRes) ───────────────────────────────────────
+
+  async alertas(usuarioId: string): Promise<AlertaBusqueda[]> {
+    const filas = await this.prisma.alertaBusqueda.findMany({
+      where: { usuarioId },
+      orderBy: { creadaEn: 'desc' },
+    });
+    return filas.map((fila) => ({
+      id: fila.id,
+      texto: fila.texto,
+      creada_en: fila.creadaEn.toISOString(),
+    }));
+  }
+
+  /** La misma búsqueda dos veces es una sola alerta. Hasta 20 por persona. */
+  async crearAlerta(usuarioId: string, texto: string): Promise<AlertaBusqueda> {
+    const palabras = normalizarTexto(texto);
+    if (!palabras) {
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'Escribe qué buscas con letras o números.',
+      );
+    }
+    const cuantas = await this.prisma.alertaBusqueda.count({ where: { usuarioId } });
+    const existente = await this.prisma.alertaBusqueda.findUnique({
+      where: { usuarioId_palabras: { usuarioId, palabras } },
+    });
+    if (!existente && cuantas >= 20) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Ya tienes 20 alertas. Borra alguna para crear otra.',
+      );
+    }
+    const alerta =
+      existente ??
+      (await this.prisma.alertaBusqueda.create({ data: { usuarioId, texto, palabras } }));
+    return { id: alerta.id, texto: alerta.texto, creada_en: alerta.creadaEn.toISOString() };
+  }
+
+  async borrarAlerta(usuarioId: string, id: string): Promise<void> {
+    await this.prisma.alertaBusqueda.deleteMany({ where: { id, usuarioId } });
   }
 
   // ── Mis reportes (REP_WebMisReportes) ─────────────────────────────────────

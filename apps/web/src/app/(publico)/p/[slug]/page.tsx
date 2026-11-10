@@ -37,8 +37,14 @@ export async function generateMetadata({
 }
 
 /** `/p/:producto` (D_Ficha, M_Ficha): el producto con todas sus ofertas. */
-export default async function Ficha({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export default async function Ficha({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ oferta?: string }>;
+}) {
+  const [{ slug }, { oferta }] = await Promise.all([params, searchParams]);
   const ficha = await cargarFicha(slug);
   const { producto } = ficha;
 
@@ -60,6 +66,7 @@ export default async function Ficha({ params }: { params: Promise<{ slug: string
         producto={producto}
         ofertas={ofertasVista(ficha)}
         audiencia={ficha.audiencia}
+        ofertaPedida={oferta ?? null}
       />
     </div>
   );

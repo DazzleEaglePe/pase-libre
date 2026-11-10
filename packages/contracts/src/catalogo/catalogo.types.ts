@@ -113,8 +113,17 @@ interface BaseBusqueda {
 }
 
 export type RespuestaBuscar =
-  | (BaseBusqueda & { audiencia: 'visitante'; productos: ProductoEnLista[] })
-  | (BaseBusqueda & { audiencia: 'vendedor' | 'equipo'; productos: ProductoEnListaConPrecio[] });
+  | (BaseBusqueda & {
+      audiencia: 'visitante';
+      productos: ProductoEnLista[];
+      /** Sin resultados: «Parecidas que sí hay» (EV_WebRes), con menos palabras. */
+      parecidas: ProductoEnLista[];
+    })
+  | (BaseBusqueda & {
+      audiencia: 'vendedor' | 'equipo';
+      productos: ProductoEnListaConPrecio[];
+      parecidas: ProductoEnListaConPrecio[];
+    });
 
 // ── Ficha ───────────────────────────────────────────────────────────────────
 

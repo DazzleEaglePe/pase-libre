@@ -57,3 +57,10 @@ export interface TiendaBloqueada {
   tienda: { id: string; nombre: string; galeria: string | null };
   desde: string;
 }
+
+/** Una alerta de búsqueda: te avisamos cuando alguien publica algo con estas palabras. */
+export interface AlertaBusqueda {
+  id: string;
+  texto: string;
+  creada_en: string;
+}

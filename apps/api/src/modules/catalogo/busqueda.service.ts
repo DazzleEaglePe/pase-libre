@@ -31,6 +31,8 @@ export const POR_PAGINA = 24;
 export const SUGERENCIAS = 5;
 /** Términos de «Lo más buscado». */
 export const MAS_BUSCADOS = 4;
+/** «Parecidas que sí hay» cuando no se encontró nada (EV_WebRes). */
+const PARECIDAS = 3;
 
 /** La consulta con lo que agrega la API: las tiendas bloqueadas por quien mira. */
 type ConsultaInterna = BuscarConsulta & { excluirTiendas?: string[] };
@@ -126,6 +128,22 @@ export class BusquedaService {
       }
     }
 
+    // «Parecidas que sí hay»: con una palabra menos cada vez («rtx 5090» → «rtx»).
+    let parecidas: Resultado['filas'] = [];
+    if (resultado.totalProductos === 0 && palabras.length > 1) {
+      for (let cuantas = palabras.length - 1; cuantas >= 1 && parecidas.length === 0; cuantas--) {
+        parecidas = (
+          await this.ejecutar(
+            palabras.slice(0, cuantas),
+            { ...efectiva, pagina: 1 },
+            conPrecio,
+            PARECIDAS,
+            mirada.tiendaId,
+          )
+        ).filas;
+      }
+    }
+
     const facetas = await this.facetas(
       correccion ? correccion.mostramos.split(' ') : palabras,
       efectiva,
@@ -150,12 +168,14 @@ export class BusquedaService {
         ...base,
         audiencia: 'visitante',
         productos: resultado.filas.map((f) => this.productoEnLista(f)),
+        parecidas: parecidas.map((f) => this.productoEnLista(f)),
       };
     }
     return {
       ...base,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
       productos: resultado.filas.map((f) => this.productoConPrecio(f, mirada)),
+      parecidas: parecidas.map((f) => this.productoConPrecio(f, mirada)),
     };
   }
 

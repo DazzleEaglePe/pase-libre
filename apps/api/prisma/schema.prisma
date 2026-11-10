@@ -267,6 +267,7 @@ model Usuario {
   preferenciasAviso    PreferenciaAviso[]
   seguimientos         Seguimiento[]
   opiniones            Opinion[]
+  alertas              AlertaBusqueda[]
   busquedas            Busqueda[]
   contactos            Contacto[]
   cargas               CargaPlanilla[]
@@ -984,4 +985,22 @@ model CodigoCelular {
 
   @@index([celular, creadoEn])
   @@map("codigo_celular")
+}
+
+/// «Avísame cuando alguien la publique» (EV_WebRes): cuando una tienda publica algo que tiene
+/// todas las palabras, llega un aviso. Una por persona y búsqueda.
+model AlertaBusqueda {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  /// Como lo escribió: «RTX 5090».
+  texto     String    @db.VarChar(120)
+  /// Las palabras normalizadas, separadas por un espacio: «rtx 5090».
+  palabras  String    @db.VarChar(120)
+  avisadaEn DateTime? @map("avisada_en") @db.Timestamptz(6)
+  creadaEn  DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, palabras])
+  @@map("alerta_busqueda")
 }

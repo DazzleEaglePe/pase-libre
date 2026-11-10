@@ -15,9 +15,12 @@ import {
 } from '@nestjs/common';
 import {
   actualizarCuentaSchema,
+  alertaBusquedaSchema,
   avisosCuentaSchema,
   respuestasRapidasSchema,
   type ActualizarCuentaDatos,
+  type AlertaBusqueda,
+  type AlertaBusquedaDatos,
   type AvisosCuentaDatos,
   type MiReporte,
   type RespuestaAvisosCuenta,
@@ -119,6 +122,29 @@ export class CuentaController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<void> {
     return this.cuentas.cerrarSesion(sesion, sesionId);
+  }
+
+  @Get('alertas')
+  @Header('Cache-Control', 'no-store')
+  alertas(@SesionActual() { usuario }: SesionActiva): Promise<AlertaBusqueda[]> {
+    return this.cuentas.alertas(usuario.id);
+  }
+
+  @Post('alertas')
+  crearAlerta(
+    @Body(new ZodValidationPipe(alertaBusquedaSchema)) datos: AlertaBusquedaDatos,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<AlertaBusqueda> {
+    return this.cuentas.crearAlerta(usuario.id, datos.texto);
+  }
+
+  @Delete('alertas/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  borrarAlerta(
+    @Param('id', id('Esa alerta no existe.')) alertaId: string,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<void> {
+    return this.cuentas.borrarAlerta(usuario.id, alertaId);
   }
 
   @Get('reportes')
