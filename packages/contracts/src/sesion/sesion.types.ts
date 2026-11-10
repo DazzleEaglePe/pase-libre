@@ -23,6 +23,8 @@ export interface RespuestaYo {
     correo: string | null;
     rol: Rol;
     debe_cambiar_clave: boolean;
+    /** Con tienda y sin haber visto todavía la bienvenida del primer ingreso (OB_WebB). */
+    ver_bienvenida: boolean;
   };
   /** Nula para las cuentas del equipo, que no pertenecen a ninguna tienda. */
   tienda: TiendaDeSesion | null;

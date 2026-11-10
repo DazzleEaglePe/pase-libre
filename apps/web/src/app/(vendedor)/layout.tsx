@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { Bienvenida } from '@/features/bienvenida/bienvenida';
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
 import { obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
@@ -29,6 +30,7 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
           </main>
           <Pie conSesion />
           <BarraInferior conTienda />
+          {sesion.usuario.ver_bienvenida && <Bienvenida />}
         </div>
       </ProveedorEnVivo>
     </ProveedorTiempoReal>

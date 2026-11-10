@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
+import { Bienvenida } from '@/features/bienvenida/bienvenida';
 import { ProveedorEnVivo } from '@/features/en-vivo/contexto';
 import { EnVivoFlotante } from '@/features/en-vivo/flotante';
 import { obtenerSesion } from '@/shared/api/servidor';
@@ -29,6 +30,7 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
         {/* En vivo (D-53): aparece al entrar y sigue al usuario al bajar. */}
         <EnVivoFlotante conSesion={Boolean(sesion?.tienda)} />
         <BarraInferior conTienda={Boolean(sesion?.tienda)} />
+        {sesion?.usuario.ver_bienvenida && <Bienvenida />}
       </div>
     </ProveedorEnVivo>
   );

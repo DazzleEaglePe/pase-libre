@@ -59,6 +59,7 @@ export function respuestaYo(usuario: UsuarioConTienda): RespuestaYo {
       correo: usuario.correo,
       rol: usuario.rol,
       debe_cambiar_clave: usuario.debeCambiarClave,
+      ver_bienvenida: Boolean(tienda) && usuario.bienvenidaVistaEn === null,
     },
     tienda: tienda ? tiendaDeSesion(tienda) : null,
   };

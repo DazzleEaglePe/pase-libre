@@ -66,6 +66,22 @@ describe('Sesión (RF-02, RF-50, RF-60)', () => {
     expect(JSON.stringify(respuesta.body)).not.toContain(cookieDe(respuesta).split('=')[1]);
   });
 
+  it('la bienvenida del primer ingreso sale una sola vez (OB_WebB)', async () => {
+    await crearTiendaConDueno(prisma, { usuario: 'tiendaa' });
+    const primera = await ingresar('tiendaa').expect(200);
+    expect(primera.body.usuario.ver_bienvenida).toBe(true);
+    const cookie = cookieDe(primera);
+
+    await http().post('/v1/cuenta/bienvenida').set(CABECERAS).set('Cookie', cookie).expect(204);
+    const despues = await http().get('/v1/yo').set('Cookie', cookie).expect(200);
+    expect(despues.body.usuario.ver_bienvenida).toBe(false);
+    // Volver a marcarla no cambia la fecha de la primera vez.
+    const vista = await prisma.usuario.findUniqueOrThrow({ where: { usuario: 'tiendaa' } });
+    await http().post('/v1/cuenta/bienvenida').set(CABECERAS).set('Cookie', cookie).expect(204);
+    const otraVez = await prisma.usuario.findUniqueOrThrow({ where: { usuario: 'tiendaa' } });
+    expect(otraVez.bienvenidaVistaEn).toEqual(vista.bienvenidaVistaEn);
+  });
+
   it('ingresa también con el correo, sin importar mayúsculas', async () => {
     await crearTiendaConDueno(prisma, { usuario: 'tiendaa', correo: 'luis@tiendaa.pe' });
     await ingresar('Luis@TiendaA.pe').expect(200);

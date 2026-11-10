@@ -269,6 +269,13 @@ export class CuentaService {
     this.tiempoReal.desconectarSesion(id);
   }
 
+  async bienvenidaVista(usuarioId: string): Promise<void> {
+    await this.prisma.usuario.updateMany({
+      where: { id: usuarioId, bienvenidaVistaEn: null },
+      data: { bienvenidaVistaEn: new Date() },
+    });
+  }
+
   async cerrarOtras(sesion: SesionActiva): Promise<{ cerradas: number }> {
     const { count } = await this.prisma.sesion.updateMany({
       where: { usuarioId: sesion.usuario.id, revocadaEn: null, NOT: { id: sesion.sesionId } },

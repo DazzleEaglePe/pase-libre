@@ -96,6 +96,13 @@ export class CuentaController {
     return this.cuentas.sesiones(sesion);
   }
 
+  /** «Saltar» o «¡Empezar!» en la bienvenida del primer ingreso: no se muestra más. */
+  @Post('bienvenida')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bienvenidaVista(@SesionActual() { usuario }: SesionActiva): Promise<void> {
+    return this.cuentas.bienvenidaVista(usuario.id);
+  }
+
   /** «Cerrar todas las demás». Va antes de `sesiones/:id` para que no se lea como id. */
   @Post('sesiones/cerrar-otras')
   @HttpCode(HttpStatus.OK)
