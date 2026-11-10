@@ -12,6 +12,7 @@
     "db:seed": "prisma db seed",
     "db:validate": "prisma validate",
     "cuenta:equipo": "tsx --env-file-if-exists=../../.env scripts/crear-cuenta-equipo.ts",
+    "cuenta:tienda": "tsx --env-file-if-exists=../../.env scripts/crear-cuenta-tienda.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

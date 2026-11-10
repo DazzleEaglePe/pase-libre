@@ -23,6 +23,7 @@
     "db:seed": "pnpm --filter @paselibre/api db:seed",
     "db:validate": "pnpm --filter @paselibre/api db:validate",
     "cuenta:equipo": "pnpm --filter @paselibre/api cuenta:equipo",
+    "cuenta:tienda": "pnpm --filter @paselibre/api cuenta:tienda",
     "docker:up": "docker compose -f tools/docker/compose.dev.yml up -d",
     "docker:down": "docker compose -f tools/docker/compose.dev.yml down",
     "docker:logs": "docker compose -f tools/docker/compose.dev.yml logs -f",
