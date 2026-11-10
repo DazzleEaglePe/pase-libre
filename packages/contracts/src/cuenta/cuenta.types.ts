@@ -19,6 +19,8 @@ export interface RespuestaCuenta {
     stand: string | null;
     whatsapp: string;
     horario: string | null;
+    /** «Cómo llegar»: cómo se sube hasta el stand. */
+    indicaciones: string | null;
     descripcion: string | null;
     /** Ruta del logo (`/media/<ruta>`), o nulo. */
     logo: string | null;
@@ -63,4 +65,29 @@ export interface AlertaBusqueda {
   id: string;
   texto: string;
   creada_en: string;
+}
+
+/**
+ * `GET /v1/cuenta/resumen` (D_Cuenta, P_WebCuentaD2, sección 14 del lienzo final): lo que se
+ * cuenta de tu tienda en «Tu cuenta» y en tu perfil.
+ */
+export interface ResumenCuenta {
+  /** «Miembro desde octubre de 2026». */
+  miembro_desde: string;
+  /** La cuenta salió del registro propio (si no, la creó el equipo). */
+  por_registro: boolean;
+  /** «48 pases cerrados en 60 días». */
+  ventas_60: number;
+  /** «~10 min para responder»: nulo con menos de 3 chats contestados. */
+  responde_en: number | null;
+  /** «98 % chats respondidos» en 60 días: nulo sin chats. */
+  respondidos: number | null;
+  estrellas: number | null;
+  opiniones: number;
+  /** «Vende gráficas, RAM y procesadores»: sus 3 categorías con más publicaciones. */
+  vende: string[];
+  /** Hilos con mensajes en los últimos 30 días: «3 chats abiertos». */
+  chats_abiertos: number;
+  /** El WhatsApp de la tienda, con lo del medio tapado: «+51 9•• ••• 482». */
+  whatsapp: string | null;
 }

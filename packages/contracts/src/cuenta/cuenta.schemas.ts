@@ -44,6 +44,8 @@ export const actualizarCuentaSchema = z
           .max(120, 'El nombre llega hasta 120 caracteres.'),
         whatsapp: whatsappSchema,
         horario: textoOpcional(120, 'El horario llega hasta 120 caracteres.'),
+        /** «Cómo llegar» (PCH_WebLlegar): cómo se sube hasta el stand. */
+        indicaciones: textoOpcional(240, 'Las indicaciones llegan hasta 240 caracteres.'),
         descripcion: textoOpcional(500, 'La descripción llega hasta 500 caracteres.'),
         /** Ruta de una foto subida con `POST /v1/archivos`, o nulo para quitar el logo. */
         logo: rutaFotoSchema.nullable(),

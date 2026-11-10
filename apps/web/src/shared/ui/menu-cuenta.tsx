@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { llamarApi } from '@/shared/api/cliente';
 
 const ENLACES = [
+  { href: '/cuenta', texto: 'Tu cuenta' },
   { href: '/publicar', texto: 'Publicar' },
   { href: '/cuenta/configuracion', texto: 'Configuración' },
   { href: '/mis-publicaciones', texto: 'Mis publicaciones' },

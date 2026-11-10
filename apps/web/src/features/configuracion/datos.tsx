@@ -25,6 +25,7 @@ export function SeccionDatos({
   const [nombreTienda, setNombreTienda] = useState(tienda?.nombre ?? '');
   const [whatsappTienda, setWhatsappTienda] = useState(tienda?.whatsapp ?? '');
   const [horario, setHorario] = useState(tienda?.horario ?? '');
+  const [indicaciones, setIndicaciones] = useState(tienda?.indicaciones ?? '');
   const [descripcion, setDescripcion] = useState(tienda?.descripcion ?? '');
   const [nombre, setNombre] = useState(cuenta.usuario.nombre);
   const [correo, setCorreo] = useState(cuenta.usuario.correo ?? '');
@@ -64,6 +65,7 @@ export function SeccionDatos({
                   nombre: nombreTienda,
                   whatsapp: whatsappTienda,
                   horario,
+                  indicaciones,
                   descripcion,
                   logo,
                 },
@@ -170,6 +172,20 @@ export function SeccionDatos({
                 placeholder="Lunes a sábado, 10:00 a 19:00"
                 className={campo}
               />
+            </label>
+            <label htmlFor={`${id}-indicaciones`} className={`${etiqueta} sm:col-span-2`}>
+              Cómo llegar a tu stand
+              <input
+                id={`${id}-indicaciones`}
+                maxLength={240}
+                value={indicaciones}
+                onChange={(evento) => setIndicaciones(evento.target.value)}
+                placeholder="Subes por la escalera central y es el segundo pasillo a la derecha"
+                className={campo}
+              />
+              <span className="text-nota font-normal text-detalle">
+                Sale en el chat cuando otra tienda toca «Cómo llegar».
+              </span>
             </label>
             <label htmlFor={`${id}-descripcion`} className={`${etiqueta} sm:col-span-2`}>
               Sobre la tienda

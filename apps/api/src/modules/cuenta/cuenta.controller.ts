@@ -25,6 +25,7 @@ import {
   type MiReporte,
   type RespuestaAvisosCuenta,
   type RespuestaCuenta,
+  type ResumenCuenta,
   type RespuestaRapida,
   type RespuestasRapidasDatos,
   type SesionAbierta,
@@ -36,6 +37,7 @@ import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { CuentaService } from './cuenta.service';
+import { ResumenService } from './resumen.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
 
@@ -46,7 +48,17 @@ const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
 @Controller('cuenta')
 @UseGuards(SesionGuard)
 export class CuentaController {
-  constructor(@Inject(CuentaService) private readonly cuentas: CuentaService) {}
+  constructor(
+    @Inject(CuentaService) private readonly cuentas: CuentaService,
+    @Inject(ResumenService) private readonly resumenes: ResumenService,
+  ) {}
+
+  /** «Tu cuenta» y tu perfil (D_Cuenta, P_WebCuentaD2): cómo vende y responde tu tienda. */
+  @Get('resumen')
+  @Header('Cache-Control', 'no-store')
+  resumen(@SesionActual() sesion: SesionActiva): Promise<ResumenCuenta> {
+    return this.resumenes.resumen(sesion);
+  }
 
   @Get()
   @Header('Cache-Control', 'no-store')

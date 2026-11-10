@@ -10,6 +10,6 @@ import { WilsonService } from './wilson.service';
 @Module({
   controllers: [CatalogoController],
   providers: [CatalogoService, BusquedaService, InicioService, WilsonService, SesionOpcionalGuard],
-  exports: [BusquedaService],
+  exports: [BusquedaService, CatalogoService],
 })
 export class CatalogoModule {}
