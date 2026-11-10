@@ -3,7 +3,7 @@
 import type { RespuestaYo } from '@paselibre/contracts';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { enlaceWhatsappEquipo } from '@/shared/whatsapp-equipo';
@@ -16,17 +16,89 @@ function inicioPara(yo: RespuestaYo): string {
 }
 
 const campo =
-  'h-12 rounded-xl border border-borde px-3.5 text-cuerpo font-normal text-tinta placeholder:text-detalle';
+  'h-12 rounded-xl border border-borde px-4 text-cuerpo font-normal text-tinta placeholder:text-detalle';
 const botonPrincipal =
   'inline-flex h-12 items-center justify-center rounded-full bg-pase px-5 text-cuerpo font-semibold text-white no-underline disabled:bg-borde-control';
 const botonSecundario =
-  'flex h-12 items-center justify-center rounded-full border border-borde text-cuerpo font-semibold no-underline';
-const enlaceBoton = 'min-h-11 self-start text-apoyo font-medium underline';
+  'flex h-12 items-center justify-center rounded-full border border-tinta bg-white text-cuerpo font-semibold text-tinta no-underline';
+
+/** El símbolo de PaseLibre en blanco, con la flecha calada (M_Acceso). */
+function Simbolo() {
+  return (
+    <svg width="64" height="44" viewBox="0 0 64 44" aria-hidden="true">
+      <path
+        fill="#FFFFFF"
+        fillRule="evenodd"
+        d="M10 0H54a10 10 0 0 1 10 10V15.5a6.5 6.5 0 0 0 0 13V34a10 10 0 0 1 -10 10H10a10 10 0 0 1 -10 -10V28.5a6.5 6.5 0 0 0 0 -13V10a10 10 0 0 1 10 -10ZM17.59 22A2.7 2.7 0 0 1 20.29 19.3L33.66 19.3A1 1 0 0 0 34.37 17.59L32.03 15.26A1.2 1.2 0 0 1 32.03 13.56L34.15 11.44A1.2 1.2 0 0 1 35.85 11.44L44.99 20.59A2 2 0 0 1 44.99 23.41L35.85 32.56A1.2 1.2 0 0 1 34.15 32.56L32.03 30.44A1.2 1.2 0 0 1 32.03 28.74L34.37 26.41A1 1 0 0 0 33.66 24.7L20.29 24.7A2.7 2.7 0 0 1 17.59 22Z"
+      />
+    </svg>
+  );
+}
+
+const flechaVolver = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M15 5l-7 7 7 7" />
+  </svg>
+);
 
 /**
- * Pantalla «Iniciar sesión y primer ingreso» del lienzo (F_Acceso): ingresar con
- * usuario o correo (RF-02), «Crear cuenta» en mantenimiento (RF-43), contraseña
- * olvidada por el equipo (RF-50) y la clave propia en el primer ingreso.
+ * El título de cada paso. En el celular va en el bloque verde de arriba con «Volver al
+ * catálogo» y el símbolo (M_Acceso); en la computadora, sobre el formulario (D_Acceso).
+ */
+function Encabezado({
+  titulo,
+  bajada,
+  antes,
+}: {
+  titulo: string;
+  bajada: ReactNode;
+  /** Una línea chica arriba del título («Primer ingreso · tiendab»). */
+  antes?: string;
+}) {
+  return (
+    <>
+      <div className="-mx-5 -mt-8 mb-1 flex flex-col gap-3 rounded-b-[28px] bg-marca px-6 pb-7 pt-5 text-white md:hidden">
+        <Link
+          href="/"
+          className="-ml-1 flex min-h-11 items-center gap-1.5 self-start text-apoyo font-semibold text-white no-underline"
+        >
+          {flechaVolver}
+          Volver al catálogo
+        </Link>
+        <Simbolo />
+        {antes && <span className="text-nota text-pase-medio">{antes}</span>}
+        <h1 className="text-[28px] font-bold leading-9">{titulo}</h1>
+        <p className="text-cuerpo text-white/90">{bajada}</p>
+      </div>
+      <div className="flex flex-col gap-3 max-md:hidden">
+        <Link
+          href="/"
+          className="-ml-1 flex min-h-11 items-center gap-1.5 self-start text-apoyo font-semibold text-pase-texto no-underline"
+        >
+          {flechaVolver}
+          Volver al catálogo
+        </Link>
+        {antes && <span className="text-nota text-detalle">{antes}</span>}
+        <h1 className="text-[32px] font-bold leading-10">{titulo}</h1>
+      </div>
+    </>
+  );
+}
+
+/**
+ * «Inicia sesión» del lienzo final (D_Acceso, M_Acceso): ingresar con usuario o correo (RF-02),
+ * contraseña olvidada por el equipo (RF-50), «¿Aún no tienes cuenta?» (el registro propio o,
+ * apagado, la cuenta por WhatsApp, RF-43) y la clave propia en el primer ingreso.
  */
 export function FormularioAcceso({
   primerIngreso,
@@ -60,22 +132,11 @@ export function FormularioAcceso({
   if (paso === 'listo') {
     return (
       <div className="flex flex-col gap-4">
-        <svg
-          width="32"
-          height="32"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#006B47"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="9" />
-          <path d="M8 12l3 3 5-6" />
-        </svg>
-        <h1 className="text-titulo">Listo, ya entraste</h1>
-        <p className="text-secundario">
+        <Encabezado
+          titulo="Listo, ya entraste"
+          bajada="Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración › Seguridad."
+        />
+        <p className="text-secundario max-md:hidden">
           Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración ›
           Seguridad.
         </p>
@@ -111,7 +172,6 @@ function Ingreso({
   registroActivo: boolean;
   alIngresar: (yo: RespuestaYo) => void;
 }) {
-  const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const [usuario, setUsuario] = useState('');
   const [clave, setClave] = useState('');
   const [verClave, setVerClave] = useState(false);
@@ -150,170 +210,131 @@ function Ingreso({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div role="tablist" aria-label="Acceso" className="grid grid-cols-2 border-b border-linea">
-        {(
-          [
-            ['ingresar', 'Iniciar sesión'],
-            ['crear', 'Crear cuenta'],
-          ] as const
-        ).map(([clavePestana, texto]) => {
-          const activa = pestana === clavePestana;
-          return (
-            <button
-              key={clavePestana}
-              type="button"
-              role="tab"
-              aria-selected={activa}
-              onClick={() => {
-                setPestana(clavePestana);
-                setError(null);
-              }}
-              className={`-mb-px h-12 border-b-2 text-cuerpo ${
-                activa
-                  ? 'border-tinta font-semibold text-tinta'
-                  : 'border-transparent font-medium text-secundario'
-              }`}
-            >
-              {texto}
-            </button>
-          );
-        })}
-      </div>
-
-      {pestana === 'ingresar' ? (
-        <form onSubmit={enviar} noValidate className="flex flex-col gap-[18px]">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-titulo">Inicia sesión</h1>
-            <p className="text-apoyo text-secundario">Para ver precios y escribir a las tiendas.</p>
-          </div>
-          {error && (
-            <p role="alert" className="rounded-xl bg-error-fondo px-3.5 py-3 text-apoyo text-error">
-              {error}
-            </p>
-          )}
-          <label htmlFor="usuario" className="flex flex-col gap-1.5 text-apoyo font-medium">
-            Celular, correo o usuario
-            <input
-              id="usuario"
-              type="text"
-              name="usuario"
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-              className={campo}
-            />
-          </label>
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="clave" className="text-apoyo font-medium">
-              Contraseña
-            </label>
-            <div className="flex h-12 items-center overflow-hidden rounded-xl border border-borde">
-              <input
-                id="clave"
-                name="clave"
-                type={verClave ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={clave}
-                onChange={(e) => setClave(e.target.value)}
-                className="h-full min-w-0 flex-1 bg-transparent px-3.5 text-cuerpo"
-              />
-              <button
-                type="button"
-                aria-pressed={verClave}
-                onClick={() => setVerClave(!verClave)}
-                className="h-full px-3.5 text-apoyo font-medium"
-              >
-                {verClave ? 'Ocultar' : 'Mostrar'}
-              </button>
-            </div>
-          </div>
-          <label className="flex min-h-9 items-center gap-2.5 text-apoyo">
-            <input
-              type="checkbox"
-              checked={recordar}
-              onChange={(e) => setRecordar(e.target.checked)}
-              className="h-[18px] w-[18px] accent-tinta"
-            />
-            Mantener la sesión en este equipo
-          </label>
-          <button type="submit" disabled={enviando} className={botonPrincipal}>
-            {enviando ? 'Ingresando…' : 'Ingresar'}
-          </button>
+    <form onSubmit={enviar} noValidate className="flex flex-col gap-[18px]">
+      <Encabezado
+        titulo="Inicia sesión"
+        bajada="Para ver precios y escribir a las tiendas de la galería."
+      />
+      {error && (
+        <p role="alert" className="rounded-xl bg-error-fondo px-3.5 py-3 text-apoyo text-error">
+          {error}
+        </p>
+      )}
+      <label htmlFor="usuario" className="flex flex-col gap-2 text-apoyo font-semibold">
+        {/* Las cuentas del registro propio entran con su celular. */}
+        {registroActivo ? 'Celular, correo o usuario' : 'Correo o usuario'}
+        <input
+          id="usuario"
+          type="text"
+          name="usuario"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={usuario}
+          onChange={(e) => setUsuario(e.target.value)}
+          className={campo}
+        />
+      </label>
+      <div className="flex flex-col gap-2">
+        <label htmlFor="clave" className="text-apoyo font-semibold">
+          Contraseña
+        </label>
+        <div className="flex h-12 items-center overflow-hidden rounded-xl border border-borde focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-tinta">
+          <input
+            id="clave"
+            name="clave"
+            type={verClave ? 'text' : 'password'}
+            autoComplete="current-password"
+            value={clave}
+            onChange={(e) => setClave(e.target.value)}
+            className="h-full min-w-0 flex-1 bg-transparent px-3.5 text-cuerpo outline-none"
+          />
           <button
             type="button"
-            aria-expanded={olvide}
-            onClick={() => setOlvide(!olvide)}
-            className={enlaceBoton}
+            aria-pressed={verClave}
+            onClick={() => setVerClave(!verClave)}
+            className="h-full px-3.5 text-apoyo font-medium text-secundario"
           >
-            ¿Olvidaste tu contraseña?
+            {verClave ? 'Ocultar' : 'Mostrar'}
           </button>
-          {olvide && (
-            <div className="flex flex-col gap-2.5 rounded-xl border border-linea p-4">
-              <b className="text-cuerpo font-semibold">Pídesela al equipo de PaseLibre</b>
-              <span className="text-apoyo text-secundario">
-                Por ahora no hay recuperación por correo. Escríbenos por WhatsApp con tu usuario y
-                te damos una contraseña nueva; al entrar te pediremos cambiarla.
-              </span>
-              {whatsappClave && (
-                <a
-                  href={whatsappClave}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex h-10 items-center self-start rounded-full border border-borde px-4 text-apoyo font-medium no-underline"
-                >
-                  Escribir al equipo
-                </a>
-              )}
-            </div>
+        </div>
+      </div>
+      <label className="flex min-h-11 items-center gap-3 text-apoyo">
+        <input
+          type="checkbox"
+          checked={recordar}
+          onChange={(e) => setRecordar(e.target.checked)}
+          className="h-5 w-5 accent-pase"
+        />
+        <span className="md:hidden">Mantener la sesión en este celular</span>
+        <span className="max-md:hidden">Mantener la sesión en este equipo</span>
+      </label>
+      <button type="submit" disabled={enviando} className={`${botonPrincipal} h-[52px]`}>
+        {enviando ? 'Ingresando…' : 'Ingresar'}
+      </button>
+      <button
+        type="button"
+        aria-expanded={olvide}
+        onClick={() => setOlvide(!olvide)}
+        className="min-h-11 self-center text-nota font-semibold underline"
+      >
+        ¿Olvidaste tu contraseña? Pídesela al equipo
+      </button>
+      {olvide && (
+        <div className="flex flex-col gap-2.5 rounded-xl border border-linea p-4">
+          <span className="text-apoyo text-secundario">
+            Por ahora no hay recuperación por correo. Escríbenos por WhatsApp con tu usuario y te
+            damos una contraseña nueva; al entrar te pediremos cambiarla.
+          </span>
+          {whatsappClave && (
+            <a
+              href={whatsappClave}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-10 items-center self-start rounded-full border border-borde px-4 text-apoyo font-medium no-underline"
+            >
+              Escribir al equipo
+            </a>
           )}
-        </form>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <h1 className="text-titulo">Crear cuenta</h1>
-          {registroActivo && (
-            <div className="flex flex-col gap-3 rounded-2xl border border-linea p-5">
-              <b className="text-tarjeta">Crea la cuenta de tu tienda</b>
-              <span className="text-apoyo text-secundario">
-                Gratis durante el piloto. Con tu celular y tu RUC (o sin RUC) la revisamos en
-                minutos.
-              </span>
-              <Link href="/registro" className={`${botonPrincipal} self-start`}>
-                Crear la cuenta de mi tienda
-              </Link>
-            </div>
-          )}
-          <div
-            className={`flex flex-col gap-2 rounded-2xl border border-linea p-5 ${registroActivo ? 'hidden' : ''}`}
-          >
-            <b className="text-tarjeta">Estamos en mantenimiento; pronto podrás crear tu cuenta</b>
+        </div>
+      )}
+
+      <div
+        id="crear-cuenta"
+        className={`mt-3 flex flex-col gap-2.5 rounded-2xl bg-superficie p-[18px] ${
+          pestanaInicial === 'crear' ? 'outline outline-2 outline-pase' : ''
+        }`}
+      >
+        <b className="text-cuerpo font-bold">¿Aún no tienes cuenta?</b>
+        {registroActivo ? (
+          <>
+            <span className="text-apoyo text-secundario">
+              Pide tu cuenta con o sin RUC. Una persona del equipo la revisa en máximo 3 horas.
+            </span>
+            <Link href="/registro" className={botonSecundario}>
+              Crear cuenta de tienda
+            </Link>
+          </>
+        ) : (
+          <>
             <span className="text-apoyo text-secundario">
               Mientras dura el piloto, el equipo de PaseLibre crea las cuentas de las tiendas de
               Wilson y te las entrega por WhatsApp.
             </span>
-          </div>
-          {whatsappCuenta && (
-            <a
-              href={whatsappCuenta}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={botonSecundario}
-            >
-              Pedir una cuenta por WhatsApp
-            </a>
-          )}
-          <button
-            type="button"
-            onClick={() => setPestana('ingresar')}
-            className={`${enlaceBoton} self-center`}
-          >
-            Ya tengo cuenta
-          </button>
-        </div>
-      )}
-    </div>
+            {whatsappCuenta && (
+              <a
+                href={whatsappCuenta}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={botonSecundario}
+              >
+                Pedir una cuenta por WhatsApp
+              </a>
+            )}
+          </>
+        )}
+      </div>
+    </form>
   );
 }
 
@@ -359,13 +380,14 @@ function CrearClave({
 
   return (
     <form onSubmit={guardar} className="flex flex-col gap-[18px]">
-      <div className="flex flex-col gap-1">
-        <span className="text-nota text-detalle">Primer ingreso · {usuario}</span>
-        <h1 className="text-titulo">Crea tu contraseña</h1>
-        <p className="text-apoyo text-secundario">
-          La que te dio el equipo es temporal. Cámbiala por una que solo tú sepas.
-        </p>
-      </div>
+      <Encabezado
+        antes={`Primer ingreso · ${usuario}`}
+        titulo="Crea tu contraseña"
+        bajada="La que te dio el equipo es temporal. Cámbiala por una que solo tú sepas."
+      />
+      <p className="-mt-2 text-apoyo text-secundario max-md:hidden">
+        La que te dio el equipo es temporal. Cámbiala por una que solo tú sepas.
+      </p>
       {error && (
         <p role="alert" className="rounded-xl bg-error-fondo px-3.5 py-3 text-apoyo text-error">
           {error}
