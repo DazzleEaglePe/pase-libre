@@ -1,9 +1,12 @@
-import type { RespuestaPortada } from '@paselibre/contracts';
+import type { RespuestaInicio, RespuestaPortada } from '@paselibre/contracts';
 import Link from 'next/link';
+
+import { BandaEnVivo } from '@/features/inicio/banda-en-vivo';
+import { InicioTienda } from '@/features/inicio/inicio-tienda';
 
 import { TarjetaOfertaPortada } from '@/features/catalogo/tarjeta-oferta';
 import { TarjetaVerTodo } from '@/features/catalogo/tarjeta-ver-todo';
-import { cargarApi, obtenerSesion } from '@/shared/api/servidor';
+import { cargarApi, consultarApi, obtenerSesion } from '@/shared/api/servidor';
 import { Carrusel } from '@/shared/ui/carrusel';
 import { botonLista, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 
@@ -24,6 +27,21 @@ export default async function Portada({
       `/portada${galeria ? `?galeria=${encodeURIComponent(galeria)}` : ''}`,
     ),
   ]);
+  // La tienda tiene su propio inicio, que crece solo (sección 5 del lienzo final).
+  if (sesion?.tienda && portada.audiencia !== 'visitante' && !galeria) {
+    const inicio = await consultarApi<RespuestaInicio>('/inicio');
+    if (inicio.estado === 200 && inicio.cuerpo) {
+      return (
+        <InicioTienda
+          sesion={sesion}
+          inicio={inicio.cuerpo}
+          recientes={portada.recien_publicado}
+          categorias={portada.categorias}
+        />
+      );
+    }
+  }
+
   const lugar = sesion?.tienda
     ? [sesion.tienda.galeria, sesion.tienda.stand && `Stand ${sesion.tienda.stand}`]
         .filter(Boolean)
@@ -76,9 +94,15 @@ export default async function Portada({
           )}
         </section>
       ) : (
-        <section aria-label="Bienvenida" className="flex flex-col gap-3 sm:max-w-[720px]">
-          <h1 className="text-titulo">Lo que hay para pase en las galerías de Wilson</h1>
-          <p className="text-cuerpo text-secundario">
+        // D_PortadaVisitante: la bienvenida en su tarjeta gris.
+        <section
+          aria-label="Bienvenida"
+          className="flex flex-col gap-3 rounded-[28px] bg-superficie px-5 py-7 sm:px-9 sm:py-9"
+        >
+          <h1 className="text-[28px] font-bold leading-9 sm:text-[36px] sm:leading-[44px]">
+            Lo que hay para pase en las galerías de Wilson
+          </h1>
+          <p className="max-w-[640px] text-cuerpo text-secundario">
             Busca componentes y mira en qué galería están. Los precios y el contacto con la tienda
             se ven al iniciar sesión.
           </p>
@@ -98,6 +122,8 @@ export default async function Portada({
         </section>
       )}
 
+      {!sesion && <BandaEnVivo visitante />}
+
       <section aria-labelledby="recientes" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="recientes" className="text-seccion">
@@ -106,32 +132,6 @@ export default async function Portada({
           <Link href={verTodo.href} className="text-apoyo font-medium">
             {verTodo.titulo}
           </Link>
-        </div>
-        <div aria-label="Galería" className="flex flex-wrap gap-2">
-          {[{ slug: '', nombre: 'Todas', ofertas: null as number | null }, ...portada.galerias].map(
-            (opcion) => {
-              const activa = (galeria ?? '') === opcion.slug;
-              return (
-                <Link
-                  key={opcion.slug || 'todas'}
-                  href={opcion.slug ? `/?galeria=${opcion.slug}` : '/'}
-                  aria-current={activa ? 'true' : undefined}
-                  className={`flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-apoyo font-medium no-underline md:h-9 ${
-                    activa
-                      ? 'border-tinta bg-tinta text-white'
-                      : 'border-borde bg-white text-tinta hover:border-borde-control'
-                  }`}
-                >
-                  {opcion.nombre}
-                  {opcion.ofertas !== null && (
-                    <span className={`text-nota ${activa ? 'text-white/80' : 'text-detalle'}`}>
-                      {opcion.ofertas}
-                    </span>
-                  )}
-                </Link>
-              );
-            },
-          )}
         </div>
         {portada.recien_publicado.length === 0 ? (
           <p className="rounded-2xl bg-superficie p-6 text-secundario">
@@ -156,22 +156,53 @@ export default async function Portada({
         <h2 id="explora" className="text-seccion">
           Explora por categoría
         </h2>
-        {/* En texto, con cuántos productos tiene (FI_WebNormal del lienzo «Versión final»). */}
-        <ul className="flex flex-wrap gap-2">
-          {portada.categorias
-            .filter((categoria) => categoria.productos > 0)
-            .map((categoria) => (
-              <li key={categoria.slug}>
-                <Link
-                  href={`/buscar?categoria=${categoria.slug}`}
-                  className="flex h-11 items-center gap-2 rounded-full border border-borde bg-white px-4 text-cuerpo font-semibold text-tinta no-underline hover:border-borde-control"
-                >
-                  {categoria.nombre}
-                  <span className="text-apoyo font-normal text-detalle">{categoria.productos}</span>
-                </Link>
-              </li>
-            ))}
-        </ul>
+        {!sesion ? (
+          // D_PortadaVisitante: tarjetas con la inicial y cuántos productos tiene.
+          <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-4 lg:grid-cols-7">
+            {portada.categorias
+              .filter((categoria) => categoria.productos > 0)
+              .slice(0, 14)
+              .map((categoria) => (
+                <li key={categoria.slug}>
+                  <Link
+                    href={`/categorias/${categoria.slug}`}
+                    className="flex h-full flex-col gap-2 rounded-2xl border border-linea bg-white p-4 text-tinta no-underline hover:border-borde"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-pase-suave font-bold text-marca"
+                    >
+                      {categoria.nombre.charAt(0)}
+                    </span>
+                    <b className="mt-1 text-cuerpo font-bold leading-5">{categoria.nombre}</b>
+                    <span className="text-nota text-secundario">
+                      {categoria.productos === 1
+                        ? '1 producto'
+                        : `${categoria.productos} productos`}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <ul className="flex flex-wrap gap-2">
+            {portada.categorias
+              .filter((categoria) => categoria.productos > 0)
+              .map((categoria) => (
+                <li key={categoria.slug}>
+                  <Link
+                    href={`/buscar?categoria=${categoria.slug}`}
+                    className="flex h-11 items-center gap-2 rounded-full border border-borde bg-white px-4 text-cuerpo font-semibold text-tinta no-underline hover:border-borde-control"
+                  >
+                    {categoria.nombre}
+                    <span className="text-apoyo font-normal text-detalle">
+                      {categoria.productos}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+          </ul>
+        )}
       </section>
     </div>
   );

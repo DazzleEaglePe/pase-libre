@@ -196,6 +196,32 @@ export class EnVivoService {
     };
   }
 
+  /**
+   * Lo vigente de unas tiendas, con su tienda (SEG_Web: «busca en vivo · hace 25 min»). Para
+   * las novedades de las tiendas que sigues.
+   */
+  async vigentesDe(
+    tiendaIds: string[],
+    mirada: Mirada,
+  ): Promise<Array<{ tiendaId: string; item: EnVivoConVendedor }>> {
+    if (tiendaIds.length === 0) return [];
+    const ahora = new Date();
+    const filas = await this.prisma.enVivo.findMany({
+      where: { AND: [vigentes(ahora), { tiendaId: { in: tiendaIds } }] },
+      select: SELECT_CON_VENDEDOR,
+      orderBy: { creadoEn: 'desc' },
+      take: MAX_EN_LISTA,
+    });
+    const respuestas = await this.respuestasDeMiTienda(
+      filas.map((f) => f.id),
+      mirada.tiendaId,
+    );
+    return filas.map((f) => ({
+      tiendaId: f.tiendaId,
+      item: this.conVendedor(f, ahora, mirada, respuestas),
+    }));
+  }
+
   /** «Lo tuyo en vivo» (RF-75): lo vigente y lo cerrado hoy, con sus respuestas. */
   async mios(usuario: UsuarioConTienda): Promise<RespuestaMisEnVivo> {
     const ahora = new Date();

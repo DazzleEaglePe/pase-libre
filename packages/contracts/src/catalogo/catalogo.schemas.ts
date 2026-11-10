@@ -36,6 +36,8 @@ export const buscarSchema = z.object({
   moneda: z.enum(['USD', 'PEN']).default('USD'),
   orden: z.enum(['recientes', 'precio_asc', 'precio_desc']).default('recientes'),
   pagina: z.coerce.number().int().min(1).max(500).default(1),
+  /** «Buscar … tal cual»: sin entender números ni categorías ni corregir letras (BUS_Web). */
+  tal_cual: z.stringbool().default(false),
 });
 
 export const portadaSchema = z.object({

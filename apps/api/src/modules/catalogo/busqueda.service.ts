@@ -2,10 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   buscarSchema,
+  interpretarBusqueda,
   normalizarTexto,
   precioDe,
   type BuscarConsulta,
   type Condicion,
+  type Correccion,
   type Faceta,
   type MasBuscadoConsulta,
   type OfertaDestacada,
@@ -108,22 +110,31 @@ export class BusquedaService {
       : { ...consulta, precio_min: undefined, precio_max: undefined, orden: 'recientes' };
 
     const palabras = this.palabras(consulta.q);
-    let resultado = await this.ejecutar(palabras, efectiva, conPrecio, POR_PAGINA, mirada.tiendaId);
-    let correccion: RespuestaBuscar['correccion'] = null;
+    const entendida = await this.entender(consulta, efectiva, (p, c) =>
+      this.ejecutar(p, c, conPrecio, POR_PAGINA, mirada.tiendaId),
+    );
+    const usada = entendida.consulta;
+    let { resultado, correccion } = entendida;
+    let usadas = entendida.palabras;
 
-    if (resultado.totalProductos === 0 && palabras.length > 0) {
-      const corregidas = await this.corregir(palabras);
-      if (corregidas.join(' ') !== palabras.join(' ')) {
+    if (resultado.totalProductos === 0 && palabras.length > 0 && !consulta.tal_cual) {
+      const corregidas = await this.corregir(usadas);
+      if (corregidas.join(' ') !== usadas.join(' ')) {
         const intento = await this.ejecutar(
           corregidas,
-          efectiva,
+          usada,
           conPrecio,
           POR_PAGINA,
           mirada.tiendaId,
         );
         if (intento.totalProductos > 0) {
           resultado = intento;
-          correccion = { buscaste: consulta.q, mostramos: corregidas.join(' ') };
+          usadas = corregidas;
+          correccion = {
+            buscaste: consulta.q,
+            mostramos: corregidas.join(' '),
+            ...(correccion?.categoria ? { categoria: correccion.categoria } : {}),
+          };
         }
       }
     }
@@ -144,10 +155,7 @@ export class BusquedaService {
       }
     }
 
-    const facetas = await this.facetas(
-      correccion ? correccion.mostramos.split(' ') : palabras,
-      efectiva,
-    );
+    const facetas = await this.facetas(usadas, usada);
     await this.registrar(
       consulta.q,
       correccion?.mostramos ?? null,
@@ -184,27 +192,100 @@ export class BusquedaService {
    * con su corrección. No se registra (lo que se va escribiendo no es una búsqueda) y va
    * siempre como para un visitante: el desplegable no muestra precios ni tiendas.
    */
-  async sugerencias(consulta: SugerenciasBusquedaConsulta): Promise<RespuestaSugerenciasBusqueda> {
+  async sugerencias(
+    consulta: SugerenciasBusquedaConsulta,
+    mirada: Mirada,
+  ): Promise<RespuestaSugerenciasBusqueda> {
     const palabras = this.palabras(consulta.q);
     if (palabras.length === 0) return { correccion: null, total_productos: 0, productos: [] };
-    const base = buscarSchema.parse({ q: consulta.q, categoria: consulta.categoria });
+    const conPrecio = conSesion(mirada);
+    const base: ConsultaInterna = {
+      ...buscarSchema.parse({ q: consulta.q, categoria: consulta.categoria }),
+      excluirTiendas: conPrecio ? await tiendasBloqueadasPor(this.prisma, mirada.usuarioId) : [],
+    };
 
-    let resultado = await this.ejecutar(palabras, base, false, SUGERENCIAS);
-    let correccion: RespuestaSugerenciasBusqueda['correccion'] = null;
+    const entendida = await this.entender(base, base, (p, c) =>
+      this.ejecutar(p, c, conPrecio, SUGERENCIAS, mirada.tiendaId),
+    );
+    let { resultado, correccion } = entendida;
     if (resultado.totalProductos === 0) {
-      const corregidas = await this.corregir(palabras);
-      if (corregidas.join(' ') !== palabras.join(' ')) {
-        const intento = await this.ejecutar(corregidas, base, false, SUGERENCIAS);
+      const corregidas = await this.corregir(entendida.palabras);
+      if (corregidas.join(' ') !== entendida.palabras.join(' ')) {
+        const intento = await this.ejecutar(
+          corregidas,
+          entendida.consulta,
+          conPrecio,
+          SUGERENCIAS,
+          mirada.tiendaId,
+        );
         if (intento.totalProductos > 0) {
           resultado = intento;
-          correccion = { buscaste: consulta.q, mostramos: corregidas.join(' ') };
+          correccion = {
+            buscaste: consulta.q,
+            mostramos: corregidas.join(' '),
+            ...(correccion?.categoria ? { categoria: correccion.categoria } : {}),
+          };
         }
       }
     }
     return {
       correccion,
       total_productos: resultado.totalProductos,
-      productos: resultado.filas.map((f) => this.productoEnLista(f)),
+      productos: resultado.filas.map((f) =>
+        conPrecio ? this.productoConPrecio(f, mirada) : this.productoEnLista(f),
+      ),
+    };
+  }
+
+  /**
+   * «Escribe como te salga» (BUS_Web): primero lo entendido (números en palabras, modelos
+   * partidos, la categoría nombrada); si eso no encuentra nada, lo escrito tal cual. Con
+   * `tal_cual`, solo lo escrito.
+   */
+  private async entender<C extends BuscarConsulta>(
+    consulta: C,
+    efectiva: C,
+    buscarCon: (palabras: string[], consulta: C) => Promise<Resultado>,
+  ): Promise<{
+    resultado: Resultado;
+    palabras: string[];
+    consulta: C;
+    correccion: Correccion | null;
+  }> {
+    const palabras = this.palabras(consulta.q);
+    const entendida = consulta.tal_cual ? null : interpretarBusqueda(consulta.q);
+    if (entendida?.cambio) {
+      const categoria =
+        entendida.categoria && !efectiva.categoria
+          ? await this.prisma.categoria.findUnique({
+              where: { slug: entendida.categoria },
+              select: { slug: true, nombre: true },
+            })
+          : null;
+      const conCategoria = categoria ? { ...efectiva, categoria: categoria.slug } : efectiva;
+      const nuevas = this.palabras(entendida.texto);
+      // Solo una categoría nombrada sin nada más: si no se pudo elegir, no hay qué buscar.
+      if (nuevas.length > 0 || categoria) {
+        const intento = await buscarCon(nuevas, conCategoria);
+        if (intento.totalProductos > 0) {
+          return {
+            resultado: intento,
+            palabras: nuevas,
+            consulta: conCategoria,
+            correccion: {
+              buscaste: consulta.q,
+              mostramos: entendida.texto || (categoria?.nombre ?? ''),
+              ...(categoria ? { categoria } : {}),
+            },
+          };
+        }
+      }
+    }
+    return {
+      resultado: await buscarCon(palabras, efectiva),
+      palabras,
+      consulta: efectiva,
+      correccion: null,
     };
   }
 
@@ -254,7 +335,7 @@ export class BusquedaService {
   }
 
   /** Lo buscado al menos dos veces, de más a menos, con la forma que más se escribió. */
-  private async terminosRepetidos(): Promise<string[]> {
+  async terminosRepetidos(): Promise<string[]> {
     const filas = await this.prisma.$queryRaw<Array<{ texto: string; veces: number }>>`
       SELECT regexp_replace(lower(trim(coalesce(texto_corregido, texto))), '[[:space:]]+', ' ', 'g') AS texto,
              count(*)::int AS veces

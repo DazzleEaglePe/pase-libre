@@ -10,5 +10,6 @@ import { EnVivoService } from './en-vivo.service';
   imports: [MensajesModule],
   controllers: [EnVivoPublicoController, EnVivoController],
   providers: [EnVivoService, EnVivoActivoGuard, SesionOpcionalGuard],
+  exports: [EnVivoService],
 })
 export class EnVivoModule {}

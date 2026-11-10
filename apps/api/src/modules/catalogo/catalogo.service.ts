@@ -9,9 +9,11 @@ import type {
   PortadaConsulta,
   ProductoDetalle,
   RespuestaFicha,
+  RespuestaInicio,
   RespuestaMapaDelSitio,
   RespuestaPortada,
   RespuestaRedireccion,
+  TarjetaOfertaConVendedor,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -23,11 +25,11 @@ import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { conSesion, precioPara, preciosPara, tiendaPara } from './visibilidad';
 
-/** Una oferta se muestra si está activa, su tienda no está suspendida y su producto no se unió a otro. */
 /** El día en Lima, «2026-11-10». */
 const DIA_LIMA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' });
 
-const OFERTA_VIGENTE = {
+/** Una oferta se muestra si está activa, su tienda no está suspendida y su producto no se unió a otro. */
+export const OFERTA_VIGENTE = {
   estado: 'ACTIVA',
   tienda: { estado: 'ACTIVA' },
   producto: { fusionadoEnId: null },
@@ -39,7 +41,7 @@ const FOTOS = {
 } as const;
 
 /** Lo único que se pide de una oferta para un visitante: sin precio ni tienda. */
-const SELECT_OFERTA_PUBLICA = {
+export const SELECT_OFERTA_PUBLICA = {
   id: true,
   condicion: true,
   estadoDetalle: true,
@@ -55,7 +57,7 @@ const SELECT_OFERTA_PUBLICA = {
   tienda: { select: { tipo: true, galeria: { select: { nombre: true } } } },
 } satisfies Prisma.OfertaSelect;
 
-const SELECT_OFERTA_CON_VENDEDOR = {
+export const SELECT_OFERTA_CON_VENDEDOR = {
   ...SELECT_OFERTA_PUBLICA,
   tiendaId: true,
   precioCentimos: true,
@@ -78,7 +80,7 @@ const SELECT_OFERTA_CON_VENDEDOR = {
   },
 } satisfies Prisma.OfertaSelect;
 
-const PRODUCTO_TARJETA = {
+export const PRODUCTO_TARJETA = {
   select: {
     slug: true,
     titulo: true,
@@ -88,6 +90,52 @@ const PRODUCTO_TARJETA = {
 } as const;
 
 type OfertaPublicaFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_PUBLICA }>;
+type TarjetaConVendedorFila = Prisma.OfertaGetPayload<{
+  select: typeof SELECT_OFERTA_CON_VENDEDOR & { producto: typeof PRODUCTO_TARJETA };
+}>;
+
+/** Las tarjetas de la portada y de «De tiendas que sigues», con precio y tienda. */
+export function tarjetaConVendedor(
+  o: TarjetaConVendedorFila,
+  mirada: Mirada,
+): TarjetaOfertaConVendedor {
+  return {
+    oferta_id: o.id,
+    producto: {
+      slug: o.producto.slug,
+      titulo: o.producto.titulo,
+      categoria: o.producto.categoria,
+      foto: o.producto.fotos[0]?.ruta ?? null,
+    },
+    condicion: o.condicion,
+    stock: o.stock,
+    galeria: o.tienda.galeria?.nombre ?? null,
+    actualizada_en: o.actualizadaEn.toISOString(),
+    tienda: (({ nombre, stand }) => ({ nombre, stand }))(tiendaPara(o, o.tienda, mirada)),
+    tienda_visible: o.tiendaVisible,
+    precio: precioPara(o, mirada),
+    precio_visible: o.precioVisible,
+    propia: o.tiendaId === mirada.tiendaId,
+  };
+}
+
+/**
+ * «2 filas de 6 mezcladas por tienda» (FI_WebNormal): de lo más reciente, una de cada tienda
+ * por vuelta, para que una tienda que sube 20 de golpe no tape a las demás.
+ */
+export function mezclarPorTienda<T extends { tiendaId: string }>(lista: T[], cuantas: number): T[] {
+  const porTienda = new Map<string, T[]>();
+  for (const item of lista)
+    porTienda.set(item.tiendaId, [...(porTienda.get(item.tiendaId) ?? []), item]);
+  const colas = [...porTienda.values()];
+  const mezcla: T[] = [];
+  for (let vuelta = 0; mezcla.length < cuantas; vuelta++) {
+    const deEstaVuelta = colas.map((cola) => cola[vuelta]).filter((item) => item !== undefined);
+    if (deEstaVuelta.length === 0) break;
+    mezcla.push(...deEstaVuelta);
+  }
+  return mezcla.slice(0, cuantas);
+}
 type OfertaConVendedorFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_CON_VENDEDOR }>;
 
 /**
@@ -285,12 +333,13 @@ export class CatalogoService {
     const base = { categorias, galerias, totales };
 
     if (!conSesion(mirada)) {
-      const ofertas = await this.prisma.oferta.findMany({
+      const candidatas = await this.prisma.oferta.findMany({
         where,
         orderBy,
-        take: PORTADA_RECIENTES,
-        select: { ...SELECT_OFERTA_PUBLICA, producto: PRODUCTO_TARJETA },
+        take: PORTADA_RECIENTES * 3,
+        select: { ...SELECT_OFERTA_PUBLICA, tiendaId: true, producto: PRODUCTO_TARJETA },
       });
+      const ofertas = mezclarPorTienda(candidatas, PORTADA_RECIENTES);
       return {
         ...base,
         audiencia: 'visitante',
@@ -311,33 +360,46 @@ export class CatalogoService {
     }
 
     const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
-    const ofertas = await this.prisma.oferta.findMany({
+    const candidatas = await this.prisma.oferta.findMany({
       where: bloqueadas.length > 0 ? { AND: [where, { tiendaId: { notIn: bloqueadas } }] } : where,
       orderBy,
-      take: PORTADA_RECIENTES,
+      take: PORTADA_RECIENTES * 3,
       select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
     });
     return {
       ...base,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
-      recien_publicado: ofertas.map((o) => ({
-        oferta_id: o.id,
-        producto: {
-          slug: o.producto.slug,
-          titulo: o.producto.titulo,
-          categoria: o.producto.categoria,
-          foto: o.producto.fotos[0]?.ruta ?? null,
-        },
-        condicion: o.condicion,
-        stock: o.stock,
-        galeria: o.tienda.galeria?.nombre ?? null,
-        actualizada_en: o.actualizadaEn.toISOString(),
-        tienda: (({ nombre, stand }) => ({ nombre, stand }))(tiendaPara(o, o.tienda, mirada)),
-        tienda_visible: o.tiendaVisible,
-        precio: precioPara(o, mirada),
-        precio_visible: o.precioVisible,
-        propia: o.tiendaId === mirada.tiendaId,
-      })),
+      recien_publicado: mezclarPorTienda(candidatas, PORTADA_RECIENTES).map((o) =>
+        tarjetaConVendedor(o, mirada),
+      ),
+    };
+  }
+
+  /** «De tiendas que sigues» (SG_WebFeed): lo último con stock de las tiendas que sigues. */
+  async deSeguidas(mirada: Mirada): Promise<RespuestaInicio['de_seguidas']> {
+    if (!mirada.tiendaId) return { tiendas: [], ofertas: [] };
+    const seguidas = await this.prisma.seguimiento.findMany({
+      where: { tiendaId: mirada.tiendaId },
+      select: { seguidaId: true },
+    });
+    if (seguidas.length === 0) return { tiendas: [], ofertas: [] };
+    const filas = await this.prisma.oferta.findMany({
+      where: {
+        AND: [
+          OFERTA_VIGENTE,
+          { stock: { gt: 0 } },
+          // Las reservadas no se delatan: quien sigue a una tienda no ve que esa es suya.
+          { tiendaVisible: true },
+          { tiendaId: { in: seguidas.map((s) => s.seguidaId) } },
+        ],
+      },
+      orderBy: [{ actualizadaEn: 'desc' }, { creadaEn: 'desc' }],
+      take: 4,
+      select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
+    });
+    return {
+      tiendas: [...new Set(filas.map((o) => o.tienda.nombre))],
+      ofertas: filas.map((o) => tarjetaConVendedor(o, mirada)),
     };
   }
 

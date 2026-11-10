@@ -369,7 +369,7 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
   });
 
   describe('buscador de la barra', () => {
-    it('sugiere productos mientras se escribe, sin precio aunque haya sesión', async () => {
+    it('sugiere productos mientras se escribe; con sesión, con «desde» (BUS_WebSug)', async () => {
       const cookie = await como('tiendab');
       const respuesta = await http()
         .get('/v1/buscar/sugerencias?q=rtx%2030')
@@ -380,6 +380,11 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(respuesta.body.productos.length).toBeLessThanOrEqual(5);
       expect(respuesta.body.productos.map((p: Producto) => p.slug)).toContain(VENTUS);
       for (const producto of respuesta.body.productos) {
+        expect(producto.ofertas.precios_desde).toEqual(expect.any(Array));
+      }
+      // Sin sesión, ni precio ni tienda.
+      const visitante = await http().get('/v1/buscar/sugerencias?q=rtx%2030').expect(200);
+      for (const producto of visitante.body.productos) {
         expect(producto.ofertas.precios_desde).toBeUndefined();
       }
     });

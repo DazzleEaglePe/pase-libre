@@ -703,6 +703,17 @@ export class OfertasService {
             : { precioCentimos: cambios.precio === null ? null : BigInt(cambios.precio) }),
           ...columnasDeDetalle(cambios),
         };
+        // «Bajó de precio · Antes US$ 465» (SEG_Web): se guarda el de antes; si sube, se borra.
+        if (cambios.precio !== undefined && actual.precioCentimos !== null) {
+          const nuevo = cambios.precio === null ? null : BigInt(cambios.precio);
+          if (nuevo !== null && nuevo < actual.precioCentimos) {
+            data.precioAnteriorCentimos = actual.precioCentimos;
+            data.precioBajoEn = new Date();
+          } else if (nuevo === null || nuevo > actual.precioCentimos) {
+            data.precioAnteriorCentimos = null;
+            data.precioBajoEn = null;
+          }
+        }
         // «¿Quién ve el precio? Todas» sin monto no se puede: queda por chat.
         if (data.precioVisible === true && precio === null) data.precioVisible = false;
         const soloPausa =

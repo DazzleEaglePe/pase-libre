@@ -19,6 +19,7 @@ import {
   buscarTiendasSchema,
   descuentoSocioSchema,
   filtroOpinionesSchema,
+  novedadesSchema,
   opinarSchema,
   responderOpinionSchema,
   seguirTiendaSchema,
@@ -26,10 +27,12 @@ import {
   type BuscarTiendasConsulta,
   type DescuentoSocioDatos,
   type FiltroOpinionesConsulta,
+  type NovedadesConsulta,
   type OpinarDatos,
   type OpinionPublica,
   type PerfilTienda,
   type ResponderOpinionDatos,
+  type RespuestaNovedades,
   type RespuestaOpiniones,
   type RespuestaSeguir,
   type RespuestaSocios,
@@ -42,6 +45,7 @@ import { z } from 'zod';
 import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { NovedadesService } from './novedades.service';
 import { TiendasService } from './tiendas.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
@@ -54,7 +58,10 @@ const idTienda = id('Esta tienda no existe.');
 @Controller()
 @UseGuards(SesionGuard)
 export class TiendasController {
-  constructor(@Inject(TiendasService) private readonly tiendas: TiendasService) {}
+  constructor(
+    @Inject(TiendasService) private readonly tiendas: TiendasService,
+    @Inject(NovedadesService) private readonly novedadesSeguidas: NovedadesService,
+  ) {}
 
   @Get('socios')
   @Header('Cache-Control', 'no-store')
@@ -95,6 +102,16 @@ export class TiendasController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<TiendaBreve[]> {
     return this.tiendas.buscarTiendas(consulta.q, sesion);
+  }
+
+  /** «De tiendas que sigues» (SEG_Web): lo que publicaron, bajaron o piden en vivo. */
+  @Get('seguidas/novedades')
+  @Header('Cache-Control', 'no-store')
+  novedades(
+    @Query(new ZodValidationPipe(novedadesSchema)) consulta: NovedadesConsulta,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaNovedades> {
+    return this.novedadesSeguidas.novedades(consulta, sesion);
   }
 
   @Get('tiendas/seguidas')

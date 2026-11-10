@@ -1,10 +1,12 @@
 'use client';
 
-import type {
-  CategoriaResumen,
-  ProductoEnLista,
-  RespuestaMasBuscado,
-  RespuestaSugerenciasBusqueda,
+import {
+  formatearPrecio,
+  type CategoriaResumen,
+  type ProductoEnLista,
+  type ProductoEnListaConPrecio,
+  type RespuestaMasBuscado,
+  type RespuestaSugerenciasBusqueda,
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -64,13 +66,20 @@ function hrefBuscar(q: string, categoria: string): string {
   return `/buscar?${consulta.toString()}`;
 }
 
-function detalleProducto(producto: ProductoEnLista): string {
-  const { cantidad, galerias } = producto.ofertas;
-  return [
-    producto.categoria.nombre,
-    cantidad === 1 ? '1 oferta' : `${cantidad} ofertas`,
-    galerias.join(', '),
-  ].join(' · ');
+/**
+ * «Tarjetas de video · desde US$ 285 · 6 ofertas» con sesión (BUS_WebSug); sin sesión, en qué
+ * galerías está.
+ */
+function detalleProducto(producto: ProductoEnLista | ProductoEnListaConPrecio): string {
+  const { cantidad } = producto.ofertas;
+  const ofertas = cantidad === 1 ? '1 oferta' : `${cantidad} ofertas`;
+  if ('oferta_destacada' in producto) {
+    const desde = producto.ofertas.precios_desde[0];
+    return [producto.categoria.nombre, desde && `desde ${formatearPrecio(desde)}`, ofertas]
+      .filter(Boolean)
+      .join(' · ');
+  }
+  return [producto.categoria.nombre, ofertas, producto.ofertas.galerias.join(', ')].join(' · ');
 }
 
 interface Opcion {
@@ -251,6 +260,11 @@ function Formulario({
       })
     : -1;
   const iProductos = productos.map((producto) => agregar({ href: `/p/${producto.slug}` }));
+  // «Ver todo en Tarjetas de video» cuando una palabra nombró la categoría (BUS_WebSug).
+  const categoriaEntendida = correccion?.categoria ?? null;
+  const iCategoria = categoriaEntendida
+    ? agregar({ href: `/buscar?categoria=${categoriaEntendida.slug}` })
+    : -1;
   const iBuscar = escribiendo
     ? agregar({ href: hrefBuscar(escrito, categoria), busqueda: escrito })
     : -1;
@@ -426,8 +440,10 @@ function Formulario({
                 {correccion && (
                   <OpcionLista {...propiedades(iCorreccion)} className={claseOpcion(iCorreccion)}>
                     <span className="text-secundario">
-                      ¿Quisiste decir{' '}
-                      <b className="font-semibold text-tinta">{correccion.mostramos}</b>?
+                      Entendimos <b className="font-semibold text-tinta">{correccion.mostramos}</b>
+                      {categoriaEntendida && categoriaEntendida.nombre !== correccion.mostramos
+                        ? ` en ${categoriaEntendida.nombre}`
+                        : ''}
                     </span>
                   </OpcionLista>
                 )}
@@ -454,9 +470,16 @@ function Formulario({
                 ))}
                 {!cargando && sugerencias && productos.length === 0 && !correccion && (
                   <p className="px-3 py-2 text-apoyo text-secundario">
-                    No encontramos «{escrito}». Prueba con menos palabras: solo la marca y el
-                    modelo.
+                    Nadie lo tiene publicado. Pulsa Buscar y te damos opciones.
                   </p>
+                )}
+                {categoriaEntendida && (
+                  <OpcionLista
+                    {...propiedades(iCategoria)}
+                    className={`${claseOpcion(iCategoria)} font-semibold text-pase-texto`}
+                  >
+                    Ver todo en {categoriaEntendida.nombre}
+                  </OpcionLista>
                 )}
                 {cargando && !sugerencias && (
                   <p className="px-3 py-2 text-apoyo text-detalle">Buscando…</p>
@@ -466,7 +489,7 @@ function Formulario({
                   className={`${claseOpcion(iBuscar)} mt-1 font-semibold`}
                 >
                   {total > productos.length
-                    ? `Ver los ${total} resultados de «${escrito}»`
+                    ? `Ver todos los resultados de «${escrito}»`
                     : `Buscar «${escrito}»`}
                 </OpcionLista>
               </>

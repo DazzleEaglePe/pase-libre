@@ -16,6 +16,8 @@ export interface Filtros {
   /** Nulo = el de cada quien: con sesión «Más barato primero», sin sesión «Más recientes». */
   orden: OrdenBusqueda | null;
   pagina: number;
+  /** «Buscar … tal cual» (BUS_Web): sin entender ni corregir lo escrito. */
+  talCual: boolean;
 }
 
 type Parametros = Record<string, string | string[] | undefined>;
@@ -43,6 +45,7 @@ export function leerFiltros(parametros: Parametros): Filtros {
     orden:
       orden === 'precio_asc' || orden === 'precio_desc' || orden === 'recientes' ? orden : null,
     pagina: Math.max(1, Math.min(500, Number.parseInt(uno(parametros.pagina), 10) || 1)),
+    talCual: ['1', 'true'].includes(uno(parametros.tal_cual).toLowerCase()),
   };
 }
 
@@ -66,6 +69,7 @@ export function textoConsulta(filtros: Filtros, paraApi = false): string {
   }
   if (filtros.orden) consulta.set('orden', filtros.orden);
   if (filtros.pagina > 1) consulta.set('pagina', String(filtros.pagina));
+  if (filtros.talCual) consulta.set('tal_cual', paraApi ? 'true' : '1');
   return consulta.toString();
 }
 

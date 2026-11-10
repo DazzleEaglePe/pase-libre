@@ -164,6 +164,9 @@ model Galeria {
   slug     String   @unique @db.Citext
   activa   Boolean  @default(true)
   orden    Int      @default(0) @db.SmallInt
+  /// Dónde queda en la avenida, en metros desde una esquina (CAT_Web3): con eso sale «a 3 min
+  /// caminando». Lo pone el equipo; sin él no se dice la distancia.
+  metros   Int?
   creadaEn DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
 
   tiendas Tienda[]
@@ -365,6 +368,8 @@ model Producto {
   ofertas         Oferta[]
   enVivo          EnVivo[]
 
+  preciosDiarios PrecioDiario[]
+
   @@index([categoriaId])
   @@index([marcaId])
   @@index([textoBusqueda(ops: raw("gin_trgm_ops"))], type: Gin, map: "producto_texto_busqueda_trgm_idx")
@@ -447,6 +452,10 @@ model Oferta {
   /// «Acepto ofertas en el chat».
   aceptaOfertas           Boolean        @default(true) @map("acepta_ofertas")
   estado                  EstadoOferta   @default(ACTIVA)
+  /// El precio de pase antes de la última baja y cuándo bajó: «Bajó de precio · Antes US$ 465»
+  /// (SEG_Web). Una subida lo borra.
+  precioAnteriorCentimos  BigInt?        @map("precio_anterior_centimos")
+  precioBajoEn            DateTime?      @map("precio_bajo_en") @db.Timestamptz(6)
   /// «¿Por qué la pausas?» (MP_Web): se ve en la pestaña «Pausadas». Nulo si está activa.
   razonPausa              String?        @map("razon_pausa") @db.VarChar(60)
   /// `true` mientras no esté eliminada y nulo al eliminarla. Con él, el índice único
@@ -1099,4 +1108,22 @@ model VistaOferta {
   @@id([ofertaId, tiendaId, dia])
   @@index([ofertaId, dia])
   @@map("vista_oferta")
+}
+
+/// El precio de pase de cada producto por día (CAT_Web4: «30 días» y «Cambio»): el más bajo y el
+/// promedio de los que se muestran, en la moneda con más publicaciones. Se pone al día al abrir
+/// la página de la categoría.
+model PrecioDiario {
+  productoId       String   @map("producto_id") @db.Uuid
+  dia              DateTime @db.Date
+  moneda           Moneda
+  minimoCentimos   BigInt   @map("minimo_centimos")
+  promedioCentimos BigInt   @map("promedio_centimos")
+  ofertas          Int
+  actualizadoEn    DateTime @default(now()) @map("actualizado_en") @db.Timestamptz(6)
+
+  producto Producto @relation(fields: [productoId], references: [id], onDelete: Cascade)
+
+  @@id([productoId, dia])
+  @@map("precio_diario")
 }

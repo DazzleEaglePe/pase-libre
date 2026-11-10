@@ -55,14 +55,14 @@ export function inicialesDe(nombre: string): string {
 }
 
 /** Las publicaciones que se pueden mostrar en el perfil: vigentes y con el nombre a la vista. */
-const OFERTA_DEL_PERFIL = {
+export const OFERTA_DEL_PERFIL = {
   estado: 'ACTIVA',
   tiendaVisible: true,
   stock: { gt: 0 },
   producto: { fusionadoEnId: null },
 } satisfies Prisma.OfertaWhereInput;
 
-function miradaDe(sesion: SesionActiva): Mirada {
+export function miradaDe(sesion: SesionActiva): Mirada {
   return {
     audiencia: audienciaDe(sesion),
     tiendaId: sesion.usuario.tiendaId,

@@ -93,9 +93,20 @@ export interface ProductoEnListaConPrecio extends Omit<ProductoEnLista, 'ofertas
   oferta_destacada: OfertaDestacada;
 }
 
+/** Lo que se entendió de lo escrito (BUS_Web, sección 6 del lienzo final). */
+export interface Correccion {
+  buscaste: string;
+  mostramos: string;
+  /** La categoría que se eligió por una palabra («gráfica»): «en Tarjetas de video». */
+  categoria?: { slug: string; nombre: string } | null;
+}
+
 interface BaseBusqueda {
-  /** Presente cuando se corrigió la búsqueda: «Mostramos resultados para … Buscaste …». */
-  correccion: { buscaste: string; mostramos: string } | null;
+  /**
+   * Presente cuando se entendió o corrigió lo escrito: «Mostrando resultados para gigabyte 3060
+   * en Tarjetas de video · Buscar «gigabte treinta sesenta» tal cual» (BUS_Web).
+   */
+  correccion: Correccion | null;
   total_productos: number;
   total_ofertas: number;
   pagina: number;
@@ -204,9 +215,10 @@ export interface RespuestaRedireccion {
  * misma búsqueda tolerante (y su corrección) pero sin precios ni tiendas, aunque haya sesión.
  */
 export interface RespuestaSugerenciasBusqueda {
-  correccion: { buscaste: string; mostramos: string } | null;
+  correccion: Correccion | null;
   total_productos: number;
-  productos: ProductoEnLista[];
+  /** Con sesión, con «desde US$ 285 · 6 tiendas» (BUS_WebSug). */
+  productos: Array<ProductoEnLista | ProductoEnListaConPrecio>;
 }
 
 /**
@@ -269,6 +281,37 @@ interface BasePortada {
   categorias: CategoriaResumen[];
   galerias: GaleriaResumen[];
   totales: { productos: number; tiendas: number; galerias: number };
+}
+
+/**
+ * El inicio de una tienda «crece solo» (FI_Web, FI_WebPocas, FI_WebNormal y SG_WebFeed, sección 5
+ * del lienzo final): según cuánto hay publicado en la galería, muestra una cosa u otra.
+ */
+export type FaseInicio = 'DIA_1' | 'POCAS' | 'NORMAL';
+
+/** `GET /v1/inicio`: lo que solo ve una tienda en su inicio. */
+export interface RespuestaInicio {
+  /** DIA_1: nadie más publicó; POCAS: menos de 12 publicaciones de otras tiendas. */
+  fase: FaseInicio;
+  /** «De tiendas que sigues»: lo último de las que sigues (hasta 4) y sus nombres. */
+  de_seguidas: { tiendas: string[]; ofertas: TarjetaOfertaConVendedor[] };
+  /**
+   * «Lo que más se pide en la galería»: lo más buscado en 30 días que tu tienda aún no
+   * publica. `producto` es el slug si ya está en el catálogo («¿Lo tienes? Publícalo»).
+   */
+  mas_pedido: Array<{ texto: string; categoria: string | null; producto: string | null }>;
+  /**
+   * «Tiendas que ya están» (sin la tuya ni las que bloqueaste) y «5 de 20 tiendas ya
+   * entraron». Una tienda con todo en reservado cuenta, pero no se muestra.
+   */
+  tiendas: {
+    visibles: Array<{ id: string; nombre: string; detalle: string }>;
+    reservadas: number;
+    activas: number;
+    meta: number;
+  };
+  /** «Primeros pasos»: perfil con horario y descripción, cuántas publicaste y si pediste en vivo. */
+  pasos: { perfil: boolean; publicadas: number; en_vivo: boolean };
 }
 
 export type RespuestaPortada =

@@ -79,6 +79,47 @@ const iconoRemate = (
   </svg>
 );
 
+const iconoCorazon = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="shrink-0"
+  >
+    <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+  </svg>
+);
+
+const iconoMapa = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.7"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="shrink-0"
+  >
+    <path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14" />
+  </svg>
+);
+
+/** «Nuevo» en amarillo, como en D_Barra. */
+const nuevo = (
+  <span className="rounded-full bg-[#FDE68A] px-[7px] text-[11px] font-bold leading-[18px] text-ambar-texto">
+    Nuevo
+  </span>
+);
+
 const iconoEstrella = (
   <svg
     width="16"
@@ -184,6 +225,25 @@ function BandaComputadora({
           Recién llegados
           {numeros.recienHoy > 0 && <Cuenta tono="verde">+{numeros.recienHoy} hoy</Cuenta>}
         </Link>
+        {conTienda && (
+          <Link
+            href="/tiendas-que-sigues"
+            aria-current={ruta === '/tiendas-que-sigues' ? 'page' : undefined}
+            className={clase(ruta === '/tiendas-que-sigues')}
+          >
+            {iconoCorazon}
+            De tiendas que sigues
+          </Link>
+        )}
+        <Link
+          href="/wilson-en-vivo"
+          aria-current={ruta === '/wilson-en-vivo' ? 'page' : undefined}
+          className={clase(ruta === '/wilson-en-vivo')}
+        >
+          {iconoMapa}
+          Wilson en vivo
+          {nuevo}
+        </Link>
         <Link
           href="/ayuda"
           aria-current={ruta === '/ayuda' ? 'page' : undefined}
@@ -200,7 +260,7 @@ function BandaComputadora({
  * Las burbujas del celular (NAVB_CelB): se deslizan hacia el costado. «En vivo» va en negro,
  * para que se note primero.
  */
-function BurbujasCelular({ numeros }: { numeros: NumerosBarra }) {
+function BurbujasCelular({ numeros, conTienda }: { numeros: NumerosBarra; conTienda: boolean }) {
   const ruta = usePathname();
   const burbuja =
     'flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 text-apoyo font-semibold no-underline';
@@ -234,6 +294,16 @@ function BurbujasCelular({ numeros }: { numeros: NumerosBarra }) {
           {iconoEstrella}
           Recién llegados
           {numeros.recienHoy > 0 && <Cuenta tono="verde">+{numeros.recienHoy}</Cuenta>}
+        </Link>
+        {conTienda && (
+          <Link href="/tiendas-que-sigues" className={clara}>
+            {iconoCorazon}
+            Seguidas
+          </Link>
+        )}
+        <Link href="/wilson-en-vivo" className={clara}>
+          {iconoMapa}
+          Wilson en vivo
         </Link>
       </div>
     </nav>
@@ -347,6 +417,9 @@ export function Cabecera({
     ruta === '/buscar' ||
     ruta === '/mis-publicaciones' ||
     ruta === '/historial' ||
+    ruta === '/wilson-en-vivo' ||
+    ruta === '/tiendas-que-sigues' ||
+    ruta.startsWith('/categorias/') ||
     ruta.startsWith('/p/') ||
     ruta.startsWith('/tiendas/');
 
@@ -374,7 +447,7 @@ export function Cabecera({
           conTienda={Boolean(tienda)}
         />
       </Suspense>
-      {!enMensajes && <BurbujasCelular numeros={numeros} />}
+      {!enMensajes && <BurbujasCelular numeros={numeros} conTienda={Boolean(tienda)} />}
     </header>
   );
 

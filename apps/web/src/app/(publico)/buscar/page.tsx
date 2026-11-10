@@ -1,9 +1,10 @@
-import type {
-  CategoriaResumen,
-  ProductoEnLista,
-  ProductoEnListaConPrecio,
-  RespuestaBuscar,
-  RespuestaMasBuscado,
+import {
+  interpretarBusqueda,
+  type CategoriaResumen,
+  type ProductoEnLista,
+  type ProductoEnListaConPrecio,
+  type RespuestaBuscar,
+  type RespuestaMasBuscado,
 } from '@paselibre/contracts';
 import { IconZoomCancel } from '@tabler/icons-react';
 import type { Metadata } from 'next';
@@ -168,15 +169,50 @@ export default async function Resultados({ searchParams }: { searchParams: Param
           <span className="text-cuerpo text-secundario">{cuenta}</span>
         </div>
         {resultado.correccion && (
-          <p className="text-secundario">
-            Mostramos resultados para{' '}
-            <b className="font-semibold">{resultado.correccion.mostramos}</b>. Buscaste «
-            {resultado.correccion.buscaste}».
+          // BUS_Web: lo que se entendió y cómo buscar lo escrito tal cual.
+          <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-secundario">
+            <span>
+              Mostrando resultados para{' '}
+              <b className="font-semibold text-tinta">{resultado.correccion.mostramos}</b>
+              {resultado.correccion.categoria &&
+              resultado.correccion.categoria.nombre !== resultado.correccion.mostramos
+                ? ` en ${resultado.correccion.categoria.nombre}`
+                : ''}
+              .
+            </span>
+            <Link
+              href={hrefBuscar({
+                ...filtros,
+                q: resultado.correccion.buscaste,
+                pagina: 1,
+                talCual: true,
+              })}
+              className="font-bold text-pase-texto"
+            >
+              Buscar «{resultado.correccion.buscaste}» tal cual
+            </Link>
           </p>
         )}
-        {resultado.correccion && resultado.audiencia === 'vendedor' && (
-          <ExactoNoHay q={resultado.correccion.buscaste} conSesion />
+        {filtros.talCual && filtros.q && (
+          <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-secundario">
+            <span>Buscando «{filtros.q}» tal cual, sin corregir.</span>
+            <Link
+              href={hrefBuscar({ ...filtros, pagina: 1, talCual: false })}
+              className="font-bold text-pase-texto"
+            >
+              Volver a la búsqueda inteligente
+            </Link>
+          </p>
         )}
+        {/* «¿Era justo…?» solo si se corrigieron letras, no si se entendieron números o la
+            categoría («treinta setenta» es 3070 sin duda). */}
+        {resultado.correccion &&
+          resultado.audiencia === 'vendedor' &&
+          !resultado.correccion.categoria &&
+          interpretarBusqueda(resultado.correccion.buscaste).texto !==
+            resultado.correccion.mostramos && (
+            <ExactoNoHay q={resultado.correccion.buscaste} conSesion />
+          )}
       </div>
 
       {populares.length > 0 && (

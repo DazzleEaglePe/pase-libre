@@ -41,7 +41,11 @@ describe('Mis publicaciones (sección 12)', () => {
         .get(`/v1/mis-ofertas?estado=${estado}`)
         .set('Cookie', await como('tiendaa'))
         .expect(200)
-    ).body as { conteos: Record<string, number>; vistas_semana: number; ofertas: Fila[] };
+    ).body as {
+      conteos: Record<'activas' | 'vigentes' | 'sin_stock' | 'pausadas' | 'todas', number>;
+      vistas_semana: number;
+      ofertas: Fila[];
+    };
 
   beforeAll(async () => {
     await vaciarBase(prisma);
