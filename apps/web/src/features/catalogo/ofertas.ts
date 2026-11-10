@@ -10,7 +10,8 @@ export interface OfertaVista {
   fotos: Foto[];
   actualizadaEn: string;
   /** Solo con sesión. */
-  tienda: { nombre: string; stand: string | null } | null;
+  /** `id` vacío con la tienda reservada (no se puede abrir su perfil). */
+  tienda: { id: string; nombre: string; stand: string | null } | null;
   precio: Precio | null;
   precioVisible: boolean;
   /** Falso: las demás tiendas la ven como «Tienda reservada» (y sin WhatsApp). */
@@ -46,7 +47,7 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
     descripcion: oferta.descripcion,
     fotos: oferta.fotos,
     actualizadaEn: oferta.actualizada_en,
-    tienda: { nombre: oferta.tienda.nombre, stand: oferta.tienda.stand },
+    tienda: { id: oferta.tienda.id, nombre: oferta.tienda.nombre, stand: oferta.tienda.stand },
     precio: oferta.precio,
     precioVisible: oferta.precio_visible,
     tiendaVisible: oferta.tienda_visible,

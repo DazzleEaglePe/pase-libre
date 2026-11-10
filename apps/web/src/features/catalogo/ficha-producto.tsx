@@ -336,9 +336,20 @@ export function FichaProducto({
               <div className="flex items-center gap-3 border-t border-linea pt-4">
                 <Avatar oferta={oferta} />
                 <span className="flex min-w-0 flex-col">
-                  <b className={`font-bold ${esReservada(oferta) ? 'italic' : ''}`}>
-                    {nombreDe(oferta)}
-                  </b>
+                  {oferta.tienda?.id && !oferta.propia ? (
+                    <Link
+                      href={`/tiendas/${oferta.tienda.id}`}
+                      aria-label={`${nombreDe(oferta)}: ver el perfil y las opiniones de la tienda`}
+                      className="font-bold text-tinta no-underline hover:underline"
+                    >
+                      {nombreDe(oferta)}
+                      <span className="font-normal text-pase-texto md:hidden"> · ver perfil</span>
+                    </Link>
+                  ) : (
+                    <b className={`font-bold ${esReservada(oferta) ? 'italic' : ''}`}>
+                      {nombreDe(oferta)}
+                    </b>
+                  )}
                   <span className="text-nota text-secundario">
                     {oferta.tienda
                       ? lugarDe(oferta)

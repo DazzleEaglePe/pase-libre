@@ -18,3 +18,5 @@ export * from './en-vivo/en-vivo.schemas.js';
 export * from './en-vivo/en-vivo.types.js';
 export * from './registro/registro.schemas.js';
 export * from './registro/registro.types.js';
+export * from './tiendas/tiendas.schemas.js';
+export * from './tiendas/tiendas.types.js';

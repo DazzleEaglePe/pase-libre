@@ -187,41 +187,49 @@ model Tienda {
   archivos             Archivo[]
   enVivo               EnVivo[]
   respuestasEnVivo     EnVivoRespuesta[]
+  /// Las tiendas que esta sigue (SG_Web).
+  siguiendo            Seguimiento[]     @relation("TiendaQueSigue")
+  /// Las tiendas que la siguen.
+  seguidores           Seguimiento[]     @relation("TiendaSeguida")
+  opinionesRecibidas   Opinion[]         @relation("OpinionSobre")
+  opinionesEscritas    Opinion[]         @relation("OpinionDe")
 
   @@index([galeriaId])
   @@map("tienda")
 }
 
 model Usuario {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Nula solo para el equipo de PaseLibre (CHECK en la migración).
-  tiendaId         String?       @map("tienda_id") @db.Uuid
-  rol              Rol
-  usuario          String        @unique @db.Citext
-  correo           String?       @unique @db.Citext
-  nombre           String        @db.VarChar(120)
-  whatsapp         String?       @db.VarChar(20)
-  claveHash        String        @map("clave_hash") @db.VarChar(255)
+  tiendaId          String?       @map("tienda_id") @db.Uuid
+  rol               Rol
+  usuario           String        @unique @db.Citext
+  correo            String?       @unique @db.Citext
+  nombre            String        @db.VarChar(120)
+  whatsapp          String?       @db.VarChar(20)
+  claveHash         String        @map("clave_hash") @db.VarChar(255)
   /// La clave que entrega el equipo es temporal: el primer ingreso obliga a cambiarla.
-  debeCambiarClave Boolean       @default(true) @map("debe_cambiar_clave")
-  primerIngresoEn  DateTime?     @map("primer_ingreso_en") @db.Timestamptz(6)
-  estado           EstadoUsuario @default(ACTIVO)
-  intentosFallidos Int           @default(0) @map("intentos_fallidos") @db.SmallInt
-  intentosDesde    DateTime?     @map("intentos_desde") @db.Timestamptz(6)
-  bloqueadoHasta   DateTime?     @map("bloqueado_hasta") @db.Timestamptz(6)
-  ultimoIngresoEn  DateTime?     @map("ultimo_ingreso_en") @db.Timestamptz(6)
+  debeCambiarClave  Boolean       @default(true) @map("debe_cambiar_clave")
+  primerIngresoEn   DateTime?     @map("primer_ingreso_en") @db.Timestamptz(6)
+  estado            EstadoUsuario @default(ACTIVO)
+  intentosFallidos  Int           @default(0) @map("intentos_fallidos") @db.SmallInt
+  intentosDesde     DateTime?     @map("intentos_desde") @db.Timestamptz(6)
+  bloqueadoHasta    DateTime?     @map("bloqueado_hasta") @db.Timestamptz(6)
+  ultimoIngresoEn   DateTime?     @map("ultimo_ingreso_en") @db.Timestamptz(6)
   /// Cuándo vio (o saltó) las pantallas de bienvenida del primer ingreso (OB_WebB).
-  bienvenidaVistaEn DateTime?    @map("bienvenida_vista_en") @db.Timestamptz(6)
+  bienvenidaVistaEn DateTime?     @map("bienvenida_vista_en") @db.Timestamptz(6)
+  /// «¿Quieres seguir a…?» sale solo la primera vez que sigue a una tienda (SG_WebConfirmar).
+  seguirExplicadoEn DateTime?     @map("seguir_explicado_en") @db.Timestamptz(6)
   /// Última vez que tuvo el chat abierto (se conectó o se desconectó del tiempo real), para
   /// «Activo hace 2 h» (RF-47).
-  ultimaConexionEn DateTime?     @map("ultima_conexion_en") @db.Timestamptz(6)
+  ultimaConexionEn  DateTime?     @map("ultima_conexion_en") @db.Timestamptz(6)
   /// «No molestar» (RF-59), en minutos desde la medianoche, hora de Lima.
-  noMolestarDesde  Int?          @map("no_molestar_desde") @db.SmallInt
-  noMolestarHasta  Int?          @map("no_molestar_hasta") @db.SmallInt
+  noMolestarDesde   Int?          @map("no_molestar_desde") @db.SmallInt
+  noMolestarHasta   Int?          @map("no_molestar_hasta") @db.SmallInt
   /// El «Visto» se puede desactivar (RF-57).
-  mostrarVisto     Boolean       @default(true) @map("mostrar_visto")
-  creadoEn         DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
-  actualizadoEn    DateTime      @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+  mostrarVisto      Boolean       @default(true) @map("mostrar_visto")
+  creadoEn          DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn     DateTime      @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 
   tienda               Tienda?            @relation(fields: [tiendaId], references: [id])
   sesiones             Sesion[]
@@ -237,6 +245,8 @@ model Usuario {
   compras              Venta[]            @relation("VentaComprador")
   avisos               Aviso[]
   preferenciasAviso    PreferenciaAviso[]
+  seguimientos         Seguimiento[]
+  opiniones            Opinion[]
   busquedas            Busqueda[]
   contactos            Contacto[]
   cargas               CargaPlanilla[]
@@ -570,8 +580,78 @@ model Venta {
   conversacion     Conversacion? @relation(fields: [conversacionId], references: [id])
   registradaPor    Usuario       @relation("VentaRegistradaPor", fields: [registradaPorId], references: [id])
 
+  opiniones Opinion[]
+
   @@index([ofertaId])
   @@map("venta")
+}
+
+/// «¿De qué quieres que te avisemos?» al seguir a una tienda (SG_Web, opciones).
+enum AvisosSeguimiento {
+  /// Cada producto nuevo y cada pedido en vivo.
+  TODO
+  /// Productos nuevos y sus pedidos en vivo, máximo un aviso al día.
+  IMPORTANTE
+  /// Igual sus productos salen primero en el inicio.
+  NINGUNO
+
+  @@map("avisos_seguimiento")
+}
+
+/// Una tienda sigue a otra (SG_Web). Lo toca una persona, pero sigue la tienda entera.
+model Seguimiento {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId  String            @map("tienda_id") @db.Uuid
+  seguidaId String            @map("seguida_id") @db.Uuid
+  usuarioId String            @map("usuario_id") @db.Uuid
+  avisos    AvisosSeguimiento @default(IMPORTANTE)
+  /// El último aviso que se mandó por esta tienda (para «máximo uno al día»).
+  avisadoEn DateTime?         @map("avisado_en") @db.Timestamptz(6)
+  creadoEn  DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  tienda  Tienda  @relation("TiendaQueSigue", fields: [tiendaId], references: [id], onDelete: Cascade)
+  seguida Tienda  @relation("TiendaSeguida", fields: [seguidaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@unique([tiendaId, seguidaId])
+  @@index([seguidaId])
+  @@map("seguimiento")
+}
+
+/// Quién escribe la opinión de una venta: la tienda que compró o la que vendió.
+enum LadoOpinion {
+  COMPRADOR
+  VENDEDOR
+
+  @@map("lado_opinion")
+}
+
+/// La opinión de una tienda sobre otra después de una venta marcada en el chat (PCH_CelCalificar).
+/// Una por venta y por lado. Solo opina quien compró o vendió; la tienda opinada responde una vez.
+model Opinion {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ventaId       String      @map("venta_id") @db.Uuid
+  lado          LadoOpinion
+  autorTiendaId String      @map("autor_tienda_id") @db.Uuid
+  autorId       String      @map("autor_id") @db.Uuid
+  /// La tienda sobre la que se opina.
+  tiendaId      String      @map("tienda_id") @db.Uuid
+  estrellas     Int         @db.SmallInt
+  /// Lo que se marcó: «Producto como se describió», «Precio como se publicó»…
+  aspectos      String[]    @db.VarChar(40)
+  texto         String?     @db.VarChar(500)
+  respuesta     String?     @db.VarChar(500)
+  respondidaEn  DateTime?   @map("respondida_en") @db.Timestamptz(6)
+  creadaEn      DateTime    @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  venta       Venta   @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  autorTienda Tienda  @relation("OpinionDe", fields: [autorTiendaId], references: [id])
+  autor       Usuario @relation(fields: [autorId], references: [id])
+  tienda      Tienda  @relation("OpinionSobre", fields: [tiendaId], references: [id])
+
+  @@unique([ventaId, lado])
+  @@index([tiendaId, creadaEn(sort: Desc)])
+  @@map("opinion")
 }
 
 /// Campanita (RF-40). Un aviso por conversación con mensajes sin leer: se actualiza, no se apila.

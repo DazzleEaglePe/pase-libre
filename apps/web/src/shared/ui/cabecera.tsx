@@ -341,7 +341,11 @@ export function Cabecera({
   const enMensajes = ruta.startsWith('/mensajes');
   // Pantallas con su propia cabecera en el celular: «Todas las categorías» (CAT_Cel1), los
   // resultados (M_Resultados) y la ficha (M_Ficha).
-  const propia = ruta === '/categorias' || ruta === '/buscar' || ruta.startsWith('/p/');
+  const propia =
+    ruta === '/categorias' ||
+    ruta === '/buscar' ||
+    ruta.startsWith('/p/') ||
+    ruta.startsWith('/tiendas/');
 
   const armar = (acciones: ReactNode) => (
     <header className={`sticky top-0 z-30 max-md:-top-[66px] ${propia ? 'max-md:hidden' : ''}`}>
