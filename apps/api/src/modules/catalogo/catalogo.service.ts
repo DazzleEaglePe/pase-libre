@@ -24,6 +24,9 @@ import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { conSesion, precioPara, preciosPara, tiendaPara } from './visibilidad';
 
 /** Una oferta se muestra si está activa, su tienda no está suspendida y su producto no se unió a otro. */
+/** El día en Lima, «2026-11-10». */
+const DIA_LIMA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' });
+
 const OFERTA_VIGENTE = {
   estado: 'ACTIVA',
   tienda: { estado: 'ACTIVA' },
@@ -404,6 +407,7 @@ export class CatalogoService {
     const [respondeEn, socios] = await Promise.all([
       this.respondeEn([...new Set(ofertas.map((o) => o.tiendaId))]),
       tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId),
+      this.contarVistas(ofertas, mirada.tiendaId),
     ]);
     return {
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
@@ -412,6 +416,27 @@ export class CatalogoService {
         .sort(compararPorPrecio)
         .map((o) => ofertaConVendedor(o, mirada, respondeEn, socios)),
     };
+  }
+
+  /**
+   * «48 vistas esta semana» (MP_Web): la tienda que abre la ficha ve todas sus ofertas; cuenta
+   * una vez por día para cada una. Las propias y las del equipo no cuentan.
+   */
+  private async contarVistas(
+    ofertas: Array<{ id: string; tiendaId: string }>,
+    tiendaId: string | null,
+  ): Promise<void> {
+    if (!tiendaId) return;
+    const ajenas = ofertas.filter((oferta) => oferta.tiendaId !== tiendaId);
+    if (ajenas.length === 0) return;
+    const dia = new Date(`${DIA_LIMA.format(new Date())}T00:00:00Z`);
+    await this.prisma.vistaOferta
+      .createMany({
+        data: ajenas.map((oferta) => ({ ofertaId: oferta.id, tiendaId, dia })),
+        skipDuplicates: true,
+      })
+      // Una vista que no se guardó no debe tumbar la ficha.
+      .catch(() => undefined);
   }
 
   /**

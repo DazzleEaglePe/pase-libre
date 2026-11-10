@@ -458,7 +458,13 @@ describe('Publicar, fotos y Mis publicaciones (RF-05 a RF-10, RF-53)', () => {
         moneda_defecto: 'USD',
       });
       // Las 6 de la semilla más la que publicó Kevin.
-      expect(lista.conteos).toEqual({ activas: 5, sin_stock: 1, pausadas: 1, todas: 7 });
+      expect(lista.conteos).toEqual({
+        activas: 5,
+        vigentes: 6,
+        sin_stock: 1,
+        pausadas: 1,
+        todas: 7,
+      });
       expect(lista.por_revisar).toBe(2);
       expect(buscarEn('Intel Core i5')).toMatchObject({
         revisar: true,

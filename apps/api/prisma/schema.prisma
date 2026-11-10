@@ -220,6 +220,7 @@ model Tienda {
   socios               Socio[]           @relation("SociosDe")
   /// Las tiendas que tienen a esta como socia.
   socioDe              Socio[]           @relation("SocioDe")
+  vistasDeOfertas      VistaOferta[]
 
   @@index([galeriaId])
   @@map("tienda")
@@ -446,6 +447,8 @@ model Oferta {
   /// «Acepto ofertas en el chat».
   aceptaOfertas           Boolean        @default(true) @map("acepta_ofertas")
   estado                  EstadoOferta   @default(ACTIVA)
+  /// «¿Por qué la pausas?» (MP_Web): se ve en la pestaña «Pausadas». Nulo si está activa.
+  razonPausa              String?        @map("razon_pausa") @db.VarChar(60)
   /// `true` mientras no esté eliminada y nulo al eliminarla. Con él, el índice único
   /// deja una sola oferta vigente por producto, tienda y condición sin índice parcial,
   /// que Prisma no sabe mantener. Un CHECK lo ata a `estado`.
@@ -463,6 +466,7 @@ model Oferta {
   contactos        Contacto[]
   enVivo           EnVivo[]
   respuestasEnVivo EnVivoRespuesta[]
+  vistas           VistaOferta[]
 
   @@unique([productoId, tiendaId, condicion, vigente], map: "oferta_vigente_key")
   @@index([productoId, estado])
@@ -638,15 +642,20 @@ model Denuncia {
 
 /// Cada «Vendido» (RF-47), con el stock antes y después.
 model Venta {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ofertaId           String   @map("oferta_id") @db.Uuid
-  compradorId        String?  @map("comprador_id") @db.Uuid
-  tiendaCompradoraId String?  @map("tienda_compradora_id") @db.Uuid
-  conversacionId     String?  @map("conversacion_id") @db.Uuid
-  stockAntes         Int      @map("stock_antes")
-  stockDespues       Int      @map("stock_despues")
-  registradaPorId    String   @map("registrada_por_id") @db.Uuid
-  creadaEn           DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ofertaId           String    @map("oferta_id") @db.Uuid
+  compradorId        String?   @map("comprador_id") @db.Uuid
+  tiendaCompradoraId String?   @map("tienda_compradora_id") @db.Uuid
+  conversacionId     String?   @map("conversacion_id") @db.Uuid
+  stockAntes         Int       @map("stock_antes")
+  stockDespues       Int       @map("stock_despues")
+  registradaPorId    String    @map("registrada_por_id") @db.Uuid
+  /// El precio de pase de la oferta cuando se vendió (HI_A2_Web). Nulo si no tenía monto.
+  precioCentimos     BigInt?   @map("precio_centimos")
+  moneda             Moneda?
+  /// «Recordarle» que califique (una vez).
+  recordadaEn        DateTime? @map("recordada_en") @db.Timestamptz(6)
+  creadaEn           DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
 
   oferta           Oferta        @relation(fields: [ofertaId], references: [id])
   comprador        Usuario?      @relation("VentaComprador", fields: [compradorId], references: [id])
@@ -1075,4 +1084,19 @@ model Socio {
   @@id([tiendaId, socioId])
   @@index([socioId])
   @@map("socio")
+}
+
+/// «48 vistas esta semana» (MP_Web): una fila por oferta, tienda que la vio en la ficha y día
+/// (hora de Lima). Las de la propia tienda no cuentan.
+model VistaOferta {
+  ofertaId String   @map("oferta_id") @db.Uuid
+  tiendaId String   @map("tienda_id") @db.Uuid
+  dia      DateTime @db.Date
+
+  oferta Oferta @relation(fields: [ofertaId], references: [id], onDelete: Cascade)
+  tienda Tienda @relation(fields: [tiendaId], references: [id], onDelete: Cascade)
+
+  @@id([ofertaId, tiendaId, dia])
+  @@index([ofertaId, dia])
+  @@map("vista_oferta")
 }

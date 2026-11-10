@@ -770,9 +770,16 @@ export class MensajesService {
     const tiendaId = usuario.tiendaId ?? '';
     const resultado = await this.prisma.$transaction(async (tx) => {
       const [fila] = await tx.$queryRaw<
-        Array<{ stock: number; tienda_id: string; estado: string }>
+        Array<{
+          stock: number;
+          tienda_id: string;
+          estado: string;
+          precio_centimos: bigint | null;
+          moneda: 'USD' | 'PEN';
+        }>
       >`
-        SELECT stock, tienda_id::text AS tienda_id, estado::text AS estado
+        SELECT stock, tienda_id::text AS tienda_id, estado::text AS estado,
+               precio_centimos, moneda::text AS moneda
         FROM oferta WHERE id = ${ofertaId}::uuid FOR UPDATE`;
       if (!fila || fila.tienda_id !== tiendaId || fila.estado === 'ELIMINADA') {
         throw new ApiHttpException(
@@ -846,6 +853,9 @@ export class MensajesService {
           stockAntes: antes,
           stockDespues: despues,
           registradaPorId: usuario.id,
+          // Para «Mis ventas y compras» (HI_A2_Web): el precio de ese momento.
+          precioCentimos: fila.precio_centimos,
+          moneda: fila.moneda,
         },
       });
       const mensaje = await tx.mensaje.create({

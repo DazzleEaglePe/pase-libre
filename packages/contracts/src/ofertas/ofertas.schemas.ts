@@ -189,11 +189,20 @@ export const editarOfertaSchema = z
     descripcion: descripcionSchema.optional(),
     fotos: fotosSchema.optional(),
     estado: z.enum(['ACTIVA', 'PAUSADA']).optional(),
+    /** «¿Por qué la pausas?» (MP_Web): va con `estado: 'PAUSADA'`. */
+    razon_pausa: z.string().trim().max(60, 'Escribe hasta 60 caracteres.').optional(),
   })
   .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.');
 
+/** Las razones que ofrece «¿Por qué la pausas?» (MP_Web). */
+export const RAZONES_PAUSA = [
+  'Se me acabó, espero mercadería',
+  'La separé para un cliente',
+  'Otro motivo',
+] as const;
+
 export const misOfertasSchema = z.object({
-  estado: z.enum(['activas', 'sin_stock', 'pausadas', 'todas']).default('activas'),
+  estado: z.enum(['activas', 'vigentes', 'sin_stock', 'pausadas', 'todas']).default('activas'),
   q: z.string().trim().max(80).default(''),
   pagina: z.coerce.number().int().min(1).max(200).default(1),
 });

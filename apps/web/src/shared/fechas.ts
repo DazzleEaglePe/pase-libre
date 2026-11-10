@@ -61,3 +61,28 @@ export function haceRato(iso: string, ahora = new Date()): string {
   if (minutos < 24 * 60) return `Hace ${Math.round(minutos / 60)} h`;
   return haceCuanto(iso, ahora);
 }
+
+const MES_CORTO = new Intl.DateTimeFormat('es-PE', {
+  timeZone: 'America/Lima',
+  day: 'numeric',
+  month: 'short',
+});
+
+/** «5 nov», sin el punto de la abreviatura. */
+export function diaCorto(iso: string): string {
+  return MES_CORTO.format(new Date(iso)).replace('.', '').replace(' de ', ' ');
+}
+
+/** «Sábado 7 nov», el separador por día del historial (HI_A2_Web). */
+export function diaConSemana(iso: string): string {
+  const semana = DIA_SEMANA.format(new Date(iso));
+  return `${semana.charAt(0).toUpperCase()}${semana.slice(1)} ${diaCorto(iso)}`;
+}
+
+/** «Hoy, 10:42», «Ayer, 17:10» o «5 nov» (los vendidos de MP_Web). */
+export function cuandoFue(iso: string, ahora = new Date()): string {
+  const dias = diasDesde(iso, ahora);
+  if (dias === 0) return `Hoy, ${hora(iso)}`;
+  if (dias === 1) return `Ayer, ${hora(iso)}`;
+  return diaCorto(iso);
+}

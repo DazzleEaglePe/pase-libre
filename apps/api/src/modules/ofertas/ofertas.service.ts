@@ -92,6 +92,7 @@ const SELECT_OFERTA_PROPIA = {
   descuentoSocioCentimos: true,
   soloSocios: true,
   aceptaOfertas: true,
+  razonPausa: true,
   stock: true,
   precioCentimos: true,
   moneda: true,
@@ -115,12 +116,21 @@ type OfertaPropiaFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_P
 /** Las pestañas de Mis publicaciones (F_MisPublicaciones). «Sin stock» sale de `stock = 0`. */
 const PESTANAS: Record<PestanaMisOfertas, Prisma.OfertaWhereInput> = {
   activas: { estado: 'ACTIVA', stock: { gt: 0 } },
+  vigentes: { estado: 'ACTIVA' },
   sin_stock: { estado: 'ACTIVA', stock: 0 },
   pausadas: { estado: 'PAUSADA' },
   todas: {},
 };
 
 const CONDICION_TEXTO = { NUEVO: 'nuevo', USADO: 'usado' } as const;
+
+const DIA_LIMA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' });
+
+/** Siete días atrás contando hoy, para las vistas (que se guardan por día). */
+function haceUnaSemana(): Date {
+  const hoy = new Date(`${DIA_LIMA.format(new Date())}T00:00:00Z`);
+  return new Date(hoy.getTime() - 6 * 86_400_000);
+}
 
 function limiteRevision(): Date {
   return new Date(Date.now() - DIAS_PARA_REVISAR * 24 * 60 * 60 * 1000);
@@ -597,7 +607,7 @@ export class OfertasService {
       ],
     };
 
-    const [ofertas, total, [conteos], porRevisar] = await Promise.all([
+    const [ofertas, total, [conteos], porRevisar, vistasSemana] = await Promise.all([
       this.prisma.oferta.findMany({
         where,
         // Por fecha de publicación: así una fila no salta al cambiarle el stock.
@@ -609,6 +619,7 @@ export class OfertasService {
       this.prisma.oferta.count({ where }),
       this.prisma.$queryRaw<Array<Record<PestanaMisOfertas, number>>>`
         SELECT count(*) FILTER (WHERE estado = 'ACTIVA' AND stock > 0)::int AS activas,
+               count(*) FILTER (WHERE estado = 'ACTIVA')::int AS vigentes,
                count(*) FILTER (WHERE estado = 'ACTIVA' AND stock = 0)::int AS sin_stock,
                count(*) FILTER (WHERE estado = 'PAUSADA')::int AS pausadas,
                count(*)::int AS todas
@@ -617,13 +628,17 @@ export class OfertasService {
       this.prisma.oferta.count({
         where: { tiendaId: tienda.id, estado: 'ACTIVA', actualizadaEn: { lt: limiteRevision() } },
       }),
+      this.prisma.vistaOferta.count({
+        where: { oferta: { tiendaId: tienda.id, estado: 'ACTIVA' }, dia: { gte: haceUnaSemana() } },
+      }),
     ]);
 
     return {
       tienda: tiendaDeSesion(tienda),
-      conteos: conteos ?? { activas: 0, sin_stock: 0, pausadas: 0, todas: 0 },
+      conteos: conteos ?? { activas: 0, vigentes: 0, sin_stock: 0, pausadas: 0, todas: 0 },
       por_revisar: porRevisar,
-      ofertas: ofertas.map((o) => this.ofertaPropia(o)),
+      vistas_semana: vistasSemana,
+      ofertas: await this.conLaSemana(ofertas.map((o) => this.ofertaPropia(o))),
       pagina: consulta.pagina,
       paginas: Math.max(1, Math.ceil(total / POR_PAGINA)),
     };
@@ -675,6 +690,12 @@ export class OfertasService {
           moneda: cambios.moneda,
           descripcion: cambios.descripcion,
           estado: cambios.estado,
+          // La razón vale mientras dure la pausa: al reactivar se borra.
+          ...(cambios.estado === 'ACTIVA'
+            ? { razonPausa: null }
+            : cambios.estado === 'PAUSADA'
+              ? { razonPausa: cambios.razon_pausa ?? null }
+              : {}),
           precioVisible: visible,
           tiendaVisible: cambios.tienda_visible,
           ...(cambios.precio === undefined
@@ -684,7 +705,9 @@ export class OfertasService {
         };
         // «¿Quién ve el precio? Todas» sin monto no se puede: queda por chat.
         if (data.precioVisible === true && precio === null) data.precioVisible = false;
-        const soloPausa = cambios.estado === 'PAUSADA' && Object.keys(cambios).length === 1;
+        const soloPausa =
+          cambios.estado === 'PAUSADA' &&
+          Object.keys(cambios).every((clave) => clave === 'estado' || clave === 'razon_pausa');
         if (!soloPausa) data.actualizadaEn = new Date();
 
         if (cambios.fotos) {
@@ -748,6 +771,34 @@ export class OfertasService {
     return { confirmadas: count };
   }
 
+  /**
+   * «48 vistas · 5 chats esta semana» (MP_Web): tiendas que la vieron en la ficha y contactos
+   * por chat o WhatsApp de los últimos 7 días.
+   */
+  private async conLaSemana(ofertas: OfertaPropia[]): Promise<OfertaPropia[]> {
+    if (ofertas.length === 0) return ofertas;
+    const ids = ofertas.map((oferta) => oferta.id);
+    const [chats, vistas] = await Promise.all([
+      this.prisma.contacto.groupBy({
+        by: ['ofertaId'],
+        where: { ofertaId: { in: ids }, creadoEn: { gte: new Date(Date.now() - 7 * 86_400_000) } },
+        _count: { _all: true },
+      }),
+      this.prisma.vistaOferta.groupBy({
+        by: ['ofertaId'],
+        where: { ofertaId: { in: ids }, dia: { gte: haceUnaSemana() } },
+        _count: { _all: true },
+      }),
+    ]);
+    const deChats = new Map(chats.map((fila) => [fila.ofertaId, fila._count._all]));
+    const deVistas = new Map(vistas.map((fila) => [fila.ofertaId, fila._count._all]));
+    return ofertas.map((oferta) => ({
+      ...oferta,
+      chats_semana: deChats.get(oferta.id) ?? 0,
+      vistas_semana: deVistas.get(oferta.id) ?? 0,
+    }));
+  }
+
   private ofertaPropia(o: OfertaPropiaFila): OfertaPropia {
     return {
       id: o.id,
@@ -770,6 +821,9 @@ export class OfertasService {
           : precioDe(Number(o.descuentoSocioCentimos), o.moneda),
       quien_ve_precio: o.precioVisible ? 'TODOS' : o.soloSocios ? 'SOCIOS' : 'NADIE',
       acepta_ofertas: o.aceptaOfertas,
+      chats_semana: 0,
+      vistas_semana: 0,
+      razon_pausa: o.estado === 'PAUSADA' ? o.razonPausa : null,
       descripcion: o.descripcion,
       fotos: o.fotos,
       estado: o.estado === 'PAUSADA' ? 'PAUSADA' : 'ACTIVA',

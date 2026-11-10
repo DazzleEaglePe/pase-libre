@@ -63,6 +63,12 @@ export interface OfertaPropia {
   descuento_socio: Precio | null;
   quien_ve_precio: QuienVePrecio;
   acepta_ofertas: boolean;
+  /** Contactos por chat o WhatsApp en los últimos 7 días (solo en Mis publicaciones). */
+  chats_semana: number;
+  /** Tiendas que la vieron en la ficha en los últimos 7 días, una vez por día (MP_Web). */
+  vistas_semana: number;
+  /** «¿Por qué la pausas?»: nulo si está activa o se pausó sin decir. */
+  razon_pausa: string | null;
   descripcion: string | null;
   fotos: Foto[];
   estado: EstadoOfertaPropia;
@@ -73,7 +79,11 @@ export interface OfertaPropia {
   responsable: { id: string; nombre: string };
 }
 
-export type PestanaMisOfertas = 'activas' | 'sin_stock' | 'pausadas' | 'todas';
+/**
+ * `activas`: con stock; `vigentes`: activas con o sin stock (la pestaña «Activas» de MP_Web,
+ * que avisa en la fila cuando no hay stock).
+ */
+export type PestanaMisOfertas = 'activas' | 'vigentes' | 'sin_stock' | 'pausadas' | 'todas';
 
 /** `GET /v1/mis-ofertas` (RF-08, RF-10): las ofertas de la tienda de la sesión. */
 export interface RespuestaMisOfertas {
@@ -81,6 +91,8 @@ export interface RespuestaMisOfertas {
   /** Por pestaña, sin contar el texto buscado. */
   conteos: Record<PestanaMisOfertas, number>;
   por_revisar: number;
+  /** Las vistas de la semana de todas las publicaciones activas: «107 vistas esta semana». */
+  vistas_semana: number;
   ofertas: OfertaPropia[];
   pagina: number;
   paginas: number;
@@ -101,6 +113,13 @@ export interface RespuestaConfirmar {
 export type EstadoDetalle = 'SELLADO' | 'OPEN_BOX' | 'USADO' | 'REACONDICIONADO';
 export type Garantia = 'SIN' | 'UN_MES' | 'TRES_MESES' | 'SEIS_MESES' | 'UN_ANIO' | 'FABRICA';
 export type ModoVenta = 'PASE' | 'FACTURADO' | 'AMBOS';
+
+/** «Pase», «Facturado» o «Pase y facturado», como lo dicen las filas del lienzo. */
+export const TEXTO_MODO_VENTA: Record<ModoVenta, string> = {
+  PASE: 'Pase',
+  FACTURADO: 'Facturado',
+  AMBOS: 'Pase y facturado',
+};
 export type QuienVePrecio = 'TODOS' | 'SOCIOS' | 'NADIE';
 
 /** Lo que cuenta cómo está el producto (PUB_WebProducto): lo ve cualquiera, no es privado. */

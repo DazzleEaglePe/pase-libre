@@ -340,10 +340,13 @@ export function Cabecera({
   // En Mensajes el chat necesita el alto: sin las burbujas en el celular.
   const enMensajes = ruta.startsWith('/mensajes');
   // Pantallas con su propia cabecera en el celular: «Todas las categorías» (CAT_Cel1), los
-  // resultados (M_Resultados) y la ficha (M_Ficha).
+  // resultados (M_Resultados), la ficha (M_Ficha), Mis publicaciones (MP_Cel) y el historial
+  // (HI_A2_Cel).
   const propia =
     ruta === '/categorias' ||
     ruta === '/buscar' ||
+    ruta === '/mis-publicaciones' ||
+    ruta === '/historial' ||
     ruta.startsWith('/p/') ||
     ruta.startsWith('/tiendas/');
 
