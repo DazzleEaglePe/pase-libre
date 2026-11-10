@@ -462,6 +462,7 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(Array.isArray(visitante.body.mas_buscado)).toBe(true);
       expect(typeof visitante.body.mas_buscado_hoy).toBe('boolean');
       expect(Object.keys(visitante.body).sort()).toEqual([
+        'en_vivo',
         'mas_buscado',
         'mas_buscado_hoy',
         'recien_hoy',

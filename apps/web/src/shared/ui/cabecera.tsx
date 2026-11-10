@@ -30,10 +30,13 @@ export interface NumerosBarra {
 
 function useNumeros(barra: RespuestaBarra | null): NumerosBarra {
   const compartido = useEnVivoMontado();
-  const lista = compartido?.activo && compartido.datos ? compartido.datos.en_vivo : null;
+  // Encendido según el servidor: las entradas se dibujan desde el primer momento y el número
+  // llega cuando carga la lista (sin que la banda salte).
+  const encendido = (barra?.en_vivo ?? false) && compartido?.activo !== false;
+  const lista = compartido?.datos?.en_vivo ?? [];
   return {
-    enVivo: lista ? lista.length : null,
-    remates: lista ? lista.filter((pedido) => pedido.tipo === 'FLASH').length : null,
+    enVivo: encendido ? lista.length : null,
+    remates: encendido ? lista.filter((pedido) => pedido.tipo === 'FLASH').length : null,
     recienHoy: barra?.recien_hoy ?? 0,
   };
 }
@@ -336,8 +339,9 @@ export function Cabecera({
   const ruta = usePathname();
   // En Mensajes el chat necesita el alto: sin las burbujas en el celular.
   const enMensajes = ruta.startsWith('/mensajes');
-  // «Todas las categorías» trae su propia cabecera en el celular (CAT_Cel1).
-  const propia = ruta === '/categorias';
+  // Pantallas con su propia cabecera en el celular: «Todas las categorías» (CAT_Cel1), los
+  // resultados (M_Resultados) y la ficha (M_Ficha).
+  const propia = ruta === '/categorias' || ruta === '/buscar' || ruta.startsWith('/p/');
 
   const armar = (acciones: ReactNode) => (
     <header className={`sticky top-0 z-30 max-md:-top-[66px] ${propia ? 'max-md:hidden' : ''}`}>

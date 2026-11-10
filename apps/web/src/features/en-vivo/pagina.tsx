@@ -202,7 +202,7 @@ export function PaginaEnVivo({
           {!datos && <p className="text-secundario">Cargando…</p>}
           {datos && enVivo.length === 0 && (
             <p className="rounded-2xl bg-superficie p-5 text-secundario">
-              Ahora no hay pases del día
+              Ahora no hay pedidos en vivo
               {tipo !== 'todo' || categoria || galeria ? ' con esos filtros' : ''}. Publica lo que
               buscas para un cliente y les avisamos a las tiendas que lo tienen.
             </p>

@@ -43,18 +43,18 @@ export function TarjetaResultado({
   const masBarata = conInsignia && destacada?.mas_barata === true;
 
   const insignia = (
-    <span className="inline-flex h-6 items-center rounded-full bg-ok-fondo px-2.5 text-nota font-semibold text-ok">
+    <span className="inline-flex h-[22px] items-center rounded-full bg-contador px-2 text-[12px] font-bold text-tinta">
       Más barato
     </span>
   );
 
   return (
-    <article className="flex gap-3 rounded-2xl border border-linea bg-white p-3 sm:flex-col sm:gap-0 sm:overflow-hidden sm:p-0">
+    <article className="flex gap-3 border-b border-linea bg-white py-4 sm:flex-col sm:gap-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:p-0">
       <Link href={href} tabIndex={-1} aria-hidden="true" className="relative shrink-0">
         <Miniatura
           ruta={producto.foto}
           categoria={producto.categoria.slug}
-          className="h-[84px] w-[76px] rounded-xl sm:h-[168px] sm:w-full sm:rounded-none"
+          className="h-[84px] w-[84px] rounded-xl sm:h-[168px] sm:w-full sm:rounded-none"
           glifo={96}
           grosor={3}
         />
@@ -135,7 +135,7 @@ export function TarjetaResultado({
           ) : puedeChatear ? (
             <Link
               href={`/mensajes?oferta=${destacada.id}`}
-              className={`${ACCION} bg-pase-suave text-pase-texto`}
+              className={`${ACCION} bg-pase-medio text-marca hover:bg-[#c3efd6]`}
             >
               <IconMessageCircle size={16} stroke={1.8} aria-hidden="true" />
               Chatear ahora

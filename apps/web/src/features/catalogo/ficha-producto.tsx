@@ -9,25 +9,28 @@ import {
   type ProductoDetalle,
   type RespuestaContacto,
 } from '@paselibre/contracts';
-import { IconBrandWhatsapp, IconFlag, IconMessageCircle } from '@tabler/icons-react';
+import {
+  IconBrandWhatsapp,
+  IconChevronRight,
+  IconFlag,
+  IconMessageCircle,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
-import { botonLista, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
+import { botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { Ventana } from '@/shared/ui/ventana';
 import { BotonCompartir } from '@/shared/ui/boton-compartir';
+import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
 
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoEstado, textoStock } from './textos';
-
-/** Viñetas de «Lo que tienes que saber»: las primeras líneas de lo que escribió el vendedor. */
-const VINETAS = 4;
 
 /** «responde en ~10 min» o «~2 h», redondeado: es una idea, no un reloj. */
 const respondeEn = (minutos: number): string =>
@@ -50,11 +53,17 @@ const nombreDe = (oferta: OfertaVista): string =>
 /** La tienda no quiso mostrar su nombre: se lee en cursiva, como en el lienzo. */
 const esReservada = (oferta: OfertaVista): boolean => oferta.tienda?.nombre === TIENDA_RESERVADA;
 
-/** «A» para «Tienda A»; «?» para el visitante, que no ve la tienda (ni para la reservada). */
+/** «CS» para «Computer Shock», «A» para «Tienda A»; «·» si no se ve la tienda. */
 const inicialDe = (oferta: OfertaVista): string =>
   oferta.tienda && !esReservada(oferta)
-    ? (oferta.tienda.nombre.replace(/^tienda\s+/i, '')[0] ?? '?').toUpperCase()
-    : '?';
+    ? oferta.tienda.nombre
+        .replace(/^tienda\s+/i, '')
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((palabra) => palabra[0] ?? '')
+        .join('')
+        .toUpperCase() || '·'
+    : '·';
 
 const disponibles = (stock: number) => (stock === 0 ? 'Sin stock' : textoStock(stock));
 
@@ -72,7 +81,7 @@ function Avatar({ oferta, chico = false }: { oferta: OfertaVista; chico?: boolea
     <span
       aria-hidden="true"
       className={`flex shrink-0 items-center justify-center rounded-full bg-tinta font-semibold text-white ${
-        chico ? 'h-9 w-9 text-apoyo' : 'h-11 w-11'
+        chico ? 'h-9 w-9 text-apoyo' : 'h-[42px] w-[42px] text-apoyo font-bold'
       }`}
     >
       {inicialDe(oferta)}
@@ -81,10 +90,11 @@ function Avatar({ oferta, chico = false }: { oferta: OfertaVista; chico?: boolea
 }
 
 /**
- * La ficha de un producto, con la estructura de B_Producto: fotos, el producto con
- * su precio y «Lo que tienes que saber», la caja para contactar con el vendedor, la tabla de
- * otras ofertas y los detalles. Elegir otra oferta cambia el precio, el vendedor, las fotos y
- * la descripción. Contactar abre el chat o WhatsApp (RF-21, RF-23).
+ * La ficha de un producto (D_Ficha, M_Ficha): las fotos con sus miniaturas; a la derecha el
+ * producto y la caja de la oferta que se mira (estado, precio de pase, stock, la tienda y
+ * «Chatear ahora»); «¿Tienes este producto?»; «Las tiendas que lo tienen» y las
+ * características. Elegir otra tienda cambia el precio, la tienda, las fotos y la descripción.
+ * Contactar abre el chat o WhatsApp (RF-21, RF-23).
  *
  * Lo de la fase 2 que muestra el lienzo (pedir pase, favoritos, seguir, reputación y
  * preguntas) no aparece hasta que exista.
@@ -112,32 +122,9 @@ export function FichaProducto({
   const fotos = oferta && oferta.fotos.length > 0 ? oferta.fotos : producto.fotos;
   const fotoActual = fotos[Math.min(foto, fotos.length - 1)] ?? null;
 
-  const lineas = (oferta?.descripcion ?? '')
-    .split('\n')
-    .map((linea) => linea.replace(/^[-•*·]\s*/, '').trim())
-    .filter(Boolean);
   const caracteristicas = Object.entries(producto.caracteristicas);
-  const vinetas =
-    lineas.length > 0
-      ? lineas.slice(0, VINETAS)
-      : caracteristicas.slice(0, VINETAS).map(([nombre, valor]) => `${nombre}: ${valor}`);
 
   const mejor = masBarata(ofertas);
-  const otraMasBarata = oferta
-    ? masBarata(
-        ofertas.filter((otra) => otra.id !== oferta.id),
-        oferta.precio?.moneda,
-      )
-    : null;
-  const conviene =
-    otraMasBarata?.precio &&
-    (!oferta?.precio || otraMasBarata.precio.centimos < oferta.precio.centimos)
-      ? otraMasBarata
-      : null;
-  const vendedores = conSesion
-    ? new Set(ofertas.map((o) => o.tienda?.nombre)).size
-    : ofertas.length;
-
   function elegir(id: string) {
     setElegida(id);
     setFoto(0);
@@ -167,17 +154,69 @@ export function FichaProducto({
     }
   }
 
+  const otras = ofertas.filter((otra) => otra.id !== oferta?.id);
+  const desdeOtras = masBarata(otras, oferta?.precio?.moneda);
+  const esLaMasBarata =
+    conSesion && ofertas.length > 1 && oferta !== null && oferta.id === mejor?.id;
+  const conPublicarIgual = audiencia === 'vendedor' && !oferta?.propia;
+
+  const precioGrande = oferta ? (
+    oferta.precio ? (
+      <span className="flex h-[52px] items-center rounded-full bg-tinta px-[18px] text-[28px] font-bold leading-none text-white">
+        {formatearPrecio(oferta.precio)}
+      </span>
+    ) : conSesion ? (
+      <span className="text-[24px] font-bold leading-8">Al interno</span>
+    ) : (
+      <PrecioConSesion className="text-[20px] font-bold leading-7" />
+    )
+  ) : null;
+
+  const botonesContacto =
+    oferta && audiencia === 'vendedor' && !oferta.propia ? (
+      <div className="flex gap-2.5">
+        <button
+          type="button"
+          disabled={contactando !== null}
+          onClick={() => contactar('CHAT')}
+          className="inline-flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-pase-medio text-[16px] font-bold text-marca hover:bg-[#c3efd6] disabled:opacity-60"
+        >
+          <IconMessageCircle size={20} stroke={1.8} aria-hidden="true" />
+          {contactando === 'CHAT' ? 'Abriendo…' : 'Chatear ahora'}
+        </button>
+        {oferta.tiendaVisible && (
+          <button
+            type="button"
+            disabled={contactando !== null}
+            onClick={() => contactar('WHATSAPP')}
+            aria-label="Escribir por WhatsApp"
+            className="inline-flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-full border border-borde bg-white px-5 text-cuerpo font-semibold text-tinta hover:border-borde-control max-md:w-[52px] max-md:px-0"
+          >
+            <IconBrandWhatsapp size={22} stroke={1.6} aria-hidden="true" className="text-ok" />
+            <span className="max-md:hidden">
+              {contactando === 'WHATSAPP' ? 'Abriendo…' : 'WhatsApp'}
+            </span>
+          </button>
+        )}
+      </div>
+    ) : null;
+
   return (
-    <div className="flex flex-col gap-14">
-      <div className="grid items-start gap-8 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(300px,0.85fr)] lg:gap-10">
-        {/* Fotos: las miniaturas a la izquierda y la foto grande. */}
-        <section aria-label="Fotos" className="flex min-w-0 flex-col-reverse gap-3 sm:flex-row">
+    <div className="flex flex-col gap-12 max-md:gap-5">
+      {/* En el celular, la cabecera propia de M_Ficha: volver, la categoría y compartir. */}
+      <CabeceraMovil titulo={producto.categoria.nombre}>
+        <BotonCompartir titulo={producto.titulo} soloIcono />
+      </CabeceraMovil>
+
+      <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1fr)_480px]">
+        {/* Fotos: las miniaturas a la izquierda y la foto grande (D_Ficha). */}
+        <section aria-label="Fotos" className="flex min-w-0 gap-3">
           {fotos.length > 1 && (
             <div
               role="tablist"
               aria-label="Fotos"
               aria-orientation="vertical"
-              className="flex gap-2 sm:flex-col"
+              className="flex flex-col gap-2 max-md:hidden"
             >
               {fotos.map((miniatura, indice) => (
                 <button
@@ -187,8 +226,8 @@ export function FichaProducto({
                   aria-selected={indice === foto}
                   aria-label={`Foto ${indice + 1} de ${fotos.length}`}
                   onClick={() => setFoto(indice)}
-                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border bg-superficie p-0 ${
-                    indice === foto ? 'border-2 border-tinta' : 'border-linea'
+                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-superficie p-0 ${
+                    indice === foto ? 'border-2 border-tinta' : 'border border-linea'
                   }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -205,38 +244,54 @@ export function FichaProducto({
             <Miniatura
               ruta={fotoActual?.ruta ?? null}
               categoria={producto.categoria.slug}
-              className="aspect-square w-full rounded-[20px]"
+              className="aspect-[4/3] w-full rounded-[20px] max-md:aspect-[358/240]"
               glifo={240}
               grosor={0.8}
               prioridad
             />
             {fotos.length > 1 && (
-              <span className="absolute bottom-3.5 left-4 rounded-full bg-white/90 px-2.5 text-nota text-secundario">
-                Foto {Math.min(foto, fotos.length - 1) + 1} de {fotos.length}
-              </span>
+              <>
+                <span className="absolute bottom-4 left-4 text-nota text-secundario max-md:hidden">
+                  Foto {Math.min(foto, fotos.length - 1) + 1} de {fotos.length}
+                </span>
+                <button
+                  type="button"
+                  aria-label={`Foto ${Math.min(foto, fotos.length - 1) + 1} de ${fotos.length}, ver la siguiente`}
+                  onClick={() => setFoto((foto + 1) % fotos.length)}
+                  className="absolute bottom-3 right-3 rounded-full bg-white px-2.5 text-nota font-semibold leading-6 text-tinta md:hidden"
+                >
+                  {Math.min(foto, fotos.length - 1) + 1} / {fotos.length}
+                </button>
+              </>
             )}
           </div>
         </section>
 
-        {/* El producto: estado, título, precio y lo que hay que saber. */}
         <section aria-label="Producto" className="flex min-w-0 flex-col gap-4">
-          <span className="text-apoyo text-secundario">
-            {oferta
-              ? `${textoEstado(oferta.condicion)} · Actualizado ${haceCuanto(oferta.actualizadaEn).toLowerCase()}`
-              : [producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
-          </span>
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-[30px] font-semibold leading-[38px] tracking-[-0.01em]">
-              {producto.titulo}
-            </h1>
+          <div className="flex items-center justify-between gap-3 max-md:hidden">
+            <span className="text-nota text-secundario">
+              {[producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
+            </span>
             <BotonCompartir titulo={producto.titulo} />
           </div>
+          {oferta && (
+            <span className="text-apoyo text-secundario md:hidden">
+              <b className="font-semibold text-tinta">{textoEstado(oferta.condicion)}</b> ·
+              Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
+            </span>
+          )}
+          <h1 className="text-[30px] font-bold leading-[38px] tracking-[-0.01em] max-md:text-[24px] max-md:leading-8">
+            {producto.titulo}
+          </h1>
           {producto.etiquetas.length > 0 && (
-            <ul aria-label="Etiquetas" className="flex list-none flex-wrap gap-1.5 p-0">
+            <ul
+              aria-label="Etiquetas"
+              className="flex list-none flex-wrap gap-1.5 p-0 max-md:order-last"
+            >
               {producto.etiquetas.map((etiqueta) => (
                 <li
                   key={etiqueta}
-                  className="rounded-full bg-superficie px-2.5 text-nota leading-5 text-secundario"
+                  className="rounded-full bg-superficie px-2.5 text-nota leading-6 text-secundario"
                 >
                   {etiqueta}
                 </li>
@@ -244,104 +299,82 @@ export function FichaProducto({
             </ul>
           )}
 
-          {oferta && (
-            <div className="flex flex-col gap-1">
-              {oferta.precio ? (
-                <span className="text-[40px] font-semibold leading-[48px] tracking-[-0.02em]">
-                  {formatearPrecio(oferta.precio)}
-                </span>
-              ) : conSesion ? (
-                <span className="text-[28px] font-semibold leading-9">Al interno</span>
-              ) : (
-                <PrecioConSesion className="text-[22px] leading-8" />
-              )}
-              <span className="text-apoyo text-secundario">
-                {oferta.precio
-                  ? `Precio de pase de ${nombreDe(oferta)}${oferta.precioVisible ? '' : ' · está al interno: solo lo ves tú'}`
-                  : conSesion
-                    ? 'El vendedor da el precio por mensaje o WhatsApp'
-                    : 'El precio y la tienda se ven al iniciar sesión'}
-                {conviene?.precio && (
-                  <>
-                    {' · '}
-                    <button
-                      type="button"
-                      onClick={() => elegir(conviene.id)}
-                      className="font-semibold text-tinta underline"
-                    >
-                      hay otra desde {formatearPrecio(conviene.precio)}
-                    </button>
-                  </>
-                )}
+          {oferta ? (
+            <div className="flex flex-col gap-4 rounded-[20px] border border-linea p-[22px] max-md:border-0 max-md:p-0">
+              <span className="text-nota text-secundario max-md:hidden">
+                <b className="font-semibold text-tinta">{textoEstado(oferta.condicion)}</b> ·
+                Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
               </span>
-            </div>
-          )}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                {precioGrande}
+                {esLaMasBarata && (
+                  <span className="rounded-full bg-contador px-2 text-[12px] font-bold leading-[22px] text-tinta">
+                    Más barato
+                  </span>
+                )}
+                {oferta.precio && (
+                  <span className="text-apoyo text-secundario">
+                    {oferta.precioVisible ? 'Precio de pase' : 'Al interno: solo lo ves tú'}
+                  </span>
+                )}
+              </div>
+              {!conSesion && (
+                <span className="-mt-1 text-nota text-secundario">
+                  El precio y la tienda se ven al iniciar sesión.
+                </span>
+              )}
+              <span
+                className={`flex items-center gap-2 text-apoyo font-semibold ${oferta.stock > 0 ? 'text-tinta' : 'text-aviso'}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-2 w-2 rounded-full ${oferta.stock > 0 ? 'bg-pase' : 'bg-aviso'}`}
+                />
+                {disponibles(oferta.stock)}
+              </span>
 
-          {vinetas.length > 0 && (
-            <div className="flex flex-col gap-2 pt-1">
-              <h2 className="text-tarjeta">Lo que tienes que saber</h2>
-              <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-secundario marker:text-detalle">
-                {vinetas.map((vineta) => (
-                  <li key={vineta}>{vineta}</li>
-                ))}
-              </ul>
-              {lineas.length > VINETAS && (
-                <a href="#descripcion" className="text-apoyo font-semibold">
-                  Ver la descripción completa
+              <div className="flex items-center gap-3 border-t border-linea pt-4">
+                <Avatar oferta={oferta} />
+                <span className="flex min-w-0 flex-col">
+                  <b className={`font-bold ${esReservada(oferta) ? 'italic' : ''}`}>
+                    {nombreDe(oferta)}
+                  </b>
+                  <span className="text-nota text-secundario">
+                    {oferta.tienda
+                      ? lugarDe(oferta)
+                      : `Galería ${oferta.galeria ?? 'independiente'} · el nombre y el stand se ven con sesión`}
+                  </span>
+                </span>
+              </div>
+
+              {/* M_Ficha: «3 tiendas más lo tienen · desde US$ 245». */}
+              {otras.length > 0 && (
+                <a
+                  href="#tiendas"
+                  className="flex min-h-[52px] items-center justify-between gap-3 rounded-2xl border border-linea px-4 text-apoyo text-tinta no-underline md:hidden"
+                >
+                  <span>
+                    <b className="font-bold">
+                      {otras.length === 1
+                        ? '1 tienda más lo tiene'
+                        : `${otras.length} tiendas más lo tienen`}
+                    </b>
+                    {desdeOtras?.precio && ` · desde ${formatearPrecio(desdeOtras.precio)}`}
+                  </span>
+                  <IconChevronRight size={18} stroke={1.8} aria-hidden="true" />
                 </a>
               )}
-            </div>
-          )}
-        </section>
 
-        {/* La caja de contacto (a la derecha en la computadora). */}
-        <aside
-          aria-label="Contactar al vendedor"
-          className="flex min-w-0 flex-col gap-4 rounded-[20px] border border-linea p-5 md:col-span-2 lg:col-span-1"
-        >
-          {oferta ? (
-            <>
-              <b className={`text-tarjeta ${oferta.stock > 0 ? 'text-ok' : 'text-aviso'}`}>
-                {disponibles(oferta.stock)}
-              </b>
-
-              {audiencia === 'vendedor' && !oferta.propia && (
-                <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    disabled={contactando !== null}
-                    onClick={() => contactar('CHAT')}
-                    className={`${botonPrincipal} h-12 w-full`}
-                  >
-                    {contactando === 'CHAT' ? 'Abriendo…' : 'Enviar mensaje'}
-                  </button>
-                  {oferta.tiendaVisible ? (
-                    <button
-                      type="button"
-                      disabled={contactando !== null}
-                      onClick={() => contactar('WHATSAPP')}
-                      className="inline-flex h-11 items-center justify-center gap-2 text-apoyo font-semibold text-ok underline disabled:text-detalle"
-                    >
-                      <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
-                      {contactando === 'WHATSAPP' ? 'Abriendo WhatsApp…' : 'Escribir por WhatsApp'}
-                    </button>
-                  ) : (
-                    <span className="text-nota text-detalle">
-                      Esta tienda prefirió no mostrar su nombre: atiende solo por el chat de
-                      PaseLibre.
-                    </span>
-                  )}
-                  {error && (
-                    <p role="alert" className="text-apoyo text-error">
-                      {error}
-                    </p>
-                  )}
-                </div>
+              <div className="max-md:hidden">{botonesContacto}</div>
+              {error && (
+                <p role="alert" className="text-apoyo text-error">
+                  {error}
+                </p>
               )}
               {oferta.propia && (
                 <div className="flex flex-col gap-2.5">
                   <span className="text-apoyo text-secundario">
-                    Esta es tu oferta. Los demás vendedores ven los botones para escribirte
+                    Esta es tu oferta. Las demás tiendas ven los botones para escribirte
                     {oferta.tiendaVisible ? '.' : ', y a tu tienda como «Tienda reservada».'}
                   </span>
                   <Link
@@ -358,62 +391,75 @@ export function FichaProducto({
                 </span>
               )}
               {!conSesion && (
-                <div className="flex flex-col gap-2.5">
-                  <Link href="/ingresar" className={`${botonPrincipal} h-12 w-full no-underline`}>
-                    Inicia sesión para contactar
-                  </Link>
-                  <span className="text-nota text-detalle">
-                    Con tu cuenta ves el precio, la tienda y el stand. Las cuentas las entrega el
-                    equipo de PaseLibre.
-                  </span>
-                </div>
+                <Link
+                  href="/ingresar"
+                  className={`${botonPrincipal} h-[52px] w-full no-underline max-md:hidden`}
+                >
+                  Inicia sesión para contactar
+                </Link>
               )}
-
-              <p className="text-nota text-detalle">
-                PaseLibre no cobra ni intermedia: el pase se coordina entre ustedes.
-              </p>
-
-              <div className="flex items-center gap-3 border-t border-linea pt-4">
-                <Avatar oferta={oferta} />
-                <span className="flex min-w-0 flex-col">
-                  <b className={`font-semibold ${esReservada(oferta) ? 'italic' : ''}`}>
-                    {nombreDe(oferta)}
-                  </b>
-                  <span className="text-nota text-detalle">
-                    {oferta.tienda ? lugarDe(oferta) : 'El nombre y el stand se ven con sesión'}
-                  </span>
+              {audiencia === 'vendedor' && !oferta.propia && !oferta.tiendaVisible && (
+                <span className="text-nota text-secundario">
+                  Esta tienda prefirió no mostrar su nombre: atiende solo por el chat de PaseLibre.
                 </span>
-              </div>
-            </>
+              )}
+            </div>
           ) : (
             <p className="text-secundario">Por ahora ninguna tienda lo tiene publicado.</p>
           )}
-        </aside>
+
+          {oferta?.descripcion && (
+            <div className="flex flex-col gap-1.5 md:hidden">
+              <h2 className="text-tarjeta font-bold">Descripción del vendedor</h2>
+              <p className="whitespace-pre-line text-apoyo text-secundario">{oferta.descripcion}</p>
+            </div>
+          )}
+
+          {conPublicarIgual && (
+            <Link
+              href={`/publicar?igual=${producto.slug}`}
+              className="flex items-center justify-between gap-3 rounded-2xl bg-pase-suave px-[18px] py-3.5 text-tinta no-underline hover:bg-pase-medio"
+            >
+              <span className="flex flex-col">
+                <b className="text-cuerpo font-bold">¿Tienes este producto?</b>
+                <span className="text-nota text-secundario">
+                  Publica uno igual con estas fotos
+                  <span className="max-md:hidden">: solo pones estado, stock y precio</span>.
+                </span>
+              </span>
+              <IconChevronRight size={18} stroke={1.8} aria-hidden="true" />
+            </Link>
+          )}
+        </section>
       </div>
 
       {ofertas.length > 0 && (
-        <section aria-labelledby="ofertas" className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h2 id="ofertas" className="text-[24px] font-semibold leading-8">
-              Otras ofertas de este producto
+        <section
+          id="tiendas"
+          aria-labelledby="titulo-tiendas"
+          className="flex scroll-mt-40 flex-col gap-4"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h2 id="titulo-tiendas" className="text-[22px] font-bold leading-8">
+              Las tiendas que lo tienen{' '}
+              <span className="font-normal text-secundario">({ofertas.length})</span>
             </h2>
-            <span className="text-apoyo text-secundario">
+            <span className="text-nota text-secundario">
               {conSesion
-                ? `Lo ${vendedores === 1 ? 'tiene 1 vendedor' : `tienen ${vendedores} vendedores`}${mejor?.precio ? ` · desde ${formatearPrecio(mejor.precio)}` : ''}`
-                : `${ofertas.length === 1 ? '1 oferta' : `${ofertas.length} ofertas`} · los precios se ven con sesión`}
+                ? 'Del más barato al más caro; las que están al interno, al final.'
+                : 'De la más reciente a la más antigua.'}
             </span>
           </div>
-          {/* `relative`: así los textos para lectores de pantalla (sr-only, absolutos) quedan
-              dentro del recorte y no ensanchan la página en el celular. */}
-          <div className="relative overflow-x-auto rounded-[20px] border border-linea">
-            <table className="w-full min-w-[680px] border-collapse text-left">
+          <div className="relative overflow-x-auto">
+            <table className="w-full min-w-[720px] border-collapse text-left text-apoyo">
               <thead>
-                <tr className="bg-superficie text-nota font-semibold text-secundario">
-                  <th className="h-12 px-5 font-semibold">Vendedor</th>
+                <tr className="text-nota font-semibold text-secundario">
+                  <th className="h-11 pr-4 font-semibold">Tienda</th>
+                  <th className="pr-4 font-semibold">Galería</th>
                   <th className="pr-4 font-semibold">Estado</th>
-                  <th className="pr-4 font-semibold">Disponibles</th>
+                  <th className="pr-4 font-semibold">Stock</th>
                   <th className="pr-4 font-semibold">Precio</th>
-                  <th className="w-[160px] pr-5">
+                  <th className="w-[140px]">
                     <span className="sr-only">Acción</span>
                   </th>
                 </tr>
@@ -421,51 +467,46 @@ export function FichaProducto({
               <tbody>
                 {ofertas.map((fila) => {
                   const viendo = fila.id === elegida;
-                  const esMejor = conSesion && fila.id === mejor?.id && ofertas.length > 1;
                   return (
                     <tr
                       key={fila.id}
-                      className={`border-t border-linea ${viendo ? 'bg-pase-suave' : ''}`}
+                      className={`h-16 border-t border-linea ${viendo ? 'bg-pase-suave' : ''}`}
                     >
-                      <td className="px-5 py-3.5">
-                        <span className="flex items-center gap-3">
-                          <Avatar oferta={fila} chico />
-                          <span className="flex min-w-0 flex-col">
-                            <b className={`font-semibold ${esReservada(fila) ? 'italic' : ''}`}>
-                              {nombreDe(fila)}
-                            </b>
-                            <span className="text-nota text-detalle">{lugarDe(fila)}</span>
-                          </span>
-                        </span>
+                      <td
+                        className={`pr-4 ${viendo ? 'font-bold' : ''} ${esReservada(fila) ? 'italic' : ''}`}
+                      >
+                        {nombreDe(fila)}
                       </td>
-                      <td className="pr-4">{textoEstado(fila.condicion)}</td>
-                      <td className="pr-4">{disponibles(fila.stock)}</td>
+                      <td className="pr-4 text-secundario">{fila.galeria ?? 'Independiente'}</td>
+                      <td className="pr-4 text-secundario">{textoEstado(fila.condicion)}</td>
                       <td className="pr-4">
-                        <span className="flex flex-col">
-                          <b className="text-tarjeta">
-                            {fila.precio
-                              ? formatearPrecio(fila.precio)
-                              : conSesion
-                                ? 'Al interno'
-                                : 'Con sesión'}
-                          </b>
-                          {viendo ? (
-                            <span className="text-nota font-semibold text-pase">
-                              Estás viendo esta
-                            </span>
-                          ) : (
-                            esMejor && (
-                              <span className="text-nota font-semibold text-ok">Más barato</span>
-                            )
-                          )}
+                        <span className="flex items-center gap-2 font-semibold">
+                          <span
+                            aria-hidden="true"
+                            className={`h-2 w-2 rounded-full ${fila.stock > 0 ? 'bg-pase' : 'bg-aviso'}`}
+                          />
+                          {disponibles(fila.stock)}
                         </span>
                       </td>
-                      <td className="pr-5 text-right">
-                        {!viendo && (
+                      <td className="pr-4">
+                        {fila.precio ? (
+                          <span className="inline-flex h-7 items-center rounded-full bg-tinta px-3 font-bold text-white">
+                            {formatearPrecio(fila.precio)}
+                          </span>
+                        ) : (
+                          <span className="font-semibold">
+                            {conSesion ? 'Al interno' : 'Con sesión'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="pr-2 text-right">
+                        {viendo ? (
+                          <span className="pr-5 font-semibold text-pase-texto">Viendo</span>
+                        ) : (
                           <button
                             type="button"
                             onClick={() => elegir(fila.id)}
-                            className={`${botonLista} w-[140px]`}
+                            className="h-9 rounded-full border border-borde bg-white px-4 font-semibold text-tinta hover:border-borde-control"
                           >
                             Ver oferta
                           </button>
@@ -477,27 +518,25 @@ export function FichaProducto({
               </tbody>
             </table>
           </div>
-          <span className="text-nota text-detalle">
-            {conSesion
-              ? 'De menor a mayor precio. Las ofertas al interno van al final.'
-              : 'De la más reciente a la más antigua.'}
-          </span>
         </section>
       )}
 
-      <section aria-label="Descripción y detalles" className="grid gap-10 lg:grid-cols-2">
-        <div id="descripcion" className="flex min-w-0 scroll-mt-40 flex-col gap-3">
-          <h2 className="text-[24px] font-semibold leading-8">Descripción del vendedor</h2>
+      <section
+        aria-label="Descripción y características"
+        className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_480px]"
+      >
+        <div id="descripcion" className="flex min-w-0 scroll-mt-40 flex-col gap-3 max-md:hidden">
+          <h2 className="text-seccion">Descripción de la tienda</h2>
           <p className="max-w-[640px] whitespace-pre-line text-secundario">
-            {oferta?.descripcion || 'El vendedor no agregó una descripción.'}
+            {oferta?.descripcion || 'La tienda no agregó una descripción.'}
           </p>
           {ofertas.length > 1 && (
             <span className="text-nota text-detalle">Cambia con la oferta que estás viendo.</span>
           )}
         </div>
         <div className="flex min-w-0 flex-col gap-3">
-          <h2 className="text-[24px] font-semibold leading-8">Detalles</h2>
-          <dl className="m-0 grid grid-cols-[minmax(120px,0.4fr)_minmax(0,1fr)] border-t border-linea">
+          <h2 className="text-seccion">Características</h2>
+          <dl className="m-0 grid grid-cols-[minmax(110px,0.3fr)_minmax(0,1fr)]">
             {[
               ...(producto.marca ? [['Marca', producto.marca] as const] : []),
               ...(producto.modelo ? [['Modelo', producto.modelo] as const] : []),
@@ -505,28 +544,20 @@ export function FichaProducto({
               ['Categoría', producto.categoria.nombre] as const,
             ].map(([nombre, valor]) => (
               <div key={nombre} className="contents">
-                <dt className="border-b border-linea py-3 text-secundario">{nombre}</dt>
-                <dd className="m-0 border-b border-linea py-3">{valor}</dd>
+                <dt className="border-b border-linea py-3 text-apoyo text-secundario">{nombre}</dt>
+                <dd className="m-0 border-b border-linea py-3 text-apoyo">{valor}</dd>
               </div>
             ))}
           </dl>
-          {oferta && (
-            <span className="flex flex-wrap items-center gap-x-1.5 text-nota text-detalle">
-              Publicación actualizada {haceCuanto(oferta.actualizadaEn).toLowerCase()}
-              {audiencia === 'vendedor' && !oferta.propia && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <button
-                    type="button"
-                    onClick={() => setDenunciando(true)}
-                    className="inline-flex items-center gap-1 underline"
-                  >
-                    <IconFlag size={14} stroke={1.5} aria-hidden="true" />
-                    Denunciar
-                  </button>
-                </>
-              )}
-            </span>
+          {oferta && audiencia === 'vendedor' && !oferta.propia && (
+            <button
+              type="button"
+              onClick={() => setDenunciando(true)}
+              className="inline-flex min-h-11 items-center gap-1.5 self-start text-nota text-secundario underline"
+            >
+              <IconFlag size={14} stroke={1.5} aria-hidden="true" />
+              Reportar esta publicación
+            </button>
           )}
         </div>
       </section>
@@ -539,34 +570,13 @@ export function FichaProducto({
       {barraAbajo && oferta && (
         <>
           <div aria-hidden="true" className="h-20 md:hidden" />
-          <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2.5 border-t border-linea bg-white px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-3 md:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-linea bg-white px-4 pb-[max(env(safe-area-inset-bottom),14px)] pt-3 md:hidden">
             {conSesion ? (
-              <>
-                <button
-                  type="button"
-                  disabled={contactando !== null}
-                  onClick={() => contactar('CHAT')}
-                  className="inline-flex h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-pase text-[16px] font-semibold text-white disabled:bg-borde-control"
-                >
-                  <IconMessageCircle size={20} stroke={1.8} aria-hidden="true" />
-                  {contactando === 'CHAT' ? 'Abriendo…' : 'Chatear ahora'}
-                </button>
-                {oferta.tiendaVisible && (
-                  <button
-                    type="button"
-                    aria-label="Escribir por WhatsApp"
-                    disabled={contactando !== null}
-                    onClick={() => contactar('WHATSAPP')}
-                    className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full border border-borde bg-white text-ok"
-                  >
-                    <IconBrandWhatsapp size={22} stroke={1.6} aria-hidden="true" />
-                  </button>
-                )}
-              </>
+              botonesContacto
             ) : (
               <Link
                 href="/ingresar"
-                className="inline-flex h-[52px] flex-1 items-center justify-center rounded-full bg-pase text-[16px] font-semibold text-white no-underline"
+                className="inline-flex h-[52px] w-full items-center justify-center rounded-full bg-pase text-[16px] font-bold text-white no-underline"
               >
                 Inicia sesión para contactar
               </Link>

@@ -217,7 +217,7 @@ export function Bienvenida() {
           </button>
         </div>
 
-        <div className="flex min-h-[300px] flex-1 items-center justify-center rounded-3xl bg-white/10 px-5 py-10 md:min-h-[450px]">
+        <div className="flex min-h-[300px] items-center justify-center rounded-3xl bg-white/10 px-5 py-10 max-md:flex-1 md:h-[450px] md:min-h-0">
           {pantalla.dibujo}
         </div>
 

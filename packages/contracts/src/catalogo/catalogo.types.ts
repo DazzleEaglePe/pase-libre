@@ -206,6 +206,8 @@ export interface RespuestaBarra {
   mas_buscado: string[];
   /** Si `mas_buscado` es de hoy. */
   mas_buscado_hoy: boolean;
+  /** Pedidos en vivo encendido (`EN_VIVO`): la barra muestra sus entradas desde el servidor. */
+  en_vivo: boolean;
 }
 
 /**

@@ -253,7 +253,7 @@ export class EnVivoService {
         throw new ApiHttpException(
           HttpStatus.CONFLICT,
           'LIMITE_EN_VIVO',
-          `Ya tienes ${MAX_EN_VIVO_POR_CUENTA} pases del día publicados. Cierra uno o espera a que venza.`,
+          `Ya tienes ${MAX_EN_VIVO_POR_CUENTA} pedidos en vivo publicados. Cierra uno o espera a que venza.`,
         );
       }
       return tx.enVivo.create({

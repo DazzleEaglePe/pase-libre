@@ -8,6 +8,8 @@ import { MasBuscado } from '@/features/catalogo/mas-buscado';
 import { TarjetaBusco } from '@/features/catalogo/tarjeta-busco';
 import { TarjetaCategoria } from '@/features/catalogo/tarjeta-categoria';
 import { TarjetaResultado } from '@/features/catalogo/tarjeta-resultado';
+import { Buscador } from '@/shared/ui/buscador';
+import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import {
   alternar,
   con,
@@ -121,9 +123,20 @@ export default async function Resultados({ searchParams }: { searchParams: Param
   // «Más barato» solo compara cosas parecidas: con una sola categoría en los resultados.
   const mismaCategoria = Boolean(filtros.categoria) || porCategoria.length <= 1;
 
+  const cuenta = (
+    <>
+      <b className="font-semibold text-tinta">
+        {resultado.total_ofertas === 1 ? '1 oferta' : `${resultado.total_ofertas} ofertas`}
+      </b>{' '}
+      de {resultado.total_productos === 1 ? '1 producto' : `${resultado.total_productos} productos`}
+    </>
+  );
+
   return (
-    <div className="flex flex-col gap-6">
-      <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle">
+    <div className="flex flex-col gap-6 max-md:gap-3">
+      {/* M_Resultados: en el celular, volver y el buscador en la cabecera verde. */}
+      <CabeceraMovil centro={<Buscador sobreMarca className="min-w-0 flex-1 pr-2" />} />
+      <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle max-md:hidden">
         <Link href="/" className="text-secundario">
           Inicio
         </Link>
@@ -142,17 +155,9 @@ export default async function Resultados({ searchParams }: { searchParams: Param
       </nav>
 
       <div className="flex flex-col gap-1">
-        <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1 max-md:hidden">
           <h1 className="text-titulo">{titulo}</h1>
-          <span className="text-cuerpo text-secundario">
-            <b className="font-semibold text-tinta">
-              {resultado.total_ofertas === 1 ? '1 oferta' : `${resultado.total_ofertas} ofertas`}
-            </b>{' '}
-            de{' '}
-            {resultado.total_productos === 1
-              ? '1 producto'
-              : `${resultado.total_productos} productos`}
-          </span>
+          <span className="text-cuerpo text-secundario">{cuenta}</span>
         </div>
         {resultado.correccion && (
           <p className="text-secundario">
@@ -163,37 +168,12 @@ export default async function Resultados({ searchParams }: { searchParams: Param
         )}
       </div>
 
-      {(porCategoria.length > 1 || populares.length > 0) && (
-        <section aria-label="Categorías" className="flex flex-col gap-3">
-          {porCategoria.length > 1 && (
-            <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0">
-              <TarjetaCategoria
-                compacta
-                href={hrefBuscar(sinFiltros(con(filtros, { categoria: null })))}
-                slug={null}
-                nombre="Todas"
-                productos={porCategoria.reduce((total, c) => total + c.cantidad, 0)}
-                elegida={!filtros.categoria}
-              />
-              {porCategoria.map((categoria) => (
-                <TarjetaCategoria
-                  key={categoria.slug}
-                  compacta
-                  href={hrefBuscar(sinFiltros(con(filtros, { categoria: categoria.slug })))}
-                  slug={categoria.slug}
-                  nombre={categoria.nombre}
-                  productos={categoria.cantidad}
-                  elegida={filtros.categoria === categoria.slug}
-                />
-              ))}
-            </div>
-          )}
-          <MasBuscado
-            terminos={populares}
-            categoria={filtros.categoria}
-            titulo={nombreCategoria ? `Lo más buscado en ${nombreCategoria}:` : null}
-          />
-        </section>
+      {populares.length > 0 && (
+        <MasBuscado
+          terminos={populares}
+          categoria={filtros.categoria}
+          titulo={nombreCategoria ? `Lo más buscado en ${nombreCategoria}:` : null}
+        />
       )}
 
       <section aria-label="Resultados" className="flex min-w-0 flex-col">
@@ -206,6 +186,7 @@ export default async function Resultados({ searchParams }: { searchParams: Param
             totalOfertas={resultado.total_ofertas}
           />
         </div>
+        <p className="pt-2 text-nota text-secundario md:hidden">{cuenta}</p>
 
         {chips.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-3">
@@ -267,7 +248,7 @@ export default async function Resultados({ searchParams }: { searchParams: Param
             )}
           </div>
         ) : (
-          <div className="grid gap-3 pt-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] sm:gap-4">
+          <div className="grid pt-1 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] sm:gap-4 sm:pt-4">
             {resultado.productos.map((producto) => (
               <TarjetaResultado
                 key={producto.slug}
@@ -352,6 +333,7 @@ function SinResultados({
     : `Todavía no hay productos en ${titulo}`;
   return (
     <div className="flex flex-col gap-10">
+      <CabeceraMovil centro={<Buscador sobreMarca className="min-w-0 flex-1 pr-2" />} />
       <nav aria-label="Ruta" className="flex flex-wrap gap-2 text-nota text-detalle">
         <Link href="/" className="text-secundario">
           Inicio

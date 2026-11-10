@@ -7,7 +7,14 @@ import { useState } from 'react';
  * «Compartir» de la ficha (M_Ficha): en el celular abre el menú del sistema para mandar el
  * enlace por WhatsApp u otra app; donde no lo hay, copia el enlace.
  */
-export function BotonCompartir({ titulo }: { titulo: string }) {
+export function BotonCompartir({
+  titulo,
+  soloIcono = false,
+}: {
+  titulo: string;
+  /** En la cabecera verde del celular (M_Ficha): solo el ícono, en blanco. */
+  soloIcono?: boolean;
+}) {
   const [copiado, setCopiado] = useState(false);
 
   async function compartir() {
@@ -27,6 +34,23 @@ export function BotonCompartir({ titulo }: { titulo: string }) {
     } catch {
       // Sin permiso para copiar: no hay nada más que hacer.
     }
+  }
+
+  if (soloIcono) {
+    return (
+      <button
+        type="button"
+        onClick={compartir}
+        aria-label={copiado ? 'Enlace copiado' : 'Compartir'}
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15"
+      >
+        {copiado ? (
+          <IconCheck size={22} stroke={1.8} aria-hidden="true" />
+        ) : (
+          <IconShare size={22} stroke={1.8} aria-hidden="true" />
+        )}
+      </button>
+    );
   }
 
   return (

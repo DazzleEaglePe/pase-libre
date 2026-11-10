@@ -41,6 +41,7 @@ import { CachePorAudienciaInterceptor } from '../../shared/interceptors/cache-po
 import { LIMITE_PERSONA } from '../../shared/limites';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { BusquedaService } from './busqueda.service';
+import { INTERRUPTOR_EN_VIVO, type InterruptorEnVivo } from '../en-vivo/interruptor';
 import { CatalogoService } from './catalogo.service';
 
 /**
@@ -54,6 +55,7 @@ export class CatalogoController {
   constructor(
     @Inject(CatalogoService) private readonly catalogo: CatalogoService,
     @Inject(BusquedaService) private readonly busqueda: BusquedaService,
+    @Inject(INTERRUPTOR_EN_VIVO) private readonly enVivo: InterruptorEnVivo,
   ) {}
 
   @Get('portada')
@@ -81,7 +83,12 @@ export class CatalogoController {
       this.catalogo.recienHoy(),
       this.busqueda.masBuscadoDeHoy(),
     ]);
-    return { recien_hoy: recien, mas_buscado: buscado.terminos, mas_buscado_hoy: buscado.hoy };
+    return {
+      recien_hoy: recien,
+      mas_buscado: buscado.terminos,
+      mas_buscado_hoy: buscado.hoy,
+      en_vivo: this.enVivo.activo,
+    };
   }
 
   /** Para el `sitemap.xml` de la web (RNF-42): solo lo que ve un visitante. */
