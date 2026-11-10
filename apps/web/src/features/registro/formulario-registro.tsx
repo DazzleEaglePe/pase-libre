@@ -71,11 +71,19 @@ function Tarjeta({
         visible ? '' : 'max-md:hidden'
       }`}
     >
-      <div className="flex flex-col gap-1">
-        <h2 id={`registro-${numero}`} tabIndex={-1} className="text-seccion outline-none">
-          {titulo}
-        </h2>
-        {nota && <p className="text-apoyo text-detalle">{nota}</p>}
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-tinta text-apoyo font-bold text-white"
+        >
+          {numero}
+        </span>
+        <div className="flex flex-col gap-1">
+          <h2 id={`registro-${numero}`} tabIndex={-1} className="text-seccion outline-none">
+            {titulo}
+          </h2>
+          {nota && <p className="text-apoyo text-detalle">{nota}</p>}
+        </div>
       </div>
       {children}
     </section>
@@ -388,586 +396,671 @@ export function FormularioRegistro({
     lista.includes(valor) ? lista.filter((x) => x !== valor) : [...lista, valor];
 
   return (
-    <form onSubmit={enviar} noValidate className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1.5">
-        <h1 className="text-titulo">
-          {corregir ? 'Corrige tu solicitud' : 'Crea la cuenta de tu tienda'}
-        </h1>
-        <p className="text-cuerpo text-secundario">
-          {corregir
-            ? 'Cambia lo que te pidió el equipo y la volvemos a revisar.'
-            : 'Gratis durante el piloto. Para tiendas con stand en las galerías de Wilson. Toma unos 3 minutos.'}
-        </p>
-      </header>
+    <form
+      onSubmit={enviar}
+      noValidate
+      className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]"
+    >
+      <div className="flex min-w-0 flex-col gap-5">
+        <header className="flex flex-col gap-1.5">
+          <h1 className="text-titulo">
+            {corregir ? 'Corrige tu solicitud' : 'Crea la cuenta de tu tienda'}
+          </h1>
+          <p className="text-cuerpo text-secundario">
+            {corregir
+              ? 'Cambia lo que te pidió el equipo y la volvemos a revisar.'
+              : 'Gratis durante el piloto. Para tiendas con stand en las galerías de Wilson. Toma unos 3 minutos.'}
+          </p>
+        </header>
 
-      {corregir?.mensaje && (
-        <div role="status" className="rounded-2xl bg-aviso-fondo p-4 text-apoyo text-aviso">
-          <b className="font-semibold">El equipo te escribió:</b> {corregir.mensaje}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2 md:hidden" aria-hidden="true">
-        <div className="flex gap-1.5">
-          {PASOS.map((nombrePaso, i) => (
-            <span
-              key={nombrePaso}
-              className={`h-1.5 flex-1 rounded-full ${i + 1 <= paso ? 'bg-pase' : 'bg-linea'}`}
-            />
-          ))}
-        </div>
-      </div>
-      <p className="text-apoyo font-medium text-detalle md:hidden">
-        Paso {paso} de {PASOS.length} · {PASOS[paso - 1]}
-      </p>
-
-      {!corregir && (
-        <Tarjeta
-          numero={1}
-          titulo="Tu celular"
-          nota="Para avisarte y para entrar. No lo verán otras tiendas."
-          visible={paso === 1}
-        >
-          {celularListo ? (
-            <p className="flex items-center gap-2 text-cuerpo font-semibold text-ok">
-              <IconCheck size={20} stroke={2} aria-hidden="true" />
-              Celular confirmado · {digitosCelular.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3')}
-            </p>
-          ) : (
-            <>
-              <Campo nombre="celular" texto="Celular del encargado" error={errores.celular}>
-                <div className="flex gap-2">
-                  <span className="flex h-12 items-center rounded-xl border border-borde bg-superficie px-3.5 text-cuerpo text-secundario">
-                    +51
-                  </span>
-                  <input
-                    id="celular"
-                    {...describir('celular', errores.celular)}
-                    name="celular"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel-national"
-                    value={celular}
-                    onChange={(e) => setCelular(e.target.value)}
-                    placeholder="987 654 321"
-                    className={campo}
-                  />
-                </div>
-              </Campo>
-              <button
-                type="button"
-                onClick={pedirCodigo}
-                disabled={trabajando === 'codigo' || espera > 0}
-                className={`${botonSecundario} self-start`}
-              >
-                {espera > 0
-                  ? `Pedir otro código en ${espera} s`
-                  : codigoPedido
-                    ? 'Enviarme otro código'
-                    : 'Enviarme el código'}
-              </button>
-              {codigoPedido && (
-                <>
-                  <Campo
-                    nombre="codigo"
-                    texto="Código que te llegó por SMS"
-                    ayuda="Llega en unos segundos."
-                    error={errores.codigo}
-                  >
-                    <input
-                      id="codigo"
-                      {...describir('codigo', errores.codigo, true)}
-                      name="codigo"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={codigo}
-                      onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))}
-                      placeholder="000000"
-                      className={`${campo} max-w-[200px] tracking-[0.3em]`}
-                    />
-                  </Campo>
-                  {codigoPedido.codigo_prueba && (
-                    <p className="rounded-xl bg-aviso-fondo p-3 text-nota text-aviso">
-                      Modo de prueba: no se manda un SMS de verdad. Tu código es{' '}
-                      <b className="font-semibold">{codigoPedido.codigo_prueba}</b>.
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={usarCodigo}
-                    disabled={trabajando === 'verificar'}
-                    className={`${botonPrincipal} self-start`}
-                  >
-                    Usar el código
-                  </button>
-                </>
-              )}
-            </>
-          )}
-        </Tarjeta>
-      )}
-
-      <Tarjeta
-        numero={2}
-        titulo="Tu negocio"
-        nota="Con RUC quedas verificado al instante; sin RUC te revisa una persona."
-        visible={paso === 2}
-      >
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-apoyo font-medium">¿Cómo verificamos tu tienda?</legend>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {(
-              [
-                [
-                  'RUC',
-                  'Con RUC',
-                  'Lo revisamos con SUNAT y quedas verificado al toque.',
-                  'Al instante',
-                ],
-                ['SIN_RUC_DNI', 'Sin RUC', 'Te revisa una persona del equipo.', 'Máx. 3 horas'],
-              ] as const
-            ).map(([valor, titulo, detalle, etiquetaTiempo]) => {
-              const activo = valor === 'RUC' ? acreditar === 'RUC' : acreditar !== 'RUC';
-              return (
-                <button
-                  key={valor}
-                  type="button"
-                  aria-pressed={activo}
-                  onClick={() => {
-                    if (valor === 'RUC') setAcreditar('RUC');
-                    else if (acreditar === 'RUC') setAcreditar('SIN_RUC_DNI');
-                    setErrores({});
-                  }}
-                  className={`flex flex-col items-start gap-1 rounded-2xl p-4 text-left ${
-                    activo ? 'border-2 border-tinta' : 'border border-borde'
-                  }`}
-                >
-                  <span className="text-tarjeta">{titulo}</span>
-                  <span className="text-apoyo text-secundario">{detalle}</span>
-                  <span
-                    className={`mt-1 rounded-full px-2 text-nota font-semibold ${
-                      valor === 'RUC' ? 'bg-pase-medio text-ok' : 'bg-aviso-fondo text-aviso'
-                    }`}
-                  >
-                    {etiquetaTiempo}
-                  </span>
-                </button>
-              );
-            })}
+        {corregir?.mensaje && (
+          <div role="status" className="rounded-2xl bg-aviso-fondo p-4 text-apoyo text-aviso">
+            <b className="font-semibold">El equipo te escribió:</b> {corregir.mensaje}
           </div>
-        </fieldset>
+        )}
 
-        {acreditar === 'RUC' ? (
-          <>
-            <Campo nombre="ruc" texto="RUC" error={errores.ruc}>
-              <div className="flex gap-2">
-                <input
-                  id="ruc"
-                  {...describir('ruc', errores.ruc)}
-                  name="ruc"
-                  inputMode="numeric"
-                  maxLength={11}
-                  value={ruc}
-                  onChange={(e) => {
-                    setRuc(e.target.value.replace(/\D/g, ''));
-                    setRucInfo(null);
-                  }}
-                  placeholder="20512345671"
-                  className={campo}
-                />
+        <div className="flex flex-col gap-2 md:hidden" aria-hidden="true">
+          <div className="flex gap-1.5">
+            {PASOS.map((nombrePaso, i) => (
+              <span
+                key={nombrePaso}
+                className={`h-1.5 flex-1 rounded-full ${i + 1 <= paso ? 'bg-pase' : 'bg-linea'}`}
+              />
+            ))}
+          </div>
+        </div>
+        <p className="text-apoyo font-medium text-detalle md:hidden">
+          Paso {paso} de {PASOS.length} · {PASOS[paso - 1]}
+        </p>
+
+        {!corregir && (
+          <Tarjeta
+            numero={1}
+            titulo="Tu celular"
+            nota="Para avisarte y para entrar. No lo verán otras tiendas."
+            visible={paso === 1}
+          >
+            {celularListo ? (
+              <p className="flex items-center gap-2 text-cuerpo font-semibold text-ok">
+                <IconCheck size={20} stroke={2} aria-hidden="true" />
+                Celular confirmado · {digitosCelular.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3')}
+              </p>
+            ) : (
+              <>
+                <Campo nombre="celular" texto="Celular del encargado" error={errores.celular}>
+                  <div className="flex gap-2">
+                    <span className="flex h-12 items-center rounded-xl border border-borde bg-superficie px-3.5 text-cuerpo text-secundario">
+                      +51
+                    </span>
+                    <input
+                      id="celular"
+                      {...describir('celular', errores.celular)}
+                      name="celular"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel-national"
+                      value={celular}
+                      onChange={(e) => setCelular(e.target.value)}
+                      placeholder="987 654 321"
+                      className={campo}
+                    />
+                  </div>
+                </Campo>
                 <button
                   type="button"
-                  onClick={verificarRuc}
-                  disabled={trabajando === 'ruc'}
-                  className={botonSecundario}
+                  onClick={pedirCodigo}
+                  disabled={trabajando === 'codigo' || espera > 0}
+                  className={`${botonSecundario} self-start`}
                 >
-                  Verificar
+                  {espera > 0
+                    ? `Pedir otro código en ${espera} s`
+                    : codigoPedido
+                      ? 'Enviarme otro código'
+                      : 'Enviarme el código'}
                 </button>
-              </div>
-            </Campo>
-            {rucInfo && (
-              <div
-                role="status"
-                className={`rounded-2xl p-4 text-apoyo ${
-                  rucInfo.apto
-                    ? 'bg-pase-suave'
-                    : rucInfo.encontrado
-                      ? 'bg-aviso-fondo text-aviso'
-                      : 'bg-error-fondo text-error'
-                }`}
-              >
-                {rucInfo.datos ? (
-                  <div className="flex flex-col gap-0.5">
-                    <b className="text-tarjeta">{rucInfo.datos.razon_social}</b>
-                    <span>
-                      Encontrado en SUNAT · {rucInfo.datos.estado[0]}
-                      {rucInfo.datos.estado.slice(1).toLowerCase()} · {rucInfo.datos.condicion[0]}
-                      {rucInfo.datos.condicion.slice(1).toLowerCase()}
-                    </span>
-                    <span>Domicilio fiscal en {rucInfo.datos.domicilio}</span>
-                    {!rucInfo.apto && (
-                      <span className="mt-1 font-semibold">
-                        Como no está activo y habido, una persona del equipo lo revisará.
-                      </span>
+                {codigoPedido && (
+                  <>
+                    <Campo
+                      nombre="codigo"
+                      texto="Código que te llegó por SMS"
+                      ayuda="Llega en unos segundos."
+                      error={errores.codigo}
+                    >
+                      <input
+                        id="codigo"
+                        {...describir('codigo', errores.codigo, true)}
+                        name="codigo"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={codigo}
+                        onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))}
+                        placeholder="000000"
+                        className={`${campo} max-w-[200px] tracking-[0.3em]`}
+                      />
+                    </Campo>
+                    {codigoPedido.codigo_prueba && (
+                      <p className="rounded-xl bg-aviso-fondo p-3 text-nota text-aviso">
+                        Modo de prueba: no se manda un SMS de verdad. Tu código es{' '}
+                        <b className="font-semibold">{codigoPedido.codigo_prueba}</b>.
+                      </p>
                     )}
-                  </div>
-                ) : (
-                  <span>
-                    SUNAT no encontró ese RUC. Revísalo o elige «Sin RUC»: también puedes
-                    registrarte.
-                  </span>
+                    <button
+                      type="button"
+                      onClick={usarCodigo}
+                      disabled={trabajando === 'verificar'}
+                      className={`${botonPrincipal} self-start`}
+                    >
+                      Usar el código
+                    </button>
+                  </>
                 )}
-              </div>
+              </>
             )}
-          </>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <p className="rounded-xl bg-pase-suave p-3 text-apoyo">
-              Sin problema, también puedes registrarte sin RUC. Como no podemos verificarlo al
-              instante, una persona de nuestro equipo revisará tu cuenta y te avisaremos en un
-              máximo de 3 horas.
-            </p>
-            <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-apoyo font-medium">
-                Elige cómo acreditar tu tienda
-              </legend>
-              <div className="flex flex-wrap gap-2">
-                {ALTERNATIVAS.map(({ valor, texto }) => (
+          </Tarjeta>
+        )}
+
+        <Tarjeta
+          numero={2}
+          titulo="Tu negocio"
+          nota="Con RUC quedas verificado al instante; sin RUC te revisa una persona."
+          visible={paso === 2}
+        >
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-apoyo font-medium">¿Cómo verificamos tu tienda?</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  [
+                    'RUC',
+                    'Con RUC',
+                    'Lo revisamos con SUNAT y quedas verificado al toque.',
+                    'Al instante',
+                  ],
+                  ['SIN_RUC_DNI', 'Sin RUC', 'Te revisa una persona del equipo.', 'Máx. 3 horas'],
+                ] as const
+              ).map(([valor, titulo, detalle, etiquetaTiempo]) => {
+                const activo = valor === 'RUC' ? acreditar === 'RUC' : acreditar !== 'RUC';
+                return (
                   <button
                     key={valor}
                     type="button"
-                    aria-pressed={acreditar === valor}
+                    aria-pressed={activo}
                     onClick={() => {
-                      setAcreditar(valor);
+                      if (valor === 'RUC') setAcreditar('RUC');
+                      else if (acreditar === 'RUC') setAcreditar('SIN_RUC_DNI');
                       setErrores({});
                     }}
-                    className={chip(acreditar === valor)}
+                    className={`flex flex-col items-start gap-1 rounded-2xl p-4 text-left ${
+                      activo ? 'border-2 border-tinta' : 'border border-borde'
+                    }`}
                   >
-                    {texto}
+                    <span className="text-tarjeta">{titulo}</span>
+                    <span className="text-apoyo text-secundario">{detalle}</span>
+                    <span
+                      className={`mt-1 rounded-full px-2 text-nota font-semibold ${
+                        valor === 'RUC' ? 'bg-pase-medio text-ok' : 'bg-aviso-fondo text-aviso'
+                      }`}
+                    >
+                      {etiquetaTiempo}
+                    </span>
                   </button>
-                ))}
-              </div>
-            </fieldset>
-            {acreditar === 'SIN_RUC_DNI' && (
-              <Campo
-                nombre="dni"
-                texto="DNI del encargado"
-                ayuda="Solo lo ve el equipo de PaseLibre y se borra cuando revisan tu solicitud."
-                error={errores.dni}
-              >
-                <input
-                  id="dni"
-                  {...describir('dni', errores.dni, true)}
-                  name="dni"
-                  inputMode="numeric"
-                  maxLength={8}
-                  value={dni}
-                  onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))}
-                  placeholder={corregir ? 'Déjalo vacío para conservar el tuyo' : '12345678'}
-                  className={`${campo} max-w-[240px]`}
-                />
+                );
+              })}
+            </div>
+          </fieldset>
+
+          {acreditar === 'RUC' ? (
+            <>
+              <Campo nombre="ruc" texto="RUC" error={errores.ruc}>
+                <div className="flex gap-2">
+                  <input
+                    id="ruc"
+                    {...describir('ruc', errores.ruc)}
+                    name="ruc"
+                    inputMode="numeric"
+                    maxLength={11}
+                    value={ruc}
+                    onChange={(e) => {
+                      setRuc(e.target.value.replace(/\D/g, ''));
+                      setRucInfo(null);
+                    }}
+                    placeholder="20512345671"
+                    className={campo}
+                  />
+                  <button
+                    type="button"
+                    onClick={verificarRuc}
+                    disabled={trabajando === 'ruc'}
+                    className={botonSecundario}
+                  >
+                    Verificar
+                  </button>
+                </div>
               </Campo>
+              {rucInfo && (
+                <div
+                  role="status"
+                  className={`rounded-2xl p-4 text-apoyo ${
+                    rucInfo.apto
+                      ? 'bg-pase-suave'
+                      : rucInfo.encontrado
+                        ? 'bg-aviso-fondo text-aviso'
+                        : 'bg-error-fondo text-error'
+                  }`}
+                >
+                  {rucInfo.datos ? (
+                    <div className="flex flex-col gap-0.5">
+                      <b className="text-tarjeta">{rucInfo.datos.razon_social}</b>
+                      <span>
+                        Encontrado en SUNAT · {rucInfo.datos.estado[0]}
+                        {rucInfo.datos.estado.slice(1).toLowerCase()} · {rucInfo.datos.condicion[0]}
+                        {rucInfo.datos.condicion.slice(1).toLowerCase()}
+                      </span>
+                      <span>Domicilio fiscal en {rucInfo.datos.domicilio}</span>
+                      {!rucInfo.apto && (
+                        <span className="mt-1 font-semibold">
+                          Como no está activo y habido, una persona del equipo lo revisará.
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <span>
+                      SUNAT no encontró ese RUC. Revísalo o elige «Sin RUC»: también puedes
+                      registrarte.
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <p className="rounded-xl bg-pase-suave p-3 text-apoyo">
+                Sin problema, también puedes registrarte sin RUC. Como no podemos verificarlo al
+                instante, una persona de nuestro equipo revisará tu cuenta y te avisaremos en un
+                máximo de 3 horas.
+              </p>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 text-apoyo font-medium">
+                  Elige cómo acreditar tu tienda
+                </legend>
+                <div className="flex flex-wrap gap-2">
+                  {ALTERNATIVAS.map(({ valor, texto }) => (
+                    <button
+                      key={valor}
+                      type="button"
+                      aria-pressed={acreditar === valor}
+                      onClick={() => {
+                        setAcreditar(valor);
+                        setErrores({});
+                      }}
+                      className={chip(acreditar === valor)}
+                    >
+                      {texto}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+              {acreditar === 'SIN_RUC_DNI' && (
+                <Campo
+                  nombre="dni"
+                  texto="DNI del encargado"
+                  ayuda="Solo lo ve el equipo de PaseLibre y se borra cuando revisan tu solicitud."
+                  error={errores.dni}
+                >
+                  <input
+                    id="dni"
+                    {...describir('dni', errores.dni, true)}
+                    name="dni"
+                    inputMode="numeric"
+                    maxLength={8}
+                    value={dni}
+                    onChange={(e) => setDni(e.target.value.replace(/\D/g, ''))}
+                    placeholder={corregir ? 'Déjalo vacío para conservar el tuyo' : '12345678'}
+                    className={`${campo} max-w-[240px]`}
+                  />
+                </Campo>
+              )}
+              {acreditar === 'SIN_RUC_RECOMENDACION' && (
+                <Campo
+                  nombre="recomienda"
+                  texto="¿Qué tienda verificada te conoce?"
+                  ayuda="Le preguntaremos a esa tienda si te conoce. Solo tiene que tocar «Sí, la conozco»."
+                  error={errores.recomienda}
+                >
+                  <input
+                    id="recomienda"
+                    {...describir('recomienda', errores.recomienda, true)}
+                    name="recomienda"
+                    value={recomienda}
+                    onChange={(e) => setRecomienda(e.target.value)}
+                    placeholder="Nombre de la tienda"
+                    className={campo}
+                  />
+                </Campo>
+              )}
+              {acreditar === 'SIN_RUC_CREDENCIAL' && (
+                <p className="text-apoyo text-secundario">
+                  Te pediremos una foto de tu credencial o del contrato del stand (el que te dio la
+                  administración de la galería) por WhatsApp cuando revisemos tu solicitud.
+                </p>
+              )}
+            </div>
+          )}
+
+          <Campo
+            nombre="nombre"
+            texto="¿Cómo te conocen en la galería? (es el nombre que verán las tiendas)"
+            error={errores.nombre}
+          >
+            <input
+              id="nombre"
+              {...describir('nombre', errores.nombre)}
+              name="nombre"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              maxLength={120}
+              className={campo}
+            />
+          </Campo>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-apoyo font-medium">
+              ¿Qué vendes? (elige todas las que apliquen)
+            </legend>
+            <div className="flex flex-wrap gap-2">
+              {(opciones.categorias.length ? opciones.categorias : CATEGORIAS_REGISTRO).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={categorias.includes(c)}
+                  onClick={() => setCategorias((lista) => alternar(lista, c))}
+                  className={chip(categorias.includes(c))}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            {errores.categorias && (
+              <span role="alert" className="text-nota text-error">
+                {errores.categorias}
+              </span>
             )}
-            {acreditar === 'SIN_RUC_RECOMENDACION' && (
-              <Campo
-                nombre="recomienda"
-                texto="¿Qué tienda verificada te conoce?"
-                ayuda="Le preguntaremos a esa tienda si te conoce. Solo tiene que tocar «Sí, la conozco»."
-                error={errores.recomienda}
+          </fieldset>
+        </Tarjeta>
+
+        <Tarjeta numero={3} titulo="Tu stand" visible={paso === 3}>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-apoyo font-medium">Galería</legend>
+            <div className="flex flex-wrap gap-2">
+              {opciones.galerias.map((g) => (
+                <button
+                  key={g.slug}
+                  type="button"
+                  aria-pressed={galeria === g.slug}
+                  onClick={() => setGaleria(g.slug)}
+                  className={chip(galeria === g.slug)}
+                >
+                  {g.nombre}
+                </button>
+              ))}
+              <button
+                type="button"
+                aria-pressed={galeria === 'otra'}
+                onClick={() => setGaleria('otra')}
+                className={chip(galeria === 'otra')}
               >
+                Otra galería
+              </button>
+            </div>
+            {errores.galeria && (
+              <span role="alert" className="text-nota text-error">
+                {errores.galeria}
+              </span>
+            )}
+          </fieldset>
+          {galeria === 'otra' && (
+            <>
+              <Campo nombre="galeria-otra" texto="Nombre de la galería" error={errores.galeriaOtra}>
                 <input
-                  id="recomienda"
-                  {...describir('recomienda', errores.recomienda, true)}
-                  name="recomienda"
-                  value={recomienda}
-                  onChange={(e) => setRecomienda(e.target.value)}
-                  placeholder="Nombre de la tienda"
+                  id="galeria-otra"
+                  {...describir('galeria-otra', errores.galeriaOtra)}
+                  value={galeriaOtra}
+                  onChange={(e) => setGaleriaOtra(e.target.value)}
+                  maxLength={120}
                   className={campo}
                 />
               </Campo>
-            )}
-            {acreditar === 'SIN_RUC_CREDENCIAL' && (
               <p className="text-apoyo text-secundario">
-                Te pediremos una foto de tu credencial o del contrato del stand (el que te dio la
-                administración de la galería) por WhatsApp cuando revisemos tu solicitud.
+                ¡Qué bueno que se sumen más galerías! Como todavía no la tenemos registrada, una
+                persona de nuestro equipo la agregará al revisar tu solicitud.
               </p>
-            )}
-          </div>
-        )}
-
-        <Campo
-          nombre="nombre"
-          texto="¿Cómo te conocen en la galería? (es el nombre que verán las tiendas)"
-          error={errores.nombre}
-        >
-          <input
-            id="nombre"
-            {...describir('nombre', errores.nombre)}
-            name="nombre"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            maxLength={120}
-            className={campo}
-          />
-        </Campo>
-
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-apoyo font-medium">
-            ¿Qué vendes? (elige todas las que apliquen)
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            {(opciones.categorias.length ? opciones.categorias : CATEGORIAS_REGISTRO).map((c) => (
-              <button
-                key={c}
-                type="button"
-                aria-pressed={categorias.includes(c)}
-                onClick={() => setCategorias((lista) => alternar(lista, c))}
-                className={chip(categorias.includes(c))}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-          {errores.categorias && (
-            <span role="alert" className="text-nota text-error">
-              {errores.categorias}
-            </span>
+            </>
           )}
-        </fieldset>
-      </Tarjeta>
-
-      <Tarjeta numero={3} titulo="Tu stand" visible={paso === 3}>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-apoyo font-medium">Galería</legend>
-          <div className="flex flex-wrap gap-2">
-            {opciones.galerias.map((g) => (
-              <button
-                key={g.slug}
-                type="button"
-                aria-pressed={galeria === g.slug}
-                onClick={() => setGaleria(g.slug)}
-                className={chip(galeria === g.slug)}
-              >
-                {g.nombre}
-              </button>
-            ))}
-            <button
-              type="button"
-              aria-pressed={galeria === 'otra'}
-              onClick={() => setGaleria('otra')}
-              className={chip(galeria === 'otra')}
-            >
-              Otra galería
-            </button>
-          </div>
-          {errores.galeria && (
-            <span role="alert" className="text-nota text-error">
-              {errores.galeria}
-            </span>
-          )}
-        </fieldset>
-        {galeria === 'otra' && (
-          <>
-            <Campo nombre="galeria-otra" texto="Nombre de la galería" error={errores.galeriaOtra}>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-apoyo font-medium">Piso</legend>
+            <div className="flex flex-wrap gap-2">
+              {PISOS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={piso === p}
+                  onClick={() => setPiso(piso === p ? '' : p)}
+                  className={chip(piso === p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Campo nombre="stand" texto="Número de stand" error={errores.stand}>
               <input
-                id="galeria-otra"
-                {...describir('galeria-otra', errores.galeriaOtra)}
-                value={galeriaOtra}
-                onChange={(e) => setGaleriaOtra(e.target.value)}
-                maxLength={120}
+                id="stand"
+                {...describir('stand', errores.stand)}
+                value={stand}
+                onChange={(e) => setStand(e.target.value)}
+                maxLength={20}
                 className={campo}
               />
             </Campo>
-            <p className="text-apoyo text-secundario">
-              ¡Qué bueno que se sumen más galerías! Como todavía no la tenemos registrada, una
-              persona de nuestro equipo la agregará al revisar tu solicitud.
-            </p>
-          </>
+            <Campo nombre="referencia" texto="Una referencia para llegar (opcional)">
+              <input
+                id="referencia"
+                value={referencia}
+                onChange={(e) => setReferencia(e.target.value)}
+                maxLength={200}
+                placeholder="Al lado de las escaleras"
+                className={campo}
+              />
+            </Campo>
+          </div>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-apoyo font-medium">Horario</legend>
+            <div className="flex flex-wrap gap-2">
+              {DIAS_DE_ATENCION.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={dias.includes(d)}
+                  onClick={() => setDias((lista) => alternar(lista, d))}
+                  className={chip(dias.includes(d))}
+                >
+                  {ETIQUETA_DIA[d]}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-apoyo">
+                De
+                <input
+                  type="time"
+                  value={desde}
+                  onChange={(e) => setDesde(e.target.value)}
+                  className={`${campo} w-[150px]`}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-apoyo">
+                a
+                <input
+                  type="time"
+                  value={hasta}
+                  onChange={(e) => setHasta(e.target.value)}
+                  className={`${campo} w-[150px]`}
+                />
+              </label>
+            </div>
+            {(errores.dias || errores.horario) && (
+              <span role="alert" className="text-nota text-error">
+                {errores.dias ?? errores.horario}
+              </span>
+            )}
+          </fieldset>
+        </Tarjeta>
+
+        <Tarjeta
+          numero={4}
+          titulo="Encargado y contraseña"
+          nota="Las fotos del stand son opcionales: envíalas al equipo por el chat cuando tu cuenta esté aprobada."
+          visible={paso === 4}
+        >
+          <Campo nombre="encargado" texto="Nombre del encargado" error={errores.encargado}>
+            <input
+              id="encargado"
+              {...describir('encargado', errores.encargado)}
+              value={encargado}
+              onChange={(e) => setEncargado(e.target.value)}
+              maxLength={120}
+              autoComplete="name"
+              className={campo}
+            />
+          </Campo>
+          <Campo
+            nombre="clave"
+            texto={corregir ? 'Contraseña nueva (opcional)' : 'Crea tu contraseña'}
+            ayuda={
+              corregir
+                ? 'Déjala vacía para conservar la que elegiste.'
+                : 'Mínimo 8 caracteres y un número. Entrarás con tu celular y esta contraseña.'
+            }
+            error={errores.clave}
+          >
+            <div className="relative">
+              <input
+                id="clave"
+                {...describir('clave', errores.clave, true)}
+                type={verClave ? 'text' : 'password'}
+                autoComplete="new-password"
+                value={clave}
+                onChange={(e) => setClave(e.target.value)}
+                maxLength={128}
+                className={`${campo} pr-24`}
+              />
+              <button
+                type="button"
+                onClick={() => setVerClave((v) => !v)}
+                className="absolute right-1 top-1 h-10 rounded-full px-4 text-apoyo font-medium"
+              >
+                {verClave ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+          </Campo>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-start gap-3 text-apoyo">
+              <input
+                type="checkbox"
+                checked={acepta}
+                onChange={(e) => setAcepta(e.target.checked)}
+                className="mt-0.5 h-5 w-5 shrink-0 accent-pase"
+              />
+              <span>
+                Acepto los{' '}
+                <Link href="/terminos" target="_blank" className="font-medium underline">
+                  términos de uso
+                </Link>{' '}
+                y las reglas de la comunidad. PaseLibre no cobra ni intermedia pagos: el trato es
+                entre vendedores.
+              </span>
+            </label>
+            {errores.acepta && (
+              <span role="alert" className="text-nota text-error">
+                {errores.acepta}
+              </span>
+            )}
+          </div>
+        </Tarjeta>
+
+        {errorGeneral && (
+          <p role="alert" className="rounded-xl bg-error-fondo p-3 text-apoyo text-error">
+            {errorGeneral}
+          </p>
         )}
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-apoyo font-medium">Piso</legend>
-          <div className="flex flex-wrap gap-2">
-            {PISOS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                aria-pressed={piso === p}
-                onClick={() => setPiso(piso === p ? '' : p)}
-                className={chip(piso === p)}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Campo nombre="stand" texto="Número de stand" error={errores.stand}>
-            <input
-              id="stand"
-              {...describir('stand', errores.stand)}
-              value={stand}
-              onChange={(e) => setStand(e.target.value)}
-              maxLength={20}
-              className={campo}
-            />
-          </Campo>
-          <Campo nombre="referencia" texto="Una referencia para llegar (opcional)">
-            <input
-              id="referencia"
-              value={referencia}
-              onChange={(e) => setReferencia(e.target.value)}
-              maxLength={200}
-              placeholder="Al lado de las escaleras"
-              className={campo}
-            />
-          </Campo>
-        </div>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-apoyo font-medium">Horario</legend>
-          <div className="flex flex-wrap gap-2">
-            {DIAS_DE_ATENCION.map((d) => (
-              <button
-                key={d}
-                type="button"
-                aria-pressed={dias.includes(d)}
-                onClick={() => setDias((lista) => alternar(lista, d))}
-                className={chip(dias.includes(d))}
-              >
-                {ETIQUETA_DIA[d]}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-apoyo">
-              De
-              <input
-                type="time"
-                value={desde}
-                onChange={(e) => setDesde(e.target.value)}
-                className={`${campo} w-[150px]`}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-apoyo">
-              a
-              <input
-                type="time"
-                value={hasta}
-                onChange={(e) => setHasta(e.target.value)}
-                className={`${campo} w-[150px]`}
-              />
-            </label>
-          </div>
-          {(errores.dias || errores.horario) && (
-            <span role="alert" className="text-nota text-error">
-              {errores.dias ?? errores.horario}
-            </span>
-          )}
-        </fieldset>
-      </Tarjeta>
 
-      <Tarjeta
-        numero={4}
-        titulo="Encargado y contraseña"
-        nota="Las fotos del stand son opcionales: envíalas al equipo por el chat cuando tu cuenta esté aprobada."
-        visible={paso === 4}
-      >
-        <Campo nombre="encargado" texto="Nombre del encargado" error={errores.encargado}>
-          <input
-            id="encargado"
-            {...describir('encargado', errores.encargado)}
-            value={encargado}
-            onChange={(e) => setEncargado(e.target.value)}
-            maxLength={120}
-            autoComplete="name"
-            className={campo}
-          />
-        </Campo>
-        <Campo
-          nombre="clave"
-          texto={corregir ? 'Contraseña nueva (opcional)' : 'Crea tu contraseña'}
-          ayuda={
-            corregir
-              ? 'Déjala vacía para conservar la que elegiste.'
-              : 'Mínimo 8 caracteres y un número. Entrarás con tu celular y esta contraseña.'
-          }
-          error={errores.clave}
-        >
-          <div className="relative">
-            <input
-              id="clave"
-              {...describir('clave', errores.clave, true)}
-              type={verClave ? 'text' : 'password'}
-              autoComplete="new-password"
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-              maxLength={128}
-              className={`${campo} pr-24`}
-            />
-            <button
-              type="button"
-              onClick={() => setVerClave((v) => !v)}
-              className="absolute right-1 top-1 h-10 rounded-full px-4 text-apoyo font-medium"
-            >
-              {verClave ? 'Ocultar' : 'Mostrar'}
-            </button>
-          </div>
-        </Campo>
-        <div className="flex flex-col gap-1.5">
-          <label className="flex items-start gap-3 text-apoyo">
-            <input
-              type="checkbox"
-              checked={acepta}
-              onChange={(e) => setAcepta(e.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-pase"
-            />
-            <span>
-              Acepto los{' '}
-              <Link href="/terminos" target="_blank" className="font-medium underline">
-                términos de uso
-              </Link>{' '}
-              y las reglas de la comunidad. PaseLibre no cobra ni intermedia pagos: el trato es
-              entre vendedores.
-            </span>
-          </label>
-          {errores.acepta && (
-            <span role="alert" className="text-nota text-error">
-              {errores.acepta}
-            </span>
-          )}
-        </div>
-      </Tarjeta>
-
-      {errorGeneral && (
-        <p role="alert" className="rounded-xl bg-error-fondo p-3 text-apoyo text-error">
-          {errorGeneral}
-        </p>
-      )}
-
-      <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => setPaso((p) => Math.max(1, p - 1))}
-          className={`${botonSecundario} md:hidden ${paso === 1 ? 'invisible' : ''}`}
-        >
-          Atrás
-        </button>
-        {paso < PASOS.length ? (
-          <button type="button" onClick={siguiente} className={`${botonPrincipal} md:hidden`}>
-            Siguiente
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setPaso((p) => Math.max(1, p - 1))}
+            className={`${botonSecundario} md:hidden ${paso === 1 ? 'invisible' : ''}`}
+          >
+            Atrás
           </button>
-        ) : null}
-        <button
-          type="submit"
-          disabled={trabajando === 'enviar'}
-          className={`${botonPrincipal} ${paso < PASOS.length ? 'max-md:hidden' : ''} md:ml-auto`}
-        >
-          {trabajando === 'enviar'
-            ? 'Enviando…'
-            : corregir
-              ? 'Enviar la corrección'
-              : 'Enviar solicitud'}
-        </button>
+          {paso < PASOS.length ? (
+            <button type="button" onClick={siguiente} className={`${botonPrincipal} md:hidden`}>
+              Siguiente
+            </button>
+          ) : null}
+          <button
+            type="submit"
+            disabled={trabajando === 'enviar'}
+            className={`${botonPrincipal} ${paso < PASOS.length ? 'max-md:hidden' : ''} md:ml-auto`}
+          >
+            {trabajando === 'enviar'
+              ? 'Enviando…'
+              : corregir
+                ? 'Enviar la corrección'
+                : 'Enviar solicitud'}
+          </button>
+        </div>
       </div>
+
+      {/* REG_Web: lo que lleva tu solicitud y qué pasa después. */}
+      <aside
+        aria-label="Tu solicitud"
+        className="hidden flex-col gap-4 rounded-[20px] border border-linea bg-white p-5 lg:sticky lg:top-6 lg:mt-[92px] lg:flex"
+      >
+        <b className="text-cuerpo font-bold">Tu solicitud</b>
+        <ul className="m-0 flex list-none flex-col gap-2.5 p-0 text-apoyo">
+          {(
+            [
+              [Boolean(token), token ? 'Tu celular, confirmado' : 'Tu celular'],
+              acreditar === 'RUC'
+                ? [Boolean(rucInfo?.apto), 'RUC verificado en SUNAT']
+                : [Boolean(dni), 'Sin RUC: te revisa una persona'],
+              [
+                Boolean(galeria && stand),
+                galeria && stand
+                  ? `Stand: ${
+                      galeria === 'otra'
+                        ? galeriaOtra || 'otra galería'
+                        : (opciones.galerias.find((g) => g.slug === galeria)?.nombre ?? galeria)
+                    }${piso ? `, piso ${piso}` : ''} · ${stand}`
+                  : 'Tu stand',
+              ],
+              [
+                Boolean(encargado.trim()),
+                encargado.trim() ? `Encargado: ${encargado.trim()}` : 'Encargado',
+              ],
+            ] as Array<[boolean, string]>
+          ).map(([listo, texto]) => (
+            <li
+              key={texto}
+              className={`flex items-start gap-2 ${listo ? 'text-tinta' : 'text-secundario'}`}
+            >
+              <span
+                aria-hidden="true"
+                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
+                  listo ? 'text-pase' : 'border border-borde'
+                }`}
+              >
+                {listo ? '✓' : ''}
+              </span>
+              {texto}
+              <span className="sr-only">{listo ? ' (listo)' : ' (falta)'}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-col gap-3 border-t border-linea pt-4">
+          <b className="text-apoyo font-bold">¿Qué pasa después?</b>
+          <ol className="m-0 flex list-none flex-col gap-3 p-0">
+            {(
+              [
+                ['Envías la solicitud', 'Ahora', true],
+                [
+                  'La revisamos',
+                  acreditar === 'RUC' ? 'Con RUC, al instante' : 'Una persona, en máx. 3 horas',
+                  false,
+                ],
+                ['Te avisamos por SMS', 'Aprobada o con algo por corregir', false],
+              ] as Array<[string, string, boolean]>
+            ).map(([titulo, detalle, primero]) => (
+              <li key={titulo} className="flex items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
+                    primero ? 'bg-pase text-white' : 'bg-linea text-secundario'
+                  }`}
+                >
+                  {primero ? '✓' : ''}
+                </span>
+                <span className="flex flex-col">
+                  <b className="text-apoyo font-bold">{titulo}</b>
+                  <span className="text-nota text-secundario">{detalle}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </aside>
     </form>
   );
 }

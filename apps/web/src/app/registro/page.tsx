@@ -21,7 +21,7 @@ export default async function PaginaRegistro() {
 
   return (
     <MarcoPagina sesion={null}>
-      <main className="mx-auto w-full max-w-[760px] flex-1 px-4 pb-16 pt-8 sm:px-8 sm:pt-12">
+      <main className="mx-auto w-full max-w-[1120px] flex-1 px-4 pb-16 pt-8 sm:px-8 sm:pt-12">
         {opciones?.activo ? (
           <FormularioRegistro opciones={opciones} />
         ) : (

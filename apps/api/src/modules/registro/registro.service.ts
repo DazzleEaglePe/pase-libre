@@ -470,6 +470,8 @@ export class RegistroService {
         piso: solicitud.piso,
         whatsapp: solicitud.celular,
         horario: solicitud.horario,
+        // «Una referencia para llegar» del registro es su «Cómo llegar» en el chat (PCH_WebLlegar).
+        indicaciones: solicitud.referencia,
       },
     });
     const usuario = await tx.usuario.create({
