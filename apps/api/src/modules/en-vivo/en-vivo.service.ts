@@ -24,6 +24,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { conSesion, precioPara } from '../catalogo/visibilidad';
@@ -165,15 +166,18 @@ export class EnVivoService {
       };
     }
 
+    // Lo de las tiendas que quien mira bloqueó no aparece (REP_WebBloqueadas).
+    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
+    const sinBloqueadas = bloqueadas.length > 0 ? [{ tiendaId: { notIn: bloqueadas } }] : [];
     const [vivas, terminadas] = await Promise.all([
       this.prisma.enVivo.findMany({
-        where: enVivo,
+        where: { AND: [enVivo, ...sinBloqueadas] },
         select: SELECT_CON_VENDEDOR,
         orderBy: orden,
         take: MAX_EN_LISTA,
       }),
       this.prisma.enVivo.findMany({
-        where: cerrados,
+        where: { AND: [cerrados, ...sinBloqueadas] },
         select: SELECT_CON_VENDEDOR,
         take: MAX_CERRADOS,
       }),

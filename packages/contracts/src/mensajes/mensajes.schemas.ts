@@ -44,15 +44,25 @@ export const cambiarConversacionSchema = z
   })
   .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.');
 
-/** `POST /v1/denuncias` (RF-57, RNF-53). */
+/** Los tres motivos de «Reportar» (REP_Web): estafa, no cumplió con lo descrito, mal trato. */
+export const MOTIVOS_DENUNCIA = ['ESTAFA', 'DESCRITO', 'TRATO'] as const;
+
+/**
+ * `POST /v1/denuncias` (RF-57, RNF-53, REP_Web): qué se reporta, el motivo, lo que quiera
+ * contar, el chat si lo adjunta (solo así el equipo puede leerlo) y si bloquea también.
+ */
 export const denunciaSchema = z.strictObject({
   objeto: z.enum(['CONVERSACION', 'OFERTA', 'TIENDA', 'EN_VIVO']),
-  objeto_id: z.uuid('No encontramos lo que quieres denunciar.'),
+  objeto_id: z.uuid('No encontramos lo que quieres reportar.'),
+  tipo: z.enum(MOTIVOS_DENUNCIA, { message: 'Elige un motivo.' }),
   motivo: z
     .string()
     .trim()
-    .min(5, 'Cuéntanos en pocas palabras qué pasó.')
-    .max(500, 'El motivo llega hasta 500 caracteres.'),
+    .max(500, 'Cuéntalo en hasta 500 caracteres.')
+    .optional()
+    .transform((texto) => texto || undefined),
+  conversacion_id: z.uuid('Ese chat no existe.').optional(),
+  bloquear: z.boolean().default(false),
 });
 
 /** `POST /v1/ofertas/:id/vendido` (RF-47): a quién, entre quienes escribieron por la oferta. */

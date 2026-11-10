@@ -25,6 +25,8 @@ import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { Hoja } from '@/shared/ui/hoja';
 import { Miniatura } from '@/shared/ui/miniatura';
 
+import { MenuOpciones } from '@/features/reportes/menu-opciones';
+
 import { ListaOpiniones } from './opiniones';
 
 const OPCIONES_AVISOS: Array<[AvisosSeguimiento, string, string]> = [
@@ -241,6 +243,37 @@ export function PerfilDeTienda({
                 </Link>
               </>
             )}
+          </div>
+        )}
+        {perfil.puede_seguir && (
+          <div className="-mt-2 flex items-center gap-2">
+            <MenuOpciones
+              objeto="TIENDA"
+              objetoId={perfil.id}
+              sobre={`Tienda · ${perfil.nombre}`}
+              tienda={perfil.bloqueada ? null : { id: perfil.id, nombre: perfil.nombre }}
+            />
+            <span className="text-nota text-secundario">Reportar o bloquear</span>
+          </div>
+        )}
+        {perfil.bloqueada && (
+          <div className="flex max-w-[560px] flex-wrap items-center justify-between gap-3 rounded-2xl bg-error-fondo px-4 py-3">
+            <span className="flex flex-col">
+              <b className="text-apoyo font-bold">Bloqueaste a {perfil.nombre}</b>
+              <span className="text-nota text-secundario">Ya no verás sus publicaciones.</span>
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                void llamarApi(`/cuenta/bloqueados/${perfil.id}`, { metodo: 'DELETE' }).then(() => {
+                  setPerfil((actual) => ({ ...actual, bloqueada: false }));
+                  router.refresh();
+                })
+              }
+              className="h-10 rounded-full border border-borde bg-white px-4 text-apoyo font-bold"
+            >
+              Desbloquear
+            </button>
           </div>
         )}
         {error && (

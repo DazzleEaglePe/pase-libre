@@ -7,17 +7,21 @@ import { useEffect, useState } from 'react';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 
 import { SeccionAvisos } from './avisos';
+import { SeccionBloqueadas } from './bloqueadas';
 import { SeccionDatos } from './datos';
 import { SeccionPreferencias } from './preferencias';
 import { SeccionPrivacidad } from './privacidad';
+import { SeccionReportes } from './reportes';
 import { SeccionSeguridad } from './seguridad';
 
 export const SECCIONES = {
   datos: { titulo: 'Datos de la cuenta', resumen: 'Tienda, contacto y horario' },
   seguridad: { titulo: 'Seguridad', resumen: 'Contraseña y sesiones' },
   avisos: { titulo: 'Avisos', resumen: 'Qué te avisamos y cuándo' },
-  privacidad: { titulo: 'Privacidad', resumen: '«Visto» y bloqueados' },
+  privacidad: { titulo: 'Privacidad', resumen: 'El «Visto» de tus mensajes' },
   preferencias: { titulo: 'Preferencias', resumen: 'Al publicar y respuestas rápidas' },
+  reportes: { titulo: 'Mis reportes', resumen: 'Lo que reportaste y qué pasó' },
+  bloqueadas: { titulo: 'Tiendas bloqueadas', resumen: 'No te escriben ni ves lo suyo' },
 } as const;
 
 export type Seccion = keyof typeof SECCIONES;
@@ -108,8 +112,10 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
           {cuenta && seccion === 'seguridad' && <SeccionSeguridad alAvisar={setAviso} />}
           {cuenta && seccion === 'avisos' && <SeccionAvisos alAvisar={setAviso} />}
           {cuenta && seccion === 'privacidad' && (
-            <SeccionPrivacidad cuenta={cuenta} alGuardar={alGuardarCuenta} alAvisar={setAviso} />
+            <SeccionPrivacidad cuenta={cuenta} alGuardar={alGuardarCuenta} />
           )}
+          {cuenta && seccion === 'reportes' && <SeccionReportes />}
+          {cuenta && seccion === 'bloqueadas' && <SeccionBloqueadas alAvisar={setAviso} />}
           {cuenta && seccion === 'preferencias' && (
             <SeccionPreferencias cuenta={cuenta} alGuardar={alGuardarCuenta} alAvisar={setAviso} />
           )}

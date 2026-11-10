@@ -18,6 +18,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { conSesion, precioPara, tiendaPara } from './visibilidad';
 
 /** Una oferta se muestra si está activa, su tienda no está suspendida y su producto no se unió a otro. */
@@ -264,8 +265,9 @@ export class CatalogoService {
       };
     }
 
+    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
     const ofertas = await this.prisma.oferta.findMany({
-      where,
+      where: bloqueadas.length > 0 ? { AND: [where, { tiendaId: { notIn: bloqueadas } }] } : where,
       orderBy,
       take: PORTADA_RECIENTES,
       select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
@@ -351,6 +353,8 @@ export class CatalogoService {
       return { audiencia: 'visitante', producto: detalle, ofertas: ofertas.map(ofertaPublica) };
     }
 
+    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
+    if (bloqueadas.length > 0) where.tiendaId = { notIn: bloqueadas };
     const ofertas = await this.prisma.oferta.findMany({
       where,
       select: SELECT_OFERTA_CON_VENDEDOR,

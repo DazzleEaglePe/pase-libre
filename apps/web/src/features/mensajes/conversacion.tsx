@@ -3,6 +3,7 @@
 import {
   EVENTOS,
   formatearPrecio,
+  TIENDA_RESERVADA,
   urlFoto,
   type CambiarConversacion,
   type DetalleConversacion,
@@ -28,12 +29,11 @@ import { EnVivoEnElChat } from '@/features/en-vivo/en-chat';
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
 import { diaDelChat, hora, haceRato } from '@/shared/fechas';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
-import { botonPeligro, botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
-import { Ventana } from '@/shared/ui/ventana';
 
 import { inicial } from './bandeja';
 import { VentanaVendido } from './ventana-vendido';
+import { VentanaBloquear, VentanaReporte } from '@/features/reportes/ventanas';
 
 const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -112,7 +112,6 @@ export function Conversacion({ id }: { id: string }) {
   const [noExiste, setNoExiste] = useState(false);
   const [menu, setMenu] = useState(false);
   const [ventana, setVentana] = useState<'bloquear' | 'denunciar' | 'vendido' | null>(null);
-  const [motivo, setMotivo] = useState('');
   const [aviso, setAviso] = useState<string | null>(null);
   const historial = useRef<HTMLDivElement>(null);
   const alFondo = useRef(true);
@@ -289,21 +288,6 @@ export function Conversacion({ id }: { id: string }) {
     }
   }
 
-  async function denunciar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    try {
-      await llamarApi('/denuncias', {
-        metodo: 'POST',
-        cuerpo: { objeto: 'CONVERSACION', objeto_id: id, motivo },
-      });
-      setVentana(null);
-      setMotivo('');
-      setAviso('Recibimos tu denuncia. El equipo de PaseLibre la revisa.');
-    } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No pudimos enviar la denuncia.');
-    }
-  }
-
   if (noExiste) {
     return (
       <section className="flex flex-1 flex-col items-center justify-center gap-3 rounded-3xl border-[1.5px] border-linea p-8 text-center">
@@ -442,6 +426,29 @@ export function Conversacion({ id }: { id: string }) {
                 >
                   {detalle.archivada ? 'Desarchivar' : 'Archivar'}
                 </button>
+                {detalle.otro.tienda.id && (
+                  <Link
+                    role="menuitem"
+                    href={`/tiendas/${detalle.otro.tienda.id}`}
+                    className="flex min-h-11 items-center rounded-[10px] px-3 text-tinta no-underline hover:bg-superficie"
+                  >
+                    Ver perfil de {detalle.otro.tienda.nombre}
+                  </Link>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(false);
+                    setVentana('denunciar');
+                  }}
+                  className="flex min-h-11 flex-col justify-center rounded-[10px] px-3 py-1.5 text-left hover:bg-superficie"
+                >
+                  Reportar a {detalle.otro.tienda.nombre}
+                  <span className="text-nota text-secundario">
+                    Estafa, no cumplió con lo descrito o mal trato
+                  </span>
+                </button>
                 <button
                   type="button"
                   role="menuitem"
@@ -455,18 +462,7 @@ export function Conversacion({ id }: { id: string }) {
                   }}
                   className="min-h-11 rounded-[10px] px-3 text-left font-semibold text-error hover:bg-superficie"
                 >
-                  {detalle.bloqueaste ? 'Desbloquear' : 'Bloquear'}
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenu(false);
-                    setVentana('denunciar');
-                  }}
-                  className="min-h-11 rounded-[10px] px-3 text-left hover:bg-superficie"
-                >
-                  Denunciar
+                  {detalle.bloqueaste ? 'Desbloquear' : `Bloquear a ${detalle.otro.tienda.nombre}`}
                 </button>
               </div>
             </>
@@ -674,69 +670,29 @@ export function Conversacion({ id }: { id: string }) {
         </div>
       )}
 
-      <Ventana
-        titulo={`¿Bloquear a ${otro.tienda.nombre}?`}
-        abierta={ventana === 'bloquear'}
-        alCerrar={() => setVentana(null)}
-      >
-        <p className="text-secundario">
-          Nadie de {otro.tienda.nombre} podrá escribirte ni contactarte. No se le avisa. Puedes
-          desbloquearla aquí mismo o en Configuración › Privacidad.
-        </p>
-        <div className="flex flex-wrap gap-2.5">
-          <button
-            type="button"
-            onClick={() => void bloquear(true)}
-            className={`${botonPeligro} flex-1`}
-          >
-            Bloquear
-          </button>
-          <button
-            type="button"
-            onClick={() => setVentana(null)}
-            className={`${botonSecundario} flex-1`}
-          >
-            Cancelar
-          </button>
-        </div>
-      </Ventana>
-
-      <Ventana
-        titulo="Denunciar esta conversación"
-        abierta={ventana === 'denunciar'}
-        alCerrar={() => setVentana(null)}
-      >
-        <form onSubmit={denunciar} className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1.5 text-apoyo font-medium">
-            ¿Qué pasó?
-            <textarea
-              required
-              minLength={5}
-              maxLength={500}
-              rows={4}
-              value={motivo}
-              onChange={(evento) => setMotivo(evento.target.value)}
-              placeholder="Por ejemplo: me pidió un adelanto por fuera de la galería."
-              className="resize-y rounded-xl border border-borde px-3.5 py-3 text-cuerpo font-normal placeholder:text-detalle"
-            />
-          </label>
-          <p className="text-nota text-detalle">
-            El equipo de PaseLibre no lee tus mensajes: solo ve este motivo.
-          </p>
-          <div className="flex flex-wrap gap-2.5">
-            <button type="submit" className={`${botonPrincipal} flex-1`}>
-              Enviar denuncia
-            </button>
-            <button
-              type="button"
-              onClick={() => setVentana(null)}
-              className={`${botonSecundario} flex-1`}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      </Ventana>
+      {ventana === 'bloquear' && (
+        <VentanaBloquear
+          tienda={otro.tienda.nombre}
+          alCerrar={() => setVentana(null)}
+          alBloquear={async () => {
+            await llamarApi(`/conversaciones/${id}/bloqueo`, { metodo: 'POST' });
+            setDetalle({ ...detalle, bloqueaste: true });
+            setAviso(`Bloqueaste a ${otro.tienda.nombre}.`);
+          }}
+          alReportar={() => setVentana('denunciar')}
+        />
+      )}
+      {ventana === 'denunciar' && (
+        <VentanaReporte
+          objeto="CONVERSACION"
+          objetoId={id}
+          conversacionId={id}
+          tienda={otro.tienda.nombre === TIENDA_RESERVADA ? null : otro.tienda.nombre}
+          sobre={`Chat · ${otro.tienda.nombre}`}
+          alCerrar={() => setVentana(null)}
+          alBloquear={() => setDetalle({ ...detalle, bloqueaste: true })}
+        />
+      )}
 
       {detalle.rol === 'vendedor' && (
         <VentanaVendido

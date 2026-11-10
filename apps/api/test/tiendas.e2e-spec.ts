@@ -292,4 +292,83 @@ describe('Perfil de otra tienda, seguir y opiniones (sección 15 del lienzo fina
       .expect(201);
     expect(opinion.body.producto).toBeNull();
   });
+
+  it('bloquear a una tienda la saca de la búsqueda, la portada, la ficha y su perfil', async () => {
+    const cookie = await como('tiendac');
+    const deA = await prisma.oferta.findFirstOrThrow({
+      where: { tiendaId: tiendaA, estado: 'ACTIVA', tiendaVisible: true, stock: { gt: 0 } },
+      include: { producto: true },
+    });
+    const ofertasDe = (cuerpo: { productos: Array<{ ofertas?: unknown }> }) =>
+      JSON.stringify(cuerpo);
+
+    await http()
+      .post(`/v1/tiendas/${tiendaA}/bloqueo`)
+      .set(CABECERAS)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    const busqueda = await http()
+      .get(`/v1/buscar?q=${encodeURIComponent(deA.producto.titulo)}`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(ofertasDe(busqueda.body)).not.toContain('Tienda A');
+    const portada = await http().get('/v1/portada').set('Cookie', cookie).expect(200);
+    expect(JSON.stringify(portada.body.recien_publicado)).not.toContain('Tienda A');
+    const ficha = await http()
+      .get(`/v1/productos/${deA.producto.slug}`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((ficha.body.ofertas as Array<{ id: string }>).map((o) => o.id)).not.toContain(deA.id);
+    const perfil = await http().get(`/v1/tiendas/${tiendaA}`).set('Cookie', cookie).expect(200);
+    expect(perfil.body).toMatchObject({ bloqueada: true, productos: [] });
+
+    // Las demás tiendas la siguen viendo.
+    const otra = await http()
+      .get(`/v1/productos/${deA.producto.slug}`)
+      .set('Cookie', await como('tiendae'))
+      .expect(200);
+    expect((otra.body.ofertas as Array<{ id: string }>).map((o) => o.id)).toContain(deA.id);
+
+    await http()
+      .delete(`/v1/cuenta/bloqueados/${tiendaA}`)
+      .set(CABECERAS)
+      .set('Cookie', cookie)
+      .expect(204);
+    const despues = await http()
+      .get(`/v1/productos/${deA.producto.slug}`)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect((despues.body.ofertas as Array<{ id: string }>).map((o) => o.id)).toContain(deA.id);
+  });
+
+  it('reportar una publicación reservada no dice de quién era, ni en «Mis reportes»', async () => {
+    const oferta = await prisma.oferta.findFirstOrThrow({
+      where: { tiendaId: tiendaA, estado: 'ACTIVA' },
+      orderBy: { creadaEn: 'desc' },
+    });
+    await prisma.oferta.update({ where: { id: oferta.id }, data: { tiendaVisible: false } });
+    const cookie = await como('tiendae');
+    const reporte = await http()
+      .post('/v1/denuncias')
+      .set(CABECERAS)
+      .set('Cookie', cookie)
+      .send({ objeto: 'OFERTA', objeto_id: oferta.id, tipo: 'DESCRITO', bloquear: true })
+      .expect(201);
+    expect(reporte.body.bloqueada).toBe(true);
+
+    const mios = await http().get('/v1/cuenta/reportes').set('Cookie', cookie).expect(200);
+    expect(mios.body[0]).toMatchObject({ tienda: 'Tienda reservada', tipo: 'DESCRITO' });
+    const bloqueadas = await http().get('/v1/cuenta/bloqueados').set('Cookie', cookie).expect(200);
+    expect(JSON.stringify(bloqueadas.body)).not.toContain('Tienda A');
+
+    // La propia tienda no se reporta.
+    await http()
+      .post('/v1/denuncias')
+      .set(CABECERAS)
+      .set('Cookie', await como('tiendaa'))
+      .send({ objeto: 'OFERTA', objeto_id: oferta.id, tipo: 'ESTAFA' })
+      .expect(409);
+    await prisma.oferta.update({ where: { id: oferta.id }, data: { tiendaVisible: true } });
+  });
 });

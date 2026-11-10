@@ -50,6 +50,8 @@ export interface PerfilTienda {
   propia: boolean;
   /** Las cuentas del equipo miran, pero no siguen. */
   puede_seguir: boolean;
+  /** La bloqueaste: «Bloqueaste a … · Desbloquear» y sin sus productos. */
+  bloqueada: boolean;
   total_productos: number;
   productos: ProductoDeTienda[];
 }

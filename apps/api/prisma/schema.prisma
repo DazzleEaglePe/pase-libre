@@ -93,8 +93,13 @@ enum ObjetoDenuncia {
 }
 
 enum EstadoDenuncia {
+  /// «Enviado»: todavía nadie del equipo lo abrió.
   ABIERTA
+  /// «Lo revisa una persona».
+  EN_REVISION
+  /// «Resuelto»: el equipo hizo algo y lo cuenta en `resolucion`.
   REVISADA
+  /// «Resuelto» sin acción: no se encontró nada.
   DESCARTADA
 
   @@map("estado_denuncia")
@@ -193,6 +198,7 @@ model Tienda {
   seguidores           Seguimiento[]     @relation("TiendaSeguida")
   opinionesRecibidas   Opinion[]         @relation("OpinionSobre")
   opinionesEscritas    Opinion[]         @relation("OpinionDe")
+  denunciasRecibidas   Denuncia[]        @relation("DenunciaContra")
 
   @@index([galeriaId])
   @@map("tienda")
@@ -547,18 +553,44 @@ model Bloqueo {
   @@map("bloqueo")
 }
 
-model Denuncia {
-  id            String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  denuncianteId String         @map("denunciante_id") @db.Uuid
-  objeto        ObjetoDenuncia
-  objetoId      String         @map("objeto_id") @db.Uuid
-  motivo        String         @db.VarChar(500)
-  estado        EstadoDenuncia @default(ABIERTA)
-  creadaEn      DateTime       @default(now()) @map("creada_en") @db.Timestamptz(6)
+/// Los tres motivos de «Reportar» (REP_Web). Las de estafa las ve primero el equipo.
+enum MotivoDenuncia {
+  ESTAFA
+  DESCRITO
+  TRATO
 
-  denunciante Usuario @relation(fields: [denuncianteId], references: [id])
+  @@map("motivo_denuncia")
+}
+
+model Denuncia {
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// «R-1042»: el número que se le muestra a quien reportó.
+  codigo                Int             @unique @default(autoincrement())
+  denuncianteId         String          @map("denunciante_id") @db.Uuid
+  objeto                ObjetoDenuncia
+  objetoId              String          @map("objeto_id") @db.Uuid
+  /// La tienda reportada, resuelta al crear (para la cola del equipo y «Mis reportes»).
+  tiendaDenunciadaId    String?         @map("tienda_denunciada_id") @db.Uuid
+  /// Nulo en las denuncias de antes del lienzo final, que solo tenían texto.
+  tipo                  MotivoDenuncia?
+  /// «Cuéntanos qué pasó» (opcional).
+  motivo                String?         @db.VarChar(500)
+  /// «Adjuntar este chat»: solo entonces el equipo puede leer esa conversación.
+  conversacionAdjuntaId String?         @map("conversacion_adjunta_id") @db.Uuid
+  /// Se reportó una publicación con la tienda reservada: «Mis reportes» no la nombra.
+  reservada             Boolean         @default(false)
+  estado                EstadoDenuncia  @default(ABIERTA)
+  /// Lo que el equipo le cuenta a quien reportó («Le escribimos a…, corrigió el estado»).
+  resolucion            String?         @db.VarChar(500)
+  tomadaEn              DateTime?       @map("tomada_en") @db.Timestamptz(6)
+  resueltaEn            DateTime?       @map("resuelta_en") @db.Timestamptz(6)
+  creadaEn              DateTime        @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  denunciante      Usuario @relation(fields: [denuncianteId], references: [id])
+  tiendaDenunciada Tienda? @relation("DenunciaContra", fields: [tiendaDenunciadaId], references: [id])
 
   @@index([estado, creadaEn])
+  @@index([denuncianteId, creadaEn(sort: Desc)])
   @@map("denuncia")
 }
 

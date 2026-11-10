@@ -6,6 +6,7 @@ import {
   type ConsultaHistorial,
   type ConversacionEnLista,
   type DenunciaDatos,
+  type RespuestaDenuncia,
   type DetalleConversacion,
   type EnVivoEnChat,
   type EnviarMensajeDatos,
@@ -647,36 +648,86 @@ export class MensajesService {
     }
   }
 
-  /** Denunciar (RF-57, RNF-53). Se guarda el motivo y a qué se refiere, nunca los mensajes. */
-  async denunciar(datos: DenunciaDatos, usuarioId: string): Promise<{ id: string }> {
-    const existe =
-      datos.objeto === 'CONVERSACION'
-        ? await this.prisma.participacion.count({
-            where: { conversacionId: datos.objeto_id, usuarioId },
-          })
-        : datos.objeto === 'OFERTA'
-          ? await this.prisma.oferta.count({
-              where: { id: datos.objeto_id, estado: { not: 'ELIMINADA' } },
-            })
-          : datos.objeto === 'EN_VIVO'
-            ? await this.prisma.enVivo.count({ where: { id: datos.objeto_id } })
-            : await this.prisma.tienda.count({ where: { id: datos.objeto_id } });
-    if (!existe) {
-      throw new ApiHttpException(
+  /**
+   * Reportar (RF-57, RNF-53, REP_Web): una publicación, una tienda, un chat o un pedido en vivo,
+   * con uno de los tres motivos. Se guarda a qué tienda se refiere (para la cola del equipo) y,
+   * solo si se marcó «Adjuntar este chat», qué conversación puede leer el equipo. Con
+   * «Bloquear también», se bloquea en el mismo paso. La tienda reportada nunca sabe quién fue.
+   */
+  async denunciar(datos: DenunciaDatos, usuario: UsuarioConTienda): Promise<RespuestaDenuncia> {
+    const noEncontrado = () =>
+      new ApiHttpException(
         HttpStatus.NOT_FOUND,
         'NO_ENCONTRADO',
-        'No encontramos lo que quieres denunciar.',
+        'No encontramos lo que quieres reportar.',
+      );
+    let tiendaId: string | null = null;
+    let reservada = false;
+    if (datos.objeto === 'CONVERSACION') {
+      const { conversacion } = await this.participacion(datos.objeto_id, usuario.id);
+      const otro =
+        conversacion.compradorId === usuario.id ? conversacion.vendedor : conversacion.comprador;
+      tiendaId = otro.tienda?.id ?? null;
+      reservada = conversacion.compradorId === usuario.id && !conversacion.oferta.tiendaVisible;
+    } else if (datos.objeto === 'OFERTA') {
+      const oferta = await this.prisma.oferta.findFirst({
+        where: { id: datos.objeto_id, estado: { not: 'ELIMINADA' } },
+        select: { tiendaId: true, tiendaVisible: true },
+      });
+      if (!oferta) throw noEncontrado();
+      tiendaId = oferta.tiendaId;
+      reservada = !oferta.tiendaVisible;
+    } else if (datos.objeto === 'EN_VIVO') {
+      const enVivo = await this.prisma.enVivo.findUnique({
+        where: { id: datos.objeto_id },
+        select: { tiendaId: true },
+      });
+      if (!enVivo) throw noEncontrado();
+      tiendaId = enVivo.tiendaId;
+    } else {
+      const existe = await this.prisma.tienda.count({ where: { id: datos.objeto_id } });
+      if (!existe) throw noEncontrado();
+      tiendaId = datos.objeto_id;
+    }
+    if (tiendaId && tiendaId === usuario.tiendaId) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'No puedes reportar a tu propia tienda.',
       );
     }
-    return this.prisma.denuncia.create({
+    // El chat que se adjunta tiene que ser de quien reporta.
+    if (datos.conversacion_id) await this.participacion(datos.conversacion_id, usuario.id);
+
+    const denuncia = await this.prisma.denuncia.create({
       data: {
-        denuncianteId: usuarioId,
+        denuncianteId: usuario.id,
         objeto: datos.objeto,
         objetoId: datos.objeto_id,
-        motivo: datos.motivo,
+        tiendaDenunciadaId: tiendaId,
+        tipo: datos.tipo,
+        motivo: datos.motivo ?? null,
+        conversacionAdjuntaId: datos.conversacion_id ?? null,
+        reservada,
       },
-      select: { id: true },
+      select: { codigo: true, creadaEn: true },
     });
+    let bloqueada = false;
+    if (datos.bloquear && tiendaId) {
+      await this.prisma.bloqueo.upsert({
+        where: {
+          usuarioId_tiendaBloqueadaId: { usuarioId: usuario.id, tiendaBloqueadaId: tiendaId },
+        },
+        update: {},
+        create: { usuarioId: usuario.id, tiendaBloqueadaId: tiendaId, reservada },
+      });
+      bloqueada = true;
+    }
+    return {
+      codigo: `R-${denuncia.codigo}`,
+      bloqueada,
+      revisar_antes_de: new Date(denuncia.creadaEn.getTime() + 3 * 3_600_000).toISOString(),
+    };
   }
 
   // ── «Vendido» (RF-47) ─────────────────────────────────────────────────────

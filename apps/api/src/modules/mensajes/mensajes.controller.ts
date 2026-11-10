@@ -30,6 +30,7 @@ import {
   type Contactar,
   type Contadores,
   type DenunciaDatos,
+  type RespuestaDenuncia,
   type DetalleConversacion,
   type EnviarMensajeDatos,
   type FiltroConversaciones,
@@ -187,8 +188,8 @@ export class MensajesController {
   denunciar(
     @Body(new ZodValidationPipe(denunciaSchema)) datos: DenunciaDatos,
     @SesionActual() sesion: SesionActiva,
-  ): Promise<{ id: string }> {
-    return this.mensajes.denunciar(datos, sesion.usuario.id);
+  ): Promise<RespuestaDenuncia> {
+    return this.mensajes.denunciar(datos, sesion.usuario);
   }
 
   @Get('ofertas/:id/interesados')

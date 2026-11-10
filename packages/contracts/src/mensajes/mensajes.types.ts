@@ -176,3 +176,28 @@ export interface EventoOfertaStock {
   oferta_id: string;
   stock: number;
 }
+
+export type MotivoDenuncia = 'ESTAFA' | 'DESCRITO' | 'TRATO';
+
+/** «Ya nos llegó tu reporte R-1042» (REP_WebEnviado). */
+export interface RespuestaDenuncia {
+  codigo: string;
+  /** Además bloqueaste a la tienda. */
+  bloqueada: boolean;
+  /** Una persona del equipo lo revisa antes de esta hora (3 horas). */
+  revisar_antes_de: string;
+}
+
+/** Una fila de «Mis reportes» (REP_WebMisReportes). */
+export interface MiReporte {
+  codigo: string;
+  /** El nombre de la tienda, o «Tienda reservada» si se reportó una publicación reservada. */
+  tienda: string;
+  /** Nulo en los reportes de antes, que solo tenían texto. */
+  tipo: MotivoDenuncia | null;
+  estado: 'ENVIADO' | 'EN_REVISION' | 'RESUELTO';
+  creada_en: string;
+  revisar_antes_de: string;
+  /** Lo que hizo el equipo, cuando está resuelto. */
+  resolucion: string | null;
+}

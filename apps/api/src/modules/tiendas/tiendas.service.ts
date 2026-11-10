@@ -84,11 +84,16 @@ export class TiendasService {
     const mirada = miradaDe(sesion);
     const miTienda = sesion.usuario.tiendaId;
 
+    const bloqueada =
+      (await this.prisma.bloqueo.count({
+        where: { usuarioId: sesion.usuario.id, tiendaBloqueadaId: id },
+      })) > 0;
     const [ofertas, total, seguidores, siguiendo, reputacion] = await Promise.all([
       this.prisma.oferta.findMany({
         where: { tiendaId: id, ...OFERTA_DEL_PERFIL },
         orderBy: [{ actualizadaEn: 'desc' }, { creadaEn: 'desc' }],
-        take: PRODUCTOS_EN_PERFIL,
+        // Bloqueada: «Ya no verás sus publicaciones».
+        take: bloqueada ? 0 : PRODUCTOS_EN_PERFIL,
         select: {
           id: true,
           condicion: true,
@@ -132,6 +137,7 @@ export class TiendasService {
       explicar_seguir: sesion.usuario.seguirExplicadoEn === null,
       propia: miTienda === id,
       puede_seguir: miTienda !== null && miTienda !== id,
+      bloqueada,
       total_productos: total,
       productos: ofertas.map((oferta) => ({
         oferta_id: oferta.id,
@@ -276,6 +282,27 @@ export class TiendasService {
         };
       }),
     );
+  }
+
+  // ── Bloquear (REP_Web) ────────────────────────────────────────────────────
+
+  /** «Bloquear a…» desde la ficha o el perfil: la tienda tiene el nombre a la vista. */
+  async bloquear(tiendaId: string, sesion: SesionActiva): Promise<void> {
+    if (sesion.usuario.tiendaId === tiendaId) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'No puedes bloquear a tu propia tienda.',
+      );
+    }
+    const existe = await this.prisma.tienda.count({ where: { id: tiendaId } });
+    if (!existe) throw noEncontrada();
+    const clave = { usuarioId: sesion.usuario.id, tiendaBloqueadaId: tiendaId };
+    await this.prisma.bloqueo.upsert({
+      where: { usuarioId_tiendaBloqueadaId: clave },
+      update: {},
+      create: clave,
+    });
   }
 
   // ── Opiniones ─────────────────────────────────────────────────────────────

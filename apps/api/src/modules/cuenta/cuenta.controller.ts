@@ -19,6 +19,7 @@ import {
   respuestasRapidasSchema,
   type ActualizarCuentaDatos,
   type AvisosCuentaDatos,
+  type MiReporte,
   type RespuestaAvisosCuenta,
   type RespuestaCuenta,
   type RespuestaRapida,
@@ -118,6 +119,12 @@ export class CuentaController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<void> {
     return this.cuentas.cerrarSesion(sesion, sesionId);
+  }
+
+  @Get('reportes')
+  @Header('Cache-Control', 'no-store')
+  reportes(@SesionActual() { usuario }: SesionActiva): Promise<MiReporte[]> {
+    return this.cuentas.reportes(usuario.id);
   }
 
   @Get('bloqueados')

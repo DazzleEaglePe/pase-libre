@@ -446,25 +446,52 @@ describe('Mensajes, campanita, bloqueo y «Vendido» (RF-39, RF-40, RF-47, RF-55
         .expect(201);
     });
 
-    it('denunciar guarda el motivo, nunca los mensajes', async () => {
+    it('reportar guarda el motivo y el chat solo si se adjunta (REP_Web)', async () => {
       const respuesta = await como('tiendab')
         .post('/v1/denuncias', {
           objeto: 'CONVERSACION',
           objeto_id: conversacion,
+          tipo: 'ESTAFA',
           motivo: 'Me pidió un adelanto por fuera.',
         })
         .expect(201);
-      const denuncia = await prisma.denuncia.findUniqueOrThrow({
-        where: { id: respuesta.body.id },
+      // En producción empiezan en R-1001; las pruebas vacían la base y la secuencia vuelve a 1.
+      expect(respuesta.body.codigo).toMatch(/^R-\d+$/);
+      expect(respuesta.body.bloqueada).toBe(false);
+      const codigo = Number(String(respuesta.body.codigo).slice(2));
+      const denuncia = await prisma.denuncia.findUniqueOrThrow({ where: { codigo } });
+      expect(denuncia).toMatchObject({
+        objeto: 'CONVERSACION',
+        estado: 'ABIERTA',
+        tipo: 'ESTAFA',
+        conversacionAdjuntaId: null,
       });
-      expect(denuncia).toMatchObject({ objeto: 'CONVERSACION', estado: 'ABIERTA' });
+      expect(denuncia.tiendaDenunciadaId).not.toBeNull();
+
+      // Sin motivo de la lista no se manda; un chat ajeno no se puede reportar ni adjuntar.
+      await como('tiendab')
+        .post('/v1/denuncias', { objeto: 'CONVERSACION', objeto_id: conversacion })
+        .expect(400);
       await como('tiendac')
+        .post('/v1/denuncias', { objeto: 'CONVERSACION', objeto_id: conversacion, tipo: 'TRATO' })
+        .expect(404);
+
+      const adjunto = await como('tiendab')
         .post('/v1/denuncias', {
           objeto: 'CONVERSACION',
           objeto_id: conversacion,
-          motivo: 'No es mía',
+          tipo: 'TRATO',
+          conversacion_id: conversacion,
         })
-        .expect(404);
+        .expect(201);
+      const conChat = await prisma.denuncia.findUniqueOrThrow({
+        where: { codigo: Number(String(adjunto.body.codigo).slice(2)) },
+      });
+      expect(conChat.conversacionAdjuntaId).toBe(conversacion);
+
+      const mios = await como('tiendab').get('/v1/cuenta/reportes').expect(200);
+      expect(mios.body).toHaveLength(2);
+      expect(mios.body[0]).toMatchObject({ estado: 'ENVIADO', tipo: 'TRATO', resolucion: null });
     });
 
     it('trae las respuestas rápidas de la persona (RF-56)', async () => {

@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type {
+  MiReporte,
   ActualizarCuentaDatos,
   AvisosCuentaDatos,
   RespuestaAvisosCuenta,
@@ -283,6 +284,44 @@ export class CuentaService {
     });
     await this.tiempoReal.desconectarUsuario(sesion.usuario.id, sesion.sesionId);
     return { cerradas: count };
+  }
+
+  // ── Mis reportes (REP_WebMisReportes) ─────────────────────────────────────
+
+  async reportes(usuarioId: string): Promise<MiReporte[]> {
+    const filas = await this.prisma.denuncia.findMany({
+      where: { denuncianteId: usuarioId },
+      orderBy: { creadaEn: 'desc' },
+      take: 50,
+      select: {
+        codigo: true,
+        tipo: true,
+        estado: true,
+        creadaEn: true,
+        resolucion: true,
+        reservada: true,
+        tiendaDenunciada: { select: { nombre: true } },
+      },
+    });
+    return filas.map((fila) => ({
+      codigo: `R-${fila.codigo}`,
+      // Una publicación reservada se reportó sin saber de quién era: tampoco se dice aquí.
+      tienda: fila.reservada ? TIENDA_RESERVADA : (fila.tiendaDenunciada?.nombre ?? 'PaseLibre'),
+      tipo: fila.tipo,
+      estado:
+        fila.estado === 'ABIERTA'
+          ? 'ENVIADO'
+          : fila.estado === 'EN_REVISION'
+            ? 'EN_REVISION'
+            : 'RESUELTO',
+      creada_en: fila.creadaEn.toISOString(),
+      revisar_antes_de: new Date(fila.creadaEn.getTime() + 3 * 3_600_000).toISOString(),
+      resolucion:
+        fila.resolucion ??
+        (fila.estado === 'DESCARTADA'
+          ? 'Lo revisamos y no encontramos nada que vaya contra las reglas de PaseLibre.'
+          : null),
+    }));
   }
 
   // ── Bloqueados (RF-57) ────────────────────────────────────────────────────

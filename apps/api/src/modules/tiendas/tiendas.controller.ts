@@ -99,6 +99,15 @@ export class TiendasController {
     return this.tiendas.dejarDeSeguir(tiendaId, sesion);
   }
 
+  @Post('tiendas/:id/bloqueo')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  bloquear(
+    @Param('id', idTienda) tiendaId: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<void> {
+    return this.tiendas.bloquear(tiendaId, sesion);
+  }
+
   @Post('ventas/:id/opinion')
   opinar(
     @Param('id', id('Esta venta no existe.')) ventaId: string,

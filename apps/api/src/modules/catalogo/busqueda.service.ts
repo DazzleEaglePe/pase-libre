@@ -22,6 +22,7 @@ import { Prisma } from '@prisma/client';
 import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { INDEPENDIENTES } from './catalogo.service';
 import { conSesion, tiendaPara } from './visibilidad';
 
@@ -30,6 +31,9 @@ export const POR_PAGINA = 24;
 export const SUGERENCIAS = 5;
 /** Términos de «Lo más buscado». */
 export const MAS_BUSCADOS = 4;
+
+/** La consulta con lo que agrega la API: las tiendas bloqueadas por quien mira. */
+type ConsultaInterna = BuscarConsulta & { excluirTiendas?: string[] };
 /** Cuántos de lo más buscado se prueban contra una categoría antes de rendirse. */
 const CANDIDATOS_POR_CATEGORIA = 20;
 
@@ -97,8 +101,8 @@ export class BusquedaService {
     const conPrecio = conSesion(mirada);
     // Al visitante se le ignoran el filtro y el orden por precio: si no, podría deducir
     // los precios probando rangos (docs/05 §5).
-    const efectiva: BuscarConsulta = conPrecio
-      ? consulta
+    const efectiva: ConsultaInterna = conPrecio
+      ? { ...consulta, excluirTiendas: await tiendasBloqueadasPor(this.prisma, mirada.usuarioId) }
       : { ...consulta, precio_min: undefined, precio_max: undefined, orden: 'recientes' };
 
     const palabras = this.palabras(consulta.q);
@@ -288,6 +292,13 @@ export class BusquedaService {
       Prisma.sql`t.estado = 'ACTIVA'`,
       Prisma.sql`p.fusionado_en_id IS NULL`,
     ];
+    // Lo de las tiendas que quien mira bloqueó no aparece (REP_WebBloqueadas).
+    const excluir = (consulta as ConsultaInterna).excluirTiendas ?? [];
+    if (excluir.length > 0) {
+      condiciones.push(
+        Prisma.sql`t.id NOT IN (${Prisma.join(excluir.map((id) => Prisma.sql`${id}::uuid`))})`,
+      );
+    }
     // Las palabras normalizadas solo tienen letras y números: no hay comodines que escapar.
     for (const palabra of palabras) {
       condiciones.push(Prisma.sql`(' ' || p.texto_busqueda) LIKE ${`% ${palabra}%`}`);

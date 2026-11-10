@@ -9,23 +9,18 @@ import {
   type ProductoDetalle,
   type RespuestaContacto,
 } from '@paselibre/contracts';
-import {
-  IconBrandWhatsapp,
-  IconChevronRight,
-  IconFlag,
-  IconMessageCircle,
-} from '@tabler/icons-react';
+import { IconBrandWhatsapp, IconChevronRight, IconMessageCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
 import { botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
-import { Ventana } from '@/shared/ui/ventana';
 import { BotonCompartir } from '@/shared/ui/boton-compartir';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
+import { MenuOpciones } from '@/features/reportes/menu-opciones';
 import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
 
 import type { OfertaVista } from './ofertas';
@@ -116,7 +111,6 @@ export function FichaProducto({
   const [foto, setFoto] = useState(0);
   const [contactando, setContactando] = useState<'CHAT' | 'WHATSAPP' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [denunciando, setDenunciando] = useState(false);
 
   const oferta = ofertas.find((candidata) => candidata.id === elegida) ?? null;
   const fotos = oferta && oferta.fotos.length > 0 ? oferta.fotos : producto.fotos;
@@ -201,11 +195,24 @@ export function FichaProducto({
       </div>
     ) : null;
 
+  // «Más opciones» (REP_Web): reportar la publicación y, si se ve la tienda, bloquearla.
+  const menuOpciones = (sobreMarca: boolean) =>
+    oferta && audiencia === 'vendedor' && !oferta.propia ? (
+      <MenuOpciones
+        sobreMarca={sobreMarca}
+        objeto="OFERTA"
+        objetoId={oferta.id}
+        sobre={`Publicación · ${producto.modelo ?? producto.titulo}`}
+        tienda={oferta.tienda?.id ? { id: oferta.tienda.id, nombre: oferta.tienda.nombre } : null}
+      />
+    ) : null;
+
   return (
     <div className="flex flex-col gap-12 max-md:gap-5">
       {/* En el celular, la cabecera propia de M_Ficha: volver, la categoría y compartir. */}
       <CabeceraMovil titulo={producto.categoria.nombre}>
         <BotonCompartir titulo={producto.titulo} soloIcono />
+        {menuOpciones(true)}
       </CabeceraMovil>
 
       <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1fr)_480px]">
@@ -272,7 +279,10 @@ export function FichaProducto({
             <span className="text-nota text-secundario">
               {[producto.categoria.nombre, producto.marca].filter(Boolean).join(' · ')}
             </span>
-            <BotonCompartir titulo={producto.titulo} />
+            <span className="flex items-center gap-2">
+              <BotonCompartir titulo={producto.titulo} />
+              {menuOpciones(false)}
+            </span>
           </div>
           {oferta && (
             <span className="text-apoyo text-secundario md:hidden">
@@ -560,22 +570,8 @@ export function FichaProducto({
               </div>
             ))}
           </dl>
-          {oferta && audiencia === 'vendedor' && !oferta.propia && (
-            <button
-              type="button"
-              onClick={() => setDenunciando(true)}
-              className="inline-flex min-h-11 items-center gap-1.5 self-start text-nota text-secundario underline"
-            >
-              <IconFlag size={14} stroke={1.5} aria-hidden="true" />
-              Reportar esta publicación
-            </button>
-          )}
         </div>
       </section>
-
-      {denunciando && oferta && (
-        <VentanaDenuncia ofertaId={oferta.id} alCerrar={() => setDenunciando(false)} />
-      )}
 
       {/* En el celular, contactar queda siempre a mano abajo (M_Ficha). */}
       {barraAbajo && oferta && (
@@ -596,74 +592,5 @@ export function FichaProducto({
         </>
       )}
     </div>
-  );
-}
-
-/** Denunciar la oferta que se está viendo (RF-29): el motivo va a la cola del equipo. */
-function VentanaDenuncia({ ofertaId, alCerrar }: { ofertaId: string; alCerrar: () => void }) {
-  const [motivo, setMotivo] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [enviada, setEnviada] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function enviar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    setEnviando(true);
-    setError(null);
-    try {
-      await llamarApi('/denuncias', {
-        metodo: 'POST',
-        cuerpo: { objeto: 'OFERTA', objeto_id: ofertaId, motivo },
-      });
-      setEnviada(true);
-    } catch (falla) {
-      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos enviar la denuncia.');
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  return (
-    <Ventana titulo="Denunciar esta publicación" abierta alCerrar={alCerrar}>
-      {enviada ? (
-        <>
-          <p className="text-secundario">Gracias. El equipo de PaseLibre la va a revisar.</p>
-          <button type="button" onClick={alCerrar} className={botonSecundario}>
-            Cerrar
-          </button>
-        </>
-      ) : (
-        <form onSubmit={(evento) => void enviar(evento)} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5 text-apoyo font-medium">
-            ¿Qué pasa con esta publicación?
-            <textarea
-              value={motivo}
-              onChange={(evento) => setMotivo(evento.target.value)}
-              rows={3}
-              maxLength={500}
-              placeholder="Ya no la tienen, el precio no es real, es otro producto…"
-              className="rounded-xl border border-borde px-3.5 py-2.5 text-cuerpo font-normal"
-            />
-          </label>
-          {error && (
-            <p role="alert" className="text-apoyo text-error">
-              {error}
-            </p>
-          )}
-          <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" onClick={alCerrar} className={botonSecundario}>
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={enviando || motivo.trim().length < 5}
-              className={botonPrincipal}
-            >
-              {enviando ? 'Enviando…' : 'Enviar denuncia'}
-            </button>
-          </div>
-        </form>
-      )}
-    </Ventana>
   );
 }
