@@ -79,7 +79,7 @@ Secciones S (4, 7, 9, 12 y 2) se hacen de paso, junto al color final.
 
 ## 5. Estado del trabajo (11/11)
 
-Las 20 secciones de la página «★ VERSIÓN FINAL» están en `main`, en 15 commits locales **sin subir a `origin`** (de `c7e3759` a `dfc619d`, uno por sección o por par de secciones). Pruebas al cerrar: API 282, web 27, contratos 38; lint, tipos y formato en verde. Cada pantalla se comparó con su tablero en Chrome sin ventana (computadora 1440 y celular 390).
+Las 20 secciones de la página «★ VERSIÓN FINAL» están en `main` (de `c7e3759` a `dfc619d`, uno por sección o por par de secciones), subidas a `origin` y **desplegadas en producción** el 10/11/2026 con la etiqueta `c5efc279`: respaldo previo, las 14 migraciones y prueba de humo en orden. Pruebas al cerrar: API 282, web 27, contratos 38; lint, tipos y formato en verde. Cada pantalla se comparó con su tablero en Chrome sin ventana (computadora 1440 y celular 390).
 
 | # | Sección | Commit | Qué quedó |
 |---|---|---|---|
@@ -115,4 +115,4 @@ Las 20 secciones de la página «★ VERSIÓN FINAL» están en `main`, en 15 co
 - Las opiniones muestran autor y estrellas aunque el lienzo diga «La otra tienda no ve quién dio cada estrella».
 - La sección «Equipo» del panel (turnos, horario) no se hizo; «Lo último del equipo» anota reportes, advertencias, suspensiones y comunicados.
 
-**Falta:** subir fotos del stand y de la credencial en el registro; el SMS, la consulta a SUNAT y el aviso con el celular bloqueado (L-5); recordatorios programados; descuento socio por tienda (hoy uno por defecto y otro por publicación). Y subir los commits y desplegar, cuando se apruebe.
+**Falta:** subir fotos del stand y de la credencial en el registro; el SMS, la consulta a SUNAT y el aviso con el celular bloqueado (L-5); recordatorios programados; descuento socio por tienda (hoy uno por defecto y otro por publicación).

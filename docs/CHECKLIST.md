@@ -45,8 +45,8 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 - [x] `limites.e2e-spec` fallaba una de cada tres veces («socket hang up»): era supertest abriendo un servidor por pedido; ahora la app de pruebas escucha una vez en 127.0.0.1 (09/11, [15](15-calidad.md))
 - [x] Ajuste de forma de Hielo: ya no aplica, el lienzo «Versión final» usa píldoras como la web (D-54)
 - [ ] Modo claro y oscuro (Claro / Oscuro / Sistema) en toda la web: sprint del 09 al 13/11 con sus checklists en [13 · Modo oscuro](13-modo-oscuro.md)
-- [x] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): las 20 secciones en `main`, 15 commits locales sin subir (11/11). Estado, simplificaciones y pendientes en [14 · Lienzo final](14-lienzo-final.md) §5
-- [ ] **Antes de salir:** subir los commits del lienzo final y desplegarlos (traen 14 migraciones nuevas, de `20261110120000` a `20261111130000`: hacer el respaldo antes)
+- [x] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): las 20 secciones en `main`, en producción desde el 10/11/2026 (`c5efc279`). Estado, simplificaciones y pendientes en [14 · Lienzo final](14-lienzo-final.md) §5
+- [x] Subir los commits del lienzo final y desplegarlos: en producción desde el 10/11/2026 (`c5efc279`), con respaldo previo y las 14 migraciones (`20261110120000` a `20261111130000`). Para volver: `desplegar.sh produccion.env b1522d99` (las migraciones no se deshacen; para eso está el respaldo de ese momento)
 - [ ] Cargar `metros` de cada galería para que «Wilson en vivo» diga «a N min caminando» (lo hace el equipo; sin eso no se muestra)
 - [ ] Registro propio (sección 3 del lienzo): hecho y apagado (`REGISTRO_PROPIO`). Para encenderlo en producción faltan un proveedor de SMS y uno de consulta a SUNAT, y subir las fotos del stand ([14](14-lienzo-final.md) §5)
 - [ ] Lo que quedó de la auditoría de calidad (seguridad, rendimiento, pruebas y diseño): lista ordenada en [15 · Calidad](15-calidad.md) §6
