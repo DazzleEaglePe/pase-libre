@@ -213,7 +213,18 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
 
     it('por defecto todo llega a la campanita y no hay «No molestar»', async () => {
       const respuesta = await como('tiendaa').get('/v1/cuenta/avisos').expect(200);
-      expect(respuesta.body).toEqual({ campanita: { MENSAJE: true }, no_molestar: null });
+      // Sin En vivo encendido en esta prueba, sus avisos no se ofrecen (D-53).
+      expect(respuesta.body).toEqual({
+        campanita: {
+          MENSAJE: true,
+          VENTA: true,
+          RECORDATORIO: true,
+          SEGUIDA: true,
+          ALERTA: true,
+          EQUIPO: true,
+        },
+        no_molestar: null,
+      });
     });
 
     it('guarda «No molestar» en hora de Lima y apaga los avisos de mensajes', async () => {
@@ -224,7 +235,14 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
         })
         .expect(200);
       expect(respuesta.body).toEqual({
-        campanita: { MENSAJE: false },
+        campanita: {
+          MENSAJE: false,
+          VENTA: true,
+          RECORDATORIO: true,
+          SEGUIDA: true,
+          ALERTA: true,
+          EQUIPO: true,
+        },
         no_molestar: { desde: '22:00', hasta: '08:00' },
       });
       const usuario = await prisma.usuario.findUniqueOrThrow({ where: { usuario: 'tiendaa' } });

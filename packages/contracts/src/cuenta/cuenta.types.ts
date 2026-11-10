@@ -29,8 +29,17 @@ export interface RespuestaCuenta {
 
 /** `GET/PUT /v1/cuenta/avisos` (RF-59). Las horas van como «22:00», hora de Lima. */
 export interface RespuestaAvisosCuenta {
-  /** `EN_VIVO` llega solo cuando En vivo está encendido (D-53). */
-  campanita: { MENSAJE: boolean; EN_VIVO?: boolean };
+  /** Los de En vivo llegan solo cuando En vivo está encendido (D-53). */
+  campanita: {
+    MENSAJE: boolean;
+    EN_VIVO?: boolean;
+    EN_VIVO_RESPUESTA?: boolean;
+    VENTA: boolean;
+    RECORDATORIO: boolean;
+    SEGUIDA: boolean;
+    ALERTA: boolean;
+    EQUIPO: boolean;
+  };
   no_molestar: { desde: string; hasta: string } | null;
 }
 

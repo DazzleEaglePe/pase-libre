@@ -22,6 +22,17 @@ import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 const INCLUIR_TIENDA = { tienda: { include: { galeria: true } } } as const;
 type UsuarioConTienda = Prisma.UsuarioGetPayload<{ include: typeof INCLUIR_TIENDA }>;
 
+/** Los tipos de aviso que se pueden apagar en «Configurar avisos» (AV_Web). */
+type TipoConPreferencia =
+  | 'MENSAJE'
+  | 'EN_VIVO'
+  | 'EN_VIVO_RESPUESTA'
+  | 'VENTA'
+  | 'RECORDATORIO'
+  | 'SEGUIDA'
+  | 'ALERTA'
+  | 'EQUIPO';
+
 /** «Chrome en Android», para reconocer cada sesión abierta. */
 export function dispositivoDe(agente: string | null): string {
   if (!agente) return 'Navegador desconocido';
@@ -171,17 +182,22 @@ export class CuentaService {
         where: { id: usuarioId },
         select: { noMolestarDesde: true, noMolestarHasta: true },
       }),
-      this.prisma.preferenciaAviso.findMany({
-        where: { usuarioId, tipo: { in: ['MENSAJE', 'EN_VIVO'] } },
-      }),
+      this.prisma.preferenciaAviso.findMany({ where: { usuarioId } }),
     ]);
-    const encendido = (tipo: 'MENSAJE' | 'EN_VIVO') =>
+    const encendido = (tipo: TipoConPreferencia) =>
       preferencias.find((p) => p.tipo === tipo)?.campanita ?? true;
     return {
       campanita: {
         MENSAJE: encendido('MENSAJE'),
         // Los avisos de En vivo solo se ofrecen con En vivo encendido (D-53).
-        ...(this.enVivo.activo ? { EN_VIVO: encendido('EN_VIVO') } : {}),
+        ...(this.enVivo.activo
+          ? { EN_VIVO: encendido('EN_VIVO'), EN_VIVO_RESPUESTA: encendido('EN_VIVO_RESPUESTA') }
+          : {}),
+        VENTA: encendido('VENTA'),
+        RECORDATORIO: encendido('RECORDATORIO'),
+        SEGUIDA: encendido('SEGUIDA'),
+        ALERTA: encendido('ALERTA'),
+        EQUIPO: encendido('EQUIPO'),
       },
       no_molestar:
         usuario.noMolestarDesde !== null && usuario.noMolestarHasta !== null
@@ -191,19 +207,25 @@ export class CuentaService {
   }
 
   async guardarAvisos(usuarioId: string, datos: AvisosCuentaDatos): Promise<RespuestaAvisosCuenta> {
+    const cambios = (
+      Object.entries(datos.campanita) as Array<[TipoConPreferencia, boolean | undefined]>
+    ).filter((cambio): cambio is [TipoConPreferencia, boolean] => cambio[1] !== undefined);
     await this.prisma.$transaction([
-      this.prisma.preferenciaAviso.upsert({
-        where: { usuarioId_tipo: { usuarioId, tipo: 'MENSAJE' } },
-        update: { campanita: datos.campanita.MENSAJE },
-        create: { usuarioId, tipo: 'MENSAJE', campanita: datos.campanita.MENSAJE },
-      }),
-      ...(datos.campanita.EN_VIVO === undefined
+      ...cambios.map(([tipo, campanita]) =>
+        this.prisma.preferenciaAviso.upsert({
+          where: { usuarioId_tipo: { usuarioId, tipo } },
+          update: { campanita },
+          create: { usuarioId, tipo, campanita },
+        }),
+      ),
+      // Las calificaciones van con las ventas (AV_Web: «Ventas y calificaciones»).
+      ...(datos.campanita.VENTA === undefined
         ? []
         : [
             this.prisma.preferenciaAviso.upsert({
-              where: { usuarioId_tipo: { usuarioId, tipo: 'EN_VIVO' } },
-              update: { campanita: datos.campanita.EN_VIVO },
-              create: { usuarioId, tipo: 'EN_VIVO', campanita: datos.campanita.EN_VIVO },
+              where: { usuarioId_tipo: { usuarioId, tipo: 'CALIFICACION' } },
+              update: { campanita: datos.campanita.VENTA },
+              create: { usuarioId, tipo: 'CALIFICACION', campanita: datos.campanita.VENTA },
             }),
           ]),
       this.prisma.usuario.update({

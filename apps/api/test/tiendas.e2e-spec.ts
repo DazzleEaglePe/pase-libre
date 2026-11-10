@@ -371,4 +371,58 @@ describe('Perfil de otra tienda, seguir y opiniones (sección 15 del lienzo fina
       .expect(409);
     await prisma.oferta.update({ where: { id: oferta.id }, data: { tiendaVisible: true } });
   });
+
+  it('avisa la calificación y lo nuevo de las tiendas que sigues (AV_Web)', async () => {
+    // La opinión de la prueba de opiniones le llegó a Tienda A como aviso.
+    const deA = await http()
+      .get('/v1/avisos?categoria=VENTAS')
+      .set('Cookie', await como('tiendaa'))
+      .expect(200);
+    expect(deA.body.avisos[0]).toMatchObject({ tipo: 'CALIFICACION', categoria: 'VENTAS' });
+    // La más reciente es la de la venta reservada (3 estrellas).
+    expect(deA.body.avisos[0].titulo).toBe('Tienda B te calificó con 3 estrellas');
+    expect(deA.body.sin_leer_por_categoria.VENTAS).toBeGreaterThanOrEqual(1);
+
+    // Tienda E sigue a Tienda C con «Solo lo importante»: un aviso al día como mucho.
+    const cookieE = await como('tiendae');
+    await http()
+      .post(`/v1/tiendas/${tiendaC}/seguir`)
+      .set(CABECERAS)
+      .set('Cookie', cookieE)
+      .send({ avisos: 'IMPORTANTE' })
+      .expect(200);
+    const producto = await prisma.producto.findFirstOrThrow({
+      where: { ofertas: { none: { tiendaId: tiendaC } } },
+    });
+    const publicar = (condicion: 'NUEVO' | 'USADO') =>
+      http()
+        .post('/v1/ofertas')
+        .set(CABECERAS)
+        .set('Cookie', cookies.get('tiendac') ?? '')
+        .send({
+          producto_id: producto.id,
+          condicion,
+          stock: 2,
+          moneda: 'USD',
+          precio: '100',
+          precio_visible: true,
+          fotos: [],
+        });
+    await como('tiendac');
+    await publicar('NUEVO').expect(201);
+    await publicar('USADO').expect(201);
+    const deE = await http()
+      .get('/v1/avisos?categoria=PUBLICACIONES')
+      .set('Cookie', cookieE)
+      .expect(200);
+    const seguidas = (deE.body.avisos as Array<{ tipo: string; accion: unknown }>).filter(
+      (aviso) => aviso.tipo === 'SEGUIDA',
+    );
+    expect(seguidas).toHaveLength(1);
+    expect(seguidas[0]?.accion).toEqual({
+      tipo: 'ABRIR',
+      texto: 'Ver sus productos',
+      enlace: `/tiendas/${tiendaC}`,
+    });
+  });
 });

@@ -79,6 +79,20 @@ enum TipoAviso {
   SISTEMA
   /// Busco nuevo de un producto que la tienda tiene publicado (D-53).
   EN_VIVO
+  /// Alguien respondió «¡Lo tengo!» o «¡Lo quiero!» a lo tuyo en vivo.
+  EN_VIVO_RESPUESTA
+  /// «¿Se vendió?» y ventas marcadas.
+  VENTA
+  /// Otra tienda te calificó.
+  CALIFICACION
+  /// Qué pasó con lo que reportaste.
+  REPORTE
+  /// Una tienda que sigues publicó algo nuevo.
+  SEGUIDA
+  /// Apareció algo que buscabas («Avísame cuando alguien la publique»).
+  ALERTA
+  /// Novedades del equipo PaseLibre.
+  EQUIPO
 
   @@map("tipo_aviso")
 }
@@ -694,6 +708,8 @@ model Aviso {
   titulo         String    @db.VarChar(160)
   extracto       String?   @db.VarChar(240)
   enlace         String?   @db.VarChar(300)
+  /// Lo que hace el botón del aviso (AV_Web): «Ver su oferta», «¡Lo tengo!»…
+  accion         Json?
   conversacionId String?   @map("conversacion_id") @db.Uuid
   /// Con «No molestar», el aviso aparece al terminar el horario.
   visibleDesde   DateTime  @default(now()) @map("visible_desde") @db.Timestamptz(6)

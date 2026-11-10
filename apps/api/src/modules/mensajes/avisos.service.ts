@@ -1,11 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
+  CATEGORIA_DE_AVISO,
   EVENTOS,
+  type AccionAviso,
   type AvisoCampanita,
+  type AvisosConsulta,
+  type CategoriaAviso,
   type Contadores,
   type RespuestaAvisos,
 } from '@paselibre/contracts';
-import { Prisma, type Aviso } from '@prisma/client';
+import { Prisma, type Aviso, type TipoAviso } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
@@ -13,16 +17,38 @@ import { visibleDesde } from './no-molestar';
 
 const AVISOS_EN_LA_CAMPANITA = 20;
 
-function avisoCampanita(aviso: Aviso): AvisoCampanita {
+const CATEGORIAS: CategoriaAviso[] = ['EN_VIVO', 'VENTAS', 'MENSAJES', 'PUBLICACIONES', 'CUENTA'];
+
+const TIPOS_DE: Record<CategoriaAviso, TipoAviso[]> = Object.fromEntries(
+  CATEGORIAS.map((categoria) => [
+    categoria,
+    (Object.keys(CATEGORIA_DE_AVISO) as TipoAviso[]).filter(
+      (tipo) => CATEGORIA_DE_AVISO[tipo] === categoria,
+    ),
+  ]),
+) as Record<CategoriaAviso, TipoAviso[]>;
+
+export function avisoCampanita(aviso: Aviso): AvisoCampanita {
   return {
     id: aviso.id,
     tipo: aviso.tipo,
+    categoria: CATEGORIA_DE_AVISO[aviso.tipo],
     titulo: aviso.titulo,
     extracto: aviso.extracto,
     enlace: aviso.enlace,
+    accion: (aviso.accion as AccionAviso | null) ?? null,
     leido: aviso.leidoEn !== null,
     actualizado_en: aviso.actualizadoEn.toISOString(),
   };
+}
+
+/** Lo que lleva un aviso nuevo, sin el destinatario. */
+export interface AvisoNuevo {
+  tipo: TipoAviso;
+  titulo: string;
+  extracto?: string | null;
+  enlace?: string | null;
+  accion?: AccionAviso | null;
 }
 
 /** Conversaciones con algo sin leer para una persona: las cuentan Mensajes y la lista. */
@@ -118,17 +144,73 @@ export class AvisosService {
     return desde <= ahora ? avisoCampanita(aviso) : null;
   }
 
-  async lista(usuarioId: string): Promise<RespuestaAvisos> {
-    const visibles = { usuarioId, visibleDesde: { lte: new Date() } };
-    const [avisos, sinLeer] = await Promise.all([
-      this.prisma.aviso.findMany({
-        where: visibles,
-        orderBy: { actualizadoEn: 'desc' },
-        take: AVISOS_EN_LA_CAMPANITA,
+  /**
+   * Un aviso para cada persona (salvo a quien apagó ese tipo), con «No molestar», y por el
+   * socket a quien ya lo puede ver. Lo usan En vivo, opiniones, tiendas seguidas y el equipo.
+   */
+  async crear(usuarioIds: string[], nuevo: AvisoNuevo): Promise<void> {
+    const ids = [...new Set(usuarioIds)];
+    if (ids.length === 0) return;
+    const [apagados, personas] = await Promise.all([
+      this.prisma.preferenciaAviso.findMany({
+        where: { usuarioId: { in: ids }, tipo: nuevo.tipo, campanita: false },
+        select: { usuarioId: true },
       }),
-      this.prisma.aviso.count({ where: { ...visibles, leidoEn: null } }),
+      this.prisma.usuario.findMany({
+        where: { id: { in: ids }, estado: 'ACTIVO' },
+        select: { id: true, noMolestarDesde: true, noMolestarHasta: true },
+      }),
     ]);
-    return { avisos: avisos.map(avisoCampanita), sin_leer: sinLeer };
+    const sinAviso = new Set(apagados.map((fila) => fila.usuarioId));
+    const ahora = new Date();
+    const avisos = await this.prisma.aviso.createManyAndReturn({
+      data: personas
+        .filter((persona) => !sinAviso.has(persona.id))
+        .map((persona) => ({
+          usuarioId: persona.id,
+          tipo: nuevo.tipo,
+          titulo: nuevo.titulo.slice(0, 160),
+          extracto: nuevo.extracto?.slice(0, 240) ?? null,
+          enlace: nuevo.enlace ?? null,
+          accion: nuevo.accion ?? Prisma.DbNull,
+          visibleDesde: visibleDesde(persona.noMolestarDesde, persona.noMolestarHasta, ahora),
+        })),
+    });
+    for (const aviso of avisos) {
+      if (aviso.visibleDesde > ahora) continue;
+      this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.avisoNuevo, avisoCampanita(aviso));
+      this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.contadores);
+    }
+  }
+
+  async lista(usuarioId: string, consulta: Partial<AvisosConsulta> = {}): Promise<RespuestaAvisos> {
+    const visibles = { usuarioId, visibleDesde: { lte: new Date() } };
+    const filtro = consulta.categoria ? { tipo: { in: TIPOS_DE[consulta.categoria] } } : {};
+    const [avisos, porTipo] = await Promise.all([
+      this.prisma.aviso.findMany({
+        where: { ...visibles, ...filtro },
+        orderBy: { actualizadoEn: 'desc' },
+        take: consulta.limite ?? AVISOS_EN_LA_CAMPANITA,
+      }),
+      this.prisma.aviso.groupBy({
+        by: ['tipo'],
+        where: { ...visibles, leidoEn: null },
+        _count: { _all: true },
+      }),
+    ]);
+    const sinLeerPorCategoria = Object.fromEntries(
+      CATEGORIAS.map((categoria) => [categoria, 0]),
+    ) as Record<CategoriaAviso, number>;
+    let sinLeer = 0;
+    for (const fila of porTipo) {
+      sinLeerPorCategoria[CATEGORIA_DE_AVISO[fila.tipo]] += fila._count._all;
+      sinLeer += fila._count._all;
+    }
+    return {
+      avisos: avisos.map(avisoCampanita),
+      sin_leer: sinLeer,
+      sin_leer_por_categoria: sinLeerPorCategoria,
+    };
   }
 
   /** «Marcar como leídos»: todos, o los que lleguen en `ids`. */

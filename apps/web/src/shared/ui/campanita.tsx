@@ -1,11 +1,17 @@
 'use client';
 
-import { EVENTOS, type Contadores, type RespuestaAvisos } from '@paselibre/contracts';
+import {
+  EVENTOS,
+  type CategoriaAviso,
+  type Contadores,
+  type RespuestaAvisos,
+} from '@paselibre/contracts';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { FiltrosAvisos, ListaAvisos } from '@/features/avisos/lista-avisos';
 import { llamarApi } from '@/shared/api/cliente';
-import { haceRato } from '@/shared/fechas';
 import { useAgrupado } from '@/shared/agrupar';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
 
@@ -43,8 +49,8 @@ export function Insignia({ cantidad }: { cantidad: number }) {
 }
 
 /**
- * La campanita (RF-40, C_Header con `salida="primera"`): el contador y, al abrirla, los
- * avisos con su extracto. Abrir un aviso lleva a la conversación, que lo marca leído.
+ * La campanita (AV_WebPanel): en la computadora abre los avisos con sus filtros, los
+ * nuevos arriba con su botón y «Ver todos los avisos»; en el celular lleva a /avisos.
  */
 export function Campanita({
   sinLeer,
@@ -54,13 +60,16 @@ export function Campanita({
   /** En la fila verde de la barra (D_Barra): la campana en blanco. */
   sobreMarca?: boolean;
 }) {
+  const router = useRouter();
   const [abierta, setAbierta] = useState(false);
+  const [filtro, setFiltro] = useState<CategoriaAviso | 'TODOS'>('TODOS');
   const [datos, setDatos] = useState<RespuestaAvisos | null>(null);
   const caja = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(() => {
-    llamarApi<RespuestaAvisos>('/avisos').then(setDatos, () => undefined);
-  }, []);
+    const consulta = filtro === 'TODOS' ? '' : `?categoria=${filtro}`;
+    llamarApi<RespuestaAvisos>(`/avisos${consulta}`).then(setDatos, () => undefined);
+  }, [filtro]);
 
   useEffect(() => {
     if (abierta) cargar();
@@ -88,7 +97,11 @@ export function Campanita({
         type="button"
         aria-label={sinLeer > 0 ? `Avisos, ${sinLeer} sin leer` : 'Avisos'}
         aria-expanded={abierta}
-        onClick={() => setAbierta(!abierta)}
+        onClick={() => {
+          // En el celular los avisos son una pantalla (AV_Cel), no una ventanita.
+          if (window.matchMedia('(max-width: 767px)').matches) router.push('/avisos');
+          else setAbierta(!abierta);
+        }}
         className={`relative flex h-11 w-11 items-center justify-center rounded-full ${
           sobreMarca
             ? `text-white ${abierta ? 'bg-white/15' : 'hover:bg-white/15'}`
@@ -98,18 +111,18 @@ export function Campanita({
         }`}
       >
         <svg
-          width="20"
-          height="20"
+          width="22"
+          height="22"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="1.5"
+          strokeWidth="1.6"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
+          <path d="M10 20a2 2 0 0 0 4 0" />
         </svg>
         <Insignia cantidad={sinLeer} />
       </button>
@@ -118,65 +131,69 @@ export function Campanita({
         <div
           role="dialog"
           aria-label="Avisos"
-          className="absolute right-0 top-12 z-40 flex w-[380px] max-w-[calc(100vw-32px)] flex-col rounded-[20px] border border-linea bg-white py-2 text-apoyo shadow-[0_18px_40px_rgba(20,22,26,0.18)]"
+          className="absolute right-0 top-[54px] z-40 flex max-h-[min(760px,calc(100dvh-90px))] w-[440px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[20px] border border-linea bg-white text-tinta shadow-[0_18px_40px_rgba(20,22,26,0.22)]"
         >
-          <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-1">
-            <b className="text-tarjeta">Avisos</b>
-            {(datos?.sin_leer ?? 0) > 0 && (
-              <button
-                type="button"
-                onClick={() =>
-                  llamarApi<RespuestaAvisos>('/avisos/leidos', { metodo: 'POST', cuerpo: {} }).then(
-                    setDatos,
-                  )
-                }
-                className="h-9 text-nota font-medium underline"
-              >
-                Marcar como leídos
-              </button>
+          <div className="flex flex-col gap-3 px-4 pb-3 pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <b className="text-seccion">Avisos</b>
+              <span className="flex items-center gap-2">
+                {(datos?.sin_leer ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      llamarApi<RespuestaAvisos>('/avisos/leidos', {
+                        metodo: 'POST',
+                        cuerpo: {},
+                      }).then(() => cargar())
+                    }
+                    className="h-9 rounded-full border border-borde px-3 text-nota font-semibold"
+                  >
+                    Marcar leídos
+                  </button>
+                )}
+                <Link
+                  href="/avisos#configurar"
+                  aria-label="Configurar avisos"
+                  onClick={() => setAbierta(false)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-borde text-tinta"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" />
+                  </svg>
+                </Link>
+              </span>
+            </div>
+            <FiltrosAvisos datos={datos} elegido={filtro} alElegir={setFiltro} todos={false} />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {datos === null ? (
+              <p className="border-t border-linea px-4 py-4 text-secundario">Cargando…</p>
+            ) : datos.avisos.length === 0 ? (
+              <p className="border-t border-linea px-4 py-6 text-secundario">
+                No tienes avisos{filtro === 'TODOS' ? '' : ' de este tipo'}. Cuando pase algo, te
+                avisamos aquí.
+              </p>
+            ) : (
+              <ListaAvisos avisos={datos.avisos} alAbrir={() => setAbierta(false)} />
             )}
           </div>
-          {datos === null ? (
-            <p className="border-t border-linea px-4 py-4 text-secundario">Cargando…</p>
-          ) : datos.avisos.length === 0 ? (
-            <p className="border-t border-linea px-4 py-4 text-secundario">
-              No tienes avisos. Cuando te escriban, aparecerán aquí.
-            </p>
-          ) : (
-            <ul className="max-h-[420px] overflow-y-auto">
-              {datos.avisos.map((aviso) => (
-                <li key={aviso.id}>
-                  <Link
-                    href={aviso.enlace ?? '/mensajes'}
-                    onClick={() => setAbierta(false)}
-                    className="grid grid-cols-[8px_minmax(0,1fr)] items-start gap-x-3 border-t border-linea px-4 py-3 no-underline hover:bg-superficie"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`mt-1.5 h-2 w-2 rounded-full ${aviso.leido ? '' : 'bg-tinta'}`}
-                    />
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className={aviso.leido ? '' : 'font-semibold'}>
-                        {aviso.titulo}
-                        {!aviso.leido && <span className="sr-only"> (sin leer)</span>}
-                      </span>
-                      {aviso.extracto && (
-                        <span className="truncate text-secundario">{aviso.extracto}</span>
-                      )}
-                      <span className="text-nota text-detalle">
-                        {haceRato(aviso.actualizado_en)}
-                      </span>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="flex items-center justify-between gap-3 border-t border-linea px-4 pb-1 pt-3">
-            <Link href="/mensajes" onClick={() => setAbierta(false)} className="font-semibold">
-              Ver todos los mensajes
-            </Link>
-          </div>
+          <Link
+            href="/avisos"
+            onClick={() => setAbierta(false)}
+            className="border-t border-linea py-3.5 text-center text-apoyo font-bold text-pase-texto"
+          >
+            Ver todos los avisos
+          </Link>
         </div>
       )}
     </div>

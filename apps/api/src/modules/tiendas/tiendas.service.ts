@@ -19,6 +19,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { audienciaDe, type Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { precioPara } from '../catalogo/visibilidad';
+import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
 
 /** Productos que se muestran en el perfil (SG_Web); el resto, en la búsqueda. */
@@ -71,7 +72,10 @@ function miradaDe(sesion: SesionActiva): Mirada {
  */
 @Injectable()
 export class TiendasService {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AvisosService) private readonly avisos: AvisosService,
+  ) {}
 
   // ── Perfil ────────────────────────────────────────────────────────────────
 
@@ -455,6 +459,20 @@ export class TiendasService {
         },
         select: { id: true },
       });
+      // AV_Web: «Tienda B te calificó con 5 estrellas».
+      const destinatarios = await this.prisma.usuario.findMany({
+        where: { tiendaId, estado: 'ACTIVO' },
+        select: { id: true },
+      });
+      await this.avisos.crear(
+        destinatarios.map((persona) => persona.id),
+        {
+          tipo: 'CALIFICACION',
+          titulo: `${sesion.usuario.tienda?.nombre ?? 'Una tienda'} te calificó con ${datos.estrellas} ${datos.estrellas === 1 ? 'estrella' : 'estrellas'}`,
+          extracto: datos.texto ? `«${datos.texto}»` : null,
+          enlace: `/tiendas/${tiendaId}?pestana=opiniones`,
+        },
+      );
       const [opinion] = (
         await this.opiniones(tiendaId, { filtro: 'todas' }, sesion)
       ).opiniones.filter((otra) => otra.id === creada.id);

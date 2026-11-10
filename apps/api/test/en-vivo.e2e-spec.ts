@@ -301,7 +301,11 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
 
     it('quien apagó los avisos de En vivo no los recibe', async () => {
       const ajustes = await como('tiendac').get('/v1/cuenta/avisos').expect(200);
-      expect(ajustes.body.campanita).toEqual({ MENSAJE: true, EN_VIVO: true });
+      expect(ajustes.body.campanita).toMatchObject({
+        MENSAJE: true,
+        EN_VIVO: true,
+        EN_VIVO_RESPUESTA: true,
+      });
       await como('tiendac')
         .put('/v1/cuenta/avisos', {
           campanita: { MENSAJE: true, EN_VIVO: false },

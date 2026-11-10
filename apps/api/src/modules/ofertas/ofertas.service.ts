@@ -23,6 +23,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
+import { AvisosService } from '../mensajes/avisos.service';
 import { BusquedaService } from '../catalogo/busqueda.service';
 import { tiendaDeSesion } from '../sesion/sesion.service';
 import type { UsuarioConTienda } from '../sesion/sesion.types';
@@ -120,6 +121,7 @@ export class OfertasService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(BusquedaService) private readonly busqueda: BusquedaService,
     @Inject(ArchivosService) private readonly archivos: ArchivosService,
+    @Inject(AvisosService) private readonly avisos: AvisosService,
   ) {}
 
   // ── «Ya está en PaseLibre» ────────────────────────────────────────────────
@@ -228,7 +230,7 @@ export class OfertasService {
       throw new ApiHttpException(HttpStatus.FORBIDDEN, 'PROHIBIDO', 'Tu cuenta no tiene tienda.');
 
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      const publicada = await this.prisma.$transaction(async (tx) => {
         const productoNuevo = Boolean(datos.producto_nuevo);
         const productoId = datos.producto_nuevo
           ? await this.crearProducto(tx, datos.producto_nuevo, tienda.id)
@@ -275,6 +277,12 @@ export class OfertasService {
           producto_nuevo: productoNuevo,
         };
       });
+      await this.avisarSeguidores(
+        tienda,
+        publicada.oferta.producto.titulo,
+        datos.tienda_visible ?? true,
+      );
+      return publicada;
     } catch (error) {
       if (esUnicoRepetido(error, 'oferta_vigente_key')) {
         throw this.ofertaRepetida(datos.condicion, null);
@@ -288,6 +296,49 @@ export class OfertasService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Las tiendas que siguen a esta (SG_Web): con «Todo lo que publique», un aviso por producto;
+   * con «Solo lo importante», uno al día como mucho. Lo publicado como tienda reservada no avisa:
+   * diría de quién es.
+   */
+  private async avisarSeguidores(
+    tienda: { id: string; nombre: string },
+    titulo: string,
+    tiendaVisible: boolean,
+  ): Promise<void> {
+    if (!tiendaVisible) return;
+    const haceUnDia = new Date(Date.now() - 24 * 3_600_000);
+    const seguimientos = await this.prisma.seguimiento.findMany({
+      where: {
+        seguidaId: tienda.id,
+        OR: [
+          { avisos: 'TODO' },
+          { avisos: 'IMPORTANTE', OR: [{ avisadoEn: null }, { avisadoEn: { lt: haceUnDia } }] },
+        ],
+      },
+      select: { id: true, tiendaId: true },
+    });
+    if (seguimientos.length === 0) return;
+    await this.prisma.seguimiento.updateMany({
+      where: { id: { in: seguimientos.map((fila) => fila.id) } },
+      data: { avisadoEn: new Date() },
+    });
+    const personas = await this.prisma.usuario.findMany({
+      where: { tiendaId: { in: seguimientos.map((fila) => fila.tiendaId) }, estado: 'ACTIVO' },
+      select: { id: true },
+    });
+    await this.avisos.crear(
+      personas.map((persona) => persona.id),
+      {
+        tipo: 'SEGUIDA',
+        titulo: `${tienda.nombre} publicó ${titulo}`,
+        extracto: 'Una tienda que sigues',
+        enlace: `/tiendas/${tienda.id}`,
+        accion: { tipo: 'ABRIR', texto: 'Ver sus productos', enlace: `/tiendas/${tienda.id}` },
+      },
+    );
   }
 
   /** «Publicar uno igual»: si el equipo unió el producto a otro, se publica en el que quedó (RF-54). */

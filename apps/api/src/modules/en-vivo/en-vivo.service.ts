@@ -28,6 +28,7 @@ import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { conSesion, precioPara } from '../catalogo/visibilidad';
+import { avisoCampanita, AvisosService } from '../mensajes/avisos.service';
 import { MensajesService } from '../mensajes/mensajes.service';
 import { visibleDesde } from '../mensajes/no-molestar';
 import type { UsuarioConTienda } from '../sesion/sesion.types';
@@ -133,6 +134,7 @@ export class EnVivoService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(MensajesService) private readonly mensajes: MensajesService,
     @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
+    @Inject(AvisosService) private readonly avisos: AvisosService,
   ) {}
 
   // ── Lista (RF-25, RF-75, RF-77) ───────────────────────────────────────────
@@ -676,6 +678,18 @@ export class EnVivoService {
     }
 
     await this.mensajes.enviar(conversacionId, { texto: datos.texto, foto: undefined }, usuario);
+    // AV_Web: «CGS respondió «¡Lo tengo!» a tu Busco RTX 4060 · Ver su oferta».
+    await this.avisos.crear([enVivo.autorId], {
+      tipo: 'EN_VIVO_RESPUESTA',
+      titulo: `${remitente} respondió «${respuesta}» a tu ${enVivo.tipo === 'BUSCO' ? 'Busco' : 'Remato'} ${enVivo.titulo}`,
+      extracto: datos.texto,
+      enlace: `/mensajes/${conversacionId}`,
+      accion: {
+        tipo: 'ABRIR',
+        texto: enVivo.tipo === 'BUSCO' ? 'Ver su oferta' : 'Ver el chat',
+        enlace: `/mensajes/${conversacionId}`,
+      },
+    });
     this.tiempoReal.emitirATodos(EVENTOS.enVivoCambio, { id });
     return { conversacion_id: conversacionId };
   }
@@ -830,6 +844,7 @@ export class EnVivoService {
         titulo: `${quien} busca ${busco.titulo}`.slice(0, 160),
         extracto,
         enlace: `/pedidos-en-vivo?id=${id}`,
+        accion: { tipo: 'LO_TENGO', enlace: `/pedidos-en-vivo?id=${id}` },
         visibleDesde: visibleDesde(p.noMolestarDesde, p.noMolestarHasta, ahora),
       })),
     });
@@ -837,15 +852,7 @@ export class EnVivoService {
 
     for (const aviso of avisos) {
       if (aviso.visibleDesde > ahora) continue;
-      const campanita: AvisoCampanita = {
-        id: aviso.id,
-        tipo: aviso.tipo,
-        titulo: aviso.titulo,
-        extracto: aviso.extracto,
-        enlace: aviso.enlace,
-        leido: false,
-        actualizado_en: aviso.actualizadoEn.toISOString(),
-      };
+      const campanita: AvisoCampanita = avisoCampanita(aviso);
       this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.avisoNuevo, campanita);
       this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.contadores);
     }

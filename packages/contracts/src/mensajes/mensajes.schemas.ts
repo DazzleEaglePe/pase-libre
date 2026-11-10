@@ -85,3 +85,10 @@ export type DenunciaEntrada = z.input<typeof denunciaSchema>;
 export type DenunciaDatos = z.output<typeof denunciaSchema>;
 export type Vendido = z.output<typeof vendidoSchema>;
 export type LeerAvisos = z.output<typeof leerAvisosSchema>;
+
+/** `GET /v1/avisos?categoria=&limite=` (AV_Web): un filtro y cuántos traer. */
+export const avisosConsultaSchema = z.object({
+  categoria: z.enum(['EN_VIVO', 'VENTAS', 'MENSAJES', 'PUBLICACIONES', 'CUENTA']).optional(),
+  limite: z.coerce.number().int().min(1).max(100).default(20),
+});
+export type AvisosConsulta = z.output<typeof avisosConsultaSchema>;

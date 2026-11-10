@@ -19,6 +19,7 @@ import {
 import {
   cambiarConversacionSchema,
   contactarSchema,
+  avisosConsultaSchema,
   denunciaSchema,
   enviarMensajeSchema,
   filtroConversacionesSchema,
@@ -29,6 +30,7 @@ import {
   type ConsultaHistorial,
   type Contactar,
   type Contadores,
+  type AvisosConsulta,
   type DenunciaDatos,
   type RespuestaDenuncia,
   type DetalleConversacion,
@@ -215,8 +217,11 @@ export class MensajesController {
 
   @Get('avisos')
   @Header('Cache-Control', 'no-store')
-  listaDeAvisos(@SesionActual() sesion: SesionActiva): Promise<RespuestaAvisos> {
-    return this.avisos.lista(sesion.usuario.id);
+  listaDeAvisos(
+    @Query(new ZodValidationPipe(avisosConsultaSchema)) consulta: AvisosConsulta,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaAvisos> {
+    return this.avisos.lista(sesion.usuario.id, consulta);
   }
 
   @Post('avisos/leidos')

@@ -22,7 +22,7 @@ export function Interruptor({
       disabled={deshabilitado}
       onClick={() => alCambiar(!activo)}
       className={`relative h-7 w-[50px] shrink-0 rounded-full transition-colors disabled:opacity-60 ${
-        activo ? 'bg-tinta' : 'bg-borde'
+        activo ? 'bg-pase' : 'bg-borde'
       }`}
     >
       <span

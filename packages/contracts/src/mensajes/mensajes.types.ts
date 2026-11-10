@@ -111,15 +111,54 @@ export interface RespuestaVendido {
   mensaje: MensajeChat;
 }
 
-export type TipoAviso = 'MENSAJE' | 'SEGURIDAD' | 'RECORDATORIO' | 'SISTEMA' | 'EN_VIVO';
+export type TipoAviso =
+  | 'MENSAJE'
+  | 'SEGURIDAD'
+  | 'RECORDATORIO'
+  | 'SISTEMA'
+  | 'EN_VIVO'
+  | 'EN_VIVO_RESPUESTA'
+  | 'VENTA'
+  | 'CALIFICACION'
+  | 'REPORTE'
+  | 'SEGUIDA'
+  | 'ALERTA'
+  | 'EQUIPO';
+
+/** Los filtros de la campanita y de «Avisos» (AV_Web). */
+export type CategoriaAviso = 'EN_VIVO' | 'VENTAS' | 'MENSAJES' | 'PUBLICACIONES' | 'CUENTA';
+
+export const CATEGORIA_DE_AVISO: Record<TipoAviso, CategoriaAviso> = {
+  MENSAJE: 'MENSAJES',
+  EN_VIVO: 'EN_VIVO',
+  EN_VIVO_RESPUESTA: 'EN_VIVO',
+  VENTA: 'VENTAS',
+  CALIFICACION: 'VENTAS',
+  RECORDATORIO: 'PUBLICACIONES',
+  SEGUIDA: 'PUBLICACIONES',
+  ALERTA: 'PUBLICACIONES',
+  SEGURIDAD: 'CUENTA',
+  SISTEMA: 'CUENTA',
+  REPORTE: 'CUENTA',
+  EQUIPO: 'CUENTA',
+};
+
+/**
+ * El botón de un aviso (AV_Web): abrir algo («Ver su oferta», «Ver sus productos») o
+ * responder un busco («¡Lo tengo!», en naranja).
+ */
+export type AccionAviso =
+  { tipo: 'ABRIR'; texto: string; enlace: string } | { tipo: 'LO_TENGO'; enlace: string };
 
 /** Un aviso de la campanita (RF-40). Uno por conversación con mensajes sin leer. */
 export interface AvisoCampanita {
   id: string;
   tipo: TipoAviso;
+  categoria: CategoriaAviso;
   titulo: string;
   extracto: string | null;
   enlace: string | null;
+  accion: AccionAviso | null;
   leido: boolean;
   actualizado_en: string;
 }
@@ -127,6 +166,8 @@ export interface AvisoCampanita {
 export interface RespuestaAvisos {
   avisos: AvisoCampanita[];
   sin_leer: number;
+  /** Sin leer de cada filtro: «En vivo · 2». */
+  sin_leer_por_categoria: Record<CategoriaAviso, number>;
 }
 
 /** `GET /v1/contadores`: lo que muestran las insignias de Mensajes y la campanita. */

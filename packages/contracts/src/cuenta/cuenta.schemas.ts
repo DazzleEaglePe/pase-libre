@@ -71,6 +71,12 @@ export const avisosCuentaSchema = z.strictObject({
   campanita: z.strictObject({
     MENSAJE: z.boolean(),
     EN_VIVO: z.boolean().optional(),
+    EN_VIVO_RESPUESTA: z.boolean().optional(),
+    VENTA: z.boolean().optional(),
+    RECORDATORIO: z.boolean().optional(),
+    SEGUIDA: z.boolean().optional(),
+    ALERTA: z.boolean().optional(),
+    EQUIPO: z.boolean().optional(),
   }),
   no_molestar: z
     .strictObject({ desde: horaSchema, hasta: horaSchema })
