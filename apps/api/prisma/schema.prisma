@@ -228,6 +228,8 @@ model Tienda {
   vistasDeOfertas      VistaOferta[]
   hiloEquipo           HiloEquipo?
 
+  advertencias Advertencia[]
+
   @@index([galeriaId])
   @@map("tienda")
 }
@@ -291,6 +293,10 @@ model Usuario {
   respuestasEnVivo     EnVivoRespuesta[]
 
   mensajesEquipo MensajeEquipo[] @relation("MensajesEquipo")
+
+  advertenciasDadas Advertencia[]    @relation("AdvertenciasDadas")
+  comunicados       Comunicado[]     @relation("ComunicadosEnviados")
+  registrosEquipo   RegistroEquipo[] @relation("RegistrosEquipo")
 
   @@index([tiendaId])
   @@map("usuario")
@@ -650,6 +656,8 @@ model Denuncia {
   tiendaDenunciada Tienda? @relation("DenunciaContra", fields: [tiendaDenunciadaId], references: [id])
 
   mensajesEquipo MensajeEquipo[]
+
+  advertencias Advertencia[]
 
   @@index([estado, creadaEn])
   @@index([denuncianteId, creadaEn(sort: Desc)])
@@ -1172,4 +1180,54 @@ model MensajeEquipo {
 
   @@index([hiloId, creadoEn])
   @@map("mensaje_equipo")
+}
+
+/// «Darle una advertencia» (REP_WebEquipo, ADM_WebTiendas): queda en el historial de la tienda.
+/// Con 3, el equipo revisa la cuenta.
+model Advertencia {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId   String   @map("tienda_id") @db.Uuid
+  autorId    String   @map("autor_id") @db.Uuid
+  motivo     String   @db.VarChar(200)
+  denunciaId String?  @map("denuncia_id") @db.Uuid
+  creadaEn   DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  tienda   Tienda    @relation(fields: [tiendaId], references: [id], onDelete: Cascade)
+  autor    Usuario   @relation("AdvertenciasDadas", fields: [autorId], references: [id])
+  denuncia Denuncia? @relation(fields: [denunciaId], references: [id], onDelete: SetNull)
+
+  @@index([tiendaId, creadaEn])
+  @@map("advertencia")
+}
+
+/// Un mensaje del equipo para muchas tiendas a la vez (ADM_WebComunicados): llega a la campanita.
+model Comunicado {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  autorId  String   @map("autor_id") @db.Uuid
+  /// «Todas las tiendas» o el nombre de la galería.
+  para     String   @db.VarChar(80)
+  titulo   String   @db.VarChar(120)
+  texto    String   @db.VarChar(600)
+  /// A cuántas personas les llegó.
+  enviados Int
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  autor Usuario @relation("ComunicadosEnviados", fields: [autorId], references: [id])
+
+  @@index([creadoEn])
+  @@map("comunicado")
+}
+
+/// «Lo último del equipo» (ADM_Web): quién hizo qué y cuándo en el panel.
+model RegistroEquipo {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  autorId  String   @map("autor_id") @db.Uuid
+  /// «aprobó a Tienda N (sin RUC) después de revisar su DNI».
+  accion   String   @db.VarChar(240)
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  autor Usuario @relation("RegistrosEquipo", fields: [autorId], references: [id])
+
+  @@index([creadoEn])
+  @@map("registro_equipo")
 }
