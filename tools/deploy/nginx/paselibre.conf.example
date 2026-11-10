@@ -34,6 +34,8 @@ server {
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
+    # nginx 1.25 o más nuevo. En uno anterior (Debian 12 trae 1.22) esta línea no existe: se
+    # borra y las dos de arriba quedan `listen 443 ssl http2;` y `listen [::]:443 ssl http2;`.
     http2 on;
     server_name staging.paselibre.example;
     server_tokens off;

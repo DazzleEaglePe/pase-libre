@@ -127,6 +127,19 @@ Las imágenes viejas ocupan disco. Cuando haga falta espacio: `docker image ls '
 - **Monitor externo (RNF-39):** un monitor gratuito (UptimeRobot, Better Stack…) que pida `https://<dominio>/v1/salud/lista` cada minuto y avise por correo. Responde 200 si la base contesta y 503 si no.
 - **Registros:** `docker compose --env-file <entorno.env> -f tools/deploy/compose.yml logs -f api`. Son JSON de pino y rotan solos (10 MB × 5).
 
+## Producción en paselibre.shop (09/11/2026)
+
+El VPS de producción es **compartido** con Yallegó (producción y *staging*) y a2c: 2 núcleos, 3,8 GB de RAM y unos 25 contenedores. Lo que se hizo distinto de los pasos de arriba:
+
+- **Puertos:** web `3130`, API `3131` (3100/3101 y 3110/3111 ya estaban usados).
+- **Memoria:** `POSTGRES_MEMORIA=256m`, `API_MEMORIA=448m`, `WEB_MEMORIA=320m`. En marcha usa unos 210 MB.
+- **Las imágenes no se construyen en el servidor:** `next build` usa ~830 MB y el servidor tiene ~1 GB libre. Se construyen en otra máquina con `--platform linux/amd64`, se envían con `docker save … | gzip | ssh … 'gunzip | sudo docker load'` y se despliega con la etiqueta: `desplegar.sh produccion.env <etiqueta>`.
+  - En una Mac con chip Apple, `next build` emulado (QEMU) se cae con *Segmentation fault*. La imagen de la web se arma con la salida `standalone` compilada en la Mac y la etapa `runtime` de `apps/web/Dockerfile` (sin `sharp` para macOS: la web no usa `next/image`). Con «Use Rosetta» de Docker Desktop encendido, debería bastar el Dockerfile normal (sin probar).
+- **nginx 1.22:** sin `http2 on;` (ver la plantilla).
+- **Archivos:** `/opt/paselibre/app` (el repositorio en la etiqueta desplegada), `/opt/paselibre/config/produccion.env` (600), fotos en `/var/lib/paselibre/produccion/media`, sitio `/etc/nginx/sites-available/paselibre.shop`, certificado de Let's Encrypt con renovación automática.
+- **Primera cuenta del equipo:** `dazz`. La clave temporal se guardó en `/opt/paselibre/config/cuenta-equipo-dazz.txt` (solo root): leerla, entrar, cambiarla y borrar el archivo.
+- **Falta:** respaldos (`RESPALDO_ENV` vacío; mientras tanto el próximo despliegue se detiene salvo con `DESPLIEGUE_SIN_RESPALDO=true`), monitor externo de `/v1/salud/lista`, y decidir `EN_VIVO` (apagado). El registro propio queda apagado: producción no arranca con él hasta tener SMS y SUNAT reales.
+
 ## Notas de seguridad
 
 - Las cookies de sesión son `Secure`: sin HTTPS no se puede ingresar. La API en producción se niega a arrancar sin eso.
