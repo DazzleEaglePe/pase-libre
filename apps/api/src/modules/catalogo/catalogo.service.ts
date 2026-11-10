@@ -1,6 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import type {
   CategoriaResumen,
+  DetalleOferta,
   Foto,
   GaleriaResumen,
   OfertaConVendedor,
@@ -19,7 +20,8 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
-import { conSesion, precioPara, tiendaPara } from './visibilidad';
+import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
+import { conSesion, precioPara, preciosPara, tiendaPara } from './visibilidad';
 
 /** Una oferta se muestra si está activa, su tienda no está suspendida y su producto no se unió a otro. */
 const OFERTA_VIGENTE = {
@@ -37,6 +39,12 @@ const FOTOS = {
 const SELECT_OFERTA_PUBLICA = {
   id: true,
   condicion: true,
+  estadoDetalle: true,
+  conCaja: true,
+  conFactura: true,
+  probado: true,
+  garantia: true,
+  enAlmacen: true,
   stock: true,
   descripcion: true,
   actualizadaEn: true,
@@ -48,6 +56,11 @@ const SELECT_OFERTA_CON_VENDEDOR = {
   ...SELECT_OFERTA_PUBLICA,
   tiendaId: true,
   precioCentimos: true,
+  precioFacturadoCentimos: true,
+  descuentoSocioCentimos: true,
+  modoVenta: true,
+  soloSocios: true,
+  aceptaOfertas: true,
   moneda: true,
   precioVisible: true,
   tiendaVisible: true,
@@ -90,10 +103,31 @@ function aFoto(foto: { ruta: string; ancho: number | null; alto: number | null }
   return { ruta: foto.ruta, ancho: foto.ancho, alto: foto.alto };
 }
 
+/** El detalle de una oferta; lo publicado antes del lienzo final no tiene estado propio. */
+export function detalleDe(o: {
+  condicion: 'NUEVO' | 'USADO';
+  estadoDetalle: DetalleOferta['estado'] | null;
+  conCaja: boolean;
+  conFactura: boolean;
+  probado: boolean;
+  garantia: DetalleOferta['garantia'];
+  enAlmacen: boolean;
+}): DetalleOferta {
+  return {
+    estado: o.estadoDetalle ?? (o.condicion === 'NUEVO' ? 'SELLADO' : 'USADO'),
+    con_caja: o.conCaja,
+    con_factura: o.conFactura,
+    probado: o.probado,
+    garantia: o.garantia,
+    en_almacen: o.enAlmacen,
+  };
+}
+
 function ofertaPublica(o: OfertaPublicaFila): OfertaPublica {
   return {
     id: o.id,
     condicion: o.condicion,
+    detalle: detalleDe(o),
     stock: o.stock,
     galeria: o.tienda.galeria?.nombre ?? null,
     tipo_vendedor: o.tienda.tipo,
@@ -107,17 +141,25 @@ function ofertaConVendedor(
   o: OfertaConVendedorFila,
   mirada: Mirada,
   respondeEn: Map<string, number> = new Map(),
+  socios: ReadonlySet<string> = new Set(),
 ): OfertaConVendedor {
   const tienda = tiendaPara(o, o.tienda, mirada);
+  const precios = preciosPara(o, mirada, socios);
   return {
     ...ofertaPublica(o),
     tienda,
     tienda_visible: o.tiendaVisible,
     // Con la tienda reservada tampoco: sería una pista de quién es.
     responde_en_min: tienda.id ? (respondeEn.get(o.tiendaId) ?? null) : null,
-    precio: precioPara(o, mirada),
+    precio: precios.precio,
     precio_visible: o.precioVisible,
     propia: o.tiendaId === mirada.tiendaId,
+    modo_venta: o.modoVenta,
+    precio_facturado: precios.facturado,
+    precio_socio: precios.socio,
+    descuento_socio: precios.descuento,
+    solo_socios: o.soloSocios,
+    acepta_ofertas: o.aceptaOfertas,
   };
 }
 
@@ -359,11 +401,16 @@ export class CatalogoService {
       where,
       select: SELECT_OFERTA_CON_VENDEDOR,
     });
-    const respondeEn = await this.respondeEn([...new Set(ofertas.map((o) => o.tiendaId))]);
+    const [respondeEn, socios] = await Promise.all([
+      this.respondeEn([...new Set(ofertas.map((o) => o.tiendaId))]),
+      tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId),
+    ]);
     return {
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
       producto: detalle,
-      ofertas: ofertas.sort(compararPorPrecio).map((o) => ofertaConVendedor(o, mirada, respondeEn)),
+      ofertas: ofertas
+        .sort(compararPorPrecio)
+        .map((o) => ofertaConVendedor(o, mirada, respondeEn, socios)),
     };
   }
 

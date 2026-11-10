@@ -50,6 +50,40 @@ const descripcionSchema = z
   .transform((texto) => texto || null);
 
 const condicionSchema = z.enum(['NUEVO', 'USADO'], 'Elige si es nuevo o usado.');
+
+/** «Estado» de PUB_WebProducto. Sellado y open box cuentan como nuevos en los filtros. */
+export const ESTADOS_DETALLE = ['SELLADO', 'OPEN_BOX', 'USADO', 'REACONDICIONADO'] as const;
+export const GARANTIAS = [
+  'SIN',
+  'UN_MES',
+  'TRES_MESES',
+  'SEIS_MESES',
+  'UN_ANIO',
+  'FABRICA',
+] as const;
+/** «¿Cómo lo vendes?»: pase (sin comprobante), facturado (con IGV) o los dos (PS_Precio). */
+export const MODOS_VENTA = ['PASE', 'FACTURADO', 'AMBOS'] as const;
+/** «¿Quién ve el precio?»: todas las tiendas con sesión, solo tus socios o nadie (por chat). */
+export const QUIEN_VE_PRECIO = ['TODOS', 'SOCIOS', 'NADIE'] as const;
+
+/** Nuevo o usado, según el estado que se eligió. */
+export const condicionDeEstado = (estado: (typeof ESTADOS_DETALLE)[number]): 'NUEVO' | 'USADO' =>
+  estado === 'SELLADO' || estado === 'OPEN_BOX' ? 'NUEVO' : 'USADO';
+
+/** Lo que el lienzo final suma a una publicación: estado, garantía, stock y precios. */
+const detalleOferta = {
+  estado_detalle: z.enum(ESTADOS_DETALLE, 'Elige el estado.').optional(),
+  con_caja: z.boolean().optional(),
+  con_factura: z.boolean().optional(),
+  probado: z.boolean().optional(),
+  garantia: z.enum(GARANTIAS).nullable().optional(),
+  en_almacen: z.boolean().optional(),
+  modo_venta: z.enum(MODOS_VENTA).optional(),
+  precio_facturado: montoSchema.optional(),
+  descuento_socio: montoSchema.optional(),
+  quien_ve_precio: z.enum(QUIEN_VE_PRECIO).optional(),
+  acepta_ofertas: z.boolean().optional(),
+};
 const monedaSchema = z.enum(['USD', 'PEN'], 'Elige la moneda.');
 
 /**
@@ -80,7 +114,9 @@ export const publicarSchema = z
   .strictObject({
     producto_id: z.uuid('Elige un producto del catálogo.').optional(),
     producto_nuevo: productoNuevoSchema.optional(),
-    condicion: condicionSchema,
+    /** Si no llega, sale del estado (`estado_detalle`). */
+    condicion: condicionSchema.optional(),
+    ...detalleOferta,
     stock: z
       .number('Escribe la cantidad disponible.')
       .int('La cantidad va sin decimales.')
@@ -101,11 +137,33 @@ export const publicarSchema = z
         message: 'Elige un producto del catálogo o crea uno nuevo para publicar.',
       });
     }
-    if (oferta.precio_visible && oferta.precio === null) {
+    if (!oferta.condicion && !oferta.estado_detalle) {
+      contexto.addIssue({ code: 'custom', path: ['estado_detalle'], message: 'Elige el estado.' });
+    }
+    const conMonto = oferta.precio !== null || (oferta.precio_facturado ?? null) !== null;
+    if ((oferta.precio_visible || oferta.quien_ve_precio === 'TODOS') && !conMonto) {
       contexto.addIssue({
         code: 'custom',
         path: ['precio'],
         message: 'Para mostrar el precio, escribe el monto.',
+      });
+    }
+    if (oferta.modo_venta && oferta.modo_venta !== 'PASE' && !oferta.precio_facturado) {
+      contexto.addIssue({
+        code: 'custom',
+        path: ['precio_facturado'],
+        message: 'Escribe el precio facturado, con IGV.',
+      });
+    }
+    if (
+      oferta.descuento_socio &&
+      oferta.precio !== null &&
+      oferta.descuento_socio >= oferta.precio
+    ) {
+      contexto.addIssue({
+        code: 'custom',
+        path: ['descuento_socio'],
+        message: 'Lo que les bajas a tus socios tiene que ser menos que el precio.',
       });
     }
   });
@@ -117,6 +175,7 @@ export const publicarSchema = z
 export const editarOfertaSchema = z
   .strictObject({
     condicion: condicionSchema.optional(),
+    ...detalleOferta,
     stock: z
       .number('Escribe la cantidad disponible.')
       .int('La cantidad va sin decimales.')

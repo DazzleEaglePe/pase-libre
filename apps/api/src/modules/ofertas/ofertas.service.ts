@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
+  condicionDeEstado,
   formatearPrecio,
   normalizarTexto,
   precioDe,
@@ -26,8 +27,41 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
 import { AvisosService } from '../mensajes/avisos.service';
 import { BusquedaService } from '../catalogo/busqueda.service';
+import { detalleDe } from '../catalogo/catalogo.service';
 import { tiendaDeSesion } from '../sesion/sesion.service';
 import type { UsuarioConTienda } from '../sesion/sesion.types';
+
+/**
+ * Lo del lienzo final que llega al publicar o editar (PUB_WebProducto), en columnas. Solo
+ * lo que vino: al editar, lo que no llega se queda como estaba.
+ */
+function columnasDeDetalle(datos: Partial<EditarOfertaDatos>): Prisma.OfertaUpdateInput {
+  const columnas: Prisma.OfertaUpdateInput = {};
+  if (datos.estado_detalle) {
+    columnas.estadoDetalle = datos.estado_detalle;
+    columnas.condicion = condicionDeEstado(datos.estado_detalle);
+  }
+  if (datos.con_caja !== undefined) columnas.conCaja = datos.con_caja;
+  if (datos.con_factura !== undefined) columnas.conFactura = datos.con_factura;
+  if (datos.probado !== undefined) columnas.probado = datos.probado;
+  if (datos.garantia !== undefined) columnas.garantia = datos.garantia;
+  if (datos.en_almacen !== undefined) columnas.enAlmacen = datos.en_almacen;
+  if (datos.modo_venta) columnas.modoVenta = datos.modo_venta;
+  if (datos.precio_facturado !== undefined) {
+    columnas.precioFacturadoCentimos =
+      datos.precio_facturado === null ? null : BigInt(datos.precio_facturado);
+  }
+  if (datos.descuento_socio !== undefined) {
+    columnas.descuentoSocioCentimos =
+      datos.descuento_socio === null ? null : BigInt(datos.descuento_socio);
+  }
+  if (datos.quien_ve_precio) {
+    columnas.precioVisible = datos.quien_ve_precio === 'TODOS';
+    columnas.soloSocios = datos.quien_ve_precio === 'SOCIOS';
+  }
+  if (datos.acepta_ofertas !== undefined) columnas.aceptaOfertas = datos.acepta_ofertas;
+  return columnas;
+}
 
 /** RF-10: una oferta activa sin cambios hace más de 7 días pide «Revísala». */
 export const DIAS_PARA_REVISAR = 7;
@@ -47,6 +81,17 @@ const SELECT_PRODUCTO_RESUMEN = {
 const SELECT_OFERTA_PROPIA = {
   id: true,
   condicion: true,
+  estadoDetalle: true,
+  conCaja: true,
+  conFactura: true,
+  probado: true,
+  garantia: true,
+  enAlmacen: true,
+  modoVenta: true,
+  precioFacturadoCentimos: true,
+  descuentoSocioCentimos: true,
+  soloSocios: true,
+  aceptaOfertas: true,
   stock: true,
   precioCentimos: true,
   moneda: true,
@@ -237,25 +282,33 @@ export class OfertasService {
           ? await this.crearProducto(tx, datos.producto_nuevo, tienda.id)
           : await this.productoExistente(tx, datos.producto_id ?? '');
 
+        const condicion = datos.condicion ?? condicionDeEstado(datos.estado_detalle ?? 'SELLADO');
         const repetida = await tx.oferta.findFirst({
-          where: { productoId, tiendaId: tienda.id, condicion: datos.condicion, vigente: true },
+          where: { productoId, tiendaId: tienda.id, condicion, vigente: true },
           select: { id: true, estado: true },
         });
-        if (repetida) throw this.ofertaRepetida(datos.condicion, repetida);
+        if (repetida) throw this.ofertaRepetida(condicion, repetida);
 
         const fotos = await this.archivos.reclamar(tx, datos.fotos, tienda.id);
         const oferta = await tx.oferta.create({
           data: {
+            ...(columnasDeDetalle({ ...datos, estado_detalle: undefined }) as Omit<
+              Prisma.OfertaUncheckedCreateInput,
+              'productoId' | 'tiendaId' | 'responsableId'
+            >),
             productoId,
             tiendaId: tienda.id,
             responsableId: usuario.id,
-            condicion: datos.condicion,
+            condicion,
+            estadoDetalle: datos.estado_detalle ?? (condicion === 'NUEVO' ? 'SELLADO' : 'USADO'),
             stock: datos.stock,
             precioCentimos: datos.precio === null ? null : BigInt(datos.precio),
             moneda: datos.moneda ?? tienda.monedaDefecto,
             // Sin monto no hay precio que mostrar; si no se eligió, manda la tienda (D-37).
-            precioVisible:
-              datos.precio !== null && (datos.precio_visible ?? tienda.precioVisibleDefecto),
+            precioVisible: datos.quien_ve_precio
+              ? datos.quien_ve_precio === 'TODOS' &&
+                (datos.precio !== null || (datos.precio_facturado ?? null) !== null)
+              : datos.precio !== null && (datos.precio_visible ?? tienda.precioVisibleDefecto),
             tiendaVisible: datos.tienda_visible ?? true,
             descripcion: datos.descripcion,
             fotos: {
@@ -287,7 +340,10 @@ export class OfertasService {
       return publicada;
     } catch (error) {
       if (esUnicoRepetido(error, 'oferta_vigente_key')) {
-        throw this.ofertaRepetida(datos.condicion, null);
+        throw this.ofertaRepetida(
+          datos.condicion ?? condicionDeEstado(datos.estado_detalle ?? 'SELLADO'),
+          null,
+        );
       }
       if (esUnicoRepetido(error, 'slug')) {
         throw new ApiHttpException(
@@ -412,7 +468,7 @@ export class OfertasService {
   }
 
   private ofertaRepetida(
-    condicion: PublicarDatos['condicion'],
+    condicion: 'NUEVO' | 'USADO',
     existente: { id: string; estado: string } | null,
   ): ApiHttpException {
     const pausada = existente?.estado === 'PAUSADA';
@@ -624,7 +680,10 @@ export class OfertasService {
           ...(cambios.precio === undefined
             ? {}
             : { precioCentimos: cambios.precio === null ? null : BigInt(cambios.precio) }),
+          ...columnasDeDetalle(cambios),
         };
+        // «¿Quién ve el precio? Todas» sin monto no se puede: queda por chat.
+        if (data.precioVisible === true && precio === null) data.precioVisible = false;
         const soloPausa = cambios.estado === 'PAUSADA' && Object.keys(cambios).length === 1;
         if (!soloPausa) data.actualizadaEn = new Date();
 
@@ -699,6 +758,18 @@ export class OfertasService {
       moneda: o.moneda,
       precio_visible: o.precioVisible,
       tienda_visible: o.tiendaVisible,
+      detalle: detalleDe(o),
+      modo_venta: o.modoVenta,
+      precio_facturado:
+        o.precioFacturadoCentimos === null
+          ? null
+          : precioDe(Number(o.precioFacturadoCentimos), o.moneda),
+      descuento_socio:
+        o.descuentoSocioCentimos === null
+          ? null
+          : precioDe(Number(o.descuentoSocioCentimos), o.moneda),
+      quien_ve_precio: o.precioVisible ? 'TODOS' : o.soloSocios ? 'SOCIOS' : 'NADIE',
+      acepta_ofertas: o.aceptaOfertas,
       descripcion: o.descripcion,
       fotos: o.fotos,
       estado: o.estado === 'PAUSADA' ? 'PAUSADA' : 'ACTIVA',

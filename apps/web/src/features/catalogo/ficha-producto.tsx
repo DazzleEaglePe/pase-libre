@@ -2,6 +2,9 @@
 
 import {
   formatearPrecio,
+  precioDe,
+  TEXTO_ESTADO_DETALLE,
+  TEXTO_GARANTIA,
   TIENDA_RESERVADA,
   urlFoto,
   type Audiencia,
@@ -25,7 +28,7 @@ import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
 
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
-import { textoEstado, textoStock } from './textos';
+import { textoStock } from './textos';
 
 /** «responde en ~10 min» o «~2 h», redondeado: es una idea, no un reloj. */
 const respondeEn = (minutos: number): string =>
@@ -164,17 +167,99 @@ export function FichaProducto({
     conSesion && ofertas.length > 1 && oferta !== null && oferta.id === mejor?.id;
   const conPublicarIgual = audiencia === 'vendedor' && !oferta?.propia;
 
-  const precioGrande = oferta ? (
-    oferta.precio ? (
-      <span className="flex h-[52px] items-center rounded-full bg-tinta px-[18px] text-[28px] font-bold leading-none text-white">
-        {formatearPrecio(oferta.precio)}
+  /** Una píldora de precio: negra, o verde si es el precio socio, con el de siempre tachado. */
+  const pildora = (precio: Precio, grande: boolean) => {
+    const antes =
+      oferta?.precioSocio && oferta.descuentoSocio
+        ? formatearPrecio(precioDe(precio.centimos + oferta.descuentoSocio.centimos, precio.moneda))
+        : null;
+    return (
+      <span className="flex items-center gap-2">
+        <span
+          className={`flex items-center rounded-full font-bold leading-none text-white ${
+            oferta?.precioSocio ? 'bg-pase' : 'bg-tinta'
+          } ${grande ? 'h-[52px] px-[18px] text-[28px]' : 'h-9 px-3.5 text-[18px]'}`}
+        >
+          {formatearPrecio(precio)}
+        </span>
+        {antes && <s className="text-apoyo text-detalle">{antes}</s>}
       </span>
+    );
+  };
+
+  const precioGrande = oferta ? (
+    oferta.precio || oferta.precioFacturado ? (
+      oferta.modoVenta === 'AMBOS' && oferta.precio && oferta.precioFacturado ? (
+        <span className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2">
+          <span className="text-etiqueta uppercase text-secundario">Pase</span>
+          {pildora(oferta.precio, false)}
+          <span className="text-etiqueta uppercase text-secundario">Facturado</span>
+          {pildora(oferta.precioFacturado, false)}
+        </span>
+      ) : (
+        pildora((oferta.precio ?? oferta.precioFacturado) as Precio, true)
+      )
     ) : conSesion ? (
-      <span className="text-[24px] font-bold leading-8">Al interno</span>
+      <span className="flex flex-col">
+        <span className="text-[24px] font-bold leading-8">Precio por chat</span>
+        <span className="text-nota text-secundario">
+          {oferta.soloSocios
+            ? 'Esta tienda lo muestra solo a sus socios.'
+            : 'La tienda lo da por chat.'}
+        </span>
+      </span>
     ) : (
       <PrecioConSesion className="text-[20px] font-bold leading-7" />
     )
   ) : null;
+
+  /** El texto chico junto al precio. */
+  const notaPrecio = !oferta
+    ? null
+    : oferta.propia && !oferta.precioVisible && oferta.precio
+      ? oferta.soloSocios
+        ? 'Solo lo ven tus socios'
+        : 'Al interno: solo lo ves tú'
+      : oferta.precioSocio
+        ? 'Precio socio'
+        : oferta.modoVenta === 'FACTURADO' && oferta.precioFacturado
+          ? 'Facturado, con IGV'
+          : oferta.precio && oferta.modoVenta === 'PASE'
+            ? 'Precio de pase'
+            : null;
+
+  const detalles = oferta
+    ? [
+        oferta.detalle.garantia ? TEXTO_GARANTIA[oferta.detalle.garantia] : null,
+        oferta.detalle.con_caja ? 'Con caja' : null,
+        oferta.detalle.con_factura ? 'Con factura o boleta' : null,
+        oferta.detalle.probado ? 'Probado en el stand' : null,
+        oferta.detalle.en_almacen ? 'En almacén · ~30 min' : null,
+      ].filter((texto): texto is string => texto !== null)
+    : [];
+
+  async function pedirPrecio() {
+    if (!oferta) return;
+    setContactando('CHAT');
+    setError(null);
+    try {
+      const respuesta = await llamarApi<RespuestaContacto>(`/ofertas/${oferta.id}/contacto`, {
+        metodo: 'POST',
+        cuerpo: { canal: 'CHAT' },
+      });
+      if (respuesta.canal === 'CHAT') {
+        await llamarApi(`/conversaciones/${respuesta.conversacion_id}/mensajes`, {
+          metodo: 'POST',
+          cuerpo: { texto: `Hola, ¿me pasas el precio de ${producto.titulo}?` },
+        });
+        router.push(`/mensajes/${respuesta.conversacion_id}`);
+      }
+    } catch (falla) {
+      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos pedir el precio.');
+    } finally {
+      setContactando(null);
+    }
+  }
 
   const botonesContacto =
     oferta && audiencia === 'vendedor' && !oferta.propia ? (
@@ -310,8 +395,10 @@ export function FichaProducto({
           </div>
           {oferta && (
             <span className="text-apoyo text-secundario md:hidden">
-              <b className="font-semibold text-tinta">{textoEstado(oferta.condicion)}</b> ·
-              Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
+              <b className="font-semibold text-tinta">
+                {TEXTO_ESTADO_DETALLE[oferta.detalle.estado]}
+              </b>{' '}
+              · Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
             </span>
           )}
           <h1 className="text-[30px] font-bold leading-[38px] tracking-[-0.01em] max-md:text-[24px] max-md:leading-8">
@@ -336,22 +423,55 @@ export function FichaProducto({
           {oferta ? (
             <div className="flex flex-col gap-4 rounded-[20px] border border-linea p-[22px] max-md:border-0 max-md:p-0">
               <span className="text-nota text-secundario max-md:hidden">
-                <b className="font-semibold text-tinta">{textoEstado(oferta.condicion)}</b> ·
-                Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
+                <b className="font-semibold text-tinta">
+                  {TEXTO_ESTADO_DETALLE[oferta.detalle.estado]}
+                </b>{' '}
+                · Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
               </span>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 {precioGrande}
+                {oferta.precioSocio && (
+                  <span className="rounded-full bg-marca px-2.5 text-[12px] font-bold leading-[22px] text-white">
+                    Precio socio
+                  </span>
+                )}
                 {esLaMasBarata && (
                   <span className="rounded-full bg-contador px-2 text-[12px] font-bold leading-[22px] text-tinta">
                     Más barato
                   </span>
                 )}
-                {oferta.precio && (
-                  <span className="text-apoyo text-secundario">
-                    {oferta.precioVisible ? 'Precio de pase' : 'Al interno: solo lo ves tú'}
-                  </span>
+                {notaPrecio && !oferta.precioSocio && (
+                  <span className="text-apoyo text-secundario">{notaPrecio}</span>
                 )}
               </div>
+              {audiencia === 'vendedor' &&
+                !oferta.propia &&
+                !oferta.precio &&
+                !oferta.precioFacturado && (
+                  <button
+                    type="button"
+                    disabled={contactando !== null}
+                    onClick={() => void pedirPrecio()}
+                    className="-mt-1 h-10 self-start rounded-full border border-tinta px-4 text-apoyo font-bold text-tinta disabled:opacity-60"
+                  >
+                    {contactando === 'CHAT' ? 'Pidiendo…' : 'Pedir precio'}
+                  </button>
+                )}
+              {detalles.length > 0 && (
+                <ul
+                  aria-label="Detalles de la oferta"
+                  className="m-0 flex list-none flex-wrap gap-1.5 p-0"
+                >
+                  {detalles.map((detalle) => (
+                    <li
+                      key={detalle}
+                      className="rounded-full bg-pase-suave px-2.5 text-nota font-semibold leading-6 text-marca"
+                    >
+                      {detalle}
+                    </li>
+                  ))}
+                </ul>
+              )}
               {!conSesion && (
                 <span className="-mt-1 text-nota text-secundario">
                   El precio y la tienda se ven al iniciar sesión.
@@ -537,7 +657,9 @@ export function FichaProducto({
                         {nombreDe(fila)}
                       </td>
                       <td className="pr-4 text-secundario">{fila.galeria ?? 'Independiente'}</td>
-                      <td className="pr-4 text-secundario">{textoEstado(fila.condicion)}</td>
+                      <td className="pr-4 text-secundario">
+                        {TEXTO_ESTADO_DETALLE[fila.detalle.estado]}
+                      </td>
                       <td className="pr-4">
                         <span className="flex items-center gap-2 font-semibold">
                           <span
@@ -548,13 +670,17 @@ export function FichaProducto({
                         </span>
                       </td>
                       <td className="pr-4">
-                        {fila.precio ? (
-                          <span className="inline-flex h-7 items-center rounded-full bg-tinta px-3 font-bold text-white">
-                            {formatearPrecio(fila.precio)}
+                        {fila.precio || fila.precioFacturado ? (
+                          <span
+                            className={`inline-flex h-7 items-center rounded-full px-3 font-bold text-white ${
+                              fila.precioSocio ? 'bg-pase' : 'bg-tinta'
+                            }`}
+                          >
+                            {formatearPrecio((fila.precio ?? fila.precioFacturado) as Precio)}
                           </span>
                         ) : (
                           <span className="font-semibold">
-                            {conSesion ? 'Al interno' : 'Con sesión'}
+                            {conSesion ? 'Por chat' : 'Con sesión'}
                           </span>
                         )}
                       </td>

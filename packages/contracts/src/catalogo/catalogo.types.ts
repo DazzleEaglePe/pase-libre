@@ -1,4 +1,5 @@
 import type { Precio } from '../comun/dinero.js';
+import type { DetalleOferta, ModoVenta } from '../ofertas/ofertas.types.js';
 import type { TipoTienda } from '../sesion/sesion.types.js';
 
 /**
@@ -136,6 +137,8 @@ export interface Foto {
 export interface OfertaPublica {
   id: string;
   condicion: Condicion;
+  /** Estado, garantía, caja… (PUB_WebProducto): no es privado. */
+  detalle: DetalleOferta;
   stock: number;
   /** Nombre de la galería, o nulo para un independiente sin galería. */
   galeria: string | null;
@@ -149,6 +152,16 @@ export interface OfertaConVendedor extends OfertaPublica {
   /** Con la tienda reservada: `id` vacío, «Tienda reservada» y sin stand (salvo para la dueña y el equipo). */
   tienda: { id: string; nombre: string; stand: string | null };
   tienda_visible: boolean;
+  modo_venta: ModoVenta;
+  /** El precio con factura e IGV, con las mismas reglas que el precio de pase. */
+  precio_facturado: Precio | null;
+  /** El precio que ves es el de socio: la tienda te tiene como socia (PS_Precio). */
+  precio_socio: boolean;
+  /** Cuánto menos te sale por ser socia (para tachar el precio de siempre); nulo si no. */
+  descuento_socio: Precio | null;
+  /** El precio solo lo ven sus socios: para las demás es «Precio por chat» (PS_Precio). */
+  solo_socios: boolean;
+  acepta_ofertas: boolean;
   /**
    * Cuánto tarda la tienda, en minutos, en contestar el primer mensaje de un hilo (la mediana
    * de los últimos 60 días). Nulo con menos de 3 hilos contestados, o con la tienda reservada.

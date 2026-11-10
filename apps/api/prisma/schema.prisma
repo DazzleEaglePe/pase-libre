@@ -213,6 +213,13 @@ model Tienda {
   opinionesRecibidas   Opinion[]         @relation("OpinionSobre")
   opinionesEscritas    Opinion[]         @relation("OpinionDe")
   denunciasRecibidas   Denuncia[]        @relation("DenunciaContra")
+  /// «Descuento por defecto» para socios (PS_SociosWeb), por moneda, en céntimos.
+  descuentoSocioPen    BigInt?           @map("descuento_socio_pen")
+  descuentoSocioUsd    BigInt?           @map("descuento_socio_usd")
+  /// Las tiendas que esta tiene como socias.
+  socios               Socio[]           @relation("SociosDe")
+  /// Las tiendas que tienen a esta como socia.
+  socioDe              Socio[]           @relation("SocioDe")
 
   @@index([galeriaId])
   @@map("tienda")
@@ -403,29 +410,49 @@ model ProductoEtiqueta {
 /// Lo que una tienda tiene de un producto. Única por producto, tienda y condición
 /// mientras no esté eliminada (ver `vigente`).
 model Oferta {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productoId     String       @map("producto_id") @db.Uuid
-  tiendaId       String       @map("tienda_id") @db.Uuid
+  id                      String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productoId              String         @map("producto_id") @db.Uuid
+  tiendaId                String         @map("tienda_id") @db.Uuid
   /// Quien recibe los mensajes de esta oferta (A-11): por defecto, quien la publicó.
-  responsableId  String       @map("responsable_id") @db.Uuid
-  condicion      Condicion
-  stock          Int          @default(1)
+  responsableId           String         @map("responsable_id") @db.Uuid
+  condicion               Condicion
+  stock                   Int            @default(1)
   /// Céntimos enteros: US$ 250 → 25000. Nulo = sin precio cargado («Al interno»).
-  precioCentimos BigInt?      @map("precio_centimos")
-  moneda         Moneda       @default(USD)
-  precioVisible  Boolean      @default(false) @map("precio_visible")
+  precioCentimos          BigInt?        @map("precio_centimos")
+  moneda                  Moneda         @default(USD)
+  precioVisible           Boolean        @default(false) @map("precio_visible")
   /// «Mostrar el nombre de mi tienda». Apagado, las demás tiendas ven «Tienda reservada»: sin
   /// nombre, stand ni WhatsApp, y se escribe solo por chat. La dueña y el equipo la ven igual.
-  tiendaVisible  Boolean      @default(true) @map("tienda_visible")
-  descripcion    String?      @db.VarChar(500)
-  estado         EstadoOferta @default(ACTIVA)
+  tiendaVisible           Boolean        @default(true) @map("tienda_visible")
+  descripcion             String?        @db.VarChar(500)
+  /// «Nuevo sellado», «Open box», «Usado» o «Reacondicionado» (PUB_WebProducto). `condicion`
+  /// sigue siendo nuevo o usado, para los filtros.
+  estadoDetalle           EstadoDetalle? @map("estado_detalle")
+  conCaja                 Boolean        @default(false) @map("con_caja")
+  conFactura              Boolean        @default(false) @map("con_factura")
+  probado                 Boolean        @default(false)
+  garantia                Garantia?
+  /// «En almacén · ~30 min»: no está en el stand.
+  enAlmacen               Boolean        @default(false) @map("en_almacen")
+  /// «¿Cómo lo vendes?»: pase (sin comprobante), facturado (con IGV) o los dos.
+  modoVenta               ModoVenta      @default(PASE) @map("modo_venta")
+  /// El precio con factura e IGV, en céntimos (PS_Precio).
+  precioFacturadoCentimos BigInt?        @map("precio_facturado_centimos")
+  /// «Precio socio»: cuánto menos ven tus socios, en céntimos.
+  descuentoSocioCentimos  BigInt?        @map("descuento_socio_centimos")
+  /// «¿Quién ve el precio?» = «Solo mis socios»: el precio está oculto (`precioVisible` en falso)
+  /// salvo para las tiendas que la tienda tiene como socias.
+  soloSocios              Boolean        @default(false) @map("solo_socios")
+  /// «Acepto ofertas en el chat».
+  aceptaOfertas           Boolean        @default(true) @map("acepta_ofertas")
+  estado                  EstadoOferta   @default(ACTIVA)
   /// `true` mientras no esté eliminada y nulo al eliminarla. Con él, el índice único
   /// deja una sola oferta vigente por producto, tienda y condición sin índice parcial,
   /// que Prisma no sabe mantener. Un CHECK lo ata a `estado`.
-  vigente        Boolean?     @default(true)
+  vigente                 Boolean?       @default(true)
   /// Cambia con stock, precio, visibilidad o «Siguen igual» (RF-09, RF-10).
-  actualizadaEn  DateTime     @default(now()) @map("actualizada_en") @db.Timestamptz(6)
-  creadaEn       DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
+  actualizadaEn           DateTime       @default(now()) @map("actualizada_en") @db.Timestamptz(6)
+  creadaEn                DateTime       @default(now()) @map("creada_en") @db.Timestamptz(6)
 
   producto         Producto          @relation(fields: [productoId], references: [id])
   tienda           Tienda            @relation(fields: [tiendaId], references: [id])
@@ -1003,4 +1030,49 @@ model AlertaBusqueda {
 
   @@unique([usuarioId, palabras])
   @@map("alerta_busqueda")
+}
+
+/// El estado que elige quien publica (PUB_WebProducto).
+enum EstadoDetalle {
+  SELLADO
+  OPEN_BOX
+  USADO
+  REACONDICIONADO
+
+  @@map("estado_detalle")
+}
+
+enum Garantia {
+  SIN
+  UN_MES
+  TRES_MESES
+  SEIS_MESES
+  UN_ANIO
+  FABRICA
+
+  @@map("garantia")
+}
+
+/// «¿Cómo lo vendes?» (PS_Precio).
+enum ModoVenta {
+  PASE
+  FACTURADO
+  AMBOS
+
+  @@map("modo_venta")
+}
+
+/// «Tus socios» (PS_SociosWeb): las tiendas a las que una tienda les deja ver su precio socio
+/// y sus precios «Solo mis socios». Va en un sentido: que A tenga a B no hace que B tenga a A.
+model Socio {
+  tiendaId String   @map("tienda_id") @db.Uuid
+  socioId  String   @map("socio_id") @db.Uuid
+  creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  tienda Tienda @relation("SociosDe", fields: [tiendaId], references: [id], onDelete: Cascade)
+  socio  Tienda @relation("SocioDe", fields: [socioId], references: [id], onDelete: Cascade)
+
+  @@id([tiendaId, socioId])
+  @@index([socioId])
+  @@map("socio")
 }

@@ -10,14 +10,21 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import {
+  agregarSocioSchema,
+  buscarTiendasSchema,
+  descuentoSocioSchema,
   filtroOpinionesSchema,
   opinarSchema,
   responderOpinionSchema,
   seguirTiendaSchema,
+  type AgregarSocioDatos,
+  type BuscarTiendasConsulta,
+  type DescuentoSocioDatos,
   type FiltroOpinionesConsulta,
   type OpinarDatos,
   type OpinionPublica,
@@ -25,7 +32,9 @@ import {
   type ResponderOpinionDatos,
   type RespuestaOpiniones,
   type RespuestaSeguir,
+  type RespuestaSocios,
   type SeguirTiendaDatos,
+  type TiendaBreve,
   type TiendaSeguida,
 } from '@paselibre/contracts';
 import { z } from 'zod';
@@ -46,6 +55,47 @@ const idTienda = id('Esta tienda no existe.');
 @UseGuards(SesionGuard)
 export class TiendasController {
   constructor(@Inject(TiendasService) private readonly tiendas: TiendasService) {}
+
+  @Get('socios')
+  @Header('Cache-Control', 'no-store')
+  socios(@SesionActual() sesion: SesionActiva): Promise<RespuestaSocios> {
+    return this.tiendas.socios(sesion);
+  }
+
+  @Post('socios')
+  @HttpCode(HttpStatus.OK)
+  agregarSocio(
+    @Body(new ZodValidationPipe(agregarSocioSchema)) datos: AgregarSocioDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaSocios> {
+    return this.tiendas.agregarSocio(datos.tienda_id, sesion, datos.avisar);
+  }
+
+  @Put('socios/descuento')
+  descuentoPorDefecto(
+    @Body(new ZodValidationPipe(descuentoSocioSchema)) datos: DescuentoSocioDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaSocios> {
+    return this.tiendas.descuentoPorDefecto(datos, sesion);
+  }
+
+  @Delete('socios/:id')
+  quitarSocio(
+    @Param('id', idTienda) socioId: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaSocios> {
+    return this.tiendas.quitarSocio(socioId, sesion);
+  }
+
+  /** Va antes de `tiendas/:id` para que «buscar» no se lea como id. */
+  @Get('tiendas/buscar')
+  @Header('Cache-Control', 'no-store')
+  buscarTiendas(
+    @Query(new ZodValidationPipe(buscarTiendasSchema)) consulta: BuscarTiendasConsulta,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<TiendaBreve[]> {
+    return this.tiendas.buscarTiendas(consulta.q, sesion);
+  }
 
   @Get('tiendas/seguidas')
   @Header('Cache-Control', 'no-store')

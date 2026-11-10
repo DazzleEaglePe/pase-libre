@@ -11,6 +11,8 @@ const ENLACES = [
   { href: '/publicar', texto: 'Publicar' },
   { href: '/cuenta/configuracion', texto: 'Configuración' },
   { href: '/mis-publicaciones', texto: 'Mis publicaciones' },
+  { href: '/cuenta/socios', texto: 'Tus socios' },
+  { href: '/avisos', texto: 'Avisos' },
   { href: '/mensajes', texto: 'Mensajes' },
 ] as const;
 

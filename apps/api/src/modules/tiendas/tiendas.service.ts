@@ -1,6 +1,7 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   ASPECTOS_DEL_COMPRADOR,
+  precioDe,
   ASPECTOS_DEL_VENDEDOR,
   type AspectoOpinado,
   type FiltroOpinionesConsulta,
@@ -10,7 +11,9 @@ import {
   type Reputacion,
   type RespuestaOpiniones,
   type RespuestaSeguir,
+  type RespuestaSocios,
   type SeguirTiendaDatos,
+  type TiendaBreve,
   type TiendaSeguida,
 } from '@paselibre/contracts';
 import type { LadoOpinion, Prisma } from '@prisma/client';
@@ -18,7 +21,8 @@ import type { LadoOpinion, Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { audienciaDe, type Mirada } from '../../shared/guards/sesion-opcional.guard';
-import { precioPara } from '../catalogo/visibilidad';
+import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
+import { preciosPara } from '../catalogo/visibilidad';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
 
@@ -92,6 +96,7 @@ export class TiendasService {
       (await this.prisma.bloqueo.count({
         where: { usuarioId: sesion.usuario.id, tiendaBloqueadaId: id },
       })) > 0;
+    const socios = await tiendasQueMeTienenDeSocia(this.prisma, miTienda);
     const [ofertas, total, seguidores, siguiendo, reputacion] = await Promise.all([
       this.prisma.oferta.findMany({
         where: { tiendaId: id, ...OFERTA_DEL_PERFIL },
@@ -103,6 +108,9 @@ export class TiendasService {
           condicion: true,
           stock: true,
           precioCentimos: true,
+          precioFacturadoCentimos: true,
+          descuentoSocioCentimos: true,
+          soloSocios: true,
           moneda: true,
           precioVisible: true,
           tiendaId: true,
@@ -153,7 +161,7 @@ export class TiendasService {
         },
         condicion: oferta.condicion,
         stock: oferta.stock,
-        precio: precioPara(oferta, mirada),
+        precio: preciosPara(oferta, mirada, socios).precio,
       })),
     };
   }
@@ -286,6 +294,148 @@ export class TiendasService {
         };
       }),
     );
+  }
+
+  // ── Socios (PS_SociosWeb) ─────────────────────────────────────────────────
+
+  private breve(tienda: {
+    id: string;
+    nombre: string;
+    stand: string | null;
+    galeria: { nombre: string } | null;
+  }): TiendaBreve {
+    return {
+      id: tienda.id,
+      nombre: tienda.nombre,
+      iniciales: inicialesDe(tienda.nombre),
+      galeria: tienda.galeria?.nombre ?? null,
+      stand: tienda.stand,
+    };
+  }
+
+  async socios(sesion: SesionActiva): Promise<RespuestaSocios> {
+    const tiendaId = sesion.usuario.tiendaId;
+    const ninguno = { PEN: null, USD: null };
+    if (!tiendaId) return { mis_socios: [], me_tienen: [], descuento_defecto: ninguno };
+    const tienda = {
+      select: {
+        id: true,
+        nombre: true,
+        stand: true,
+        galeria: true,
+        descuentoSocioPen: true,
+        descuentoSocioUsd: true,
+      },
+    } as const;
+    const propia = await this.prisma.tienda.findUniqueOrThrow({
+      where: { id: tiendaId },
+      select: { descuentoSocioPen: true, descuentoSocioUsd: true },
+    });
+    const descuentos = (fila: {
+      descuentoSocioPen: bigint | null;
+      descuentoSocioUsd: bigint | null;
+    }) => ({
+      PEN: fila.descuentoSocioPen === null ? null : precioDe(Number(fila.descuentoSocioPen), 'PEN'),
+      USD: fila.descuentoSocioUsd === null ? null : precioDe(Number(fila.descuentoSocioUsd), 'USD'),
+    });
+    const [mios, meTienen] = await Promise.all([
+      this.prisma.socio.findMany({
+        where: { tiendaId, socio: { estado: 'ACTIVA' } },
+        orderBy: { creadoEn: 'desc' },
+        select: { creadoEn: true, socio: tienda },
+      }),
+      this.prisma.socio.findMany({
+        where: { socioId: tiendaId, tienda: { estado: 'ACTIVA' } },
+        orderBy: { creadoEn: 'desc' },
+        select: { creadoEn: true, tienda },
+      }),
+    ]);
+    return {
+      mis_socios: mios.map((fila) => ({
+        ...this.breve(fila.socio),
+        desde: fila.creadoEn.toISOString(),
+      })),
+      me_tienen: meTienen.map((fila) => ({
+        ...this.breve(fila.tienda),
+        desde: fila.creadoEn.toISOString(),
+        descuento: descuentos(fila.tienda),
+      })),
+      descuento_defecto: descuentos(propia),
+    };
+  }
+
+  async descuentoPorDefecto(
+    datos: { PEN: number | null; USD: number | null },
+    sesion: SesionActiva,
+  ): Promise<RespuestaSocios> {
+    const tiendaId = sesion.usuario.tiendaId;
+    if (tiendaId) {
+      await this.prisma.tienda.update({
+        where: { id: tiendaId },
+        data: {
+          descuentoSocioPen: datos.PEN === null ? null : BigInt(datos.PEN),
+          descuentoSocioUsd: datos.USD === null ? null : BigInt(datos.USD),
+        },
+      });
+    }
+    return this.socios(sesion);
+  }
+
+  async agregarSocio(
+    socioId: string,
+    sesion: SesionActiva,
+    avisar = true,
+  ): Promise<RespuestaSocios> {
+    const tiendaId = this.tiendaQueSigue(sesion, socioId);
+    const socia = await this.prisma.tienda.findFirst({
+      where: { id: socioId, estado: 'ACTIVA' },
+      select: { id: true },
+    });
+    if (!socia) throw noEncontrada();
+    const existe = await this.prisma.socio.count({ where: { tiendaId, socioId } });
+    if (!existe) {
+      await this.prisma.socio.create({ data: { tiendaId, socioId } });
+    }
+    if (!existe && avisar) {
+      // AV_Web: «CGS te agregó como socio · Ahora ves su precio socio».
+      const personas = await this.prisma.usuario.findMany({
+        where: { tiendaId: socioId, estado: 'ACTIVO' },
+        select: { id: true },
+      });
+      const nombre = sesion.usuario.tienda?.nombre ?? 'Una tienda';
+      await this.avisos.crear(
+        personas.map((persona) => persona.id),
+        {
+          tipo: 'VENTA',
+          titulo: `${nombre} te agregó como socio`,
+          extracto: 'Ahora ves su precio socio y lo que publica solo para sus socios.',
+          enlace: `/tiendas/${tiendaId}`,
+          accion: { tipo: 'ABRIR', texto: 'Ver sus productos', enlace: `/tiendas/${tiendaId}` },
+        },
+      );
+    }
+    return this.socios(sesion);
+  }
+
+  async quitarSocio(socioId: string, sesion: SesionActiva): Promise<RespuestaSocios> {
+    const tiendaId = sesion.usuario.tiendaId;
+    if (tiendaId) await this.prisma.socio.deleteMany({ where: { tiendaId, socioId } });
+    return this.socios(sesion);
+  }
+
+  /** Para agregar socias: tiendas activas por su nombre, sin la propia. */
+  async buscarTiendas(q: string, sesion: SesionActiva): Promise<TiendaBreve[]> {
+    const tiendas = await this.prisma.tienda.findMany({
+      where: {
+        estado: 'ACTIVA',
+        nombre: { contains: q, mode: 'insensitive' },
+        ...(sesion.usuario.tiendaId ? { id: { not: sesion.usuario.tiendaId } } : {}),
+      },
+      orderBy: { nombre: 'asc' },
+      take: 8,
+      select: { id: true, nombre: true, stand: true, galeria: { select: { nombre: true } } },
+    });
+    return tiendas.map((tienda) => this.breve(tienda));
   }
 
   // ── Bloquear (REP_Web) ────────────────────────────────────────────────────

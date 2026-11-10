@@ -44,3 +44,59 @@ export function tiendaPara(
   if (oferta.tiendaVisible || veOculto(mirada, oferta.tiendaId)) return tienda;
   return { id: '', nombre: TIENDA_RESERVADA, stand: null };
 }
+
+/** Lo que hace falta de una oferta para saber qué precios ve cada quien (PS_Precio). */
+export interface OfertaConPrecios {
+  precioCentimos: bigint | null;
+  precioFacturadoCentimos: bigint | null;
+  descuentoSocioCentimos: bigint | null;
+  moneda: Moneda;
+  precioVisible: boolean;
+  soloSocios: boolean;
+  tiendaId: string;
+}
+
+/**
+ * Los precios que ve quien mira, con los socios (PS_Precio): `socios` son las tiendas que
+ * tienen a quien mira como socia. Ve el precio si es público, o si es «Solo mis socios» y es
+ * socia; si es socia y hay precio socio, el de pase le sale con el descuento. La dueña y el
+ * equipo ven siempre los precios tal cual.
+ */
+export function preciosPara(
+  oferta: OfertaConPrecios,
+  mirada: Mirada,
+  socios: ReadonlySet<string>,
+): { precio: Precio | null; facturado: Precio | null; socio: boolean; descuento: Precio | null } {
+  const nada = { precio: null, facturado: null, socio: false, descuento: null };
+  if (!conSesion(mirada)) return nada;
+  const monto = (centimos: bigint | null) =>
+    centimos === null ? null : precioDe(Number(centimos), oferta.moneda);
+  if (veOculto(mirada, oferta.tiendaId)) {
+    return {
+      precio: monto(oferta.precioCentimos),
+      facturado: monto(oferta.precioFacturadoCentimos),
+      socio: false,
+      descuento: null,
+    };
+  }
+  const esSocia = socios.has(oferta.tiendaId);
+  if (!oferta.precioVisible && !(oferta.soloSocios && esSocia)) return nada;
+  const descuento = esSocia ? oferta.descuentoSocioCentimos : null;
+  // El descuento baja el pase y el facturado, sin pasar de cero (PS_Precio).
+  const menos = (centimos: bigint | null) =>
+    centimos === null || descuento === null || descuento >= centimos
+      ? centimos
+      : centimos - descuento;
+  const conDescuento =
+    descuento !== null &&
+    ((oferta.precioCentimos !== null && descuento < oferta.precioCentimos) ||
+      (oferta.precioFacturadoCentimos !== null && descuento < oferta.precioFacturadoCentimos));
+  return {
+    precio: monto(conDescuento ? menos(oferta.precioCentimos) : oferta.precioCentimos),
+    facturado: monto(
+      conDescuento ? menos(oferta.precioFacturadoCentimos) : oferta.precioFacturadoCentimos,
+    ),
+    socio: conDescuento,
+    descuento: conDescuento ? monto(descuento) : null,
+  };
+}

@@ -104,3 +104,23 @@ export interface RespuestaOpiniones {
   /** Es tu tienda: puedes responder las que no tienen respuesta. */
   puede_responder: boolean;
 }
+
+/** Una tienda en «Tus socios» o en el buscador para agregarla. */
+export interface TiendaBreve {
+  id: string;
+  nombre: string;
+  iniciales: string;
+  galeria: string | null;
+  stand: string | null;
+}
+
+/** `GET /v1/socios` (PS_SociosWeb): a quiénes les das tu precio socio y quiénes te lo dan. */
+export interface RespuestaSocios {
+  mis_socios: Array<TiendaBreve & { desde: string }>;
+  /** Con el descuento que te dan por defecto, si lo pusieron. */
+  me_tienen: Array<
+    TiendaBreve & { desde: string; descuento: { PEN: Precio | null; USD: Precio | null } }
+  >;
+  /** Tu «Descuento por defecto», por moneda. */
+  descuento_defecto: { PEN: Precio | null; USD: Precio | null };
+}

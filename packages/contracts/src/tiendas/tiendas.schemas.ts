@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { montoSchema } from '../ofertas/ofertas.schemas.js';
+
 /** «¿De qué quieres que te avisemos?» al seguir a una tienda (SG_Web). */
 export const AVISOS_SEGUIMIENTO = ['TODO', 'IMPORTANTE', 'NINGUNO'] as const;
 
@@ -61,3 +63,23 @@ export const filtroOpinionesSchema = z.object({
   filtro: z.enum(['todas', 'con_respuesta', 'cinco', 'bajas']).default('todas'),
 });
 export type FiltroOpinionesConsulta = z.infer<typeof filtroOpinionesSchema>;
+
+/** `POST /v1/socios` (PS_SociosWeb): agregar una tienda como socia. */
+export const agregarSocioSchema = z
+  .object({
+    tienda_id: z.uuid('Elige una tienda.'),
+    /** «Avisarle que lo agregaste». */
+    avisar: z.boolean().default(true),
+  })
+  .strict();
+
+/** `PUT /v1/socios/descuento`: el descuento por defecto en soles y en dólares (nulo = ninguno). */
+export const descuentoSocioSchema = z.object({ PEN: montoSchema, USD: montoSchema }).strict();
+export type DescuentoSocioDatos = z.output<typeof descuentoSocioSchema>;
+export type AgregarSocioDatos = z.infer<typeof agregarSocioSchema>;
+
+/** `GET /v1/tiendas/buscar?q=`: para elegir a quién agregar de socia. */
+export const buscarTiendasSchema = z.object({
+  q: z.string().trim().min(1, 'Escribe el nombre de la tienda.').max(60),
+});
+export type BuscarTiendasConsulta = z.infer<typeof buscarTiendasSchema>;
