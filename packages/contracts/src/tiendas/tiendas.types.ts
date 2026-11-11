@@ -106,6 +106,14 @@ export interface RespuestaOpiniones {
 }
 
 /** Una tienda en «Tus socios» o en el buscador para agregarla. */
+/**
+ * `GET /v1/tiendas/:id/compartida` (COR3, sin sesión): solo el nombre, para «Te compartieron
+ * Dark Alien Planeta» en Iniciar sesión. Ni galería, ni stand, ni lo que publica.
+ */
+export interface RespuestaTiendaCompartida {
+  nombre: string;
+}
+
 export interface TiendaBreve {
   id: string;
   nombre: string;

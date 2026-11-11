@@ -15,6 +15,7 @@ import {
   type SeguirTiendaDatos,
   type TiendaBreve,
   type TiendaSeguida,
+  type RespuestaTiendaCompartida,
 } from '@paselibre/contracts';
 import type { LadoOpinion, Prisma } from '@prisma/client';
 
@@ -82,6 +83,16 @@ export class TiendasService {
   ) {}
 
   // ── Perfil ────────────────────────────────────────────────────────────────
+
+  /** Para un enlace compartido sin sesión (COR3): solo el nombre de una tienda activa. */
+  async compartida(id: string): Promise<RespuestaTiendaCompartida> {
+    const tienda = await this.prisma.tienda.findFirst({
+      where: { id, estado: 'ACTIVA' },
+      select: { nombre: true },
+    });
+    if (!tienda) throw noEncontrada();
+    return { nombre: tienda.nombre };
+  }
 
   async perfil(id: string, sesion: SesionActiva): Promise<PerfilTienda> {
     const tienda = await this.prisma.tienda.findFirst({

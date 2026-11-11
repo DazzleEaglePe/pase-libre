@@ -1,11 +1,14 @@
 'use client';
 
 import type { RespuestaYo } from '@paselibre/contracts';
+import { IconBrandWhatsapp, IconLock } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { iniciales } from '@/shared/iniciales';
+import { Marca } from '@/shared/ui/marca';
 import { enlaceWhatsappEquipo } from '@/shared/whatsapp-equipo';
 
 type Pestana = 'ingresar' | 'crear';
@@ -20,76 +23,58 @@ const campo =
 const botonPrincipal =
   'inline-flex h-12 items-center justify-center rounded-full bg-pase px-5 text-cuerpo font-semibold text-white no-underline disabled:bg-borde-control';
 const botonSecundario =
-  'flex h-12 items-center justify-center rounded-full border border-tinta bg-white text-cuerpo font-semibold text-tinta no-underline';
-
-/** El símbolo de PaseLibre en blanco, con la flecha calada (M_Acceso). */
-function Simbolo() {
-  return (
-    <svg width="64" height="44" viewBox="0 0 64 44" aria-hidden="true">
-      <path
-        fill="#FFFFFF"
-        fillRule="evenodd"
-        d="M10 0H54a10 10 0 0 1 10 10V15.5a6.5 6.5 0 0 0 0 13V34a10 10 0 0 1 -10 10H10a10 10 0 0 1 -10 -10V28.5a6.5 6.5 0 0 0 0 -13V10a10 10 0 0 1 10 -10ZM17.59 22A2.7 2.7 0 0 1 20.29 19.3L33.66 19.3A1 1 0 0 0 34.37 17.59L32.03 15.26A1.2 1.2 0 0 1 32.03 13.56L34.15 11.44A1.2 1.2 0 0 1 35.85 11.44L44.99 20.59A2 2 0 0 1 44.99 23.41L35.85 32.56A1.2 1.2 0 0 1 34.15 32.56L32.03 30.44A1.2 1.2 0 0 1 32.03 28.74L34.37 26.41A1 1 0 0 0 33.66 24.7L20.29 24.7A2.7 2.7 0 0 1 17.59 22Z"
-      />
-    </svg>
-  );
-}
-
-const flechaVolver = (
-  <svg
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M15 5l-7 7 7 7" />
-  </svg>
-);
+  'flex h-12 items-center justify-center gap-2 rounded-full bg-tinta text-cuerpo font-bold text-white no-underline hover:bg-black';
 
 /**
- * El título de cada paso. En el celular va en el bloque verde de arriba con «Volver al
- * catálogo» y el símbolo (M_Acceso); en la computadora, sobre el formulario (D_Acceso).
+ * El encabezado de cada paso (COR3). En el celular, arriba, el bloque verde con el logo, la frase
+ * y «Tus precios de pase están protegidos»; en la computadora eso va en el verde de la izquierda.
+ * Debajo, si llegaste por un enlace, qué tienda te compartieron, y el título del paso.
  */
 function Encabezado({
   titulo,
   bajada,
   antes,
+  compartida,
 }: {
   titulo: string;
-  bajada: ReactNode;
+  bajada?: ReactNode;
   /** Una línea chica arriba del título («Primer ingreso · tiendab»). */
   antes?: string;
+  /** El nombre de la tienda del enlace compartido. */
+  compartida?: string | null;
 }) {
   return (
     <>
-      <div className="-mx-5 -mt-8 mb-1 flex flex-col gap-3 rounded-b-[28px] bg-marca px-6 pb-7 pt-5 text-white md:hidden">
-        <Link
-          href="/"
-          className="-ml-1 flex min-h-11 items-center gap-1.5 self-start text-apoyo font-semibold text-white no-underline"
-        >
-          {flechaVolver}
-          Volver al catálogo
-        </Link>
-        <Simbolo />
-        {antes && <span className="text-nota text-pase-medio">{antes}</span>}
-        <h1 className="text-[28px] font-bold leading-9">{titulo}</h1>
-        <p className="text-cuerpo text-white/90">{bajada}</p>
+      <div className="-mx-5 -mt-8 mb-1 flex flex-col gap-2.5 bg-marca px-5 pb-5 pt-4 text-white md:hidden">
+        <Marca sobreMarca />
+        <p className="m-0 text-[22px] font-bold leading-7">
+          Lo que te falta, otra tienda de la galería lo tiene.
+        </p>
+        <span className="flex items-center gap-1.5 text-nota text-white/90">
+          <IconLock size={14} stroke={1.8} aria-hidden="true" />
+          Tus precios de pase están protegidos
+        </span>
       </div>
-      <div className="flex flex-col gap-3 max-md:hidden">
-        <Link
-          href="/"
-          className="-ml-1 flex min-h-11 items-center gap-1.5 self-start text-apoyo font-semibold text-pase-texto no-underline"
-        >
-          {flechaVolver}
-          Volver al catálogo
-        </Link>
+      {compartida && (
+        <div className="flex items-center gap-3.5 rounded-2xl border border-[#A7E3C3] bg-pase-suave px-4 py-3.5">
+          <span
+            aria-hidden="true"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-marca text-[15px] font-extrabold text-white"
+          >
+            {iniciales(compartida)}
+          </span>
+          <span className="flex flex-col text-apoyo">
+            <b className="font-bold">Te compartieron {compartida}</b>
+            <span className="text-secundario">
+              Inicia sesión para ver sus productos y precios. Te llevamos directo ahí.
+            </span>
+          </span>
+        </div>
+      )}
+      <div className="flex flex-col gap-2">
         {antes && <span className="text-nota text-detalle">{antes}</span>}
-        <h1 className="text-[32px] font-bold leading-10">{titulo}</h1>
+        <h1 className="text-[30px] leading-9">{titulo}</h1>
+        {bajada && <p className="m-0 text-apoyo text-secundario">{bajada}</p>}
       </div>
     </>
   );
@@ -104,12 +89,18 @@ export function FormularioAcceso({
   primerIngreso,
   pestanaInicial,
   registroActivo = false,
+  volver = null,
+  compartida = null,
 }: {
   /** Usuario con la clave temporal todavía activa, o nulo. */
   primerIngreso: string | null;
   pestanaInicial: Pestana;
   /** Con el registro propio encendido, «Crear cuenta» lleva al formulario en vez de al aviso. */
   registroActivo?: boolean;
+  /** A dónde volver después de entrar (el enlace que te compartieron). */
+  volver?: string | null;
+  /** El nombre de la tienda del enlace compartido, para «Te compartieron…». */
+  compartida?: string | null;
 }) {
   const router = useRouter();
   const [paso, setPaso] = useState<'login' | 'primer' | 'listo'>(
@@ -123,7 +114,7 @@ export function FormularioAcceso({
       <CrearClave
         usuario={usuarioPrimer}
         alTerminar={(yo) => {
-          setDestino(inicioPara(yo));
+          setDestino(volver ?? inicioPara(yo));
           setPaso('listo');
         }}
       />
@@ -136,12 +127,8 @@ export function FormularioAcceso({
           titulo="Listo, ya entraste"
           bajada="Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración › Seguridad."
         />
-        <p className="text-secundario max-md:hidden">
-          Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración ›
-          Seguridad.
-        </p>
         <button type="button" className={botonPrincipal} onClick={() => router.replace(destino)}>
-          Ir al inicio
+          {volver ? 'Seguir' : 'Ir al inicio'}
         </button>
       </div>
     );
@@ -150,12 +137,13 @@ export function FormularioAcceso({
     <Ingreso
       pestanaInicial={pestanaInicial}
       registroActivo={registroActivo}
+      compartida={compartida}
       alIngresar={(yo) => {
         if (yo.usuario.debe_cambiar_clave) {
           setUsuarioPrimer(yo.usuario.usuario);
           setPaso('primer');
         } else {
-          router.replace(inicioPara(yo));
+          router.replace(volver ?? inicioPara(yo));
           router.refresh();
         }
       }}
@@ -166,10 +154,12 @@ export function FormularioAcceso({
 function Ingreso({
   pestanaInicial,
   registroActivo,
+  compartida,
   alIngresar,
 }: {
   pestanaInicial: Pestana;
   registroActivo: boolean;
+  compartida: string | null;
   alIngresar: (yo: RespuestaYo) => void;
 }) {
   const [usuario, setUsuario] = useState('');
@@ -211,10 +201,7 @@ function Ingreso({
 
   return (
     <form onSubmit={enviar} noValidate className="flex flex-col gap-[18px]">
-      <Encabezado
-        titulo="Inicia sesión"
-        bajada="Para ver precios y escribir a las tiendas de la galería."
-      />
+      <Encabezado titulo="Inicia sesión" compartida={compartida} />
       {error && (
         <p role="alert" className="rounded-xl bg-error-fondo px-3.5 py-3 text-apoyo text-error">
           {error}
@@ -301,7 +288,7 @@ function Ingreso({
 
       <div
         id="crear-cuenta"
-        className={`mt-3 flex flex-col gap-2.5 rounded-2xl bg-superficie p-[18px] ${
+        className={`mt-3 flex flex-col gap-2.5 rounded-2xl border border-linea bg-superficie p-[18px] ${
           pestanaInicial === 'crear' ? 'outline outline-2 outline-pase' : ''
         }`}
       >
@@ -318,8 +305,7 @@ function Ingreso({
         ) : (
           <>
             <span className="text-apoyo text-secundario">
-              Mientras dura el piloto, el equipo de PaseLibre crea las cuentas de las tiendas de
-              Wilson y te las entrega por WhatsApp.
+              Durante el piloto, el equipo de PaseLibre crea las cuentas de las tiendas de Wilson.
             </span>
             {whatsappCuenta && (
               <a
@@ -328,7 +314,8 @@ function Ingreso({
                 rel="noopener noreferrer"
                 className={botonSecundario}
               >
-                Pedir una cuenta por WhatsApp
+                <IconBrandWhatsapp size={18} stroke={1.8} aria-hidden="true" />
+                Pedir mi cuenta por WhatsApp
               </a>
             )}
           </>
@@ -385,9 +372,6 @@ function CrearClave({
         titulo="Crea tu contraseña"
         bajada="La que te dio el equipo es temporal. Cámbiala por una que solo tú sepas."
       />
-      <p className="-mt-2 text-apoyo text-secundario max-md:hidden">
-        La que te dio el equipo es temporal. Cámbiala por una que solo tú sepas.
-      </p>
       {error && (
         <p role="alert" className="rounded-xl bg-error-fondo px-3.5 py-3 text-apoyo text-error">
           {error}

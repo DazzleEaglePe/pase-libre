@@ -1,5 +1,6 @@
 import type { RespuestaInicio, RespuestaPortada } from '@paselibre/contracts';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { BandaEnVivo } from '@/features/inicio/banda-en-vivo';
 import { InicioTienda } from '@/features/inicio/inicio-tienda';
@@ -22,12 +23,12 @@ export default async function Portada({
   searchParams: Promise<{ galeria?: string }>;
 }) {
   const { galeria } = await searchParams;
-  const [sesion, portada] = await Promise.all([
-    obtenerSesion(),
-    cargarApi<RespuestaPortada>(
-      `/portada${galeria ? `?galeria=${encodeURIComponent(galeria)}` : ''}`,
-    ),
-  ]);
+  // paselibre.shop abre en «Inicia sesión» (guía y COR3 del lienzo final); con sesión, el inicio.
+  const sesion = await obtenerSesion();
+  if (!sesion) redirect('/ingresar');
+  const portada = await cargarApi<RespuestaPortada>(
+    `/portada${galeria ? `?galeria=${encodeURIComponent(galeria)}` : ''}`,
+  );
   // La tienda tiene su propio inicio, que crece solo (sección 5 del lienzo final).
   if (sesion?.tienda && portada.audiencia !== 'visitante' && !galeria) {
     const inicio = await consultarApi<RespuestaInicio>('/inicio');

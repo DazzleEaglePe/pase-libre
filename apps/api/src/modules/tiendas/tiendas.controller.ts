@@ -36,6 +36,7 @@ import {
   type RespuestaOpiniones,
   type RespuestaSeguir,
   type RespuestaSocios,
+  type RespuestaTiendaCompartida,
   type SeguirTiendaDatos,
   type TiendaBreve,
   type TiendaSeguida,
@@ -50,6 +51,20 @@ import { TiendasService } from './tiendas.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
 const idTienda = id('Esta tienda no existe.');
+
+/**
+ * El nombre de una tienda para «Te compartieron…» en Iniciar sesión (COR3): sin sesión, porque
+ * quien abre el enlace todavía no entró.
+ */
+@Controller()
+export class TiendaCompartidaController {
+  constructor(@Inject(TiendasService) private readonly tiendas: TiendasService) {}
+
+  @Get('tiendas/:id/compartida')
+  compartida(@Param('id', idTienda) tiendaId: string): Promise<RespuestaTiendaCompartida> {
+    return this.tiendas.compartida(tiendaId);
+  }
+}
 
 /**
  * Perfil de otra tienda, seguir y opiniones (SG_Web, SEG_Web, sección 15 del lienzo final).

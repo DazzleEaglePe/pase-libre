@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: 'Perfil de tienda', robots: { index: 
 
 /**
  * `/tiendas/:id` (SG_Web, SG_Cel): el perfil de otra tienda, solo con sesión. Un visitante no
- * sabe qué tienda tiene qué, así que va a iniciar sesión.
+ * sabe qué tienda tiene qué, así que va a iniciar sesión, que le dice qué tienda le compartieron
+ * y lo trae de vuelta aquí (COR3).
  */
 export default async function PaginaTienda({
   params,
@@ -20,7 +21,7 @@ export default async function PaginaTienda({
   searchParams: Promise<{ pestana?: string }>;
 }) {
   const [{ id }, { pestana }, sesion] = await Promise.all([params, searchParams, obtenerSesion()]);
-  if (!sesion) redirect('/ingresar');
+  if (!sesion) redirect(`/ingresar?volver=${encodeURIComponent(`/tiendas/${id}`)}`);
   const { estado, cuerpo } = await consultarApi<PerfilTienda>(`/tiendas/${encodeURIComponent(id)}`);
   if (estado === 404 || estado === 400 || !cuerpo) notFound();
   // Tu propia tienda: la vista de dueña, con el ojito para ver cómo te ven (P_WebCuentaD2).

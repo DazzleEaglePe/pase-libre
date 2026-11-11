@@ -76,6 +76,13 @@ describe('Perfil de otra tienda, seguir y opiniones (sección 15 del lienzo fina
     await http().get(`/v1/tiendas/${tiendaA}/opiniones`).expect(401);
   });
 
+  it('el enlace compartido de una tienda solo dice su nombre, sin sesión (COR3)', async () => {
+    const { body } = await http().get(`/v1/tiendas/${tiendaA}/compartida`).expect(200);
+    expect(body).toEqual({ nombre: 'Tienda A' });
+    await http().get('/v1/tiendas/00000000-0000-4000-8000-000000000000/compartida').expect(404);
+    await http().get('/v1/tiendas/no-es-un-id/compartida').expect(400);
+  });
+
   it('el perfil muestra lo que la tienda publica con su nombre, nunca lo reservado', async () => {
     const reservada = await prisma.oferta.findFirstOrThrow({
       where: { tiendaId: tiendaA, estado: 'ACTIVA', stock: { gt: 0 } },
