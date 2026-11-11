@@ -50,7 +50,14 @@ comprobar() {
 echo "Prueba de humo en ${base}"
 
 comprobar "La API está lista y llega a la base" GET /v1/salud/lista 200 '"base_de_datos":"ok"'
-comprobar "La portada responde" GET / 200 '<html'
+# paselibre.shop abre en «Inicia sesión» (COR3): sin sesión, la portada manda ahí con un 307.
+pedir GET / -D "$carpeta/cabeceras"
+if [ "$estado" = 307 ] && grep -qi '^location: .*/ingresar' "$carpeta/cabeceras"; then
+  ok "Sin sesión, la portada manda a Iniciar sesión"
+else
+  falla "Sin sesión, la portada manda a Iniciar sesión (respondió $estado)"
+fi
+comprobar "Iniciar sesión responde" GET /ingresar 200 '<html'
 comprobar "La búsqueda responde" GET '/buscar?q=rtx' 200 '<html'
 comprobar "Sin sesión, /v1/yo dice que no" GET /v1/yo 401
 comprobar "El robots.txt responde" GET /robots.txt 200 'User-Agent'
