@@ -92,3 +92,31 @@ export function TarjetaNueva({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor })
     </Link>
   );
 }
+
+/**
+ * Una tarjeta de «RECIÉN LLEGADOS» (COR25): blanca, con la foto sobre gris, el producto, la
+ * tienda y el precio en la píldora negra.
+ */
+export function TarjetaRecienLlegada({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor }) {
+  return (
+    <Link
+      href={`/p/${tarjeta.producto.slug}?oferta=${tarjeta.oferta_id}`}
+      className="flex min-w-0 flex-col gap-2 rounded-[20px] border border-linea bg-white p-3 text-tinta no-underline hover:border-borde"
+    >
+      <Miniatura
+        ruta={tarjeta.producto.foto}
+        categoria={tarjeta.producto.categoria.slug}
+        className="aspect-[16/7] w-full rounded-xl bg-superficie"
+        glifo={84}
+        grosor={2}
+      />
+      <span className="line-clamp-2 text-[15px] font-bold leading-5">
+        {tarjeta.producto.titulo}
+      </span>
+      <span className="truncate text-nota text-secundario">{tarjeta.tienda.nombre}</span>
+      <span className="mt-auto">
+        <Precio tarjeta={tarjeta} />
+      </span>
+    </Link>
+  );
+}

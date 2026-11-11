@@ -30,11 +30,11 @@ export function EtiquetaTipo({ tipo }: { tipo: TipoEnVivo }) {
 }
 
 /**
- * El botón «¡Lo tengo!» / «¡Lo quiero!» sin alto: cada lugar pone el suyo. Va como el botón
- * principal del pie: píldora en verde pase, texto blanco y un rayo de línea delante.
+ * El botón «¡Lo tengo!» / «¡Lo quiero!» sin alto: cada lugar pone el suyo. En naranja sólido con
+ * texto negro (guía del lienzo final), para no confundirse con el Brasa de lo «en vivo».
  */
 const baseResponder =
-  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-pase font-semibold text-white no-underline hover:bg-marca';
+  'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-contador font-bold text-tinta no-underline hover:brightness-95';
 /** En las filas y en la tarjeta mini: 36 px, porque van con el mouse. */
 export const botonResponder = `${baseResponder} h-9 pl-2.5 pr-3.5 text-nota`;
 /** En las tarjetas de la página y en la barra del celular: 40 px, para el dedo. */

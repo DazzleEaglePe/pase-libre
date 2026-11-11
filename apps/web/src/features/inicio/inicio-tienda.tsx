@@ -4,41 +4,16 @@ import {
   type RespuestaYo,
   type TarjetaOfertaConVendedor,
 } from '@paselibre/contracts';
-import { IconCheck, IconLock, IconPlus } from '@tabler/icons-react';
+import { IconCheck, IconLock } from '@tabler/icons-react';
 import Link from 'next/link';
 
-import { BandaEnVivo } from './banda-en-vivo';
 import { iniciales } from '@/shared/iniciales';
 
+import { PedidosEnVivoAhora, SaludoTienda } from './en-vivo-ahora';
 import { PilotoGaleria, PrimerosPasos } from './piloto';
-import { TarjetaInicio, TarjetaNueva } from './tarjetas';
+import { TarjetaInicio, TarjetaNueva, TarjetaRecienLlegada } from './tarjetas';
 
 type Categoria = { slug: string; nombre: string; productos: number };
-
-/** «Hola, Tienda B · CyberPlaza · Stand 101» con «+ Publicar». */
-function Saludo({ sesion }: { sesion: RespuestaYo }) {
-  const tienda = sesion.tienda;
-  const lugar = [tienda?.galeria ?? 'Independiente', tienda?.stand && `Stand ${tienda.stand}`]
-    .filter(Boolean)
-    .join(' · ');
-  return (
-    <section aria-label="Tu tienda" className="flex items-center justify-between gap-4">
-      <div className="flex min-w-0 flex-col">
-        <h1 className="truncate text-[22px] font-bold leading-7 sm:text-titulo">
-          Hola, {tienda?.nombre ?? sesion.usuario.nombre}
-        </h1>
-        <span className="text-apoyo text-secundario">{lugar}</span>
-      </div>
-      <Link
-        href="/publicar"
-        className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-pase px-5 font-bold text-white no-underline"
-      >
-        <IconPlus size={18} stroke={2.2} aria-hidden="true" />
-        Publicar
-      </Link>
-    </section>
-  );
-}
 
 /** «De tiendas que sigues» (SG_WebFeed): 4 tarjetas con «Sigues». */
 function DeSeguidas({ datos }: { datos: RespuestaInicio['de_seguidas'] }) {
@@ -50,7 +25,7 @@ function DeSeguidas({ datos }: { datos: RespuestaInicio['de_seguidas'] }) {
   return (
     <section aria-labelledby="de-seguidas" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="de-seguidas" className="text-seccion">
+        <h2 id="de-seguidas" className="tit text-[22px] leading-7">
           De tiendas que sigues
         </h2>
         <Link href="/tiendas-que-sigues" className="text-apoyo text-secundario">
@@ -68,23 +43,23 @@ function DeSeguidas({ datos }: { datos: RespuestaInicio['de_seguidas'] }) {
   );
 }
 
-/** «Recién publicado» del inicio normal: 2 filas de 6, mezcladas por tienda. */
-function RecienPublicado({ tarjetas }: { tarjetas: TarjetaOfertaConVendedor[] }) {
-  const doce = tarjetas.slice(0, 12);
+/** «RECIÉN LLEGADOS» del inicio normal (COR25): 2 filas de 4, mezcladas por tienda. */
+function RecienLlegados({ tarjetas }: { tarjetas: TarjetaOfertaConVendedor[] }) {
+  const ocho = tarjetas.slice(0, 8);
   return (
     <section aria-labelledby="recientes" className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="recientes" className="text-seccion">
-          Recién publicado
+        <h2 id="recientes" className="tit text-[22px] leading-7">
+          Recién llegados
         </h2>
-        <Link href="/buscar" className="text-apoyo font-bold text-pase-texto">
-          Ver todo
+        <Link href="/buscar?orden=recientes" className="text-apoyo font-bold text-pase-texto">
+          Ver todo ›
         </Link>
       </div>
-      <div className="-mx-4 flex gap-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-y-6 sm:px-0 lg:grid-cols-6">
-        {doce.map((tarjeta) => (
-          <div key={tarjeta.oferta_id} className="w-[170px] shrink-0 sm:w-auto">
-            <TarjetaInicio tarjeta={tarjeta} />
+      <div className="-mx-4 flex gap-3 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-4">
+        {ocho.map((tarjeta) => (
+          <div key={tarjeta.oferta_id} className="flex w-[200px] shrink-0 sm:w-auto">
+            <TarjetaRecienLlegada tarjeta={tarjeta} />
           </div>
         ))}
       </div>
@@ -95,7 +70,7 @@ function RecienPublicado({ tarjetas }: { tarjetas: TarjetaOfertaConVendedor[] })
 function ExploraCategorias({ categorias }: { categorias: Categoria[] }) {
   return (
     <section aria-labelledby="explora" className="flex flex-col gap-3">
-      <h2 id="explora" className="text-seccion">
+      <h2 id="explora" className="tit text-[22px] leading-7">
         Explora por categoría
       </h2>
       <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
@@ -293,11 +268,11 @@ export function InicioTienda({
 
   if (inicio.fase === 'NORMAL') {
     return (
-      <div className="flex flex-col gap-10">
-        <Saludo sesion={sesion} />
+      <div className="flex flex-col gap-8">
+        <SaludoTienda sesion={sesion} />
+        <PedidosEnVivoAhora />
         <DeSeguidas datos={inicio.de_seguidas} />
-        <BandaEnVivo />
-        <RecienPublicado tarjetas={recientes} />
+        <RecienLlegados tarjetas={recientes} />
         <ExploraCategorias categorias={categorias} />
       </div>
     );
@@ -305,15 +280,15 @@ export function InicioTienda({
 
   return (
     <div className="flex flex-col gap-8">
-      <Saludo sesion={sesion} />
+      <SaludoTienda sesion={sesion} />
       <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <aside className="flex flex-col gap-5 lg:order-2">
           <PilotoGaleria tiendas={inicio.tiendas} miTienda={sesion.tienda?.nombre ?? ''} />
           {inicio.fase === 'DIA_1' && <PrimerosPasos pasos={inicio.pasos} />}
         </aside>
         <div className="flex min-w-0 flex-col gap-10 lg:order-1">
+          <PedidosEnVivoAhora />
           <DeSeguidas datos={inicio.de_seguidas} />
-          <BandaEnVivo />
           {inicio.fase === 'POCAS' && ajenas.length > 0 && (
             <section aria-labelledby="lo-nuevo" className="flex flex-col gap-3">
               <h2 id="lo-nuevo" className="text-[20px] font-bold leading-7">
