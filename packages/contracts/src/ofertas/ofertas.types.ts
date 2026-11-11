@@ -57,6 +57,8 @@ export interface OfertaPropia {
   /** «Mostrar el nombre de mi tienda»: apagado, las demás tiendas ven «Tienda reservada». */
   tienda_visible: boolean;
   detalle: DetalleOferta;
+  /** «Impulsada por el equipo» (COR16): destacada hasta esa hora. Solo la ve la tienda. */
+  impulsada_hasta?: string | null;
   modo_venta: ModoVenta;
   precio_facturado: Precio | null;
   /** Cuánto menos ven tus socios; nulo sin precio socio. */

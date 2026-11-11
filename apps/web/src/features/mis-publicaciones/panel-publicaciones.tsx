@@ -214,6 +214,18 @@ function Fila({
             {titulo}
           </Link>
           <span className="text-apoyo text-secundario">{lineaDeEstado(oferta)}</span>
+          {oferta.impulsada_hasta && (
+            <span className="mt-0.5 inline-flex items-center gap-1.5 self-start rounded-full bg-pase-medio px-2.5 py-0.5 text-nota font-bold text-marca">
+              <span aria-hidden="true">🤫</span>
+              Impulsada por el equipo · hasta las{' '}
+              {new Intl.DateTimeFormat('es-PE', {
+                timeZone: 'America/Lima',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+              }).format(new Date(oferta.impulsada_hasta))}
+            </span>
+          )}
           {oferta.responsable.id !== usuarioId && (
             <span className="text-nota text-detalle">Mensajes a {oferta.responsable.nombre}</span>
           )}

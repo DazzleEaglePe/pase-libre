@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   HttpCode,
@@ -8,6 +9,7 @@ import {
   Inject,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -15,12 +17,18 @@ import {
   advertenciaSchema,
   comunicadoSchema,
   decisionReporteSchema,
+  destacarSchema,
+  preferenciasEquipoSchema,
   suspensionSchema,
   tiendasPanelSchema,
   type AdvertenciaDatos,
   type ComunicadoDatos,
   type ComunicadoEnviado,
   type DecisionReporte,
+  type DestacadoActivo,
+  type DestacarDatos,
+  type PreferenciasEquipo,
+  type RespuestaDestacados,
   type DetalleReporte,
   type DetalleTiendaPanel,
   type ReporteEnCola,
@@ -34,6 +42,7 @@ import { z } from 'zod';
 import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { DestacadosService } from './destacados.service';
 import { PanelService } from './panel.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
@@ -43,7 +52,47 @@ const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
 @UseGuards(SesionGuard)
 @Roles('EQUIPO')
 export class PanelController {
-  constructor(@Inject(PanelService) private readonly panel: PanelService) {}
+  constructor(
+    @Inject(PanelService) private readonly panel: PanelService,
+    @Inject(DestacadosService) private readonly destacados: DestacadosService,
+  ) {}
+
+  /** El modo claro u oscuro del panel (COR18). */
+  @Put('preferencias')
+  @Header('Cache-Control', 'no-store')
+  preferencias(
+    @Body(new ZodValidationPipe(preferenciasEquipoSchema)) datos: PreferenciasEquipo,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<PreferenciasEquipo> {
+    return this.panel.preferencias(sesion, datos);
+  }
+
+  /** Las destacadas ahora (COR16): solo las ve el equipo. */
+  @Get('destacados')
+  @Header('Cache-Control', 'no-store')
+  destacadosActivos(): Promise<RespuestaDestacados> {
+    return this.destacados.activos();
+  }
+
+  @Post('panel/tiendas/:id/destacar')
+  @Header('Cache-Control', 'no-store')
+  destacar(
+    @Param('id', id('Esta tienda no existe.')) tiendaId: string,
+    @Body(new ZodValidationPipe(destacarSchema)) datos: DestacarDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<DestacadoActivo> {
+    return this.destacados.destacar(tiendaId, datos, sesion);
+  }
+
+  /** «Quitar ahora». */
+  @Delete('destacados/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async quitarDestacado(
+    @Param('id', id('Ese destacado no existe.')) destacado: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<void> {
+    await this.destacados.quitar(destacado, sesion);
+  }
 
   @Get('inicio')
   @Header('Cache-Control', 'no-store')

@@ -25,6 +25,8 @@ export interface RespuestaYo {
     debe_cambiar_clave: boolean;
     /** Con tienda y sin haber visto todavía la bienvenida del primer ingreso (OB_WebB). */
     ver_bienvenida: boolean;
+    /** El panel del equipo en oscuro (COR18). */
+    tema_oscuro: boolean;
   };
   /** Nula para las cuentas del equipo, que no pertenecen a ninguna tienda. */
   tienda: TiendaDeSesion | null;

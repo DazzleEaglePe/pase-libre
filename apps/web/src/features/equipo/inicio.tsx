@@ -1,5 +1,12 @@
 import type { RespuestaInicioEquipo } from '@paselibre/contracts';
-import { IconChevronRight, IconFileText, IconFlag, IconMessage } from '@tabler/icons-react';
+import {
+  IconChevronRight,
+  IconFileText,
+  IconFlag,
+  IconMessage,
+  IconPlus,
+  IconSquareX,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -68,25 +75,29 @@ const conSigno = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n)}`;
 export function InicioEquipo({ nombre, datos }: { nombre: string; datos: RespuestaInicioEquipo }) {
   const { reportes, numeros } = datos;
   const primero = reportes.primero;
-  const cambioVentas =
-    numeros.ventas_semana_anterior > 0
-      ? Math.round(
-          ((numeros.ventas_semana - numeros.ventas_semana_anterior) /
-            numeros.ventas_semana_anterior) *
-            100,
-        )
-      : null;
+  const pendientes =
+    reportes.abiertos + datos.catalogo_por_revisar + datos.chats + datos.solicitudes;
   const hoy = FECHA.format(new Date());
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-titulo">Hola, {nombre.split(' ')[0]}</h1>
-        <span className="text-cuerpo text-secundario">
-          {hoy.charAt(0).toUpperCase() + hoy.slice(1)} ·{' '}
-          {datos.por_revisar === 0
-            ? 'no tienes nada pendiente'
-            : `tienes ${datos.por_revisar} ${datos.por_revisar === 1 ? 'cosa' : 'cosas'} por revisar`}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-titulo">Hola, {nombre.split(' ')[0]}</h1>
+          <span className="text-apoyo text-secundario">
+            {hoy.charAt(0).toUpperCase() + hoy.slice(1)} ·{' '}
+            {pendientes === 0
+              ? 'no tienes nada pendiente'
+              : `${pendientes} ${pendientes === 1 ? 'cosa pendiente' : 'cosas pendientes'}`}{' '}
+            · el modo claro u oscuro se guarda en tu cuenta
+          </span>
+        </div>
+        <Link
+          href="/equipo/cuentas?crear=1"
+          className="flex h-12 items-center gap-2 rounded-full bg-pase px-5 text-cuerpo font-bold text-white no-underline"
+        >
+          <IconPlus size={18} stroke={2.2} aria-hidden="true" />
+          Crear cuenta de tienda
+        </Link>
       </div>
 
       <section aria-labelledby="para-hoy" className="flex flex-col gap-3">
@@ -107,11 +118,11 @@ export function InicioEquipo({ nombre, datos }: { nombre: string; datos: Respues
             }
           />
           <Pendiente
-            href="/equipo/solicitudes"
-            icono={<IconFileText size={20} stroke={1.8} />}
-            numero={datos.solicitudes}
-            titulo="Solicitudes"
-            detalle={datos.solicitudes ? 'Tiendas que pidieron entrar' : 'Ninguna esperando'}
+            href="/equipo/catalogo?tab=revisar"
+            icono={<IconSquareX size={20} stroke={1.8} />}
+            numero={datos.catalogo_por_revisar}
+            titulo="Por revisar en Catálogo"
+            detalle="Publicados a mano"
           />
           <Pendiente
             href="/equipo/chats"
@@ -120,6 +131,15 @@ export function InicioEquipo({ nombre, datos }: { nombre: string; datos: Respues
             titulo="Chats sin responder"
             detalle="Tiendas que le escribieron al equipo"
           />
+          {datos.solicitudes > 0 && (
+            <Pendiente
+              href="/equipo/solicitudes"
+              icono={<IconFileText size={20} stroke={1.8} />}
+              numero={datos.solicitudes}
+              titulo="Solicitudes"
+              detalle="Tiendas que pidieron entrar"
+            />
+          )}
         </div>
       </section>
 
@@ -141,11 +161,11 @@ export function InicioEquipo({ nombre, datos }: { nombre: string; datos: Respues
               `${numeros.en_vivo_respondidos} con respuesta`,
             ],
             [
-              'Ventas cerradas · semana',
-              numeros.ventas_semana,
-              cambioVentas === null
-                ? 'primera semana con ventas'
-                : `${conSigno(cambioVentas)} % que la anterior`,
+              'Destacadas ahora',
+              `${datos.destacadas.activas} de ${datos.destacadas.maximo}`,
+              datos.destacadas.primera
+                ? `${datos.destacadas.primera.tienda} · ${quedan(datos.destacadas.primera.hasta).replace('quedan ', '')}`
+                : 'Ninguna tienda destacada',
             ],
           ].map(([titulo, valor, detalle]) => (
             <li
@@ -154,7 +174,7 @@ export function InicioEquipo({ nombre, datos }: { nombre: string; datos: Respues
             >
               <span className="text-apoyo text-secundario">{titulo}</span>
               <b className="text-[30px] font-bold leading-9">
-                {Number(valor).toLocaleString('es-PE')}
+                {typeof valor === 'number' ? valor.toLocaleString('es-PE') : valor}
               </b>
               <span className="text-nota text-secundario">{detalle}</span>
             </li>

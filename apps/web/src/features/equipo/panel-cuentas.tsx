@@ -40,7 +40,7 @@ const columnas =
   'xl:grid xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_130px_110px_150px_minmax(260px,auto)] xl:items-center xl:gap-x-4';
 
 /** Cuentas del piloto (RF-49), con las acciones de la fila según su estado. */
-export function PanelCuentas() {
+export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean }) {
   const [filtro, setFiltro] = useState<Filtro>('todas');
   const [galeria, setGaleria] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -48,7 +48,7 @@ export function PanelCuentas() {
   const [datos, setDatos] = useState<RespuestaCuentas | null>(null);
   const [galerias, setGalerias] = useState<GaleriaResumen[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [creando, setCreando] = useState(false);
+  const [creando, setCreando] = useState(crearAlAbrir);
   const [acceso, setAcceso] = useState<RespuestaAcceso | null>(null);
   const [confirmar, setConfirmar] = useState<Confirmacion | null>(null);
   const [trabajando, setTrabajando] = useState<string | null>(null);

@@ -57,7 +57,8 @@ interface FotoRecibida {
 
 @Controller('archivos')
 @UseGuards(SesionGuard, LimiteDeSubidasGuard)
-@Roles('DUENO', 'ASESOR')
+// El equipo también sube fotos: las del catálogo (COR15).
+@Roles('DUENO', 'ASESOR', 'EQUIPO')
 export class ArchivosController {
   constructor(@Inject(ArchivosService) private readonly archivos: ArchivosService) {}
 

@@ -236,6 +236,7 @@ model Tienda {
   hiloEquipo           HiloEquipo?
 
   advertencias Advertencia[]
+  destacados   Destacado[]
 
   @@index([galeriaId])
   @@map("tienda")
@@ -253,6 +254,8 @@ model Usuario {
   claveHash         String        @map("clave_hash") @db.VarChar(255)
   /// La clave que entrega el equipo es temporal: el primer ingreso obliga a cambiarla.
   debeCambiarClave  Boolean       @default(true) @map("debe_cambiar_clave")
+  /// El panel del equipo en oscuro (COR18): se guarda en la cuenta.
+  temaOscuro        Boolean       @default(false) @map("tema_oscuro")
   primerIngresoEn   DateTime?     @map("primer_ingreso_en") @db.Timestamptz(6)
   estado            EstadoUsuario @default(ACTIVO)
   intentosFallidos  Int           @default(0) @map("intentos_fallidos") @db.SmallInt
@@ -301,9 +304,11 @@ model Usuario {
 
   mensajesEquipo MensajeEquipo[] @relation("MensajesEquipo")
 
-  advertenciasDadas Advertencia[]    @relation("AdvertenciasDadas")
-  comunicados       Comunicado[]     @relation("ComunicadosEnviados")
-  registrosEquipo   RegistroEquipo[] @relation("RegistrosEquipo")
+  advertenciasDadas Advertencia[]         @relation("AdvertenciasDadas")
+  comunicados       Comunicado[]          @relation("ComunicadosEnviados")
+  registrosEquipo   RegistroEquipo[]      @relation("RegistrosEquipo")
+  destacados        Destacado[]           @relation("DestacadosPor")
+  importaciones     ImportacionCatalogo[]
 
   @@index([tiendaId])
   @@map("usuario")
@@ -1250,4 +1255,46 @@ model RegistroEquipo {
 
   @@index([creadoEn])
   @@map("registro_equipo")
+}
+
+/// «Destacar en silencio» (COR16): las publicaciones de una tienda salen más arriba un rato
+/// (mezcladas entre los 4 primeros del inicio y más arriba en su categoría). Nadie más lo nota:
+/// las otras tiendas no ven ninguna etiqueta. Hasta 3 tiendas a la vez; se apaga solo.
+model Destacado {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId  String    @map("tienda_id") @db.Uuid
+  porId     String    @map("por_id") @db.Uuid
+  /// Las elegidas (hasta 3). Vacío: todas sus publicaciones.
+  ofertas   String[]  @db.Uuid
+  desde     DateTime  @default(now()) @db.Timestamptz(6)
+  hasta     DateTime  @db.Timestamptz(6)
+  /// Se le mandó «Te dimos un empujoncito 🤫».
+  avisada   Boolean   @default(false)
+  quitadoEn DateTime? @map("quitado_en") @db.Timestamptz(6)
+
+  tienda Tienda  @relation(fields: [tiendaId], references: [id])
+  por    Usuario @relation("DestacadosPor", fields: [porId], references: [id])
+
+  @@index([hasta])
+  @@index([tiendaId])
+  @@map("destacado")
+}
+
+/// Un archivo para el catálogo (COR15): se lee y se revisa antes de guardar; nada se crea hasta
+/// que el equipo lo confirma.
+model ImportacionCatalogo {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId  String    @map("usuario_id") @db.Uuid
+  nombre     String    @db.VarChar(200)
+  /// Las filas leídas, ya limpias, con lo que les falta.
+  filas      Json
+  /// Las fotos de la carpeta `fotos/` del .zip, por código de parte → ruta en /media.
+  fotos      Json      @default("{}")
+  creadaEn   DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
+  aplicadaEn DateTime? @map("aplicada_en") @db.Timestamptz(6)
+  creados    Int       @default(0)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("importacion_catalogo")
 }

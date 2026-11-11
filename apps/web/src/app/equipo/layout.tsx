@@ -4,7 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { BotonSalir } from '@/features/acceso/boton-salir';
-import { SeccionesDelPanel } from '@/features/equipo/secciones';
+import { BotonTema, SeccionesDelPanel } from '@/features/equipo/secciones';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 import { Marca } from '@/shared/ui/marca';
 
@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 
 /**
  * Panel del equipo (ADM_Web, sección 20 del lienzo final): solo para cuentas con rol EQUIPO.
- * Su propia barra negra con las secciones y lo que espera en cada una.
+ * Su propia barra negra con las secciones y lo que espera en cada una. Claro u oscuro según tu
+ * cuenta (COR17, COR18).
  */
 export default async function LayoutEquipo({ children }: { children: ReactNode }) {
   const sesion = await obtenerSesion();
@@ -24,7 +25,9 @@ export default async function LayoutEquipo({ children }: { children: ReactNode }
   const { cuerpo: inicio } = await consultarApi<RespuestaInicioEquipo>('/equipo/inicio');
 
   return (
-    <div className="flex min-h-dvh flex-col bg-superficie">
+    <div
+      className={`flex min-h-dvh flex-col bg-fondo ${sesion.usuario.tema_oscuro ? 'panel-oscuro' : ''}`}
+    >
       <header className="sticky top-0 z-30 bg-tinta text-white">
         <div className="mx-auto flex min-h-[60px] max-w-[1440px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 sm:px-8">
           <span className="flex shrink-0 items-center gap-2">
@@ -37,7 +40,9 @@ export default async function LayoutEquipo({ children }: { children: ReactNode }
             solicitudes={inicio?.solicitudes ?? 0}
             reportes={inicio?.reportes.abiertos ?? 0}
             chats={inicio?.chats ?? 0}
+            catalogo={inicio?.catalogo_por_revisar ?? 0}
           />
+          <BotonTema oscuro={sesion.usuario.tema_oscuro} />
           <span className="flex shrink-0 items-center gap-3 text-apoyo">
             <span className="text-white/80">{sesion.usuario.nombre}</span>
             <BotonSalir oscuro />

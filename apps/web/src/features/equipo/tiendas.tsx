@@ -14,6 +14,8 @@ import { cuandoFue } from '@/shared/fechas';
 import { iniciales } from '@/shared/iniciales';
 import { conPlural } from '@/shared/plural';
 
+import { DestacadasAhora, Destacar } from './destacar';
+
 const FILTROS: Record<(typeof FILTROS_TIENDAS_PANEL)[number], string> = {
   todas: 'Todas',
   activas: 'Activas',
@@ -43,6 +45,7 @@ export function TiendasPanel() {
   const [motivo, setMotivo] = useState('');
   const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recargarDestacadas, setRecargarDestacadas] = useState(0);
 
   useEffect(() => {
     const espera = setTimeout(() => {
@@ -106,6 +109,7 @@ export function TiendasPanel() {
           Todas las tiendas de PaseLibre. Toca una para ver su historial y qué hacer.
         </span>
       </div>
+      <DestacadasAhora recargar={recargarDestacadas} />
       <div className="grid items-start gap-5 lg:grid-cols-[420px_minmax(0,1fr)]">
         <section className="flex flex-col gap-3 rounded-[24px] border border-linea bg-white p-4">
           <label className="flex flex-col gap-1.5 text-apoyo font-bold">
@@ -276,8 +280,26 @@ export function TiendasPanel() {
                 </ul>
               )}
 
+              {modo === 'nada' && detalle.destacado && (
+                <Destacar
+                  detalle={detalle}
+                  alCambiar={() => {
+                    void cargarDetalle(detalle.id);
+                    setRecargarDestacadas((n) => n + 1);
+                  }}
+                />
+              )}
               {modo === 'nada' ? (
                 <div className="flex flex-wrap gap-2">
+                  {!detalle.destacado && (
+                    <Destacar
+                      detalle={detalle}
+                      alCambiar={() => {
+                        void cargarDetalle(detalle.id);
+                        setRecargarDestacadas((n) => n + 1);
+                      }}
+                    />
+                  )}
                   <Link
                     href={`/equipo/chats?tienda=${detalle.id}`}
                     className="flex h-11 items-center rounded-full bg-tinta px-5 text-apoyo font-bold text-white no-underline"

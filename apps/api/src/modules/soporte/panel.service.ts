@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { formatearPrecio, precioDe, type PreferenciasEquipo } from '@paselibre/contracts';
 import type {
   AdvertenciaDatos,
   ComunicadoDatos,
@@ -19,6 +20,7 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { inicioDelDiaEnLima } from '../en-vivo/horario';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { DestacadosService } from './destacados.service';
 import { SoporteService } from './soporte.service';
 
 const MOTIVO = {
@@ -84,7 +86,18 @@ export class PanelService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
     @Inject(SoporteService) private readonly soporte: SoporteService,
+    @Inject(DestacadosService) private readonly destacados: DestacadosService,
   ) {}
+
+  /** El modo claro u oscuro del panel se guarda en tu cuenta (COR18). */
+  async preferencias(sesion: SesionActiva, datos: PreferenciasEquipo): Promise<PreferenciasEquipo> {
+    const { temaOscuro } = await this.prisma.usuario.update({
+      where: { id: sesion.usuario.id },
+      data: { temaOscuro: datos.tema_oscuro },
+      select: { temaOscuro: true },
+    });
+    return { tema_oscuro: temaOscuro };
+  }
 
   private anotar(sesion: SesionActiva, accion: string) {
     return this.prisma.registroEquipo.create({
@@ -139,6 +152,11 @@ export class PanelService {
         select: { id: true, accion: true, creadoEn: true, autor: { select: { nombre: true } } },
       }),
     ]);
+    const [catalogoPorRevisar, destacadas] = await Promise.all([
+      this.prisma.producto.count({ where: { revisado: false, fusionadoEnId: null } }),
+      this.destacados.activos(),
+    ]);
+    const primeraDestacada = destacadas.activas[0];
     const cola = abiertos.map(enCola).sort((a, b) => Number(b.urgente) - Number(a.urgente));
     const primero = cola[0];
     const chatsSin = chats?.cuantos ?? 0;
@@ -169,6 +187,14 @@ export class PanelService {
         accion: fila.accion,
         fecha: fila.creadoEn.toISOString(),
       })),
+      catalogo_por_revisar: catalogoPorRevisar,
+      destacadas: {
+        activas: destacadas.activas.length,
+        maximo: destacadas.maximo,
+        primera: primeraDestacada
+          ? { tienda: primeraDestacada.tienda.nombre, hasta: primeraDestacada.hasta }
+          : null,
+      },
     };
   }
 
@@ -461,27 +487,49 @@ export class PanelService {
     if (!base) {
       throw new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Esta tienda no existe.');
     }
-    const [tienda, cuentas, publicaciones, advertencias, reportes] = await Promise.all([
-      this.prisma.tienda.findUniqueOrThrow({
-        where: { id },
-        select: { piso: true, horario: true, whatsapp: true },
-      }),
-      this.prisma.usuario.count({ where: { tiendaId: id } }),
-      this.prisma.oferta.count({ where: { tiendaId: id, estado: 'ACTIVA' } }),
-      this.prisma.advertencia.findMany({
-        where: { tiendaId: id },
-        orderBy: { creadaEn: 'desc' },
-        select: { motivo: true, creadaEn: true },
-      }),
-      this.prisma.denuncia.findMany({
-        where: { tiendaDenunciadaId: id },
-        orderBy: { creadaEn: 'desc' },
-        take: 20,
-        select: { codigo: true, tipo: true, estado: true, creadaEn: true },
-      }),
-    ]);
+    const [tienda, cuentas, publicaciones, advertencias, reportes, vigentes, destacado] =
+      await Promise.all([
+        this.prisma.tienda.findUniqueOrThrow({
+          where: { id },
+          select: { piso: true, horario: true, whatsapp: true },
+        }),
+        this.prisma.usuario.count({ where: { tiendaId: id } }),
+        this.prisma.oferta.count({ where: { tiendaId: id, estado: 'ACTIVA' } }),
+        this.prisma.advertencia.findMany({
+          where: { tiendaId: id },
+          orderBy: { creadaEn: 'desc' },
+          select: { motivo: true, creadaEn: true },
+        }),
+        this.prisma.denuncia.findMany({
+          where: { tiendaDenunciadaId: id },
+          orderBy: { creadaEn: 'desc' },
+          take: 20,
+          select: { codigo: true, tipo: true, estado: true, creadaEn: true },
+        }),
+        this.prisma.oferta.findMany({
+          where: { tiendaId: id, estado: 'ACTIVA', stock: { gt: 0 } },
+          orderBy: { actualizadaEn: 'desc' },
+          take: 12,
+          select: {
+            id: true,
+            precioCentimos: true,
+            moneda: true,
+            producto: { select: { titulo: true } },
+          },
+        }),
+        this.destacados.deTienda(id),
+      ]);
     return {
       ...base,
+      para_destacar: vigentes.map((oferta) => ({
+        oferta_id: oferta.id,
+        titulo: oferta.producto.titulo,
+        precio:
+          oferta.precioCentimos === null
+            ? null
+            : formatearPrecio(precioDe(Number(oferta.precioCentimos), oferta.moneda)),
+      })),
+      destacado,
       piso: tienda.piso,
       horario: tienda.horario,
       whatsapp: tienda.whatsapp,

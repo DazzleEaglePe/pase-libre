@@ -652,7 +652,10 @@ export class OfertasService {
       conteos: conteos ?? { activas: 0, vigentes: 0, sin_stock: 0, pausadas: 0, todas: 0 },
       por_revisar: porRevisar,
       vistas_semana: vistasSemana,
-      ofertas: await this.conLaSemana(ofertas.map((o) => this.ofertaPropia(o))),
+      ofertas: await this.conImpulso(
+        tienda.id,
+        await this.conLaSemana(ofertas.map((o) => this.ofertaPropia(o))),
+      ),
       pagina: consulta.pagina,
       paginas: Math.max(1, Math.ceil(total / POR_PAGINA)),
     };
@@ -822,6 +825,22 @@ export class OfertasService {
       chats_semana: deChats.get(oferta.id) ?? 0,
       vistas_semana: deVistas.get(oferta.id) ?? 0,
     }));
+  }
+
+  /** «Impulsada por el equipo» (COR16): solo la tienda ve que la destacaron. */
+  private async conImpulso(tiendaId: string, ofertas: OfertaPropia[]): Promise<OfertaPropia[]> {
+    const destacado = await this.prisma.destacado.findFirst({
+      where: { tiendaId, hasta: { gt: new Date() }, quitadoEn: null },
+      orderBy: { hasta: 'desc' },
+      select: { hasta: true, ofertas: true },
+    });
+    if (!destacado) return ofertas;
+    const elegidas = new Set(destacado.ofertas);
+    return ofertas.map((oferta) =>
+      oferta.estado === 'ACTIVA' && (elegidas.size === 0 || elegidas.has(oferta.id))
+        ? { ...oferta, impulsada_hasta: destacado.hasta.toISOString() }
+        : oferta,
+    );
   }
 
   private ofertaPropia(o: OfertaPropiaFila): OfertaPropia {

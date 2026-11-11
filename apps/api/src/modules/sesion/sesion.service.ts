@@ -60,6 +60,7 @@ export function respuestaYo(usuario: UsuarioConTienda): RespuestaYo {
       rol: usuario.rol,
       debe_cambiar_clave: usuario.debeCambiarClave,
       ver_bienvenida: Boolean(tienda) && usuario.bienvenidaVistaEn === null,
+      tema_oscuro: usuario.temaOscuro,
     },
     tienda: tienda ? tiendaDeSesion(tienda) : null,
   };

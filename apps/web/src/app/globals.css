@@ -43,6 +43,62 @@
   }
 }
 
+/*
+ * El panel del equipo en oscuro (COR18): los mismos componentes con otros colores. Solo dentro
+ * de `.panel-oscuro`; la barra de arriba es oscura en los dos modos.
+ */
+.panel-oscuro {
+  color-scheme: dark;
+  color: #f1f4f2;
+}
+.panel-oscuro.bg-fondo,
+.panel-oscuro .bg-fondo,
+.panel-oscuro .bg-superficie {
+  background-color: #18201d;
+}
+.panel-oscuro main .bg-white,
+.panel-oscuro [role='dialog'] .bg-white,
+.panel-oscuro [role='dialog'].bg-white {
+  background-color: #222b27;
+}
+.panel-oscuro main .text-tinta,
+.panel-oscuro main {
+  color: #f1f4f2;
+}
+.panel-oscuro main .text-secundario,
+.panel-oscuro main .text-detalle {
+  color: #b5c0ba;
+}
+.panel-oscuro main .border-linea,
+.panel-oscuro main .border-borde {
+  border-color: #3a4540;
+}
+.panel-oscuro main .bg-pase-suave,
+.panel-oscuro main .bg-pase-medio {
+  background-color: #1e3a2f;
+}
+.panel-oscuro main .bg-error-fondo {
+  background-color: #3b1d1b;
+}
+.panel-oscuro main .bg-aviso-fondo,
+.panel-oscuro main .bg-ambar {
+  background-color: #3a2a12;
+}
+.panel-oscuro main input,
+.panel-oscuro main select,
+.panel-oscuro main textarea {
+  background-color: #222b27;
+  color: #f1f4f2;
+}
+.panel-oscuro main .bg-tinta {
+  background-color: #f1f4f2;
+  color: #0f1412;
+}
+.panel-oscuro .pildora-activa {
+  background-color: #22d37a;
+  color: #0f1412;
+}
+
 @layer components {
   /* Un título en mayúsculas que no es el de la página: las secciones del inicio, por ejemplo. */
   .tit {

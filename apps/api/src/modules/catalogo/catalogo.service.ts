@@ -18,6 +18,7 @@ import type {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { destacadasAhora, mezclarDestacadas } from '../../shared/destacados';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
@@ -365,19 +366,53 @@ export class CatalogoService {
       };
     }
 
-    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
+    const [bloqueadas, destacadas] = await Promise.all([
+      tiendasBloqueadasPor(this.prisma, mirada.usuarioId),
+      destacadasAhora(this.prisma),
+    ]);
+    const sinBloqueadas: Prisma.OfertaWhereInput =
+      bloqueadas.length > 0 ? { AND: [where, { tiendaId: { notIn: bloqueadas } }] } : where;
     const candidatas = await this.prisma.oferta.findMany({
-      where: bloqueadas.length > 0 ? { AND: [where, { tiendaId: { notIn: bloqueadas } }] } : where,
+      where: sinBloqueadas,
       orderBy,
       take: PORTADA_RECIENTES * 3,
       select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
     });
+    // «Destacar en silencio» (COR16): mezcladas entre los 4 primeros, sin etiqueta.
+    const hayDestacadas = destacadas.tiendas.size > 0 || destacadas.ofertas.size > 0;
+    const impulsadas = hayDestacadas
+      ? await this.prisma.oferta.findMany({
+          where: {
+            AND: [
+              sinBloqueadas,
+              {
+                OR: [
+                  { tiendaId: { in: [...destacadas.tiendas] } },
+                  { id: { in: [...destacadas.ofertas] } },
+                ],
+              },
+            ],
+          },
+          orderBy,
+          take: 4,
+          select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
+        })
+      : [];
+    const vistas = new Set(impulsadas.map((o) => o.id));
+    const mezcladas = mezclarDestacadas(
+      [
+        ...impulsadas,
+        ...mezclarPorTienda(
+          candidatas.filter((o) => !vistas.has(o.id)),
+          PORTADA_RECIENTES,
+        ),
+      ],
+      (o) => vistas.has(o.id),
+    ).slice(0, PORTADA_RECIENTES);
     return {
       ...base,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
-      recien_publicado: mezclarPorTienda(candidatas, PORTADA_RECIENTES).map((o) =>
-        tarjetaConVendedor(o, mirada),
-      ),
+      recien_publicado: mezcladas.map((o) => tarjetaConVendedor(o, mirada)),
     };
   }
 

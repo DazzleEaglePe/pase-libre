@@ -23,6 +23,7 @@ import { Prisma } from '@prisma/client';
 
 import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { destacadasAhora } from '../../shared/destacados';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { INDEPENDIENTES } from './catalogo.service';
@@ -466,6 +467,24 @@ export class BusquedaService {
       WHERE ${Prisma.join(condiciones, ' AND ')}`;
   }
 
+  /** Los productos con una publicación destacada ahora. */
+  private async productosImpulsados(): Promise<string[]> {
+    const destacadas = await destacadasAhora(this.prisma);
+    if (destacadas.tiendas.size === 0 && destacadas.ofertas.size === 0) return [];
+    const filas = await this.prisma.oferta.findMany({
+      where: {
+        estado: 'ACTIVA',
+        OR: [
+          { tiendaId: { in: [...destacadas.tiendas] } },
+          { id: { in: [...destacadas.ofertas] } },
+        ],
+      },
+      select: { productoId: true },
+      distinct: ['productoId'],
+    });
+    return filas.map((fila) => fila.productoId);
+  }
+
   private async ejecutar(
     palabras: string[],
     consulta: BuscarConsulta,
@@ -484,12 +503,20 @@ export class BusquedaService {
       : Prisma.empty;
     // Con sesión se compara en dólares (`precio_eq`): un precio en soles y uno en dólares
     // quedan en la misma vara, y los productos sin precio visible van al final.
+    // «Destacar en silencio» (COR16): más arriba en las búsquedas de su categoría.
+    const impulsados =
+      consulta.categoria && consulta.orden !== 'precio_asc' && consulta.orden !== 'precio_desc'
+        ? await this.productosImpulsados()
+        : [];
+    const primero = impulsados.length
+      ? Prisma.sql`(g.producto_id = ANY(${impulsados}::uuid[])) DESC, `
+      : Prisma.empty;
     const orden =
       consulta.orden === 'precio_asc'
         ? Prisma.sql`g.desde_eq ASC NULLS LAST, g.actualizada_en DESC, g.titulo`
         : consulta.orden === 'precio_desc'
           ? Prisma.sql`g.desde_eq DESC NULLS LAST, g.actualizada_en DESC, g.titulo`
-          : Prisma.sql`g.actualizada_en DESC, g.titulo`;
+          : Prisma.sql`${primero}g.actualizada_en DESC, g.titulo`;
     // La oferta destacada: la de otra tienda antes que la propia (la tarjeta es para escribirle
     // a alguien), con stock, con precio visible y la más barata; entre iguales, la más reciente.
     // «Más barata» es la de menor precio entre todos los resultados.

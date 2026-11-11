@@ -1,7 +1,44 @@
 'use client';
 
+import { IconMoon, IconSun } from '@tabler/icons-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { llamarApi } from '@/shared/api/cliente';
+
+/** «☀ Claro» / «☾ Oscuro» (COR17, COR18): se guarda en tu cuenta. */
+export function BotonTema({ oscuro }: { oscuro: boolean }) {
+  const router = useRouter();
+  const [guardando, setGuardando] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={guardando}
+      aria-pressed={oscuro}
+      onClick={async () => {
+        setGuardando(true);
+        try {
+          await llamarApi('/equipo/preferencias', {
+            metodo: 'PUT',
+            cuerpo: { tema_oscuro: !oscuro },
+          });
+          router.refresh();
+        } finally {
+          setGuardando(false);
+        }
+      }}
+      className="flex h-10 shrink-0 items-center gap-2 rounded-full border border-white/25 px-3.5 text-apoyo font-bold text-white hover:bg-white/10"
+    >
+      {oscuro ? (
+        <IconSun size={17} stroke={1.8} aria-hidden="true" />
+      ) : (
+        <IconMoon size={17} stroke={1.8} aria-hidden="true" />
+      )}
+      {oscuro ? 'Claro' : 'Oscuro'}
+    </button>
+  );
+}
 
 /**
  * La barra negra del panel del equipo (ADM_Web): Inicio, Solicitudes, Reportes, Tiendas, Chats,
@@ -11,10 +48,12 @@ export function SeccionesDelPanel({
   solicitudes,
   reportes,
   chats,
+  catalogo,
 }: {
   solicitudes: number;
   reportes: number;
   chats: number;
+  catalogo: number;
 }) {
   const ruta = usePathname();
   const secciones = [
@@ -25,6 +64,7 @@ export function SeccionesDelPanel({
     { href: '/equipo/chats', texto: 'Chats', cuenta: chats },
     { href: '/equipo/comunicados', texto: 'Comunicados', cuenta: 0 },
     { href: '/equipo/cuentas', texto: 'Cuentas', cuenta: 0 },
+    { href: '/equipo/catalogo', texto: 'Catálogo', cuenta: catalogo },
   ];
   return (
     <nav
@@ -39,7 +79,9 @@ export function SeccionesDelPanel({
             href={href}
             aria-current={actual ? 'page' : undefined}
             className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-apoyo no-underline ${
-              actual ? 'bg-white font-bold text-tinta' : 'font-medium text-white hover:bg-white/10'
+              actual
+                ? 'pildora-activa bg-white font-bold text-tinta'
+                : 'font-medium text-white hover:bg-white/10'
             }`}
           >
             {texto}
