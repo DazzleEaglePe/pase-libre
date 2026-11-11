@@ -41,6 +41,25 @@ function useNumeros(barra: RespuestaBarra | null): NumerosBarra {
   };
 }
 
+const iconoInicio = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="shrink-0"
+  >
+    <path d="M4 11l8-7 8 7" />
+    <path d="M6 10v10h12V10" />
+    <path d="M10 20v-6h4v6" />
+  </svg>
+);
+
 const iconoCategorias = (
   <svg
     width="16"
@@ -150,9 +169,9 @@ function Cuenta({ tono, children }: { tono: 'brasa' | 'ambar' | 'verde'; childre
 }
 
 /**
- * La banda oscura de la computadora (D_Barra): «Todas las categorías» abre su menú; después
- * Pedidos en vivo, los remates y lo recién llegado, cada uno con su numerito; «Ayuda» a la
- * derecha.
+ * La banda oscura de la computadora (D_BarraFinal, COR19): empieza con «Inicio»; «Todas las
+ * categorías» abre su menú; después Pedidos en vivo, los remates y lo recién llegado, cada uno
+ * con su numerito; «Ayuda» a la derecha. La sección donde estás va marcada en blanco.
  */
 function BandaComputadora({
   categorias,
@@ -172,13 +191,21 @@ function BandaComputadora({
   const recientes = ruta === '/buscar' && parametros.get('orden') === 'recientes';
 
   const clase = (activa: boolean) =>
-    `flex h-[46px] shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-apoyo font-semibold text-white no-underline ${
-      activa ? 'border-acento' : 'border-transparent hover:border-white/40'
+    `flex h-[34px] shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 text-apoyo font-semibold no-underline ${
+      activa ? 'bg-white text-tinta' : 'text-white hover:bg-white/10'
     }`;
 
   return (
     <nav aria-label="Navegación" className="bg-tinta max-md:hidden">
-      <div className="mx-auto flex max-w-[1280px] items-center overflow-x-auto px-5 [scrollbar-width:none]">
+      <div className="mx-auto flex h-[46px] max-w-[1280px] items-center gap-0.5 overflow-x-auto px-5 [scrollbar-width:none]">
+        <Link
+          href="/"
+          aria-current={ruta === '/' ? 'page' : undefined}
+          className={clase(ruta === '/')}
+        >
+          {iconoInicio}
+          Inicio
+        </Link>
         <MenuCategorias
           categorias={categorias}
           barra={barra}
@@ -240,7 +267,9 @@ function BandaComputadora({
         <Link
           href={conTienda ? '/mensajes/equipo' : '/ayuda'}
           aria-current={ruta === '/ayuda' || ruta === '/mensajes/equipo' ? 'page' : undefined}
-          className={`${clase(ruta === '/ayuda' || ruta === '/mensajes/equipo')} ml-auto !text-acento`}
+          className={`${clase(ruta === '/ayuda' || ruta === '/mensajes/equipo')} ml-auto ${
+            ruta === '/ayuda' || ruta === '/mensajes/equipo' ? '!text-pase-texto' : '!text-acento'
+          }`}
         >
           Ayuda
         </Link>
@@ -412,6 +441,7 @@ export function Cabecera({
     ruta === '/historial' ||
     ruta === '/wilson-en-vivo' ||
     ruta === '/tiendas-que-sigues' ||
+    ruta === '/cuenta/menu' ||
     ruta.startsWith('/categorias/') ||
     ruta.startsWith('/p/') ||
     ruta.startsWith('/tiendas/');

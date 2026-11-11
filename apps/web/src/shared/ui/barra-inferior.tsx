@@ -61,7 +61,7 @@ export function BarraInferior({ conTienda }: { conTienda: boolean }) {
         { href: '/buscar', texto: 'Buscar', icono: IconSearch },
         { href: '/publicar', texto: 'Publicar', icono: IconPlus },
         { href: '/mensajes', texto: 'Mensajes', icono: IconMessageCircle, contador: true },
-        { href: '/cuenta', texto: 'Cuenta', icono: IconUser },
+        { href: '/cuenta/menu', texto: 'Cuenta', icono: IconUser },
       ]
     : [
         { href: '/', texto: 'Inicio', icono: IconHome },
