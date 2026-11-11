@@ -190,11 +190,21 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
       expect((await perfilDe('tiendab', 'tiendaa')).portada).toBeNull();
     });
 
-    it('no deja usar una foto ajena ni la cambia un asesor', async () => {
+    it('no deja usar una foto ajena; el asesor la cambia igual que el dueño; el equipo no', async () => {
       const ajena = await subir('tiendab', 800, 300);
       await como('tiendaa').send('put', '/v1/cuenta/portada', { ruta: ajena }).expect(400);
-      const propia = await subir('tiendaa', 800, 300);
-      await como('tiendaa.kevin').send('put', '/v1/cuenta/portada', { ruta: propia }).expect(403);
+      const propia = await subir('tiendaa.kevin', 800, 300);
+      const puesta = await como('tiendaa.kevin')
+        .send('put', '/v1/cuenta/portada', { ruta: propia })
+        .expect(200);
+      expect(puesta.body.ruta).toBe(propia);
+      await como('tiendaa.kevin').send('delete', '/v1/cuenta/portada').expect(204);
+      await http()
+        .put('/v1/cuenta/portada')
+        .set(CABECERAS)
+        .set('Cookie', await ingresar('equipo'))
+        .send({ posicion: 10 })
+        .expect(403);
     });
   });
 

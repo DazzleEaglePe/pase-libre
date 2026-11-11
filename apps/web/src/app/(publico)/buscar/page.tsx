@@ -377,9 +377,13 @@ function Callejon({
   conSesion: boolean;
   conBusco: boolean;
 }) {
+  // Una categoría que no existe (una dirección vieja o escrita a mano) no es «Todos los productos».
+  const categoriaDesconocida = Boolean(filtros.categoria && !nombreCategoria);
   const encabezado = filtros.q
     ? `No encontramos «${filtros.q}»${nombreCategoria ? ` en ${nombreCategoria}` : ''}`
-    : `Todavía no hay productos en ${titulo}`;
+    : categoriaDesconocida
+      ? 'No encontramos esa categoría'
+      : `Todavía no hay productos en ${titulo}`;
   return (
     <div className="flex flex-col gap-10">
       <CabeceraMovil centro={<Buscador sobreMarca className="min-w-0 flex-1 pr-2" />} />
@@ -414,7 +418,9 @@ function Callejon({
               <p className="text-secundario">
                 {filtros.q
                   ? 'Revisa cómo se escribe o prueba con menos palabras: con la marca y el modelo basta.'
-                  : 'Cuando una tienda publique algo aquí, lo verás en esta página.'}
+                  : categoriaDesconocida
+                    ? 'Prueba con alguna de estas categorías o busca por modelo, marca o código.'
+                    : 'Cuando una tienda publique algo aquí, lo verás en esta página.'}
               </p>
             </div>
           </div>

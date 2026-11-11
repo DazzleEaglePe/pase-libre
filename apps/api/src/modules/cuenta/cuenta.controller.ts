@@ -78,9 +78,12 @@ export class CuentaController {
     return this.cuentas.actualizar(usuario.id, cambios);
   }
 
-  /** La portada del perfil (COR1): subir una foto, «Acomodar» o las dos cosas. Solo la dueña. */
+  /**
+   * La portada del perfil (COR1): subir una foto, «Acomodar» o las dos cosas. Dueño y asesor
+   * pueden lo mismo dentro de su tienda (docs/05 §9); el equipo no tiene tienda.
+   */
   @Put('portada')
-  @Roles('DUENO')
+  @Roles('DUENO', 'ASESOR')
   @Header('Cache-Control', 'no-store')
   portada(
     @Body(new ZodValidationPipe(portadaTiendaSchema)) datos: PortadaDatos,
@@ -91,7 +94,7 @@ export class CuentaController {
 
   /** «Quitar portada»: queda la automática. */
   @Delete('portada')
-  @Roles('DUENO')
+  @Roles('DUENO', 'ASESOR')
   @HttpCode(HttpStatus.NO_CONTENT)
   async quitarPortada(@SesionActual() { usuario }: SesionActiva): Promise<void> {
     await this.cuentas.quitarPortada(usuario.id);
