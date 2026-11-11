@@ -44,6 +44,7 @@ import { Miniatura } from '@/shared/ui/miniatura';
 
 import { ListaOpiniones } from './opiniones';
 import { PerfilDeTienda } from './perfil-tienda';
+import { Portada } from './portada';
 
 type Pestana = 'publicaciones' | 'reputacion' | 'opiniones' | 'detalles';
 
@@ -318,21 +319,27 @@ export function PerfilPropio({ perfil }: { perfil: PerfilTienda }) {
   return (
     <div className="flex flex-col gap-5">
       <section aria-label="Tu tienda" className="flex flex-col">
-        <div className="relative -mx-4 h-[160px] bg-[linear-gradient(135deg,#006B47,#00875A)] sm:mx-0 sm:h-[240px] sm:rounded-b-[28px] sm:rounded-t-[28px]">
-          <button
-            type="button"
-            onClick={() => setComoCliente(true)}
-            aria-label="Ver cómo te ven las demás tiendas"
-            title="Ver cómo te ven"
-            className="absolute bottom-4 right-4 flex h-11 items-center gap-2 rounded-full bg-tinta/80 px-4 text-apoyo font-bold text-white"
-          >
-            <IconEye size={18} stroke={1.8} aria-hidden="true" />
-            <span className="max-sm:hidden">Así te ven</span>
-          </button>
+        <div className="-mx-4 sm:mx-0">
+          <Portada
+            perfil={perfil}
+            editable
+            esquina={
+              <button
+                type="button"
+                onClick={() => setComoCliente(true)}
+                aria-label="Ver cómo te ven las demás tiendas"
+                title="Ver cómo te ven"
+                className="flex h-10 items-center gap-2 rounded-full bg-tinta px-4 text-apoyo font-bold text-white"
+              >
+                <IconEye size={18} stroke={1.8} aria-hidden="true" />
+                <span className="max-sm:hidden">Así te ven</span>
+              </button>
+            }
+          />
         </div>
         <div className="flex flex-wrap items-end justify-between gap-4 px-1 sm:px-6">
           <div className="flex flex-wrap items-end gap-4">
-            <span className="relative -mt-16 flex h-[120px] w-[120px] shrink-0 items-center justify-center rounded-full border-[6px] border-white bg-marca text-[52px] font-bold text-white sm:-mt-20 sm:h-[150px] sm:w-[150px]">
+            <span className="relative z-10 -mt-12 flex h-[96px] w-[96px] shrink-0 items-center justify-center rounded-full border-[5px] border-white bg-marca text-[34px] font-extrabold text-white sm:-mt-[70px] sm:h-[140px] sm:w-[140px] sm:border-[6px] sm:text-[46px]">
               {perfil.iniciales}
               <Link
                 href="/cuenta/configuracion?seccion=datos"

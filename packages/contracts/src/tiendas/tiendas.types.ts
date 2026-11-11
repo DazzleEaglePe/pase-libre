@@ -31,6 +31,15 @@ export interface ProductoDeTienda {
  * `GET /v1/tiendas/:id` (SG_Web): el perfil de otra tienda. Solo con sesión. Lo que la tienda
  * publica como «Tienda reservada» no sale aquí: el perfil la delataría.
  */
+/** La portada que subió la tienda (COR1). Sin ella, la web arma la automática. */
+export interface PortadaTienda {
+  ruta: string;
+  ancho: number | null;
+  alto: number | null;
+  /** Qué parte se ve, de arriba (0) a abajo (100): «Acomodar». */
+  posicion: number;
+}
+
 export interface PerfilTienda {
   id: string;
   nombre: string;
@@ -54,6 +63,10 @@ export interface PerfilTienda {
   bloqueada: boolean;
   total_productos: number;
   productos: ProductoDeTienda[];
+  /** La portada subida, o nula: entonces va la automática (COR1). */
+  portada: PortadaTienda | null;
+  /** Lo que más publica, para la portada automática: «Tarjetas de video · Procesadores». */
+  categorias_principales: string[];
 }
 
 export interface RespuestaSeguir {

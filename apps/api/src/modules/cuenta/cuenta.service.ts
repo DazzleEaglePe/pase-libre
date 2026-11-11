@@ -10,7 +10,12 @@ import type {
   SesionAbierta,
   TiendaBloqueada,
 } from '@paselibre/contracts';
-import { normalizarTexto, TIENDA_RESERVADA } from '@paselibre/contracts';
+import {
+  normalizarTexto,
+  TIENDA_RESERVADA,
+  type PortadaDatos,
+  type PortadaTienda,
+} from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
@@ -118,6 +123,63 @@ export class CuentaService {
         include: INCLUIR_TIENDA,
       }),
     );
+  }
+
+  /** Sube o acomoda la portada del perfil (COR1). La foto tiene que ser de la tienda. */
+  async portada(usuarioId: string, datos: PortadaDatos): Promise<PortadaTienda> {
+    return this.prisma.$transaction(async (tx) => {
+      const { tiendaId, tienda } = await tx.usuario.findUniqueOrThrow({
+        where: { id: usuarioId },
+        select: { tiendaId: true, tienda: { select: { portadaRuta: true } } },
+      });
+      if (!tiendaId) {
+        throw new ApiHttpException(HttpStatus.FORBIDDEN, 'PROHIBIDO', 'Tu cuenta no tiene tienda.');
+      }
+      let medidas: { ancho: number; alto: number } | undefined;
+      if (datos.ruta && datos.ruta !== tienda?.portadaRuta) {
+        medidas = (await this.archivos.reclamar(tx, [datos.ruta], tiendaId)).get(datos.ruta);
+      } else if (!datos.ruta && !tienda?.portadaRuta) {
+        throw new ApiHttpException(
+          HttpStatus.BAD_REQUEST,
+          'DATOS_INVALIDOS',
+          'Primero sube una foto de portada.',
+        );
+      }
+      const nueva = await tx.tienda.update({
+        where: { id: tiendaId },
+        data: {
+          ...(medidas && datos.ruta
+            ? {
+                portadaRuta: datos.ruta,
+                portadaAncho: medidas.ancho,
+                portadaAlto: medidas.alto,
+                // Una foto nueva arranca al centro.
+                portadaPosicion: datos.posicion ?? 50,
+              }
+            : {}),
+          ...(!medidas && datos.posicion !== undefined ? { portadaPosicion: datos.posicion } : {}),
+        },
+        select: { portadaRuta: true, portadaAncho: true, portadaAlto: true, portadaPosicion: true },
+      });
+      return {
+        ruta: nueva.portadaRuta ?? '',
+        ancho: nueva.portadaAncho,
+        alto: nueva.portadaAlto,
+        posicion: nueva.portadaPosicion,
+      };
+    });
+  }
+
+  async quitarPortada(usuarioId: string): Promise<void> {
+    const { tiendaId } = await this.prisma.usuario.findUniqueOrThrow({
+      where: { id: usuarioId },
+      select: { tiendaId: true },
+    });
+    if (!tiendaId) return;
+    await this.prisma.tienda.update({
+      where: { id: tiendaId },
+      data: { portadaRuta: null, portadaAncho: null, portadaAlto: null, portadaPosicion: 50 },
+    });
   }
 
   async actualizar(usuarioId: string, cambios: ActualizarCuentaDatos): Promise<RespuestaCuenta> {

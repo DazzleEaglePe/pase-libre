@@ -190,6 +190,12 @@ model Tienda {
   indicaciones         String?      @db.VarChar(240)
   descripcion          String?      @db.VarChar(500)
   logo                 String?      @db.VarChar(300)
+  /// La portada del perfil (COR1): una foto subida con `POST /v1/archivos`. Sin ella, la
+  /// automática. `portada_posicion` es qué parte se ve de arriba (0) a abajo (100): «Acomodar».
+  portadaRuta          String?      @map("portada_ruta") @db.VarChar(300)
+  portadaAncho         Int?         @map("portada_ancho")
+  portadaAlto          Int?         @map("portada_alto")
+  portadaPosicion      Int          @default(50) @map("portada_posicion") @db.SmallInt
   /// Valores por defecto al publicar (D-37): precio oculto y en dólares.
   precioVisibleDefecto Boolean      @default(false) @map("precio_visible_defecto")
   /// Soles por defecto (guía del lienzo final); la tienda lo cambia en Configuración.

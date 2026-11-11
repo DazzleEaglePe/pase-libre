@@ -17,12 +17,15 @@ import {
   actualizarCuentaSchema,
   alertaBusquedaSchema,
   avisosCuentaSchema,
+  portadaTiendaSchema,
   respuestasRapidasSchema,
   type ActualizarCuentaDatos,
   type AlertaBusqueda,
   type AlertaBusquedaDatos,
   type AvisosCuentaDatos,
   type MiReporte,
+  type PortadaDatos,
+  type PortadaTienda,
   type RespuestaAvisosCuenta,
   type RespuestaCuenta,
   type ResumenCuenta,
@@ -33,7 +36,7 @@ import {
 } from '@paselibre/contracts';
 import { z } from 'zod';
 
-import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { CuentaService } from './cuenta.service';
@@ -73,6 +76,25 @@ export class CuentaController {
     @SesionActual() { usuario }: SesionActiva,
   ): Promise<RespuestaCuenta> {
     return this.cuentas.actualizar(usuario.id, cambios);
+  }
+
+  /** La portada del perfil (COR1): subir una foto, «Acomodar» o las dos cosas. Solo la dueña. */
+  @Put('portada')
+  @Roles('DUENO')
+  @Header('Cache-Control', 'no-store')
+  portada(
+    @Body(new ZodValidationPipe(portadaTiendaSchema)) datos: PortadaDatos,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<PortadaTienda> {
+    return this.cuentas.portada(usuario.id, datos);
+  }
+
+  /** «Quitar portada»: queda la automática. */
+  @Delete('portada')
+  @Roles('DUENO')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async quitarPortada(@SesionActual() { usuario }: SesionActiva): Promise<void> {
+    await this.cuentas.quitarPortada(usuario.id);
   }
 
   @Get('avisos')

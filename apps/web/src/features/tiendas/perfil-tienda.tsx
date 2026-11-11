@@ -28,6 +28,7 @@ import { Miniatura } from '@/shared/ui/miniatura';
 import { MenuOpciones } from '@/features/reportes/menu-opciones';
 
 import { ListaOpiniones } from './opiniones';
+import { Portada } from './portada';
 
 const OPCIONES_AVISOS: Array<[AvisosSeguimiento, string, string]> = [
   ['TODO', 'Todo lo que publique', 'Cada producto nuevo y cada pedido en vivo'],
@@ -147,7 +148,7 @@ export function PerfilDeTienda({
 
   return (
     <div className="-mx-4 -mt-5 flex flex-col sm:mx-0 sm:mt-0">
-      <div className="relative h-[120px] bg-[linear-gradient(135deg,#006B47_0%,#00875A_100%)] sm:h-[170px] sm:rounded-b-[28px]">
+      <Portada perfil={perfil}>
         <button
           type="button"
           aria-label="Volver"
@@ -168,7 +169,7 @@ export function PerfilDeTienda({
             <path d="M15 5l-7 7 7 7" />
           </svg>
         </button>
-      </div>
+      </Portada>
 
       <div className="flex flex-col gap-4 px-4 sm:px-8">
         <div className="relative z-10 -mt-[46px]">

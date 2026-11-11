@@ -143,6 +143,61 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
     });
   });
 
+  describe('portada del perfil (COR1)', () => {
+    const subir = async (usuario: string, ancho: number, alto: number) => {
+      const foto = await sharp({
+        create: { width: ancho, height: alto, channels: 3, background: '#14123A' },
+      })
+        .jpeg()
+        .toBuffer();
+      const { body } = await http()
+        .post('/v1/archivos')
+        .set(CABECERAS)
+        .set('Cookie', cookies[usuario] ?? '')
+        .attach('foto', foto, { filename: 'portada.jpg', contentType: 'image/jpeg' })
+        .expect(201);
+      return body.ruta as string;
+    };
+    /** El perfil de la tienda de `dueno`, como lo ve `usuario`. */
+    const perfilDe = async (usuario: string, dueno: string) => {
+      const { tiendaId } = await prisma.usuario.findUniqueOrThrow({ where: { usuario: dueno } });
+      return (await como(usuario).get(`/v1/tiendas/${tiendaId}`).expect(200)).body;
+    };
+
+    it('sin foto, el perfil trae la automática: sin portada y con lo que más vende', async () => {
+      const perfil = await perfilDe('tiendab', 'tiendaa');
+      expect(perfil.portada).toBeNull();
+      expect(perfil.categorias_principales.length).toBeGreaterThan(0);
+      expect(perfil.categorias_principales.length).toBeLessThanOrEqual(3);
+      await como('tiendaa').send('put', '/v1/cuenta/portada', { posicion: 30 }).expect(400);
+    });
+
+    it('sube, acomoda y quita la portada; las demás tiendas la ven', async () => {
+      const ruta = await subir('tiendaa', 1600, 400);
+      const puesta = await como('tiendaa').send('put', '/v1/cuenta/portada', { ruta }).expect(200);
+      expect(puesta.body).toEqual({ ruta, ancho: 1600, alto: 400, posicion: 50 });
+      const acomodada = await como('tiendaa')
+        .send('put', '/v1/cuenta/portada', { posicion: 20 })
+        .expect(200);
+      expect(acomodada.body.posicion).toBe(20);
+      expect((await perfilDe('tiendab', 'tiendaa')).portada).toEqual({
+        ruta,
+        ancho: 1600,
+        alto: 400,
+        posicion: 20,
+      });
+      await como('tiendaa').send('delete', '/v1/cuenta/portada').expect(204);
+      expect((await perfilDe('tiendab', 'tiendaa')).portada).toBeNull();
+    });
+
+    it('no deja usar una foto ajena ni la cambia un asesor', async () => {
+      const ajena = await subir('tiendab', 800, 300);
+      await como('tiendaa').send('put', '/v1/cuenta/portada', { ruta: ajena }).expect(400);
+      const propia = await subir('tiendaa', 800, 300);
+      await como('tiendaa.kevin').send('put', '/v1/cuenta/portada', { ruta: propia }).expect(403);
+    });
+  });
+
   describe('preferencias (RF-48, RF-56)', () => {
     it('los valores por defecto se usan al publicar', async () => {
       await como('tiendab')

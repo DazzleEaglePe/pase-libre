@@ -75,6 +75,16 @@ export function miradaDe(sesion: SesionActiva): Mirada {
  * Perfil de otra tienda, seguir y opiniones (SG_Web, SG_WebOpiniones, sección 15 del lienzo
  * final). Todo con sesión: un visitante no sabe qué tienda tiene qué.
  */
+/** Las 3 categorías que más publica, para la portada automática (COR1). */
+function categoriasPrincipales(nombres: string[]): string[] {
+  const cuenta = new Map<string, number>();
+  for (const nombre of nombres) cuenta.set(nombre, (cuenta.get(nombre) ?? 0) + 1);
+  return [...cuenta.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([nombre]) => nombre);
+}
+
 @Injectable()
 export class TiendasService {
   constructor(
@@ -162,6 +172,17 @@ export class TiendasService {
       puede_seguir: miTienda !== null && miTienda !== id,
       bloqueada,
       total_productos: total,
+      portada: tienda.portadaRuta
+        ? {
+            ruta: tienda.portadaRuta,
+            ancho: tienda.portadaAncho,
+            alto: tienda.portadaAlto,
+            posicion: tienda.portadaPosicion,
+          }
+        : null,
+      categorias_principales: categoriasPrincipales(
+        ofertas.map((o) => o.producto.categoria.nombre),
+      ),
       productos: ofertas.map((oferta) => ({
         oferta_id: oferta.id,
         producto: {

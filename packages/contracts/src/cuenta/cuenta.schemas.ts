@@ -69,6 +69,20 @@ const horaSchema = z
   });
 
 /** `PUT /v1/cuenta/avisos` (RF-59): qué llega a la campanita y «No molestar». */
+/**
+ * `PUT /v1/cuenta/portada` (COR1): una foto nueva (de `POST /v1/archivos`), qué parte se ve
+ * («Acomodar») o las dos cosas.
+ */
+export const portadaTiendaSchema = z
+  .strictObject({
+    ruta: rutaFotoSchema.optional(),
+    posicion: z.number().int().min(0).max(100).optional(),
+  })
+  .refine((datos) => datos.ruta !== undefined || datos.posicion !== undefined, {
+    message: 'Sube una foto o acomoda la que tienes.',
+  });
+export type PortadaDatos = z.output<typeof portadaTiendaSchema>;
+
 export const avisosCuentaSchema = z.strictObject({
   campanita: z.strictObject({
     MENSAJE: z.boolean(),
