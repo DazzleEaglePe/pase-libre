@@ -47,6 +47,7 @@ Detalle día por día en [05 · Arquitectura §12](05-arquitectura.md#12-plan-de
 - [ ] Modo claro y oscuro (Claro / Oscuro / Sistema) en toda la web: sprint del 09 al 13/11 con sus checklists en [13 · Modo oscuro](13-modo-oscuro.md)
 - [x] Construir lo que trae el lienzo «Versión final» (163 tableros en 20 secciones): las 20 secciones en `main`, en producción desde el 10/11/2026 (`c5efc279`). Estado, simplificaciones y pendientes en [14 · Lienzo final](14-lienzo-final.md) §5
 - [x] Subir los commits del lienzo final y desplegarlos: en producción desde el 10/11/2026 (`c5efc279`), con respaldo previo y las 14 migraciones (`20261110120000` a `20261111130000`). Para volver: `desplegar.sh produccion.env b1522d99` (las migraciones no se deshacen; para eso está el respaldo de ese momento)
+- [ ] Correcciones del lienzo del 11/11 (`GUIA_Construir`, `COR1` a `COR26`): hechas en 7 commits locales con 5 migraciones; revisar en local y después subir y desplegar ([14](14-lienzo-final.md) §6)
 - [ ] Cargar `metros` de cada galería para que «Wilson en vivo» diga «a N min caminando» (lo hace el equipo; sin eso no se muestra)
 - [ ] Registro propio (sección 3 del lienzo): hecho y apagado (`REGISTRO_PROPIO`). Para encenderlo en producción faltan un proveedor de SMS y uno de consulta a SUNAT, y subir las fotos del stand ([14](14-lienzo-final.md) §5)
 - [ ] Lo que quedó de la auditoría de calidad (seguridad, rendimiento, pruebas y diseño): lista ordenada en [15 · Calidad](15-calidad.md) §6

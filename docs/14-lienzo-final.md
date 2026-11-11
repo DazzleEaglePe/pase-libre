@@ -116,3 +116,33 @@ Las 20 secciones de la página «★ VERSIÓN FINAL» están en `main` (de `c7e3
 - La sección «Equipo» del panel (turnos, horario) no se hizo; «Lo último del equipo» anota reportes, advertencias, suspensiones y comunicados.
 
 **Falta:** subir fotos del stand y de la credencial en el registro; el SMS, la consulta a SUNAT y el aviso con el celular bloqueado (L-5); recordatorios programados; descuento socio por tienda (hoy uno por defecto y otro por publicación).
+
+## 6. Correcciones del lienzo (11/11, versión `1794381822-84cc`)
+
+La página final se renombró «★ VERSIÓN FINAL PARA CONSTRUIR» y sumó 43 tableros: la guía
+`GUIA_Construir` («lee esto primero») y las correcciones `COR1` a `COR26`. Los demás tableros
+solo cambiaron la letra (se sumó Montserrat). Se construyeron en 7 commits locales, sin subir:
+
+| Parte | Tableros | Commit |
+| --- | --- | --- |
+| Guía: Inter + Montserrat 800 en mayúsculas para títulos, fondo `#EEF2F0`, bordes de 1,5 px, Brasa para lo «en vivo», «¡Lo tengo!» en naranja sólido, sin «Nuevo» | GUIA_Construir | `b5b4e1f`, `b7ca969` |
+| Barra con «Inicio» y la sección marcada en blanco; menú de la cuenta en 3 grupos (también `/cuenta/menu` en el celular) | COR19, COR2, COR22 | `7200f0f` |
+| paselibre.shop abre en «Inicia sesión» (307 sin cookie); frases que cambian; «Te compartieron …» al llegar por el enlace de una tienda (`GET /v1/tiendas/:id/compartida`, solo el nombre) | COR3 | `b12adee` |
+| Inicio: saludo con «Pedir algo en vivo» en Brasa, «Pedidos en vivo ahora» y «Recién llegados» en 2 filas de 4 | COR14, COR25 | `b7ca969` |
+| Publicar: pestañas Rápida / A mano, «¿Quién ve tu precio?» primero, «Al interno» sin precio, «S/ ▾», «Otro» escrito en estado y garantía, versión y código de parte, «Te falta…» y «Antes de publicar» | COR9, COR12 | `39395cc` |
+| Portada del perfil: subir, acomodar, vertical con costados difuminados, automática y quitar | COR1 | `9b465b3` |
+| Panel: claro u oscuro en la cuenta, Catálogo (productos, por revisar, subir .xlsx/.csv/.zip, agregar uno) y Destacar en silencio | COR15 a COR18 | `10fb470` |
+
+**Datos nuevos (5 migraciones del 11/11):** `oferta.estado_otro` y `garantia_otra` con los
+valores `OTRO` y `OTRA`; `producto.version` y `codigo_parte` (único); soles por defecto
+(también pasa a soles a las tiendas que ya están); la portada de la tienda; y `usuario.tema_oscuro`,
+`destacado` e `importacion_catalogo`.
+
+**Simplificaciones:**
+- LEMON MILK no está en Google Fonts y falta confirmar su licencia: se usa Montserrat 800.
+- «Usar la foto de mi stand» queda deshabilitada hasta que el registro guarde esa foto.
+- La portada automática toma sus colores del nombre de la tienda (no hay logo del que sacarlos).
+- Publicar en el celular sigue siendo la misma página larga, no los 5 pasos de `COR9_PubCel`.
+- «Unir con este» no une si la misma tienda tiene publicados los dos: pide quitar uno primero.
+- En «Agregar uno», Chip, Memoria y Tipo de memoria van siempre (son los del tablero, de
+  tarjetas de video); en el archivo, cualquier otra columna entra como característica.
