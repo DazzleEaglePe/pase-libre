@@ -127,7 +127,7 @@ solo cambiaron la letra (se sumó Montserrat). Se construyeron en 7 commits y es
 | --- | --- | --- |
 | Guía: Inter + Montserrat 800 en mayúsculas para títulos, fondo `#EEF2F0`, bordes de 1,5 px, Brasa para lo «en vivo», «¡Lo tengo!» en naranja sólido, sin «Nuevo» | GUIA_Construir | `b5b4e1f`, `b7ca969` |
 | Barra con «Inicio» y la sección marcada en blanco; menú de la cuenta en 3 grupos (también `/cuenta/menu` en el celular) | COR19, COR2, COR22 | `7200f0f` |
-| paselibre.shop abre en «Inicia sesión» (307 sin cookie); frases que cambian; «Te compartieron …» al llegar por el enlace de una tienda (`GET /v1/tiendas/:id/compartida`, solo el nombre) | COR3 | `b12adee` |
+| «Inicia sesión» nuevo: frases que cambian y «Te compartieron …» al llegar por el enlace de una tienda (`GET /v1/tiendas/:id/compartida`, solo el nombre). **La raíz no manda a Iniciar sesión**: sin cuenta sigue mostrando la portada pública (sin precios ni tiendas), porque hay páginas que cualquiera puede ver. Es una decisión del 11/11 que se aparta de la guía («paselibre.shop abre en Inicia sesión») | COR3 | `b12adee`, luego la raíz |
 | Inicio: saludo con «Pedir algo en vivo» en Brasa, «Pedidos en vivo ahora» y «Recién llegados» en 2 filas de 4 | COR14, COR25 | `b7ca969` |
 | Publicar: pestañas Rápida / A mano, «¿Quién ve tu precio?» primero, «Al interno» sin precio, «S/ ▾», «Otro» escrito en estado y garantía, versión y código de parte, «Te falta…» y «Antes de publicar» | COR9, COR12 | `39395cc` |
 | Portada del perfil: subir, acomodar, vertical con costados difuminados, automática y quitar | COR1 | `9b465b3` |

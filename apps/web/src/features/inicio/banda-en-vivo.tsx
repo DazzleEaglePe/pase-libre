@@ -14,6 +14,7 @@ import {
   lineaLugar,
   type ItemEnVivo,
 } from '@/features/en-vivo/textos';
+import { PuntoQueLate } from '@/shared/ui/brasa';
 
 /** «Termina en 1 h 40 min», en rojo ladrillo como el lienzo. */
 function Termina({ item, ahora }: { item: ItemEnVivo; ahora: number }) {
@@ -110,8 +111,9 @@ export function BandaEnVivo({ visitante = false }: { visitante?: boolean }) {
           <span className="flex gap-2">
             <Link
               href="/ingresar"
-              className="flex h-11 items-center rounded-full bg-pase px-4 text-apoyo font-bold text-white no-underline"
+              className="flex h-11 items-center gap-2 rounded-full bg-brasa px-4 text-apoyo font-bold text-tinta no-underline"
             >
+              <PuntoQueLate tamano={8} />
               Publicar busco o remate
             </Link>
             {lista.length > 0 && (
@@ -143,9 +145,9 @@ export function BandaEnVivo({ visitante = false }: { visitante?: boolean }) {
           </span>
           <Link
             href={visitante ? '/ingresar' : '/pedidos-en-vivo/publicar'}
-            className="flex h-12 items-center gap-2 rounded-full bg-contador px-5 font-bold text-tinta no-underline"
+            className="flex h-12 items-center gap-2 rounded-full bg-brasa px-5 font-bold text-tinta no-underline"
           >
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-tinta" />
+            <PuntoQueLate tamano={8} />
             ¿Qué te falta hoy? Pídelo
           </Link>
         </div>
@@ -161,7 +163,7 @@ export function BandaEnVivo({ visitante = false }: { visitante?: boolean }) {
               href="/pedidos-en-vivo/publicar"
               className="flex h-11 items-center gap-2 self-start rounded-full border border-white/40 px-4 text-apoyo font-bold text-white no-underline"
             >
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
+              <PuntoQueLate tamano={8} />
               Pide tú también
             </Link>
           )}
