@@ -1,9 +1,10 @@
 'use client';
 
-import { IconClock, IconPlus } from '@tabler/icons-react';
+import { IconClock } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
+import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Segmentado } from '@/shared/ui/segmentado';
 
 import { useEnVivoMontado } from './contexto';
@@ -134,9 +135,9 @@ export function PaginaEnVivo({
         </div>
         <Link
           href={conSesion ? '/pedidos-en-vivo/publicar' : '/ingresar'}
-          className="flex h-12 items-center gap-2 rounded-full bg-pase px-6 font-bold text-white no-underline max-sm:w-full max-sm:justify-center"
+          className="flex h-12 items-center gap-2 rounded-full bg-brasa px-6 font-bold text-tinta no-underline max-sm:w-full max-sm:justify-center"
         >
-          <IconPlus size={18} stroke={2.2} aria-hidden="true" />
+          <PuntoQueLate tamano={8} />
           Publicar busco o remate
         </Link>
       </header>
