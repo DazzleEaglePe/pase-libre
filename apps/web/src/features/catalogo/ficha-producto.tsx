@@ -3,14 +3,14 @@
 import {
   formatearPrecio,
   precioDe,
-  TEXTO_ESTADO_DETALLE,
-  TEXTO_GARANTIA,
   TIENDA_RESERVADA,
   urlFoto,
   type Audiencia,
   type Precio,
   type ProductoDetalle,
   type RespuestaContacto,
+  textoEstadoDetalle,
+  textoGarantia,
 } from '@paselibre/contracts';
 import { IconBrandWhatsapp, IconChevronRight, IconMessageCircle } from '@tabler/icons-react';
 import Link from 'next/link';
@@ -230,7 +230,7 @@ export function FichaProducto({
 
   const detalles = oferta
     ? [
-        oferta.detalle.garantia ? TEXTO_GARANTIA[oferta.detalle.garantia] : null,
+        textoGarantia(oferta.detalle),
         oferta.detalle.con_caja ? 'Con caja' : null,
         oferta.detalle.con_factura ? 'Con factura o boleta' : null,
         oferta.detalle.probado ? 'Probado en el stand' : null,
@@ -395,10 +395,8 @@ export function FichaProducto({
           </div>
           {oferta && (
             <span className="text-apoyo text-secundario md:hidden">
-              <b className="font-semibold text-tinta">
-                {TEXTO_ESTADO_DETALLE[oferta.detalle.estado]}
-              </b>{' '}
-              · Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
+              <b className="font-semibold text-tinta">{textoEstadoDetalle(oferta.detalle)}</b> ·
+              Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
             </span>
           )}
           <h1 className="font-sans text-[30px] font-bold normal-case leading-[38px] tracking-[-0.01em] max-md:text-[24px] max-md:leading-8">
@@ -423,10 +421,8 @@ export function FichaProducto({
           {oferta ? (
             <div className="flex flex-col gap-4 rounded-[20px] border border-linea p-[22px] max-md:border-0 max-md:p-0">
               <span className="text-nota text-secundario max-md:hidden">
-                <b className="font-semibold text-tinta">
-                  {TEXTO_ESTADO_DETALLE[oferta.detalle.estado]}
-                </b>{' '}
-                · Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
+                <b className="font-semibold text-tinta">{textoEstadoDetalle(oferta.detalle)}</b> ·
+                Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
               </span>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 {precioGrande}
@@ -657,9 +653,7 @@ export function FichaProducto({
                         {nombreDe(fila)}
                       </td>
                       <td className="pr-4 text-secundario">{fila.galeria ?? 'Independiente'}</td>
-                      <td className="pr-4 text-secundario">
-                        {TEXTO_ESTADO_DETALLE[fila.detalle.estado]}
-                      </td>
+                      <td className="pr-4 text-secundario">{textoEstadoDetalle(fila.detalle)}</td>
                       <td className="pr-4">
                         <span className="flex items-center gap-2 font-semibold">
                           <span

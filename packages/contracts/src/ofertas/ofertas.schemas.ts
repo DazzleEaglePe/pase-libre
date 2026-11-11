@@ -52,7 +52,7 @@ const descripcionSchema = z
 const condicionSchema = z.enum(['NUEVO', 'USADO'], 'Elige si es nuevo o usado.');
 
 /** «Estado» de PUB_WebProducto. Sellado y open box cuentan como nuevos en los filtros. */
-export const ESTADOS_DETALLE = ['SELLADO', 'OPEN_BOX', 'USADO', 'REACONDICIONADO'] as const;
+export const ESTADOS_DETALLE = ['SELLADO', 'OPEN_BOX', 'USADO', 'REACONDICIONADO', 'OTRO'] as const;
 export const GARANTIAS = [
   'SIN',
   'UN_MES',
@@ -60,7 +60,17 @@ export const GARANTIAS = [
   'SEIS_MESES',
   'UN_ANIO',
   'FABRICA',
+  'OTRA',
 ] as const;
+/** El texto de «Otro» en estado o garantía (COR9): hasta 40 letras. */
+export const MAX_TEXTO_OTRO = 40;
+const textoOtroSchema = z
+  .string()
+  .trim()
+  .max(MAX_TEXTO_OTRO, `Llega hasta ${MAX_TEXTO_OTRO} letras.`)
+  .nullable()
+  .transform((texto) => texto || null)
+  .optional();
 /** «¿Cómo lo vendes?»: pase (sin comprobante), facturado (con IGV) o los dos (PS_Precio). */
 export const MODOS_VENTA = ['PASE', 'FACTURADO', 'AMBOS'] as const;
 /** «¿Quién ve el precio?»: todas las tiendas con sesión, solo tus socios o nadie (por chat). */
@@ -77,6 +87,10 @@ const detalleOferta = {
   con_factura: z.boolean().optional(),
   probado: z.boolean().optional(),
   garantia: z.enum(GARANTIAS).nullable().optional(),
+  /** Con `estado_detalle: OTRO`. */
+  estado_otro: textoOtroSchema,
+  /** Con `garantia: OTRA`. */
+  garantia_otra: textoOtroSchema,
   en_almacen: z.boolean().optional(),
   modo_venta: z.enum(MODOS_VENTA).optional(),
   precio_facturado: montoSchema.optional(),
@@ -98,6 +112,22 @@ export const productoNuevoSchema = z.strictObject({
     .trim()
     .min(2, 'Escribe el modelo.')
     .max(120, 'El modelo llega hasta 120 caracteres.'),
+  /** «OC», «Normal», «Ti» (COR9): va en el título. */
+  version: z
+    .string()
+    .trim()
+    .max(40, 'La versión llega hasta 40 caracteres.')
+    .nullable()
+    .transform((texto) => texto || null)
+    .default(null),
+  /** El código del fabricante (COR9): si ya está en el catálogo, se publica uno igual. */
+  codigo_parte: z
+    .string()
+    .trim()
+    .max(60, 'El código llega hasta 60 caracteres.')
+    .nullable()
+    .transform((texto) => texto || null)
+    .default(null),
   etiquetas: z
     .array(z.string().trim().min(1).max(40, 'Cada etiqueta llega hasta 40 caracteres.'))
     .max(12, 'Pon hasta 12 etiquetas.')

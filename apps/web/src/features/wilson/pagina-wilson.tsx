@@ -1,8 +1,8 @@
 import {
   formatearPrecio,
-  TEXTO_ESTADO_DETALLE,
   type GaleriaEnVivo,
   type RespuestaWilson,
+  textoEstadoDetalle,
 } from '@paselibre/contracts';
 import { IconMapPin } from '@tabler/icons-react';
 import Link from 'next/link';
@@ -261,7 +261,7 @@ export function PaginaWilson({
                         {oferta.producto.titulo}
                       </b>
                       <span className="text-nota text-secundario">
-                        {TEXTO_ESTADO_DETALLE[oferta.detalle.estado]}
+                        {textoEstadoDetalle(oferta.detalle)}
                         {'tienda' in oferta
                           ? ` · ${oferta.tienda.nombre}${oferta.tienda.stand ? ` · Stand ${oferta.tienda.stand}` : ''}`
                           : ''}

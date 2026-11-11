@@ -2,7 +2,6 @@
 
 import {
   formatearPrecio,
-  TEXTO_ESTADO_DETALLE,
   type AvisoCampanita,
   type Contadores,
   type OfertaPropia,
@@ -13,6 +12,7 @@ import {
   type RespuestaMisOfertas,
   type RespuestaOpiniones,
   type ResumenCuenta,
+  textoEstadoDetalle,
 } from '@paselibre/contracts';
 import {
   IconAntenna,
@@ -612,8 +612,8 @@ export function PerfilPropio({ perfil }: { perfil: PerfilTienda }) {
                                 {oferta.producto.titulo}
                               </b>
                               <span className="text-nota text-secundario">
-                                {oferta.detalle ? TEXTO_ESTADO_DETALLE[oferta.detalle.estado] : ''}{' '}
-                                · {oferta.stock} disp.
+                                {oferta.detalle ? textoEstadoDetalle(oferta.detalle) : ''} ·{' '}
+                                {oferta.stock} disp.
                               </span>
                               <span className="mt-auto flex items-center justify-between gap-2 pt-1">
                                 <b className="rounded-full bg-tinta px-2.5 py-0.5 text-apoyo font-bold text-white">

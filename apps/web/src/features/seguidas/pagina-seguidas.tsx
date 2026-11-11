@@ -1,9 +1,9 @@
 import {
   formatearPrecio,
-  TEXTO_ESTADO_DETALLE,
   type NovedadSeguida,
   type OfertaDeNovedad,
   type RespuestaNovedades,
+  textoEstadoDetalle,
 } from '@paselibre/contracts';
 import { IconDots, IconHeart, IconStar, IconTag, IconTrendingDown } from '@tabler/icons-react';
 import Link from 'next/link';
@@ -84,7 +84,7 @@ function Producto({
       <span className="flex min-w-0 flex-col gap-1">
         <b className="text-cuerpo font-bold hover:underline">{oferta.producto.titulo}</b>
         <span className="text-apoyo text-secundario">
-          {TEXTO_ESTADO_DETALLE[oferta.detalle.estado]} ·{' '}
+          {textoEstadoDetalle(oferta.detalle)} ·{' '}
           {oferta.stock === 1 ? '1 disponible' : `${oferta.stock} disponibles`}
         </span>
         <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">

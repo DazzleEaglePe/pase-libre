@@ -5,7 +5,6 @@ import {
   EVENTOS,
   formatearPrecio,
   RAZONES_PAUSA,
-  TEXTO_ESTADO_DETALLE,
   TEXTO_MODO_VENTA,
   type EditarOfertaEntrada,
   type OfertaPropia,
@@ -13,6 +12,7 @@ import {
   type RespuestaConfirmar,
   type RespuestaHistorial,
   type RespuestaMisOfertas,
+  textoEstadoDetalle,
 } from '@paselibre/contracts';
 import {
   IconCheck,
@@ -56,7 +56,7 @@ function precioDeFila(oferta: OfertaPropia): Precio | null {
 /** «Usado · como nuevo · Pase»: el estado del lienzo (o nuevo/usado) y cómo se vende. */
 function lineaDeEstado(oferta: OfertaPropia): string {
   const estado = oferta.detalle
-    ? TEXTO_ESTADO_DETALLE[oferta.detalle.estado]
+    ? textoEstadoDetalle(oferta.detalle)
     : oferta.condicion === 'NUEVO'
       ? 'Nuevo'
       : 'Usado';

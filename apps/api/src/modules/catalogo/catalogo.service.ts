@@ -49,6 +49,8 @@ export const SELECT_OFERTA_PUBLICA = {
   conFactura: true,
   probado: true,
   garantia: true,
+  estadoOtro: true,
+  garantiaOtra: true,
   enAlmacen: true,
   stock: true,
   descripcion: true,
@@ -162,6 +164,8 @@ export function detalleDe(o: {
   conFactura: boolean;
   probado: boolean;
   garantia: DetalleOferta['garantia'];
+  estadoOtro: string | null;
+  garantiaOtra: string | null;
   enAlmacen: boolean;
 }): DetalleOferta {
   return {
@@ -170,6 +174,8 @@ export function detalleDe(o: {
     con_factura: o.conFactura,
     probado: o.probado,
     garantia: o.garantia,
+    estado_otro: o.estadoDetalle === 'OTRO' ? o.estadoOtro : null,
+    garantia_otra: o.garantia === 'OTRA' ? o.garantiaOtra : null,
     en_almacen: o.enAlmacen,
   };
 }

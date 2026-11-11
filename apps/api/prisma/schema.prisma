@@ -192,7 +192,8 @@ model Tienda {
   logo                 String?      @db.VarChar(300)
   /// Valores por defecto al publicar (D-37): precio oculto y en dólares.
   precioVisibleDefecto Boolean      @default(false) @map("precio_visible_defecto")
-  monedaDefecto        Moneda       @default(USD) @map("moneda_defecto")
+  /// Soles por defecto (guía del lienzo final); la tienda lo cambia en Configuración.
+  monedaDefecto        Moneda       @default(PEN) @map("moneda_defecto")
   /// Fase 2 (RF-41). Se crea ahora para no migrar después.
   perfilPrivado        Boolean      @default(false) @map("perfil_privado")
   estado               EstadoTienda @default(ACTIVA)
@@ -357,6 +358,11 @@ model Producto {
   marcaId           String?  @map("marca_id") @db.Uuid
   titulo            String   @db.VarChar(200)
   modelo            String?  @db.VarChar(120)
+  /// «OC», «Normal», «Ti»… (COR9 y COR15): va también en el título.
+  version           String?  @db.VarChar(40)
+  /// El código del fabricante (TUF-RTX5070-O12G-GAMING). Nunca se unen productos con códigos
+  /// distintos (COR15); dos productos no comparten código.
+  codigoParte       String?  @unique @map("codigo_parte") @db.Citext
   slug              String   @unique @db.Citext
   caracteristicas   Json     @default("{}")
   /// Título, marca, modelo y etiquetas pasados por `normalizarTexto` (índice trigram).
@@ -445,10 +451,14 @@ model Oferta {
   /// «Nuevo sellado», «Open box», «Usado» o «Reacondicionado» (PUB_WebProducto). `condicion`
   /// sigue siendo nuevo o usado, para los filtros.
   estadoDetalle           EstadoDetalle? @map("estado_detalle")
+  /// Lo que escribió quien publica al elegir «Otro» en el estado (COR9).
+  estadoOtro              String?        @map("estado_otro") @db.VarChar(40)
   conCaja                 Boolean        @default(false) @map("con_caja")
   conFactura              Boolean        @default(false) @map("con_factura")
   probado                 Boolean        @default(false)
   garantia                Garantia?
+  /// La garantía escrita a mano con «Otro» (COR9): «2 años», «15 días».
+  garantiaOtra            String?        @map("garantia_otra") @db.VarChar(40)
   /// «En almacén · ~30 min»: no está en el stand.
   enAlmacen               Boolean        @default(false) @map("en_almacen")
   /// «¿Cómo lo vendes?»: pase (sin comprobante), facturado (con IGV) o los dos.
@@ -1073,6 +1083,8 @@ enum EstadoDetalle {
   OPEN_BOX
   USADO
   REACONDICIONADO
+  /// «Otro» (COR9): el texto va en `estado_otro`.
+  OTRO
 
   @@map("estado_detalle")
 }
@@ -1084,6 +1096,8 @@ enum Garantia {
   SEIS_MESES
   UN_ANIO
   FABRICA
+  /// «Otro» (COR9): el texto va en `garantia_otra`.
+  OTRA
 
   @@map("garantia")
 }

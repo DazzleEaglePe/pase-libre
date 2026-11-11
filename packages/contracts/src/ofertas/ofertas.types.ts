@@ -110,8 +110,9 @@ export interface RespuestaConfirmar {
   confirmadas: number;
 }
 
-export type EstadoDetalle = 'SELLADO' | 'OPEN_BOX' | 'USADO' | 'REACONDICIONADO';
-export type Garantia = 'SIN' | 'UN_MES' | 'TRES_MESES' | 'SEIS_MESES' | 'UN_ANIO' | 'FABRICA';
+export type EstadoDetalle = 'SELLADO' | 'OPEN_BOX' | 'USADO' | 'REACONDICIONADO' | 'OTRO';
+export type Garantia =
+  'SIN' | 'UN_MES' | 'TRES_MESES' | 'SEIS_MESES' | 'UN_ANIO' | 'FABRICA' | 'OTRA';
 export type ModoVenta = 'PASE' | 'FACTURADO' | 'AMBOS';
 
 /** «Pase», «Facturado» o «Pase y facturado», como lo dicen las filas del lienzo. */
@@ -129,6 +130,10 @@ export interface DetalleOferta {
   con_factura: boolean;
   probado: boolean;
   garantia: Garantia | null;
+  /** El texto de «Otro» en el estado (COR9), o nulo. */
+  estado_otro: string | null;
+  /** El texto de «Otro» en la garantía (COR9), o nulo. */
+  garantia_otra: string | null;
   /** «En almacén · ~30 min». */
   en_almacen: boolean;
 }
@@ -138,6 +143,7 @@ export const TEXTO_ESTADO_DETALLE: Record<EstadoDetalle, string> = {
   OPEN_BOX: 'Open box',
   USADO: 'Usado',
   REACONDICIONADO: 'Reacondicionado',
+  OTRO: 'Otro estado',
 };
 
 export const TEXTO_GARANTIA: Record<Garantia, string> = {
@@ -147,4 +153,22 @@ export const TEXTO_GARANTIA: Record<Garantia, string> = {
   SEIS_MESES: 'Garantía 6 meses',
   UN_ANIO: 'Garantía 1 año',
   FABRICA: 'Garantía de fábrica',
+  OTRA: 'Con garantía',
 };
+
+/** «Nuevo sellado», o lo que escribió quien publica con «Otro» (COR9). */
+export function textoEstadoDetalle(detalle: Pick<DetalleOferta, 'estado' | 'estado_otro'>): string {
+  return detalle.estado === 'OTRO' && detalle.estado_otro
+    ? detalle.estado_otro
+    : TEXTO_ESTADO_DETALLE[detalle.estado];
+}
+
+/** «Garantía 1 año», o «Garantía 2 años» si la escribió con «Otro» (COR9). */
+export function textoGarantia(
+  detalle: Pick<DetalleOferta, 'garantia' | 'garantia_otra'>,
+): string | null {
+  if (!detalle.garantia) return null;
+  return detalle.garantia === 'OTRA' && detalle.garantia_otra
+    ? `Garantía ${detalle.garantia_otra}`
+    : TEXTO_GARANTIA[detalle.garantia];
+}

@@ -191,7 +191,7 @@ describe('Sesión (RF-02, RF-50, RF-60)', () => {
       const cuenta = await http().get('/v1/cuenta').set('Cookie', cookie).expect(200);
       expect(cuenta.body.tienda).toMatchObject({
         precio_visible_defecto: false,
-        moneda_defecto: 'USD',
+        moneda_defecto: 'PEN',
       });
 
       const usuario = await prisma.usuario.findUniqueOrThrow({ where: { usuario: 'tiendad' } });

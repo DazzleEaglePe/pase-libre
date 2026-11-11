@@ -241,10 +241,11 @@ describe('Publicar, fotos y Mis publicaciones (RF-05 a RF-10, RF-53)', () => {
           condicion: 'USADO',
           stock: 2,
           estado: 'ACTIVA',
-          moneda: 'USD',
+          // Soles por defecto (guía del lienzo final).
+          moneda: 'PEN',
           // La tienda tiene el precio oculto por defecto (D-37).
           precio_visible: false,
-          precio: { moneda: 'USD', centimos: 25500 },
+          precio: { moneda: 'PEN', centimos: 25500 },
           revisar: false,
           responsable: { nombre: 'Carla V.' },
           producto: { slug: SLUG_GIGABYTE, categoria: { slug: 'graficas' } },
@@ -455,7 +456,7 @@ describe('Publicar, fotos y Mis publicaciones (RF-05 a RF-10, RF-53)', () => {
         galeria: 'Maxiplaza',
         stand: '212',
         precio_visible_defecto: false,
-        moneda_defecto: 'USD',
+        moneda_defecto: 'PEN',
       });
       // Las 6 de la semilla más la que publicó Kevin.
       expect(lista.conteos).toEqual({
@@ -575,6 +576,76 @@ describe('Publicar, fotos y Mis publicaciones (RF-05 a RF-10, RF-53)', () => {
         .expect(201);
       const eliminada = await prisma.oferta.findUniqueOrThrow({ where: { id: kingston.id } });
       expect(eliminada).toMatchObject({ estado: 'ELIMINADA', vigente: null });
+    });
+  });
+  describe('publicar con «Otro» y a mano con versión y código (COR9)', () => {
+    it('guarda el estado y la garantía escritos con «Otro»', async () => {
+      const { body } = await como('tiendac')
+        .post('/v1/ofertas', {
+          producto_nuevo: {
+            categoria: 'fuentes',
+            marca: 'Corsair',
+            modelo: 'RM750e',
+            version: '750 W',
+            codigo_parte: 'CP-9020262-NA',
+          },
+          estado_detalle: 'OTRO',
+          estado_otro: 'Reacondicionado de fábrica',
+          garantia: 'OTRA',
+          garantia_otra: '2 años',
+          stock: 1,
+          precio: '420',
+        })
+        .expect(201);
+      expect(body.producto_nuevo).toBe(true);
+      expect(body.oferta.producto.titulo).toBe('Corsair RM750e 750 W');
+      const oferta = await como('tiendac').get(`/v1/ofertas/${body.oferta.id}`).expect(200);
+      expect(oferta.body.detalle).toMatchObject({
+        estado: 'OTRO',
+        estado_otro: 'Reacondicionado de fábrica',
+        garantia: 'OTRA',
+        garantia_otra: '2 años',
+      });
+      const producto = await prisma.producto.findFirstOrThrow({
+        where: { titulo: 'Corsair RM750e 750 W' },
+      });
+      expect(producto).toMatchObject({ version: '750 W', codigoParte: 'CP-9020262-NA' });
+    });
+
+    it('el mismo código de parte es el mismo producto: ofrece publicar uno igual', async () => {
+      const { body } = await como('tiendab')
+        .post('/v1/ofertas', {
+          producto_nuevo: {
+            categoria: 'fuentes',
+            marca: 'Corsair',
+            modelo: 'Fuente RM 750e Gold',
+            codigo_parte: 'cp-9020262-na',
+          },
+          estado_detalle: 'SELLADO',
+          stock: 1,
+          precio: '410',
+        })
+        .expect(409);
+      expect(body.error.detalles.producto.titulo).toBe('Corsair RM750e 750 W');
+    });
+
+    it('«Otro» sin estado elegido no guarda texto suelto', async () => {
+      const { body } = await como('tiendac')
+        .post('/v1/ofertas', {
+          producto_nuevo: { categoria: 'fuentes', marca: 'EVGA', modelo: 'SuperNOVA 650 G6' },
+          estado_detalle: 'USADO',
+          garantia: 'SEIS_MESES',
+          stock: 1,
+          precio: '200',
+        })
+        .expect(201);
+      const oferta = await como('tiendac').get(`/v1/ofertas/${body.oferta.id}`).expect(200);
+      expect(oferta.body.detalle).toMatchObject({
+        estado: 'USADO',
+        estado_otro: null,
+        garantia: 'SEIS_MESES',
+        garantia_otra: null,
+      });
     });
   });
 });

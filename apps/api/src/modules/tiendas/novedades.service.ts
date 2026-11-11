@@ -32,6 +32,8 @@ const SELECT_OFERTA = {
   conFactura: true,
   probado: true,
   garantia: true,
+  estadoOtro: true,
+  garantiaOtra: true,
   enAlmacen: true,
   precioCentimos: true,
   precioFacturadoCentimos: true,

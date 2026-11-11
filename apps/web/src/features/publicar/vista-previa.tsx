@@ -4,7 +4,6 @@ import { TIENDA_RESERVADA, type TiendaDeSesion } from '@paselibre/contracts';
 import { useState, type ReactNode } from 'react';
 
 import { Miniatura } from '@/shared/ui/miniatura';
-import { Segmentado } from '@/shared/ui/segmentado';
 
 /**
  * «Así lo verán» (F_Publicar): la tarjeta como la ve otro vendedor con sesión y como la
@@ -49,22 +48,52 @@ export function VistaPrevia({
   return (
     <aside
       aria-label="Vista previa"
-      className="sticky top-36 hidden w-full max-w-[360px] flex-[1_1_300px] flex-col gap-3.5 lg:flex"
+      className="sticky top-36 hidden w-[360px] flex-none flex-col gap-3.5 rounded-[20px] border border-linea bg-[#E2EAE6] p-4 lg:flex"
     >
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-tarjeta font-bold">Así lo verán las tiendas</span>
-        <Segmentado
-          etiqueta="Ver como"
-          chico
-          valor={como}
-          alCambiar={setComo}
-          opciones={[
-            ['vendedor', 'Vendedores'],
-            ['visitante', 'Visitantes'],
-          ]}
-        />
+      <span className="flex items-center gap-2 text-tarjeta font-bold">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        Vista previa
+      </span>
+      <div
+        role="radiogroup"
+        aria-label="Ver como"
+        className="grid grid-cols-2 rounded-full border border-linea bg-white p-1"
+      >
+        {(
+          [
+            ['vendedor', 'Tiendas con cuenta'],
+            ['visitante', 'Sin cuenta'],
+          ] as const
+        ).map(([clave, texto]) => (
+          <button
+            key={clave}
+            type="button"
+            role="radio"
+            aria-checked={como === clave}
+            onClick={() => setComo(clave)}
+            className={`h-9 rounded-full text-nota font-bold ${
+              como === clave ? 'bg-tinta text-white' : 'text-tinta'
+            }`}
+          >
+            {como === clave ? '✓ ' : ''}
+            {texto}
+          </button>
+        ))}
       </div>
-      <div className="flex flex-col gap-3 rounded-2xl border border-linea p-4">
+      <div className="flex flex-col gap-2.5 rounded-2xl border border-linea bg-white p-3.5">
         <Miniatura
           ruta={foto}
           categoria={categoria}
@@ -72,11 +101,8 @@ export function VistaPrevia({
           glifo={160}
           grosor={1.12}
         />
-        <span className="text-nota text-detalle">
-          {estado} · {stock === 1 ? '1 disponible' : `${stock} disponibles`}
-          {enAlmacen ? ' · en almacén' : ' · en el stand'}
-        </span>
-        <span className="font-medium">{titulo}</span>
+        <span className="font-bold">{titulo}</span>
+        <span className="text-nota text-secundario">{estado}</span>
         {conSesion && visible && precio ? (
           <span className="flex flex-col gap-1.5">
             <span className="flex items-center gap-2">
@@ -126,7 +152,11 @@ export function VistaPrevia({
           ) : (
             galeria
           )}{' '}
-          · Actualizado ahora
+        </span>
+        <span className="flex items-center gap-1.5 text-nota font-bold text-pase-texto">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-pase" />
+          {stock === 1 ? '1 disponible' : `${stock} disponibles`}
+          {enAlmacen ? ' · en almacén' : ''}
         </span>
       </div>
       <span className="text-nota text-detalle">

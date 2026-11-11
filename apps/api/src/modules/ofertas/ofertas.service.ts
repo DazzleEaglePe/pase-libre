@@ -45,6 +45,8 @@ function columnasDeDetalle(datos: Partial<EditarOfertaDatos>): Prisma.OfertaUpda
   if (datos.con_factura !== undefined) columnas.conFactura = datos.con_factura;
   if (datos.probado !== undefined) columnas.probado = datos.probado;
   if (datos.garantia !== undefined) columnas.garantia = datos.garantia;
+  if (datos.estado_otro !== undefined) columnas.estadoOtro = datos.estado_otro;
+  if (datos.garantia_otra !== undefined) columnas.garantiaOtra = datos.garantia_otra;
   if (datos.en_almacen !== undefined) columnas.enAlmacen = datos.en_almacen;
   if (datos.modo_venta) columnas.modoVenta = datos.modo_venta;
   if (datos.precio_facturado !== undefined) {
@@ -86,6 +88,8 @@ const SELECT_OFERTA_PROPIA = {
   conFactura: true,
   probado: true,
   garantia: true,
+  estadoOtro: true,
+  garantiaOtra: true,
   enAlmacen: true,
   modoVenta: true,
   precioFacturadoCentimos: true,
@@ -519,10 +523,16 @@ export class OfertasService {
         where: { OR: [{ nombre: datos.marca }, { slug: slugMarca }] },
       })) ?? (await tx.marca.create({ data: { nombre: datos.marca, slug: slugMarca } }));
 
-    const titulo = tituloDeProducto(marca.nombre, datos.modelo);
+    const titulo = tituloDeProducto(
+      marca.nombre,
+      [datos.modelo, datos.version].filter(Boolean).join(' '),
+    );
     const slug = slugDe(titulo);
-    const existente = await tx.producto.findUnique({
-      where: { slug },
+    // El mismo código de parte es el mismo producto, aunque lo hayan escrito distinto (COR15).
+    const existente = await tx.producto.findFirst({
+      where: datos.codigo_parte
+        ? { OR: [{ slug }, { codigoParte: datos.codigo_parte }] }
+        : { slug },
       select: {
         id: true,
         slug: true,
@@ -546,7 +556,9 @@ export class OfertasService {
       if (clave && !etiquetas.has(clave)) etiquetas.set(clave, nombre);
     }
     const textoBusqueda = normalizarTexto(
-      [titulo, marca.nombre, datos.modelo, ...etiquetas.values()].join(' '),
+      [titulo, marca.nombre, datos.modelo, datos.codigo_parte ?? '', ...etiquetas.values()].join(
+        ' ',
+      ),
     );
     const fotos = await this.archivos.reclamar(tx, datos.fotos, tiendaId);
 
@@ -556,6 +568,8 @@ export class OfertasService {
         marcaId: marca.id,
         titulo,
         modelo: datos.modelo,
+        version: datos.version,
+        codigoParte: datos.codigo_parte,
         slug,
         textoBusqueda,
         revisado: false,

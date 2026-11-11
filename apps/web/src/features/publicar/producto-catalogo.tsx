@@ -181,30 +181,42 @@ export function ProductoElegido({
   const repetida = propias?.find((p) => p.condicion === condicion);
   return (
     <>
-      <div className="grid grid-cols-[72px_minmax(0,1fr)] items-center gap-x-4 gap-y-2 rounded-xl border border-linea px-4 py-3.5 sm:grid-cols-[96px_minmax(0,1fr)_auto]">
-        <Miniatura
-          ruta={producto.foto}
-          categoria={producto.categoria.slug}
-          className="h-[54px] w-[72px] rounded-[10px] sm:h-[72px] sm:w-24"
-          glifo={72}
-          grosor={2.5}
-        />
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-tarjeta">{producto.titulo}</span>
-          <span className="text-nota text-detalle">{lineaDeProducto(producto)}</span>
-          <span className="text-nota text-ok">
+      {/* «Lleno con el catálogo» (COR9): el producto ya trae nombre, datos y fotos. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-pase-medio px-4 py-3.5">
+        <span
+          aria-hidden="true"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pase text-white"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 12l5 5 9-10" />
+          </svg>
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <b className="text-apoyo font-bold text-marca">Lleno con el catálogo</b>
+          <span className="text-apoyo">
+            {producto.titulo} ·{' '}
             {producto.fotos === 0
-              ? 'Usas sus datos del catálogo'
+              ? 'nombre y datos'
               : producto.fotos === 1
-                ? 'Usas su foto y sus datos del catálogo'
-                : `Usas sus ${producto.fotos} fotos y sus datos del catálogo`}
+                ? 'nombre, datos y 1 foto'
+                : `nombre, datos y ${producto.fotos} fotos`}
           </span>
+          <span className="text-nota text-secundario">{lineaDeProducto(producto)}</span>
         </span>
         {alCambiar && (
           <button
             type="button"
             onClick={alCambiar}
-            className="col-span-2 h-9 justify-self-start text-apoyo font-medium underline sm:col-span-1"
+            className="h-10 rounded-full border border-pase bg-white px-4 text-apoyo font-bold text-marca"
           >
             Cambiar
           </button>

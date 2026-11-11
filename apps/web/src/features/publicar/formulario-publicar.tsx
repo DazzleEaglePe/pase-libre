@@ -4,6 +4,7 @@ import {
   centimosDeMonto,
   formatearPrecio,
   MAX_DESCRIPCION,
+  MAX_TEXTO_OTRO,
   montoParaCampo,
   precioDe,
   TEXTO_ESTADO_DETALLE,
@@ -30,7 +31,6 @@ import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Contador } from '@/shared/ui/contador';
 import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
-import { Segmentado } from '@/shared/ui/segmentado';
 import { Interruptor } from '@/shared/ui/interruptor';
 
 import { BuscadorProducto, ProductoElegido } from './producto-catalogo';
@@ -40,38 +40,39 @@ import { VistaPrevia } from './vista-previa';
 
 type Modo = 'buscar' | 'igual' | 'nuevo';
 
+/** «Estado» (COR9): con «Otro» se escribe. Reacondicionado sigue si una oferta ya lo tenía. */
 const ESTADOS: Array<[EstadoDetalle, string]> = [
   ['SELLADO', 'Nuevo sellado'],
   ['OPEN_BOX', 'Open box'],
   ['USADO', 'Usado'],
-  ['REACONDICIONADO', 'Reacondicionado'],
+  ['OTRO', 'Otro'],
 ];
+/** «Garantía (opcional)» (COR9): sin elegir nada, la ficha no muestra garantía. */
 const GARANTIAS_OPCIONES: Array<[Garantia, string]> = [
-  ['SIN', 'Sin garantía'],
-  ['UN_MES', '1 mes'],
-  ['TRES_MESES', '3 meses'],
   ['SEIS_MESES', '6 meses'],
   ['UN_ANIO', '1 año'],
-  ['FABRICA', 'De fábrica'],
+  ['OTRA', 'Otro'],
 ];
+/** Las garantías de antes, por si una oferta ya tenía una. */
+const GARANTIAS_ANTES: Partial<Record<Garantia, string>> = {
+  SIN: 'Sin garantía',
+  UN_MES: '1 mes',
+  TRES_MESES: '3 meses',
+  FABRICA: 'De fábrica',
+};
 const MODOS: Array<[ModoVenta, string, string]> = [
   ['PASE', 'Pase', 'Sin comprobante. El precio de siempre entre tiendas.'],
   ['FACTURADO', 'Facturado', 'Con factura. Pones el precio con IGV.'],
   ['AMBOS', 'Los dos', 'Pones los dos precios y la otra tienda elige.'],
 ];
-const QUIEN_VE: Array<[QuienVePrecio, string, string]> = [
-  ['TODOS', 'Todas las tiendas con sesión', 'Tus socios ven además su precio especial.'],
-  ['SOCIOS', 'Solo mis socios', 'Las demás ven «Precio por chat» y te lo piden con un botón.'],
-  ['NADIE', 'Nadie: precio por chat', 'Todos te lo piden por chat con el botón «Pedir precio».'],
+/** «¿Quién ve tu precio?» (COR9): lo primero del precio, con su dibujito. */
+const QUIEN_VE: Array<[QuienVePrecio, string, string, string]> = [
+  ['TODOS', '👁️', 'Todas las tiendas', 'Las tiendas con sesión ven tu precio.'],
+  ['SOCIOS', '🤝', 'Solo mis socios', 'Las demás te lo piden por chat.'],
+  ['NADIE', '🔒', 'Al interno · por chat', 'Nadie lo ve: te lo piden con «Pedir precio».'],
 ];
-/** «Algo que deban saber»: un toque suma la frase al texto. */
-const FRASES = ['Probada', 'Con factura', 'Incluye cables', 'Precio fijo'];
-const MONEDAS = [
-  ['PEN', 'S/'],
-  ['USD', 'US$'],
-] as const;
-/** «¿Cuánto menos?» del precio socio, en unidades de la moneda. */
-const DESCUENTOS = [1, 3, 5];
+/** «¿Cuánto menos?» del precio socio (COR9): en soles 5, 10 y 20; en dólares 1, 3 y 5. */
+const DESCUENTOS: Record<Moneda, number[]> = { PEN: [5, 10, 20], USD: [1, 3, 5] };
 const SIMBOLO: Record<Moneda, string> = { USD: 'US$', PEN: 'S/' };
 
 interface ErrorPublicar {
@@ -103,10 +104,10 @@ function Seccion({
       className="flex flex-col gap-4 rounded-[20px] border border-linea bg-white p-5 sm:p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-        <div className="flex items-start gap-3">
+        <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-tinta text-nota font-bold text-white"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-marca text-nota font-bold text-white"
           >
             {numero}
           </span>
@@ -158,29 +159,10 @@ function Chips<T extends string | number>({
   );
 }
 
-function Casilla({
-  etiqueta,
-  marcada,
-  alCambiar,
-}: {
-  etiqueta: string;
-  marcada: boolean;
-  alCambiar: (marcada: boolean) => void;
-}) {
-  return (
-    <label className="flex min-h-10 items-center gap-2.5 text-apoyo">
-      <input
-        type="checkbox"
-        checked={marcada}
-        onChange={(evento) => alCambiar(evento.target.checked)}
-        className="h-5 w-5 accent-pase"
-      />
-      {etiqueta}
-    </label>
-  );
-}
-
-/** Un campo de monto con su moneda delante. */
+/**
+ * Un campo de monto con su moneda delante. Con `alCambiarMoneda`, la moneda es un botón «S/ ▾»
+ * que cambia a dólares y vuelve (COR9: soles por defecto).
+ */
 function CampoMonto({
   id,
   etiqueta: texto,
@@ -188,6 +170,7 @@ function CampoMonto({
   valor,
   alCambiar,
   ayuda,
+  alCambiarMoneda,
 }: {
   id: string;
   etiqueta: string;
@@ -195,21 +178,33 @@ function CampoMonto({
   valor: string;
   alCambiar: (valor: string) => void;
   ayuda?: string;
+  alCambiarMoneda?: () => void;
 }) {
   const invalido = valor.trim() !== '' && centimosDeMonto(valor) === null;
   return (
     <label htmlFor={id} className={etiqueta}>
       <span className="font-bold">{texto}</span>
-      <span className="flex h-12 items-center overflow-hidden rounded-xl border border-borde focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-tinta">
-        <span className="pl-3.5 pr-1 font-medium text-secundario">{SIMBOLO[moneda]}</span>
+      <span className="flex h-[52px] items-center gap-1 overflow-hidden rounded-xl border border-borde bg-white pl-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-tinta">
+        {alCambiarMoneda ? (
+          <button
+            type="button"
+            onClick={alCambiarMoneda}
+            aria-label={`Moneda: ${moneda === 'PEN' ? 'soles' : 'dólares'}. Cambiar a ${moneda === 'PEN' ? 'dólares' : 'soles'}`}
+            className="flex h-10 shrink-0 items-center gap-1 rounded-[10px] border border-[#A7E3C3] bg-pase-suave px-2.5 text-cuerpo font-extrabold text-marca"
+          >
+            {SIMBOLO[moneda]} <span className="text-[11px]">▼</span>
+          </button>
+        ) : (
+          <span className="pl-2 pr-1 font-medium text-secundario">{SIMBOLO[moneda]}</span>
+        )}
         <input
           id={id}
           inputMode="decimal"
           autoComplete="off"
           value={valor}
           onChange={(evento) => alCambiar(evento.target.value)}
-          placeholder="0"
-          className="h-full min-w-0 flex-1 bg-transparent pl-1 pr-3.5 text-cuerpo font-bold placeholder:font-normal placeholder:text-detalle focus-visible:outline-none"
+          placeholder="0.00"
+          className="h-full min-w-0 flex-1 bg-transparent pl-1.5 pr-3.5 text-[18px] font-bold placeholder:font-semibold placeholder:text-detalle focus-visible:outline-none"
         />
       </span>
       {invalido ? (
@@ -265,6 +260,10 @@ export function FormularioPublicar({
   const [conFactura, setConFactura] = useState(false);
   const [probado, setProbado] = useState(false);
   const [garantia, setGarantia] = useState<Garantia | null>(null);
+  const [estadoOtro, setEstadoOtro] = useState('');
+  const [garantiaOtra, setGarantiaOtra] = useState('');
+  /** En la publicación rápida las fotos son las del catálogo; las tuyas, si quieres. */
+  const [conFotosPropias, setConFotosPropias] = useState(false);
   const [stock, setStock] = useState(1);
   const [enAlmacen, setEnAlmacen] = useState(false);
   const [modoVenta, setModoVenta] = useState<ModoVenta>('PASE');
@@ -272,7 +271,7 @@ export function FormularioPublicar({
   const [monto, setMonto] = useState('');
   const [montoFacturado, setMontoFacturado] = useState('');
   const [conSocio, setConSocio] = useState(false);
-  const [descuento, setDescuento] = useState('3');
+  const [descuento, setDescuento] = useState(tienda.moneda_defecto === 'USD' ? '3' : '10');
   const [otroDescuento, setOtroDescuento] = useState(false);
   const [quienVe, setQuienVe] = useState<QuienVePrecio>(
     tienda.precio_visible_defecto ? 'TODOS' : 'NADIE',
@@ -314,7 +313,7 @@ export function FormularioPublicar({
         const defecto = respuesta.descuento_defecto[tienda.moneda_defecto];
         if (!editar && defecto) {
           setDescuento(montoParaCampo(defecto.centimos));
-          setOtroDescuento(!DESCUENTOS.includes(defecto.centimos / 100));
+          setOtroDescuento(!DESCUENTOS[tienda.moneda_defecto].includes(defecto.centimos / 100));
           setConSocio(respuesta.mis_socios.length > 0);
         }
       },
@@ -333,6 +332,8 @@ export function FormularioPublicar({
           setConFactura(oferta.detalle.con_factura);
           setProbado(oferta.detalle.probado);
           setGarantia(oferta.detalle.garantia);
+          setEstadoOtro(oferta.detalle.estado_otro ?? '');
+          setGarantiaOtra(oferta.detalle.garantia_otra ?? '');
           setEnAlmacen(oferta.detalle.en_almacen);
           setStock(oferta.stock);
           setMoneda(oferta.moneda);
@@ -345,7 +346,7 @@ export function FormularioPublicar({
           if (oferta.descuento_socio) {
             const unidades = oferta.descuento_socio.centimos / 100;
             setDescuento(montoParaCampo(oferta.descuento_socio.centimos));
-            setOtroDescuento(!DESCUENTOS.includes(unidades));
+            setOtroDescuento(!DESCUENTOS[oferta.moneda].includes(unidades));
           }
           setQuienVe(oferta.quien_ve_precio);
           setAceptaOfertas(oferta.acepta_ofertas);
@@ -354,6 +355,7 @@ export function FormularioPublicar({
           setFotos(
             oferta.fotos.map((f) => ({ ruta: f.ruta, ancho: f.ancho ?? 0, alto: f.alto ?? 0 })),
           );
+          setConFotosPropias(oferta.fotos.length > 0);
         })
         .catch((e: unknown) =>
           setError({
@@ -399,6 +401,9 @@ export function FormularioPublicar({
     setElegido(null);
     setNuevo(PRODUCTO_NUEVO_VACIO);
     setFotosProducto([]);
+    setEstadoOtro('');
+    setGarantiaOtra('');
+    setConFotosPropias(false);
     setStock(1);
     setMonto('');
     setMontoFacturado('');
@@ -430,6 +435,8 @@ export function FormularioPublicar({
       con_factura: conFactura,
       probado,
       garantia,
+      estado_otro: estado === 'OTRO' ? estadoOtro : null,
+      garantia_otra: garantia === 'OTRA' ? garantiaOtra : null,
       en_almacen: enAlmacen,
       stock,
       moneda,
@@ -515,16 +522,57 @@ export function FormularioPublicar({
   }
 
   const condicionPrevia = estado === 'SELLADO' || estado === 'OPEN_BOX' ? 'NUEVO' : 'USADO';
+  const aMano = !editando && modo === 'nuevo';
+  const productoListo = aMano
+    ? Boolean(nuevo.categoria && nuevo.marca.trim() && nuevo.modelo.trim().length >= 2)
+    : listo;
+  const alInterno = quienVe === 'NADIE';
+  const precioListo = alInterno || principal !== null;
+  const faltan = [!productoListo && 'producto', !precioListo && 'precio'].filter(Boolean);
+  const descuentos = DESCUENTOS[moneda];
+  const opcionesEstado: Array<[EstadoDetalle, string]> = ESTADOS.some(([e]) => e === estado)
+    ? ESTADOS
+    : [...ESTADOS.slice(0, 3), [estado, TEXTO_ESTADO_DETALLE[estado]], ESTADOS[3]!];
+  const anterior = garantia ? GARANTIAS_ANTES[garantia] : undefined;
+  const opcionesGarantia: Array<[Garantia, string]> =
+    garantia && anterior ? [[garantia, anterior], ...GARANTIAS_OPCIONES] : GARANTIAS_OPCIONES;
+  const estadoVista =
+    estado === 'OTRO' && estadoOtro.trim() ? estadoOtro.trim() : TEXTO_ESTADO_DETALLE[estado];
+  const garantiaVista = garantia
+    ? garantia === 'OTRA'
+      ? garantiaOtra.trim() && `garantía ${garantiaOtra.trim()}`
+      : `garantía ${(GARANTIAS_OPCIONES.find(([g]) => g === garantia)?.[1] ?? anterior ?? '').toLowerCase()}`
+    : '';
+  const checks: Array<[boolean, string]> = [
+    [productoListo, 'Producto elegido'],
+    [true, 'Estado'],
+    [stock >= (editando ? 0 : 1), 'Cantidad'],
+    [precioListo, alInterno ? 'Precio al interno' : 'Precio puesto'],
+  ];
+  const listos = checks.filter(([hecho]) => hecho).length;
+
+  /** «+ Con caja», «+ Probada», «+ Con factura» marcan el detalle; «+ Incluye cables» lo escribe. */
+  const marcas: Array<[string, boolean, (valor: boolean) => void]> = [
+    ['Con caja', conCaja, setConCaja],
+    ['Probada', probado, setProbado],
+    ['Con factura', conFactura, setConFactura],
+  ];
+
+  function cambiarMoneda() {
+    const otra: Moneda = moneda === 'PEN' ? 'USD' : 'PEN';
+    setMoneda(otra);
+    if (!otroDescuento) setDescuento(String(DESCUENTOS[otra][1]));
+  }
 
   return (
     <>
       <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-titulo">{editar ? 'Editar publicación' : 'Publicar un producto'}</h1>
-          <p className="text-secundario">
+          <p className="m-0 text-secundario">
             {editar
               ? 'Los datos del producto son del catálogo; aquí cambias lo tuyo.'
-              : 'Llena los datos de tu artículo. Si ya existe en el catálogo, te lo llenamos en un toque.'}
+              : 'Elige arriba: rápida o a mano.'}
           </p>
         </div>
         {!editar && (
@@ -538,322 +586,256 @@ export function FormularioPublicar({
         )}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-start gap-8">
+      {!editando && !cargando && (
+        <div
+          role="tablist"
+          aria-label="Cómo quieres publicar"
+          className="mt-5 grid gap-1.5 rounded-[20px] border border-linea bg-white p-1.5 sm:grid-cols-2"
+        >
+          {(
+            [
+              [
+                false,
+                'Publicación rápida',
+                'Búscalo y se llena casi todo · unos 30 s',
+                <svg
+                  key="r"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="#FACC15"
+                  aria-hidden="true"
+                >
+                  <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
+                </svg>,
+              ],
+              [
+                true,
+                'A mano',
+                'Para lo que no está en el catálogo · unos 3 min',
+                <svg
+                  key="m"
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 20l4-1 11-11-3-3L5 16z" />
+                </svg>,
+              ],
+            ] as const
+          ).map(([mano, titulo, detalle, icono]) => {
+            const activa = aMano === mano;
+            return (
+              <button
+                key={titulo}
+                type="button"
+                role="tab"
+                aria-selected={activa}
+                onClick={() => {
+                  setError(null);
+                  setModo(mano ? 'nuevo' : elegido ? 'igual' : 'buscar');
+                }}
+                className={`flex items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left ${
+                  activa ? 'border-pase bg-pase-suave' : 'border-transparent hover:bg-superficie'
+                }`}
+              >
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
+                    activa ? 'bg-marca text-white' : 'bg-secundario text-white'
+                  }`}
+                >
+                  {icono}
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  <b
+                    className={`text-[17px] font-bold ${activa ? 'text-tinta' : 'text-secundario'}`}
+                  >
+                    {titulo}
+                  </b>
+                  <span className="text-nota text-secundario">{detalle}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-wrap items-start gap-6">
         <form
           onSubmit={enviar}
           aria-busy={cargando}
           className="flex min-w-0 max-w-[880px] flex-[999_1_600px] flex-col gap-4"
         >
-          {!editando && modo === 'buscar' && !cargando && (
-            <section
-              aria-labelledby={`${id}-rapida`}
-              className="flex flex-col gap-3 rounded-[20px] border border-pase-medio bg-pase-suave p-5"
-            >
-              <div className="flex items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pase text-white"
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
-                  </svg>
-                </span>
-                <div className="flex flex-col">
-                  <h2
-                    id={`${id}-rapida`}
-                    className="flex flex-wrap items-center gap-2 text-tarjeta font-bold"
-                  >
-                    Publicación rápida
-                    <span className="rounded-full bg-ambar px-2 text-[11px] font-bold leading-5 text-ambar-texto">
-                      Ahorra tiempo
-                    </span>
-                  </h2>
-                  <span className="text-nota text-secundario">
-                    Búscalo y toca «Usar»: te llenamos nombre, datos y fotos. Tú solo pones estado,
-                    stock y precio.
-                  </span>
-                </div>
-              </div>
-              <BuscadorProducto
-                q={q}
-                alEscribir={setQ}
-                alElegir={(p) => {
-                  setElegido(p);
-                  setModo('igual');
-                  setError(null);
-                }}
-                alCrearNuevo={() => {
-                  setModo('nuevo');
-                  setError(null);
-                }}
-              />
-              {q.trim() === '' && (
-                <span className="flex flex-wrap items-center gap-2 text-nota text-secundario">
-                  Prueba con:
-                  {['gigabyte 30 60', '5070 tuf', 'ryzen 7800'].map((ejemplo) => (
-                    <button
-                      key={ejemplo}
-                      type="button"
-                      onClick={() => setQ(ejemplo)}
-                      className="h-8 rounded-full border border-borde bg-white px-3 font-semibold text-tinta"
-                    >
-                      {ejemplo}
-                    </button>
-                  ))}
-                </span>
-              )}
-            </section>
-          )}
-
-          <Seccion
-            numero={1}
-            titulo="Producto"
-            bajada="Llénalo a mano o usa la publicación rápida de arriba."
-          >
-            {cargando ? (
-              <p className="text-secundario">Cargando…</p>
-            ) : editando ? (
-              <ProductoElegido producto={editando.producto} condicion={condicionPrevia} />
-            ) : modo === 'igual' && elegido ? (
-              <ProductoElegido
-                producto={elegido}
-                propias={elegido.propias}
-                condicion={condicionPrevia}
-                alCambiar={() => setModo('buscar')}
-              />
-            ) : modo === 'nuevo' ? (
+          {aMano ? (
+            <Seccion numero={1} titulo="Producto y fotos">
               <ProductoNuevo
                 datos={nuevo}
                 alCambiar={setNuevo}
                 fotos={fotosProducto}
                 alCambiarFotos={setFotosProducto}
                 alCargarFotos={setSubiendoProducto}
-                alVolver={() => setModo('buscar')}
               />
-            ) : (
-              <button
-                type="button"
-                onClick={() => setModo('nuevo')}
-                className="flex h-12 items-center justify-center self-start rounded-full border border-borde px-5 font-bold text-tinta"
-              >
-                Llenarlo a mano
-              </button>
-            )}
-          </Seccion>
+            </Seccion>
+          ) : (
+            <>
+              <Seccion numero={1} titulo="Producto">
+                {cargando ? (
+                  <p className="text-secundario">Cargando…</p>
+                ) : editando ? (
+                  <ProductoElegido producto={editando.producto} condicion={condicionPrevia} />
+                ) : modo === 'igual' && elegido ? (
+                  <ProductoElegido
+                    producto={elegido}
+                    propias={elegido.propias}
+                    condicion={condicionPrevia}
+                    alCambiar={() => setModo('buscar')}
+                  />
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <BuscadorProducto
+                      q={q}
+                      alEscribir={setQ}
+                      alElegir={(p) => {
+                        setElegido(p);
+                        setModo('igual');
+                        setError(null);
+                      }}
+                      alCrearNuevo={() => {
+                        setModo('nuevo');
+                        setError(null);
+                      }}
+                    />
+                    {q.trim() === '' && (
+                      <span className="flex flex-wrap items-center gap-2 text-nota text-secundario">
+                        Prueba con:
+                        {['gigabyte 30 60', '5070 tuf', 'ryzen 7800'].map((ejemplo) => (
+                          <button
+                            key={ejemplo}
+                            type="button"
+                            onClick={() => setQ(ejemplo)}
+                            className="h-8 rounded-full border border-borde bg-white px-3 font-semibold text-tinta"
+                          >
+                            {ejemplo}
+                          </button>
+                        ))}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </Seccion>
+              {!cargando &&
+                (conFotosPropias ? (
+                  <Seccion
+                    numero={2}
+                    titulo="Tus fotos"
+                    bajada="Del producto real. La primera es la portada."
+                  >
+                    <SelectorFotos
+                      variante="mosaico"
+                      titulo="Fotos tuyas"
+                      ayuda="Recomendado si es usado u open box: el producto real y la caja."
+                      fotos={fotos}
+                      alCambiar={setFotos}
+                      alCargar={setSubiendoPropias}
+                    />
+                  </Seccion>
+                ) : (
+                  <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-dashed border-borde bg-white px-4 py-3 text-nota text-secundario">
+                    <span aria-hidden="true" className="font-bold text-pase">
+                      ✓
+                    </span>
+                    Fotos: vienen del catálogo. Puedes sumar las tuyas, si quieres.
+                    <button
+                      type="button"
+                      onClick={() => setConFotosPropias(true)}
+                      className="font-bold text-pase-texto underline"
+                    >
+                      Sumar mis fotos
+                    </button>
+                  </p>
+                ))}
+            </>
+          )}
 
-          <Seccion
-            numero={2}
-            titulo="Fotos"
-            bajada="Tuyas, del producto real. La primera es la portada."
-          >
-            <SelectorFotos
-              variante="mosaico"
-              titulo="Fotos tuyas"
-              ayuda="Recomendado si es usado u open box: el producto real y la caja."
-              fotos={fotos}
-              alCambiar={setFotos}
-              alCargar={setSubiendoPropias}
-            />
-          </Seccion>
-
-          <Seccion numero={3} titulo="Estado y garantía">
+          <Seccion numero={2} titulo="Estado y garantía">
             <div className="flex flex-col gap-2">
               <span className="text-apoyo font-bold">Estado</span>
-              <Chips etiqueta="Estado" opciones={ESTADOS} valor={estado} alCambiar={setEstado} />
-              <div className="flex flex-wrap gap-x-6">
-                <Casilla etiqueta="Con caja" marcada={conCaja} alCambiar={setConCaja} />
-                <Casilla
-                  etiqueta="Con factura o boleta"
-                  marcada={conFactura}
-                  alCambiar={setConFactura}
+              <Chips
+                etiqueta="Estado"
+                opciones={opcionesEstado}
+                valor={estado}
+                alCambiar={setEstado}
+              />
+              {estado === 'OTRO' && (
+                <input
+                  aria-label="Escribe el estado"
+                  maxLength={MAX_TEXTO_OTRO}
+                  value={estadoOtro}
+                  onChange={(evento) => setEstadoOtro(evento.target.value)}
+                  placeholder="Escribe el estado (ej. reacondicionado)"
+                  className={`${campo} max-w-[420px]`}
                 />
-                <Casilla etiqueta="Probado en el stand" marcada={probado} alCambiar={setProbado} />
-              </div>
+              )}
             </div>
             <div className="flex flex-col gap-2">
-              <span className="text-apoyo font-bold">Garantía</span>
+              <span className="text-apoyo">
+                <b className="font-bold">Garantía</b>{' '}
+                <span className="text-secundario">(opcional)</span>
+              </span>
               <Chips
                 etiqueta="Garantía"
-                opciones={GARANTIAS_OPCIONES}
+                opciones={opcionesGarantia}
                 valor={garantia}
-                alCambiar={setGarantia}
+                alCambiar={(valor) => setGarantia(garantia === valor ? null : valor)}
               />
+              {garantia === 'OTRA' && (
+                <span className="flex max-w-[420px] flex-col gap-1">
+                  <input
+                    aria-label="Escribe la garantía"
+                    maxLength={MAX_TEXTO_OTRO}
+                    value={garantiaOtra}
+                    onChange={(evento) => setGarantiaOtra(evento.target.value)}
+                    placeholder="Escribe la garantía (ej. 2 años)"
+                    className={campo}
+                  />
+                  <span className="self-end text-nota text-detalle">
+                    {garantiaOtra.length} / {MAX_TEXTO_OTRO}
+                  </span>
+                </span>
+              )}
+              <span className="text-nota text-secundario">
+                Si no eliges nada, en la ficha no se muestra garantía.
+              </span>
             </div>
           </Seccion>
 
-          <Seccion numero={4} titulo="Stock">
-            <div className="flex flex-wrap gap-x-10 gap-y-4">
-              <div className="flex flex-col gap-2">
-                <span className="text-apoyo font-bold">Cantidad disponible</span>
-                <Contador valor={stock} minimo={editando ? 0 : 1} alCambiar={setStock} />
-              </div>
-              <div className="flex flex-col gap-2">
-                <span className="text-apoyo font-bold">¿Dónde está?</span>
-                <Chips
-                  etiqueta="Dónde está"
-                  opciones={[
-                    ['stand', 'En el stand'],
-                    ['almacen', 'En almacén · ~30 min'],
-                  ]}
-                  valor={enAlmacen ? 'almacen' : 'stand'}
-                  alCambiar={(valor) => setEnAlmacen(valor === 'almacen')}
-                />
-              </div>
+          <Seccion numero={3} titulo="Cantidad">
+            <div className="flex flex-col items-start gap-2">
+              <span className="text-apoyo font-bold">Cantidad disponible</span>
+              <Contador valor={stock} minimo={editando ? 0 : 1} alCambiar={setStock} />
             </div>
           </Seccion>
 
-          <Seccion
-            numero={5}
-            titulo="Precio"
-            bajada="Solo lo ven las tiendas con sesión. Quien no inicia sesión nunca ve precios."
-          >
-            <div className="flex flex-col gap-2">
-              <span className="text-apoyo font-bold">¿Cómo lo vendes?</span>
+          <Seccion numero={4} titulo="Precio">
+            <div className="flex flex-col gap-3 rounded-2xl border-2 border-tinta p-4">
+              <span className="flex items-center gap-2">
+                <b className="text-cuerpo font-bold">¿Quién ve tu precio?</b>
+                <span className="rounded-full bg-tinta px-2 text-[11px] font-bold leading-5 text-white">
+                  Importante
+                </span>
+              </span>
               <div
                 role="radiogroup"
-                aria-label="Cómo lo vendes"
+                aria-label="Quién ve tu precio"
                 className="grid gap-2.5 sm:grid-cols-3"
               >
-                {MODOS.map(([clave, titulo, detalle]) => (
-                  <button
-                    key={clave}
-                    type="button"
-                    role="radio"
-                    aria-checked={modoVenta === clave}
-                    onClick={() => setModoVenta(clave)}
-                    className={`flex flex-col gap-1 rounded-2xl border-2 px-4 py-3 text-left ${
-                      modoVenta === clave ? 'border-tinta' : 'border-linea'
-                    }`}
-                  >
-                    <b className="text-cuerpo font-bold">{titulo}</b>
-                    <span className="text-nota text-secundario">{detalle}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-apoyo font-bold">Tus precios</span>
-              <Segmentado
-                etiqueta="Moneda"
-                opciones={MONEDAS}
-                valor={moneda}
-                alCambiar={setMoneda}
-                chico
-              />
-            </div>
-            {conPase && (
-              <CampoMonto
-                id={`${id}-monto`}
-                etiqueta="Precio pase"
-                moneda={moneda}
-                valor={monto}
-                alCambiar={setMonto}
-              />
-            )}
-            {conFacturado && (
-              <CampoMonto
-                id={`${id}-facturado`}
-                etiqueta="Precio facturado"
-                moneda={moneda}
-                valor={montoFacturado}
-                alCambiar={setMontoFacturado}
-                ayuda="Con factura e IGV incluido."
-              />
-            )}
-
-            {conPase && (
-              <div className="flex flex-col gap-3 border-t border-linea pt-4">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="flex flex-col">
-                    <b className="text-apoyo font-bold">Precio socio</b>
-                    <span className="text-nota text-secundario">
-                      {cuantosSocios === 0
-                        ? 'Aún no tienes socios: agrégalos en Tus socios.'
-                        : `Tus ${cuantosSocios === 1 ? 'socio verá' : `${cuantosSocios} socios verán`} ${
-                            centimosDescuento
-                              ? `${formatearPrecio(precioDe(centimosDescuento, moneda))} menos`
-                              : 'un precio menor'
-                          }`}
-                    </span>
-                  </span>
-                  <Interruptor etiqueta="Precio socio" activo={conSocio} alCambiar={setConSocio} />
-                </div>
-                {conSocio && (
-                  <>
-                    <span className="text-apoyo font-bold">¿Cuánto menos?</span>
-                    <div className="flex flex-wrap gap-2">
-                      {DESCUENTOS.map((unidades) => {
-                        const elegido = !otroDescuento && descuento === String(unidades);
-                        return (
-                          <button
-                            key={unidades}
-                            type="button"
-                            aria-pressed={elegido}
-                            onClick={() => {
-                              setOtroDescuento(false);
-                              setDescuento(String(unidades));
-                            }}
-                            className={`h-10 rounded-full border px-4 text-apoyo ${
-                              elegido
-                                ? 'border-tinta bg-tinta font-bold text-white'
-                                : 'border-borde bg-white font-medium'
-                            }`}
-                          >
-                            {SIMBOLO[moneda]} {unidades} menos
-                          </button>
-                        );
-                      })}
-                      <button
-                        type="button"
-                        aria-pressed={otroDescuento}
-                        onClick={() => setOtroDescuento(true)}
-                        className={`h-10 rounded-full border px-4 text-apoyo ${
-                          otroDescuento
-                            ? 'border-tinta bg-tinta font-bold text-white'
-                            : 'border-borde bg-white font-medium'
-                        }`}
-                      >
-                        Otro monto
-                      </button>
-                    </div>
-                    {otroDescuento && (
-                      <CampoMonto
-                        id={`${id}-descuento`}
-                        etiqueta="Cuánto menos para tus socios"
-                        moneda={moneda}
-                        valor={descuento}
-                        alCambiar={setDescuento}
-                      />
-                    )}
-                    <span className="flex flex-wrap items-center gap-2 rounded-xl bg-pase-suave px-3 py-2.5 text-nota">
-                      <span className="rounded-full bg-marca px-2 text-[11px] font-bold leading-5 text-white">
-                        Socio
-                      </span>
-                      {nombresSocios.length > 0 ? nombresSocios.join(', ') : 'Todavía nadie'}
-                      <Link href="/cuenta/socios" className="font-bold text-pase-texto">
-                        Administrar ›
-                      </Link>
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="flex flex-col gap-2.5 border-t border-linea pt-4">
-              <span className="text-apoyo font-bold">¿Quién ve el precio?</span>
-              <div
-                role="radiogroup"
-                aria-label="Quién ve el precio"
-                className="flex flex-col gap-2.5"
-              >
-                {QUIEN_VE.map(([clave, titulo, detalle]) => {
+                {QUIEN_VE.map(([clave, dibujo, titulo, detalle]) => {
                   const elegida = quienVe === clave;
                   return (
                     <button
@@ -862,41 +844,244 @@ export function FormularioPublicar({
                       role="radio"
                       aria-checked={elegida}
                       onClick={() => setQuienVe(clave)}
-                      className={`grid w-full grid-cols-[20px_minmax(0,1fr)] items-start gap-x-3 rounded-xl border-2 bg-white px-4 py-3 text-left ${
-                        elegida ? 'border-tinta' : 'border-linea'
+                      className={`flex flex-col items-start gap-1 rounded-[14px] px-3.5 py-3 text-left ${
+                        elegida
+                          ? 'border-[2.5px] border-pase bg-pase-suave'
+                          : 'border border-borde bg-white'
                       }`}
                     >
                       <span
                         aria-hidden="true"
-                        className={`mt-px h-5 w-5 rounded-full ${
-                          elegida
-                            ? 'border-[6px] border-pase'
-                            : 'border-[1.5px] border-borde-control'
+                        className={`flex h-[34px] w-[34px] items-center justify-center rounded-full text-[17px] ${
+                          elegida ? 'bg-pase' : 'bg-superficie'
                         }`}
-                      />
-                      <span className="flex flex-col gap-0.5">
-                        <span className="text-apoyo font-bold">{titulo}</span>
-                        <span className="text-nota text-secundario">{detalle}</span>
+                      >
+                        {dibujo}
                       </span>
+                      <b className="text-apoyo font-bold">{titulo}</b>
+                      <span className="text-nota text-secundario">{detalle}</span>
                     </button>
                   );
                 })}
               </div>
-              <Casilla
-                etiqueta="Acepto ofertas en el chat"
-                marcada={aceptaOfertas}
-                alCambiar={setAceptaOfertas}
-              />
             </div>
+
+            {alInterno ? (
+              <p className="m-0 flex flex-col gap-1 rounded-2xl bg-pase-suave px-4 py-3.5 text-apoyo">
+                <b className="font-bold text-marca">Listo: tu precio queda al interno</b>
+                <span className="text-secundario">
+                  Las tiendas te lo pedirán con el botón «Pedir precio» y se lo das por chat. No
+                  tienes que llenar nada más aquí.
+                </span>
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-col gap-2">
+                  <span className="text-apoyo font-bold">¿Cómo lo vendes?</span>
+                  <div
+                    role="radiogroup"
+                    aria-label="Cómo lo vendes"
+                    className="grid gap-2.5 sm:grid-cols-3"
+                  >
+                    {MODOS.map(([clave, titulo, detalle]) => (
+                      <button
+                        key={clave}
+                        type="button"
+                        role="radio"
+                        aria-checked={modoVenta === clave}
+                        onClick={() => setModoVenta(clave)}
+                        className={`flex flex-col gap-1 rounded-[14px] bg-white px-4 py-3 text-left ${
+                          modoVenta === clave ? 'border-2 border-tinta' : 'border border-borde'
+                        }`}
+                      >
+                        <b className="text-cuerpo font-bold">{titulo}</b>
+                        <span className="text-nota text-secundario">{detalle}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {conPase && (
+                  <CampoMonto
+                    id={`${id}-monto`}
+                    etiqueta="Precio pase"
+                    moneda={moneda}
+                    valor={monto}
+                    alCambiar={setMonto}
+                    alCambiarMoneda={cambiarMoneda}
+                    ayuda={`Toca ${SIMBOLO[moneda]} para cambiar a ${moneda === 'PEN' ? 'dólares' : 'soles'}`}
+                  />
+                )}
+                {conFacturado && (
+                  <CampoMonto
+                    id={`${id}-facturado`}
+                    etiqueta="Precio facturado"
+                    moneda={moneda}
+                    valor={montoFacturado}
+                    alCambiar={setMontoFacturado}
+                    alCambiarMoneda={conPase ? undefined : cambiarMoneda}
+                    ayuda="Con factura e IGV incluido."
+                  />
+                )}
+
+                {conPase && (
+                  <div className="flex flex-col gap-3 rounded-2xl border-l-4 border-pase bg-pase-suave px-4 py-3.5">
+                    <div className="flex items-center justify-between gap-4">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <b className="text-apoyo font-bold">Precio socio</b>
+                        <span className="rounded-full bg-marca px-2 text-[11px] font-bold leading-5 text-white">
+                          Socio
+                        </span>
+                        <span className="text-nota text-secundario">(opcional)</span>
+                      </span>
+                      {cuantosSocios > 0 && (
+                        <Interruptor
+                          etiqueta="Precio socio"
+                          activo={conSocio}
+                          alCambiar={setConSocio}
+                        />
+                      )}
+                    </div>
+                    {cuantosSocios === 0 ? (
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-nota text-secundario">
+                        Aún no tienes socios. Los socios ven un precio especial más bajo.
+                        <Link href="/cuenta/socios" className="font-bold text-pase-texto">
+                          + Agregar socios
+                        </Link>
+                      </span>
+                    ) : (
+                      conSocio && (
+                        <>
+                          <span className="flex items-center gap-2 text-nota text-secundario">
+                            <span className="text-apoyo font-semibold text-tinta">
+                              Descuento en
+                            </span>
+                            <span className="rounded-lg border border-[#A7E3C3] bg-white px-2 py-0.5 font-extrabold text-marca">
+                              {SIMBOLO[moneda]}
+                            </span>
+                            (va junto con el precio)
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {descuentos.map((unidades) => {
+                              const marcado = !otroDescuento && descuento === String(unidades);
+                              return (
+                                <button
+                                  key={unidades}
+                                  type="button"
+                                  aria-pressed={marcado}
+                                  onClick={() => {
+                                    setOtroDescuento(false);
+                                    setDescuento(String(unidades));
+                                  }}
+                                  className={`h-10 rounded-full border px-4 text-apoyo ${
+                                    marcado
+                                      ? 'border-tinta bg-tinta font-bold text-white'
+                                      : 'border-borde bg-white font-medium'
+                                  }`}
+                                >
+                                  {SIMBOLO[moneda]} {unidades} menos
+                                </button>
+                              );
+                            })}
+                            <button
+                              type="button"
+                              aria-pressed={otroDescuento}
+                              onClick={() => setOtroDescuento(true)}
+                              className={`h-10 rounded-full border px-4 text-apoyo ${
+                                otroDescuento
+                                  ? 'border-tinta bg-tinta font-bold text-white'
+                                  : 'border-borde bg-white font-medium'
+                              }`}
+                            >
+                              Otro monto
+                            </button>
+                          </div>
+                          {otroDescuento && (
+                            <CampoMonto
+                              id={`${id}-descuento`}
+                              etiqueta="Cuánto menos para tus socios"
+                              moneda={moneda}
+                              valor={descuento}
+                              alCambiar={setDescuento}
+                            />
+                          )}
+                          <span className="text-nota text-secundario">
+                            Tus{' '}
+                            {cuantosSocios === 1 ? 'socio verá' : `${cuantosSocios} socios verán`}{' '}
+                            <b className="text-tinta">
+                              {precioSocioTexto
+                                ?.replace(/^Tus socios: /, '')
+                                .replace(/ pase$/, '') ??
+                                (centimosDescuento
+                                  ? `${formatearPrecio(precioDe(centimosDescuento, moneda))} menos`
+                                  : 'un precio menor')}
+                            </b>{' '}
+                            · {nombresSocios.join(', ')} ·{' '}
+                            <Link href="/cuenta/socios" className="font-bold text-pase-texto">
+                              Administrar
+                            </Link>
+                          </span>
+                        </>
+                      )
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </Seccion>
 
-          <Seccion numero={6} titulo="Tu tienda y detalles">
-            <div className="flex items-center justify-between gap-4">
+          <Seccion numero={5} titulo="Detalles (opcional)">
+            <label htmlFor={`${id}-descripcion`} className="flex flex-col gap-1">
+              <span className="sr-only">Algo que deban saber</span>
+              <textarea
+                id={`${id}-descripcion`}
+                rows={3}
+                maxLength={MAX_DESCRIPCION}
+                value={descripcion}
+                onChange={(evento) => setDescripcion(evento.target.value)}
+                placeholder="Ej. incluye cables, sin minería, probada en el stand"
+                className={`${campo} h-auto resize-y py-3`}
+              />
+              <span className="self-end text-nota font-normal text-detalle">
+                {descripcion.length} / {MAX_DESCRIPCION}
+              </span>
+            </label>
+            <div className="-mt-2 flex flex-wrap gap-2">
+              {marcas.map(([texto, marcada, alCambiar]) => (
+                <button
+                  key={texto}
+                  type="button"
+                  aria-pressed={marcada}
+                  onClick={() => alCambiar(!marcada)}
+                  className={`h-8 rounded-full border px-3 text-nota font-semibold ${
+                    marcada
+                      ? 'border-tinta bg-tinta text-white'
+                      : 'border-borde bg-white text-tinta'
+                  }`}
+                >
+                  {marcada ? '✓' : '+'} {texto}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  setDescripcion((actual) =>
+                    `${actual.trim()}${actual.trim() ? '. ' : ''}Incluye cables.`.slice(
+                      0,
+                      MAX_DESCRIPCION,
+                    ),
+                  )
+                }
+                className="h-8 rounded-full border border-borde bg-white px-3 text-nota font-semibold text-tinta"
+              >
+                + Incluye cables
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-4 border-t border-linea pt-4">
               <span className="flex flex-col gap-0.5">
                 <span className="text-apoyo font-bold">Mostrar el nombre de mi tienda</span>
                 <span className="text-nota text-secundario">
                   {tiendaVisible
-                    ? `Se verá «${tienda.nombre}».`
+                    ? `Se verá «${tienda.nombre}»`
                     : 'Saldrás como «Tienda reservada», sin stand ni WhatsApp: te escriben solo por el chat.'}
                 </span>
               </span>
@@ -905,43 +1090,6 @@ export function FormularioPublicar({
                 alCambiar={setTiendaVisible}
                 etiqueta="Mostrar el nombre de mi tienda"
               />
-            </div>
-            <label htmlFor={`${id}-descripcion`} className={etiqueta}>
-              <span>
-                <span className="font-bold">Algo que deban saber</span>{' '}
-                <span className="font-normal text-secundario">(opcional)</span>
-              </span>
-              <textarea
-                id={`${id}-descripcion`}
-                rows={3}
-                maxLength={MAX_DESCRIPCION}
-                value={descripcion}
-                onChange={(evento) => setDescripcion(evento.target.value)}
-                placeholder="Incluye cables de poder. Sin minería."
-                className={`${campo} h-auto resize-y py-3`}
-              />
-              <span className="self-end text-nota font-normal text-detalle">
-                {descripcion.length} / {MAX_DESCRIPCION}
-              </span>
-            </label>
-            <div className="-mt-2 flex flex-wrap gap-2">
-              {FRASES.map((frase) => (
-                <button
-                  key={frase}
-                  type="button"
-                  onClick={() =>
-                    setDescripcion((actual) =>
-                      `${actual.trim()}${actual.trim() ? '. ' : ''}${frase}.`.slice(
-                        0,
-                        MAX_DESCRIPCION,
-                      ),
-                    )
-                  }
-                  className="h-8 rounded-full border border-borde px-3 text-nota font-semibold text-tinta"
-                >
-                  + {frase}
-                </button>
-              ))}
             </div>
           </Seccion>
 
@@ -967,12 +1115,12 @@ export function FormularioPublicar({
               )}
             </div>
           )}
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pt-1">
             <button
               type="submit"
               disabled={enviando || cargando}
-              className={`inline-flex h-12 items-center rounded-full px-8 text-cuerpo font-bold text-white ${
-                listo && !subiendo ? 'bg-pase' : 'bg-borde-control'
+              className={`inline-flex h-[54px] items-center rounded-full px-9 text-[17px] font-extrabold ${
+                faltan.length === 0 && !subiendo ? 'bg-pase text-white' : 'bg-borde text-detalle'
               }`}
             >
               {enviando
@@ -983,6 +1131,15 @@ export function FormularioPublicar({
                   ? 'Guardar cambios'
                   : 'Publicar'}
             </button>
+            {faltan.length > 0 ? (
+              <span className="rounded-full bg-aviso-fondo px-3 py-1.5 text-apoyo font-bold text-aviso">
+                Te falta: {faltan.join(' y ')}
+              </span>
+            ) : (
+              <span className="text-apoyo font-bold text-pase-texto">
+                ¡Listo! Ya puedes publicar
+              </span>
+            )}
             <Link href="/mis-publicaciones" className="text-apoyo font-medium">
               Cancelar
             </Link>
@@ -993,40 +1150,45 @@ export function FormularioPublicar({
           titulo={titulo}
           foto={fotoPrevia}
           categoria={categoriaPrevia}
-          estado={TEXTO_ESTADO_DETALLE[estado]}
+          estado={[estadoVista, garantiaVista].filter(Boolean).join(' · ')}
           stock={stock}
           precio={precioTexto}
           visible={quienVe !== 'NADIE'}
           tiendaVisible={tiendaVisible}
           tienda={tienda}
-          socio={precioSocioTexto}
+          socio={quienVe !== 'NADIE' ? precioSocioTexto : null}
           enAlmacen={enAlmacen}
         >
-          <div className="flex flex-col gap-2 border-t border-linea pt-3.5">
-            <b className="text-apoyo font-bold">Antes de publicar</b>
-            {(
-              [
-                [listo, 'Producto elegido'],
-                [fotos.length > 0, 'Una foto tuya (recomendado si es usado)'],
-                [principal !== null, 'Precio puesto'],
-              ] as const
-            ).map(([hecho, texto]) => (
-              <span key={texto} className="flex items-center gap-2 text-nota">
+          <div className="flex flex-col gap-2.5 rounded-2xl border border-linea bg-white p-4">
+            <span className="flex items-center justify-between gap-2">
+              <b className="text-apoyo font-bold">Antes de publicar</b>
+              <span className="text-nota font-bold text-pase-texto">
+                {listos} de {checks.length} listos
+              </span>
+            </span>
+            <span className="h-1.5 rounded-full bg-superficie">
+              <span
+                className="block h-full rounded-full bg-pase"
+                style={{ width: `${Math.round((100 * listos) / checks.length)}%` }}
+              />
+            </span>
+            {checks.map(([hecho, texto]) => (
+              <span
+                key={texto}
+                className={`flex items-center gap-2 text-apoyo ${hecho ? '' : 'font-bold text-aviso'}`}
+              >
                 <span
                   aria-hidden="true"
-                  className={`flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
-                    hecho ? 'bg-pase text-white' : 'border border-borde-control'
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white ${
+                    hecho ? 'bg-pase' : 'bg-contador'
                   }`}
                 >
-                  {hecho ? '✓' : ''}
+                  {hecho ? '✓' : '!'}
                 </span>
                 {texto}
                 <span className="sr-only">{hecho ? ', listo' : ', falta'}</span>
               </span>
             ))}
-            <span className="text-nota text-secundario">
-              Quien no inicia sesión ve el producto y la galería, pero nunca tu precio ni tu tienda.
-            </span>
           </div>
         </VistaPrevia>
       </div>

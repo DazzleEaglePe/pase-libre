@@ -73,7 +73,7 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
           stand: '212',
           logo: null,
           precio_visible_defecto: false,
-          moneda_defecto: 'USD',
+          moneda_defecto: 'PEN',
         },
       });
     });
