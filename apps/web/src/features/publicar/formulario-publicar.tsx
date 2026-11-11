@@ -27,6 +27,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Contador } from '@/shared/ui/contador';
 import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
 import { Segmentado } from '@/shared/ui/segmentado';
@@ -529,9 +530,9 @@ export function FormularioPublicar({
         {!editar && (
           <Link
             href="/pedidos-en-vivo/publicar"
-            className="flex h-10 items-center gap-2 rounded-full border border-borde px-4 text-apoyo font-semibold text-tinta no-underline"
+            className="flex h-11 items-center gap-2 rounded-full bg-brasa px-5 text-apoyo font-bold text-tinta no-underline"
           >
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
+            <PuntoQueLate tamano={8} />
             ¿Es urgente? Publicar en vivo
           </Link>
         )}

@@ -1,15 +1,23 @@
 import type { Metadata } from 'next';
-import { Figtree } from 'next/font/google';
+import { Inter, Montserrat } from 'next/font/google';
 import type { ReactNode } from 'react';
 
 import { URL_SITIO } from '@/shared/sitio';
 
 import './globals.css';
 
-const figtree = Figtree({
+// Guía del lienzo final: Inter para todo el texto y Montserrat 800 en mayúsculas para los títulos.
+const inter = Inter({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
   variable: '--fuente-base',
+  display: 'swap',
+});
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--fuente-titulo',
   display: 'swap',
 });
 
@@ -25,7 +33,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="es-PE" className={figtree.variable}>
+    <html lang="es-PE" className={`${inter.variable} ${montserrat.variable}`}>
       <body>{children}</body>
     </html>
   );

@@ -4,7 +4,12 @@
 
 @layer base {
   body {
-    @apply bg-white font-sans text-cuerpo text-tinta antialiased;
+    @apply bg-fondo font-sans text-cuerpo text-tinta antialiased;
+  }
+
+  /* Los títulos de página van en mayúsculas con la letra de títulos (guía del lienzo final). */
+  h1 {
+    @apply font-titulo font-extrabold uppercase tracking-[0.01em];
   }
 
   a {
@@ -38,7 +43,15 @@
   }
 }
 
-/* El punto rojo de «Pedidos en vivo» (D_Barra): late suave; quieto con «reducir movimiento». */
+@layer components {
+  /* Un título en mayúsculas que no es el de la página: las secciones del inicio, por ejemplo. */
+  .tit {
+    @apply font-titulo font-extrabold uppercase tracking-[0.01em];
+  }
+}
+
+/* El punto de lo «en vivo» (guía del lienzo final): se apaga y prende cada 1,4 s; quieto con
+   «reducir movimiento». */
 @keyframes latido {
   0%,
   100% {

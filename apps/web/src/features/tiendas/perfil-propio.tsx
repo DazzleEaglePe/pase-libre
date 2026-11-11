@@ -39,6 +39,7 @@ import { EtiquetaTipo } from '@/features/en-vivo/piezas';
 import { llamarApi } from '@/shared/api/cliente';
 import { haceRato } from '@/shared/fechas';
 import { conPlural, enPlural } from '@/shared/plural';
+import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Miniatura } from '@/shared/ui/miniatura';
 
 import { ListaOpiniones } from './opiniones';
@@ -371,9 +372,9 @@ export function PerfilPropio({ perfil }: { perfil: PerfilTienda }) {
           <span className="flex gap-2 pb-1">
             <Link
               href="/pedidos-en-vivo/publicar"
-              className="flex h-11 items-center gap-2 rounded-full bg-pase px-4 text-apoyo font-bold text-white no-underline"
+              className="flex h-11 items-center gap-2 rounded-full bg-brasa px-4 text-apoyo font-bold text-tinta no-underline"
             >
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-white" />
+              <PuntoQueLate tamano={8} />
               Publicar en vivo
             </Link>
             <Link
@@ -509,8 +510,9 @@ export function PerfilPropio({ perfil }: { perfil: PerfilTienda }) {
                     </span>
                     <Link
                       href="/pedidos-en-vivo/publicar"
-                      className="flex h-10 items-center rounded-full bg-pase px-4 text-apoyo font-bold text-white no-underline"
+                      className="flex h-10 items-center gap-2 rounded-full bg-brasa px-4 text-apoyo font-bold text-tinta no-underline"
                     >
+                      <PuntoQueLate tamano={8} />
                       Publicar en vivo
                     </Link>
                   </div>

@@ -401,7 +401,7 @@ export function FichaProducto({
               · Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
             </span>
           )}
-          <h1 className="text-[30px] font-bold leading-[38px] tracking-[-0.01em] max-md:text-[24px] max-md:leading-8">
+          <h1 className="font-sans text-[30px] font-bold normal-case leading-[38px] tracking-[-0.01em] max-md:text-[24px] max-md:leading-8">
             {producto.titulo}
           </h1>
           {producto.etiquetas.length > 0 && (

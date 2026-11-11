@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Contador } from '@/shared/ui/contador';
 import { campo } from '@/shared/ui/estilos';
 import { Interruptor } from '@/shared/ui/interruptor';
@@ -670,9 +671,9 @@ export function FormularioEnVivo({
             <button
               type="submit"
               disabled={!listo || enviando}
-              className="flex h-[52px] items-center gap-2 rounded-full bg-pase px-6 text-cuerpo font-bold text-white disabled:bg-borde"
+              className="flex h-[52px] items-center gap-2 rounded-full bg-brasa px-6 text-cuerpo font-bold text-tinta disabled:bg-borde disabled:bg-none disabled:text-white"
             >
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-white" />
+              <PuntoQueLate tamano={8} />
               {enviando ? 'Publicando…' : 'Publicar en vivo'}
             </button>
             <Link href="/pedidos-en-vivo" className="text-apoyo font-bold text-secundario">

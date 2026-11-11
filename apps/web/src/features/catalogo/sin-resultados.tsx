@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Miniatura } from '@/shared/ui/miniatura';
 
 const conPrecio = (
@@ -84,9 +85,9 @@ export function SinResultados({
           <div className="flex w-full max-w-[420px] flex-col gap-2.5">
             <Link
               href={conSesion ? `/pedidos-en-vivo/publicar?${consulta}` : '/ingresar'}
-              className="flex h-[50px] items-center justify-center gap-2 rounded-full bg-contador text-[16px] font-bold text-tinta no-underline"
+              className="flex h-[50px] items-center justify-center gap-2 rounded-full bg-brasa text-[16px] font-bold text-tinta no-underline"
             >
-              <span aria-hidden="true" className="h-2 w-2 rounded-full bg-tinta" />
+              <PuntoQueLate tamano={8} />
               Pedirla en vivo
             </Link>
             <span className="text-nota text-secundario">

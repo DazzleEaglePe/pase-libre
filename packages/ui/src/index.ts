@@ -22,15 +22,24 @@ export const color = {
   acento: '#22D37A',
   /** Contadores e insignias de aviso (campanita, mensajes, pedidos en vivo). Texto en `tinta`. */
   contador: '#F97316',
-  /** El punto que late en «En vivo»: siempre decorativo, nunca como texto. */
-  vivo: '#EF4444',
+  /**
+   * El punto que late en «En vivo» (guía del lienzo final: el rojo ya no se usa para lo «en
+   * vivo», solo para quitar y para errores). Siempre decorativo, nunca como texto.
+   */
+  vivo: '#FF6A00',
+  /** Los dos extremos del degradado Brasa de todo lo «en vivo» (clase `bg-brasa`). */
+  'brasa-inicio': '#FF4D00',
+  'brasa-fin': '#FF8A00',
   /** Insignias de remate y de «Nuevo» (D_Barra): fondo ámbar con su texto. */
   ambar: '#FEF3C7',
   'ambar-texto': '#854D0E',
   /** Separadores sobre `tinta` (la banda de abajo de la barra). */
   'linea-oscura': '#3A4540',
+  /** El fondo de todas las páginas (guía del lienzo final); las tarjetas van en blanco encima. */
+  fondo: '#EEF2F0',
   superficie: '#F6F8F7',
-  linea: '#E2E7E4',
+  /** Bordes de tarjetas y separadores, de 1,5 px (la guía los pidió más gruesos). */
+  linea: '#D5DCD8',
   borde: '#C6CEC9',
   'borde-control': '#6B7872',
   secundario: '#2E3833',

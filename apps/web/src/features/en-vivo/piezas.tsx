@@ -1,16 +1,17 @@
 import type { TipoEnVivo } from '@paselibre/contracts';
 import Link from 'next/link';
 
+import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Miniatura } from '@/shared/ui/miniatura';
 
 import { BotonResponder } from './responder';
 import { cuantoQueda, etiquetaTipo, lineaLugar, type ItemEnVivo } from './textos';
 
-/** «● PASES DEL DÍA»: la etiqueta roja de la sección (D-53). */
+/** «● PEDIDOS EN VIVO»: la etiqueta de la sección, en Brasa (guía del lienzo final). */
 export function PildoraEnVivo() {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-error-fondo px-2.5 py-[3px] text-etiqueta uppercase text-error">
-      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-vivo" />
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-brasa px-2.5 py-[3px] text-etiqueta uppercase text-tinta">
+      <PuntoQueLate tamano={7} />
       Pedidos en vivo
     </span>
   );

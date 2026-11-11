@@ -113,13 +113,6 @@ const iconoMapa = (
   </svg>
 );
 
-/** «Nuevo» en amarillo, como en D_Barra. */
-const nuevo = (
-  <span className="rounded-full bg-[#FDE68A] px-[7px] text-[11px] font-bold leading-[18px] text-ambar-texto">
-    Nuevo
-  </span>
-);
-
 const iconoEstrella = (
   <svg
     width="16"
@@ -141,11 +134,11 @@ const puntoVivo = (
   <span aria-hidden="true" className="h-2 w-2 shrink-0 animate-latido rounded-full bg-vivo" />
 );
 
-/** La insignia de un enlace de la banda: naranja (en vivo), ámbar (remates) o verde (nuevos). */
-function Cuenta({ tono, children }: { tono: 'contador' | 'ambar' | 'verde'; children: ReactNode }) {
+/** La insignia de un enlace de la banda: Brasa (en vivo), ámbar (remates) o verde (nuevos). */
+function Cuenta({ tono, children }: { tono: 'brasa' | 'ambar' | 'verde'; children: ReactNode }) {
   const clase =
-    tono === 'contador'
-      ? 'bg-contador text-tinta'
+    tono === 'brasa'
+      ? 'bg-brasa text-tinta'
       : tono === 'ambar'
         ? 'bg-ambar text-ambar-texto'
         : 'bg-pase-medio text-marca';
@@ -201,7 +194,7 @@ function BandaComputadora({
           >
             {puntoVivo}
             Pedidos en vivo
-            {numeros.enVivo > 0 && <Cuenta tono="contador">{numeros.enVivo}</Cuenta>}
+            {numeros.enVivo > 0 && <Cuenta tono="brasa">{numeros.enVivo}</Cuenta>}
           </Link>
         )}
         <span aria-hidden="true" className="mx-1.5 h-5 w-px shrink-0 bg-linea-oscura" />
@@ -242,7 +235,6 @@ function BandaComputadora({
         >
           {iconoMapa}
           Wilson en vivo
-          {nuevo}
         </Link>
         {/* Con tienda, «Ayuda» abre el chat oficial con el equipo (D_Barra). */}
         <Link
@@ -281,7 +273,7 @@ function BurbujasCelular({ numeros, conTienda }: { numeros: NumerosBarra; conTie
           <Link href="/pedidos-en-vivo" className={`${burbuja} border-tinta bg-tinta text-white`}>
             {puntoVivo}
             En vivo
-            {numeros.enVivo > 0 && <Cuenta tono="contador">{numeros.enVivo}</Cuenta>}
+            {numeros.enVivo > 0 && <Cuenta tono="brasa">{numeros.enVivo}</Cuenta>}
           </Link>
         )}
         {numeros.remates !== null && (
