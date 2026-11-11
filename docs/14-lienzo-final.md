@@ -121,7 +121,7 @@ Las 20 secciones de la página «★ VERSIÓN FINAL» están en `main` (de `c7e3
 
 La página final se renombró «★ VERSIÓN FINAL PARA CONSTRUIR» y sumó 43 tableros: la guía
 `GUIA_Construir` («lee esto primero») y las correcciones `COR1` a `COR26`. Los demás tableros
-solo cambiaron la letra (se sumó Montserrat). Se construyeron en 7 commits locales, sin subir:
+solo cambiaron la letra (se sumó Montserrat). Se construyeron en 7 commits y están en producción desde el 11/11/2026 (`d9ea775b`):
 
 | Parte | Tableros | Commit |
 | --- | --- | --- |
