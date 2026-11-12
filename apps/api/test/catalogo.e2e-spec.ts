@@ -498,12 +498,18 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(new Set(categorias.map((c) => c.grupo))).toEqual(
         new Set(['Componentes', 'Equipos', 'Periféricos', 'Energía, redes y más']),
       );
+      // Las 7 de la avenida en el orden de Equipo › Galerías, aunque no tengan ofertas (docs/18 §3).
       expect(respuesta.body.galerias.map((g: { slug: string }) => g.slug)).toEqual([
-        'maxiplaza',
         'cyberplaza',
+        'compuplaza',
+        'galerias-garcilaso',
+        'maxiplaza',
+        'galeria-centro-de-lima',
+        'compu-wilson',
+        'galeria-global-com',
         'independientes',
       ]);
-      expect(respuesta.body.totales).toEqual({ productos: 13, tiendas: 6, galerias: 2 });
+      expect(respuesta.body.totales).toEqual({ productos: 13, tiendas: 6, galerias: 7 });
       // La fila de «Recién publicado» se desliza: la base de pruebas tiene más ofertas que el tope.
       expect(respuesta.body.recien_publicado).toHaveLength(PORTADA_RECIENTES);
       // La web dibuja el ícono de la categoría cuando el producto aún no tiene fotos.

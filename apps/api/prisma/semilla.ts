@@ -15,9 +15,18 @@ import { cifrarClave } from '../src/modules/sesion/clave';
  */
 export const CLAVE_DEMO = process.env.CLAVE_DEMO || 'pase-demo-2026';
 
+/**
+ * Las 7 galerías de la avenida, en su orden (docs/18 §3). Maxiplaza y Cyberplaza conservan el
+ * nombre con que ya estaban en producción; el equipo lo cambia en Equipo › Galerías si quiere.
+ */
 const GALERIAS = [
-  { nombre: 'Maxiplaza', slug: 'maxiplaza', orden: 1 },
-  { nombre: 'Cyberplaza', slug: 'cyberplaza', orden: 2 },
+  { nombre: 'Cyberplaza', slug: 'cyberplaza', orden: 1 },
+  { nombre: 'CompuPlaza', slug: 'compuplaza', orden: 2 },
+  { nombre: 'Galerías Garcilaso', slug: 'galerias-garcilaso', orden: 3 },
+  { nombre: 'Maxiplaza', slug: 'maxiplaza', orden: 4 },
+  { nombre: 'Galería Centro de Lima', slug: 'galeria-centro-de-lima', orden: 5 },
+  { nombre: 'Compu Wilson', slug: 'compu-wilson', orden: 6 },
+  { nombre: 'Galería Global.com', slug: 'galeria-global-com', orden: 7 },
 ];
 
 /** Las 21 del lienzo final (CAT_Web1), en el orden y los grupos del menú. */

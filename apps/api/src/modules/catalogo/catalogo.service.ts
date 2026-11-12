@@ -332,9 +332,10 @@ export class CatalogoService {
       WHERE t.estado = 'ACTIVA' AND (g.id IS NULL OR g.activa)
       GROUP BY g.slug, g.nombre, g.orden
       ORDER BY g.orden NULLS LAST, g.nombre`;
+    // En el orden de Equipo › Galerías (docs/18 §3); las ocultas no salen.
     const activas = await this.prisma.galeria.findMany({
       where: { activa: true },
-      orderBy: { orden: 'asc' },
+      orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
     });
     const cuenta = new Map(filas.map((f) => [f.slug ?? INDEPENDIENTES.slug, f.ofertas]));
     return [

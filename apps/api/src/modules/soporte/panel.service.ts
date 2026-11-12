@@ -22,6 +22,7 @@ import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { avisosDeGalerias } from '../../shared/galerias-nuevas';
 import { inicioDelDiaEnLima } from '../en-vivo/horario';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
@@ -158,9 +159,10 @@ export class PanelService {
         select: { id: true, accion: true, creadoEn: true, autor: { select: { nombre: true } } },
       }),
     ]);
-    const [catalogoPorRevisar, destacadas] = await Promise.all([
+    const [catalogoPorRevisar, destacadas, galeriasNuevas] = await Promise.all([
       this.prisma.producto.count({ where: { revisado: false, fusionadoEnId: null } }),
       this.destacados.activos(),
+      avisosDeGalerias(this.prisma),
     ]);
     const primeraDestacada = destacadas.activas[0];
     const cola = abiertos.map(enCola).sort((a, b) => Number(b.urgente) - Number(a.urgente));
@@ -194,6 +196,7 @@ export class PanelService {
         fecha: fila.creadoEn.toISOString(),
       })),
       catalogo_por_revisar: catalogoPorRevisar,
+      galerias_nuevas: galeriasNuevas.length,
       destacadas: {
         activas: destacadas.activas.length,
         maximo: destacadas.maximo,
