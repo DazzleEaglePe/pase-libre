@@ -24,6 +24,8 @@ export interface CuentaEquipo {
     tipo: TipoTienda;
     galeria: string | null;
     stand: string | null;
+    /** El de la tienda (error 40: la columna WhatsApp lee este). */
+    whatsapp: string;
     /** Cuentas de la tienda, contando esta: con una sola no hay a quién traspasar. */
     cuentas: number;
   };

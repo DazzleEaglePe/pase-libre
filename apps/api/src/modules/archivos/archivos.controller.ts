@@ -17,7 +17,12 @@ import type { Request } from 'express';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
-import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import {
+  PermitirEnSoporte,
+  Roles,
+  SesionActual,
+  SesionGuard,
+} from '../../shared/guards/sesion.guard';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { ArchivosService, MAX_BYTES_FOTO } from './archivos.service';
 
@@ -62,8 +67,9 @@ interface FotoRecibida {
 export class ArchivosController {
   constructor(@Inject(ArchivosService) private readonly archivos: ArchivosService) {}
 
-  /** `POST /v1/archivos` con el campo `foto` (multipart). */
+  /** `POST /v1/archivos` con el campo `foto` (multipart). En modo soporte, para la portada (N14). */
   @Post()
+  @PermitirEnSoporte()
   @Header('Cache-Control', 'no-store')
   @UseInterceptors(
     FileInterceptor('foto', { limits: { fileSize: MAX_BYTES_FOTO, files: 1, fields: 0 } }),

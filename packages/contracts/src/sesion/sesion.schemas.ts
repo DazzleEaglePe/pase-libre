@@ -19,6 +19,13 @@ export const ingresarSchema = z.strictObject({
   usuario: identificadorSchema,
   clave: z.string().min(1, 'Escribe tu contraseña.').max(128),
   recordar: z.boolean().default(false),
+  /**
+   * Con la cuenta principal en su límite de dispositivos (N10): qué sesiones cerrar para entrar.
+   * Solo sirve con la contraseña correcta; sin ella responde como siempre.
+   */
+  cerrar: z
+    .union([z.literal('todas'), z.array(z.uuid('Elige qué sesión cerrar.')).min(1).max(10)])
+    .optional(),
 });
 
 /**

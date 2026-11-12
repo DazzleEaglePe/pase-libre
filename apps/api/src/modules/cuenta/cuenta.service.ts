@@ -7,7 +7,7 @@ import type {
   RespuestaAvisosCuenta,
   RespuestaCuenta,
   RespuestaRapida,
-  SesionAbierta,
+  RespuestaSesiones,
   TiendaBloqueada,
 } from '@paselibre/contracts';
 import {
@@ -22,8 +22,11 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
 import { INTERRUPTOR_EN_VIVO, type InterruptorEnVivo } from '../en-vivo/interruptor';
+import { dispositivoDe, LUGAR_DE_SESION } from '../../shared/dispositivo';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
+
+export { dispositivoDe };
 
 const INCLUIR_TIENDA = { tienda: { include: { galeria: true } } } as const;
 type UsuarioConTienda = Prisma.UsuarioGetPayload<{ include: typeof INCLUIR_TIENDA }>;
@@ -38,36 +41,6 @@ type TipoConPreferencia =
   | 'SEGUIDA'
   | 'ALERTA'
   | 'EQUIPO';
-
-/** «Chrome en Android», para reconocer cada sesión abierta. */
-export function dispositivoDe(agente: string | null): string {
-  if (!agente) return 'Navegador desconocido';
-  const navegador = /Edg(e|iOS|A)?\//.test(agente)
-    ? 'Edge'
-    : /Firefox\/|FxiOS\//.test(agente)
-      ? 'Firefox'
-      : /OPR\/|Opera/.test(agente)
-        ? 'Opera'
-        : /Chrome\/|CriOS\//.test(agente)
-          ? 'Chrome'
-          : /Safari\//.test(agente)
-            ? 'Safari'
-            : 'Navegador';
-  const sistema = /iPhone/.test(agente)
-    ? 'iPhone'
-    : /iPad/.test(agente)
-      ? 'iPad'
-      : /Android/.test(agente)
-        ? 'Android'
-        : /Macintosh|Mac OS X/.test(agente)
-          ? 'Mac'
-          : /Windows/.test(agente)
-            ? 'Windows'
-            : /Linux/.test(agente)
-              ? 'Linux'
-              : '';
-  return sistema ? `${navegador} en ${sistema}` : navegador;
-}
 
 /** 1320 → «22:00». */
 function aHora(minutos: number): string {
@@ -326,20 +299,26 @@ export class CuentaService {
 
   // ── Sesiones (RF-60) ──────────────────────────────────────────────────────
 
-  async sesiones(sesion: SesionActiva): Promise<SesionAbierta[]> {
+  /** «Sesiones abiertas · 2 de 2» (N10): la cuenta principal tiene límite; el asesor, no. */
+  async sesiones(sesion: SesionActiva): Promise<RespuestaSesiones> {
     const abiertas = await this.prisma.sesion.findMany({
       where: { usuarioId: sesion.usuario.id, revocadaEn: null, expiraEn: { gt: new Date() } },
       orderBy: { usadaEn: 'desc' },
       select: { id: true, agente: true, usadaEn: true },
     });
-    return abiertas
-      .map((s) => ({
-        id: s.id,
-        dispositivo: dispositivoDe(s.agente),
-        ultimo_uso: s.usadaEn.toISOString(),
-        actual: s.id === sesion.sesionId,
-      }))
-      .sort((a, b) => Number(b.actual) - Number(a.actual));
+    return {
+      sesiones: abiertas
+        .map((s) => ({
+          id: s.id,
+          dispositivo: dispositivoDe(s.agente),
+          lugar: LUGAR_DE_SESION,
+          ultimo_uso: s.usadaEn.toISOString(),
+          actual: s.id === sesion.sesionId,
+        }))
+        .sort((a, b) => Number(b.actual) - Number(a.actual)),
+      limite:
+        sesion.usuario.rol === 'DUENO' ? (sesion.usuario.tienda?.limiteDispositivos ?? null) : null,
+    };
   }
 
   async cerrarSesion(sesion: SesionActiva, id: string): Promise<void> {

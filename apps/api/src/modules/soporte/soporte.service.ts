@@ -1,9 +1,11 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import type {
-  EscribirEquipoDatos,
-  HiloEquipoEnLista,
-  MensajeChatEquipo,
-  RespuestaChatEquipo,
+import {
+  MAX_ADVERTENCIAS,
+  type EscribirEquipoDatos,
+  type HiloEquipoEnLista,
+  type MensajeChatEquipo,
+  type RespuestaAutomatica,
+  type RespuestaChatEquipo,
 } from '@paselibre/contracts';
 import type { Prisma } from '@prisma/client';
 
@@ -21,10 +23,18 @@ const ESTADO = {
 };
 const ULTIMOS = 200;
 
+/** La respuesta automática sale la primera vez o después de 12 h sin conversación (N14). */
+const PAUSA_RESPUESTA_AUTOMATICA_MS = 12 * 3_600_000;
+const CLAVE_RESPUESTA_AUTOMATICA = 'respuesta_automatica';
+/** La del lienzo (N14). «{tienda}» se cambia por el nombre de la tienda. */
+export const RESPUESTA_AUTOMATICA_INICIAL =
+  'Hola, {tienda} 👋 Gracias por escribirnos. Cuéntanos tu consulta o reclamo con el mayor detalle posible (y si puedes, una captura). En breve te atenderá un asesor del Equipo PaseLibre.';
+
 const SELECT_MENSAJE = {
   id: true,
   texto: true,
   deEquipo: true,
+  automatica: true,
   autorId: true,
   creadoEn: true,
   autor: { select: { nombre: true } },
@@ -34,15 +44,15 @@ const SELECT_MENSAJE = {
 type FilaMensaje = Prisma.MensajeEquipoGetPayload<{ select: typeof SELECT_MENSAJE }>;
 
 function aMensaje(fila: FilaMensaje, usuarioId: string): MensajeChatEquipo {
+  const nombre = fila.autor?.nombre ?? 'Equipo PaseLibre';
   return {
     id: fila.id,
     texto: fila.texto,
     de_equipo: fila.deEquipo,
     // Del equipo se dice el nombre de pila: «Fabrizio · Equipo PaseLibre».
-    autor: fila.deEquipo
-      ? (fila.autor.nombre.split(' ')[0] ?? fila.autor.nombre)
-      : fila.autor.nombre,
-    mio: fila.autorId === usuarioId,
+    autor: fila.deEquipo && fila.autor ? (nombre.split(' ')[0] ?? nombre) : nombre,
+    mio: fila.autorId !== null && fila.autorId === usuarioId,
+    automatica: fila.automatica,
     creado_en: fila.creadoEn.toISOString(),
     caso: fila.denuncia
       ? {
@@ -77,11 +87,14 @@ export class SoporteService {
   /** Lo de la tienda: los mensajes y cuántos no leyó. Con `leer`, los marca leídos. */
   async miChat(sesion: SesionActiva, leer: boolean): Promise<RespuestaChatEquipo> {
     const tiendaId = this.tiendaDe(sesion);
-    const hilo = await this.prisma.hiloEquipo.findUnique({
-      where: { tiendaId },
-      select: { id: true, leidoTiendaHasta: true },
-    });
-    if (!hilo) return { mensajes: [], sin_leer: 0 };
+    const [hilo, advertencias] = await Promise.all([
+      this.prisma.hiloEquipo.findUnique({
+        where: { tiendaId },
+        select: { id: true, leidoTiendaHasta: true },
+      }),
+      this.advertenciasDe(tiendaId),
+    ]);
+    if (!hilo) return { mensajes: [], sin_leer: 0, ...(advertencias ? { advertencias } : {}) };
     const [filas, sinLeer] = await Promise.all([
       this.prisma.mensajeEquipo.findMany({
         where: { hiloId: hilo.id },
@@ -106,6 +119,29 @@ export class SoporteService {
     return {
       mensajes: filas.reverse().map((fila) => aMensaje(fila, sesion.usuario.id)),
       sin_leer: leer ? 0 : sinLeer,
+      ...(advertencias ? { advertencias } : {}),
+    };
+  }
+
+  /** «Recibiste 1 advertencia de 3» (N14): las que dio el equipo, no los reportes recibidos. */
+  private async advertenciasDe(tiendaId: string): Promise<RespuestaChatEquipo['advertencias']> {
+    const [total, ultima] = await Promise.all([
+      this.prisma.advertencia.count({ where: { tiendaId } }),
+      this.prisma.advertencia.findFirst({
+        where: { tiendaId },
+        orderBy: { creadaEn: 'desc' },
+        select: { motivo: true, creadaEn: true, denuncia: { select: { codigo: true } } },
+      }),
+    ]);
+    if (!ultima) return null;
+    return {
+      total,
+      maximo: MAX_ADVERTENCIAS,
+      ultima: {
+        motivo: ultima.motivo,
+        caso: ultima.denuncia ? `R-${ultima.denuncia.codigo}` : null,
+        fecha: ultima.creadaEn.toISOString(),
+      },
     };
   }
 
@@ -115,7 +151,15 @@ export class SoporteService {
     sesion: SesionActiva,
   ): Promise<MensajeChatEquipo> {
     const tiendaId = this.tiendaDe(sesion);
+    const anterior = await this.prisma.mensajeEquipo.findFirst({
+      where: { hilo: { tiendaId } },
+      orderBy: { creadoEn: 'desc' },
+      select: { creadoEn: true },
+    });
     const mensaje = await this.escribir(tiendaId, sesion.usuario.id, false, datos.texto, null);
+    if (!anterior || Date.now() - anterior.creadoEn.getTime() >= PAUSA_RESPUESTA_AUTOMATICA_MS) {
+      await this.responderSolo(tiendaId, sesion.usuario.tienda?.nombre ?? 'tienda');
+    }
     const equipo = await this.prisma.usuario.findMany({
       where: { rol: 'EQUIPO', estado: 'ACTIVO' },
       select: { id: true },
@@ -130,6 +174,58 @@ export class SoporteService {
       },
     );
     return aMensaje(mensaje, sesion.usuario.id);
+  }
+
+  /**
+   * La respuesta automática (N14): un mensaje del equipo sin autor, un instante después del de la
+   * tienda. La tienda lo ve como leído (lo acaba de recibir mientras escribía).
+   */
+  private async responderSolo(tiendaId: string, tienda: string): Promise<void> {
+    const { texto } = await this.respuestaAutomatica();
+    const ahora = new Date(Date.now() + 1);
+    const hilo = await this.prisma.hiloEquipo.update({
+      where: { tiendaId },
+      data: { ultimoMensajeEn: ahora, leidoTiendaHasta: ahora },
+      select: { id: true },
+    });
+    await this.prisma.mensajeEquipo.create({
+      data: {
+        hiloId: hilo.id,
+        autorId: null,
+        deEquipo: true,
+        automatica: true,
+        texto: texto.replaceAll('{tienda}', tienda).slice(0, 2000),
+        creadoEn: ahora,
+      },
+    });
+  }
+
+  async respuestaAutomatica(): Promise<RespuestaAutomatica> {
+    const ajuste = await this.prisma.ajusteEquipo.findUnique({
+      where: { clave: CLAVE_RESPUESTA_AUTOMATICA },
+      select: { valor: true },
+    });
+    return { texto: ajuste?.valor ?? RESPUESTA_AUTOMATICA_INICIAL };
+  }
+
+  /** «Respuesta automática» editable desde el panel (N14). */
+  async guardarRespuestaAutomatica(
+    datos: RespuestaAutomatica,
+    sesion: SesionActiva,
+  ): Promise<RespuestaAutomatica> {
+    await this.prisma.ajusteEquipo.upsert({
+      where: { clave: CLAVE_RESPUESTA_AUTOMATICA },
+      create: {
+        clave: CLAVE_RESPUESTA_AUTOMATICA,
+        valor: datos.texto,
+        actualizadoPorId: sesion.usuario.id,
+      },
+      update: { valor: datos.texto, actualizadoPorId: sesion.usuario.id },
+    });
+    await this.prisma.registroEquipo.create({
+      data: { autorId: sesion.usuario.id, accion: 'cambió la respuesta automática del chat' },
+    });
+    return datos;
   }
 
   // ── Del lado del equipo ──────────────────────────────────────────────────

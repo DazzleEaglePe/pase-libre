@@ -6,14 +6,17 @@ import {
   Inject,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
 import {
   escribirEquipoSchema,
+  respuestaAutomaticaSchema,
   type EscribirEquipoDatos,
   type HiloEquipoEnLista,
   type MensajeChatEquipo,
+  type RespuestaAutomatica,
   type RespuestaChatEquipo,
 } from '@paselibre/contracts';
 import { z } from 'zod';
@@ -61,6 +64,22 @@ export class ChatsDelEquipoController {
   @Header('Cache-Control', 'no-store')
   hilos(): Promise<HiloEquipoEnLista[]> {
     return this.soporte.hilos();
+  }
+
+  /** La respuesta automática (N14). Va antes de `:tienda` para que no se lea como id. */
+  @Get('respuesta-automatica')
+  @Header('Cache-Control', 'no-store')
+  respuestaAutomatica(): Promise<RespuestaAutomatica> {
+    return this.soporte.respuestaAutomatica();
+  }
+
+  @Put('respuesta-automatica')
+  @Header('Cache-Control', 'no-store')
+  guardarRespuestaAutomatica(
+    @Body(new ZodValidationPipe(respuestaAutomaticaSchema)) datos: RespuestaAutomatica,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaAutomatica> {
+    return this.soporte.guardarRespuestaAutomatica(datos, sesion);
   }
 
   @Get(':tienda')

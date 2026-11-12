@@ -4,10 +4,24 @@ export type UsuarioConTienda = Usuario & {
   tienda: (Tienda & { galeria: Galeria | null }) | null;
 };
 
+/**
+ * «Ayudar como la tienda» (N14): la sesión es de alguien del equipo, pero mientras dure ve y
+ * actúa como el dueño de la tienda (`usuario`). El guard solo deja cambiar lo marcado con
+ * `@PermitirEnSoporte`: nada de chatear ni cerrar ventas.
+ */
+export interface SoporteActivo {
+  id: string;
+  equipo: { id: string; nombre: string };
+  tiendaId: string;
+  tienda: string;
+  venceEn: Date;
+}
+
 /** Lo que el guard deja en `request.sesion` para los controladores. */
 export interface SesionActiva {
   sesionId: string;
   usuario: UsuarioConTienda;
+  soporte?: SoporteActivo;
 }
 
 export interface DatosDeSolicitud {
@@ -20,3 +34,5 @@ export const DURACION_SESION_MS = 12 * 60 * 60 * 1000;
 export const DURACION_RECORDAR_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_INTENTOS_FALLIDOS = 5;
 export const VENTANA_INTENTOS_MS = 15 * 60 * 1000;
+/** Lo que dura «Ayudar como la tienda» (N14). */
+export const DURACION_SOPORTE_MS = 60 * 60 * 1000;

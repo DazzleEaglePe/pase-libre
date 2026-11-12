@@ -17,6 +17,14 @@ export const CODIGOS_ERROR = [
   'LIMITE_EN_VIVO',
   /** Tu tienda ya respondió a este busco o a esta oferta flash (RF-26). */
   'YA_RESPONDISTE',
+  /** La cuenta principal ya tiene abiertas todas las sesiones que le tocan (N10). */
+  'LIMITE_DISPOSITIVOS',
+  /** El dueño no le dio este permiso al asesor (N12). */
+  'SIN_PERMISO',
+  /** En «Ayudar como la tienda» no se chatea ni se cierran ventas (N14). */
+  'MODO_SOPORTE',
+  /** El dueño pausó al asesor (N12). */
+  'CUENTA_PAUSADA',
   'FALTA_CABECERA_PASELIBRE',
   'SERVICIO_NO_DISPONIBLE',
   'ERROR_INTERNO',

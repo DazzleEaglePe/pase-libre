@@ -385,12 +385,12 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
     it('lista las sesiones abiertas, con la actual primero', async () => {
       const celular = await ingresar('tiendaa.kevin', ANDROID);
       const sesiones = await como('tiendaa.kevin').get('/v1/cuenta/sesiones').expect(200);
-      expect(sesiones.body.map((s: SesionAbierta) => [s.dispositivo, s.actual])).toEqual([
+      expect(sesiones.body.sesiones.map((s: SesionAbierta) => [s.dispositivo, s.actual])).toEqual([
         ['Safari en Mac', true],
         ['Chrome en Android', false],
       ]);
 
-      const otra = sesiones.body[1] as SesionAbierta;
+      const otra = sesiones.body.sesiones[1] as SesionAbierta;
       await como('tiendaa.kevin').send('delete', `/v1/cuenta/sesiones/${otra.id}`).expect(204);
       await http().get('/v1/yo').set('Cookie', celular).expect(401);
       await como('tiendaa.kevin').send('delete', `/v1/cuenta/sesiones/${otra.id}`).expect(404);

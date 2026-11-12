@@ -102,6 +102,6 @@ export class YoController {
   @UseGuards(SesionGuard)
   @PermitirClaveTemporal()
   yo(@SesionActual() sesion: SesionActiva): RespuestaYo {
-    return respuestaYo(sesion.usuario);
+    return respuestaYo(sesion.usuario, sesion.soporte);
   }
 }

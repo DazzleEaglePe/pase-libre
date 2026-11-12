@@ -55,7 +55,8 @@ export class TiempoRealGateway implements OnGatewayInit, OnGatewayConnection, On
   async handleConnection(socket: Socket): Promise<void> {
     const token = tokenDeCookie(socket.handshake.headers.cookie);
     const sesion = token ? await this.sesiones.validar(token).catch(() => null) : null;
-    if (!sesion || sesion.usuario.debeCambiarClave) {
+    // En «Ayudar como la tienda» no llega nada en vivo: el equipo no lee los chats así (N14).
+    if (!sesion || sesion.usuario.debeCambiarClave || sesion.soporte) {
       socket.emit(EVENTOS.sinSesion);
       socket.disconnect(true);
       return;

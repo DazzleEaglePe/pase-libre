@@ -19,7 +19,7 @@ import {
 import type { Response } from 'express';
 import { z } from 'zod';
 
-import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { Permiso, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { HistorialService } from './historial.service';
@@ -31,6 +31,7 @@ export class HistorialController {
   constructor(@Inject(HistorialService) private readonly historial: HistorialService) {}
 
   @Get('historial')
+  @Permiso('HISTORIAL')
   @Header('Cache-Control', 'no-store')
   lista(
     @Query(new ZodValidationPipe(historialVentasSchema)) consulta: HistorialConsulta,
@@ -40,6 +41,7 @@ export class HistorialController {
   }
 
   @Get('historial/excel')
+  @Permiso('HISTORIAL')
   @Header('Cache-Control', 'no-store')
   async excel(
     @Query(new ZodValidationPipe(historialVentasSchema)) consulta: HistorialConsulta,
@@ -60,6 +62,7 @@ export class HistorialController {
   }
 
   @Post('ventas/:id/recordar')
+  @Permiso('HISTORIAL')
   @HttpCode(HttpStatus.NO_CONTENT)
   recordar(
     @Param('id', new ZodValidationPipe(z.uuid('Esta venta no existe.'))) ventaId: string,

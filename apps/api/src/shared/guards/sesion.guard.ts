@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
-import type { Rol } from '@paselibre/contracts';
+import type { PermisoAsesor, Rol } from '@paselibre/contracts';
 import type { CookieOptions, Request, Response } from 'express';
 
 import type { Environment } from '../../config/env.schema';
@@ -25,12 +25,39 @@ declare module 'express' {
 
 const PERMITIR_CLAVE_TEMPORAL = 'paselibre:permitir-clave-temporal';
 const ROLES = 'paselibre:roles';
+const PERMISO = 'paselibre:permiso';
+export const PERMITIR_EN_SOPORTE = 'paselibre:permitir-en-soporte';
+const NO_EN_SOPORTE = 'paselibre:no-en-soporte';
 
 /** La ruta funciona aunque la persona todavía tenga la clave temporal (yo, salir, cambiar clave). */
 export const PermitirClaveTemporal = () => SetMetadata(PERMITIR_CLAVE_TEMPORAL, true);
 
 /** Restringe la ruta a ciertos roles, por ejemplo `@Roles('EQUIPO')`. */
 export const Roles = (...roles: Rol[]) => SetMetadata(ROLES, roles);
+
+/**
+ * El asesor necesita este permiso del dueño (N12), por ejemplo `@Permiso('PUBLICAR')`. El dueño
+ * puede todo y el equipo no tiene tienda: para ellos no cambia nada (siguen sus `@Roles`).
+ */
+export const Permiso = (permiso: PermisoAsesor) => SetMetadata(PERMISO, permiso);
+
+/**
+ * En «Ayudar como la tienda» (N14) solo se puede cambiar lo marcado así. `cambio` es lo que se
+ * anota y se le avisa a la tienda («actualizó tu portada»); sin él, no se anota (subir una foto
+ * que todavía no se usa, por ejemplo).
+ */
+export const PermitirEnSoporte = (cambio?: string) =>
+  SetMetadata(PERMITIR_EN_SOPORTE, cambio ?? '');
+
+/** Ni siquiera se puede mirar en modo soporte (los chats de la tienda, por ejemplo). */
+export const NoEnSoporte = () => SetMetadata(NO_EN_SOPORTE, true);
+
+const enSoporte = () =>
+  new ApiHttpException(
+    HttpStatus.FORBIDDEN,
+    'MODO_SOPORTE',
+    'En modo soporte puedes acomodar la portada y los datos de la tienda, pero no chatear ni cerrar ventas.',
+  );
 
 export const SesionActual = createParamDecorator(
   (_data: unknown, context: ExecutionContext): SesionActiva => {
@@ -86,11 +113,21 @@ export class SesionGuard implements CanActivate {
     }
 
     const objetivos = [context.getHandler(), context.getClass()];
+    if (sesion.soporte) {
+      // Modo soporte (N14): mirar sí; cambiar, solo lo permitido; chatear y vender, nunca.
+      const permitida = this.reflector.getAllAndOverride<string | undefined>(
+        PERMITIR_EN_SOPORTE,
+        objetivos,
+      );
+      const vedada = this.reflector.getAllAndOverride<boolean>(NO_EN_SOPORTE, objetivos);
+      const mira = request.method === 'GET' || request.method === 'HEAD';
+      if (vedada || (!mira && permitida === undefined)) throw enSoporte();
+    }
     const permiteTemporal = this.reflector.getAllAndOverride<boolean>(
       PERMITIR_CLAVE_TEMPORAL,
       objetivos,
     );
-    if (sesion.usuario.debeCambiarClave && !permiteTemporal) {
+    if (sesion.usuario.debeCambiarClave && !permiteTemporal && !sesion.soporte) {
       throw new ApiHttpException(
         HttpStatus.FORBIDDEN,
         'DEBE_CAMBIAR_CLAVE',
@@ -107,7 +144,20 @@ export class SesionGuard implements CanActivate {
       );
     }
 
-    request.sesion = { sesionId: sesion.sesionId, usuario: sesion.usuario };
+    const permiso = this.reflector.getAllAndOverride<PermisoAsesor | undefined>(PERMISO, objetivos);
+    if (permiso && sesion.usuario.rol === 'ASESOR' && !sesion.usuario.permisos.includes(permiso)) {
+      throw new ApiHttpException(
+        HttpStatus.FORBIDDEN,
+        'SIN_PERMISO',
+        'El dueño de tu tienda no te dio permiso para esto. Pídeselo si lo necesitas.',
+      );
+    }
+
+    request.sesion = {
+      sesionId: sesion.sesionId,
+      usuario: sesion.usuario,
+      ...(sesion.soporte ? { soporte: sesion.soporte } : {}),
+    };
     return true;
   }
 

@@ -1,5 +1,10 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { formatearPrecio, precioDe, type PreferenciasEquipo } from '@paselibre/contracts';
+import {
+  formatearPrecio,
+  MAX_ADVERTENCIAS,
+  precioDe,
+  type PreferenciasEquipo,
+} from '@paselibre/contracts';
 import type {
   AdvertenciaDatos,
   ComunicadoDatos,
@@ -99,9 +104,10 @@ export class PanelService {
     return { tema_oscuro: temaOscuro };
   }
 
-  private anotar(sesion: SesionActiva, accion: string) {
+  /** Con `tiendaId`, sale también en el «Historial de cambios» de su ficha (N14). */
+  private anotar(sesion: SesionActiva, accion: string, tiendaId?: string) {
     return this.prisma.registroEquipo.create({
-      data: { autorId: sesion.usuario.id, accion: accion.slice(0, 240) },
+      data: { autorId: sesion.usuario.id, accion: accion.slice(0, 240), tiendaId },
     });
   }
 
@@ -416,9 +422,9 @@ export class PanelService {
       enlace: '/cuenta/configuracion?seccion=reportes',
     });
     if (decision.accion === 'NADA') {
-      await this.anotar(sesion, `cerró el caso ${codigo} sin cambios`);
+      await this.anotar(sesion, `cerró el caso ${codigo} sin cambios`, tienda?.id);
     } else if (decision.accion === 'ESCRIBIR' && tienda) {
-      await this.anotar(sesion, `le escribió a ${tienda.nombre} por el caso ${codigo}`);
+      await this.anotar(sesion, `le escribió a ${tienda.nombre} por el caso ${codigo}`, tienda.id);
     }
     return this.reporte(id);
   }
@@ -564,15 +570,17 @@ export class PanelService {
     if (!tienda) {
       throw new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Esta tienda no existe.');
     }
-    await this.prisma.advertencia.create({
+    const advertencia = await this.prisma.advertencia.create({
       data: {
         tiendaId,
         autorId: sesion.usuario.id,
         motivo: datos.motivo,
         denunciaId: extra.denuncia,
       },
+      select: { denuncia: { select: { codigo: true } } },
     });
     const numero = tienda._count.advertencias + 1;
+    const caso = advertencia.denuncia ? `R-${advertencia.denuncia.codigo}` : null;
     await this.soporte.escribirATienda(
       tiendaId,
       {
@@ -583,7 +591,28 @@ export class PanelService {
       },
       sesion,
     );
-    await this.anotar(sesion, `le dio una advertencia a ${tienda.nombre}: ${datos.motivo}`);
+    // «Recibiste 1 advertencia de 3» (N14): cuenta las que dio el equipo, no los reportes.
+    await this.avisos.crear(
+      (
+        await this.prisma.usuario.findMany({
+          where: { tiendaId, estado: 'ACTIVO' },
+          select: { id: true },
+        })
+      ).map((persona) => persona.id),
+      {
+        tipo: 'EQUIPO',
+        titulo: `Recibiste ${numero} ${numero === 1 ? 'advertencia' : 'advertencias'} de ${MAX_ADVERTENCIAS}`,
+        extracto: `Motivo: ${datos.motivo}${caso && !datos.motivo.includes(caso) ? ` (caso ${caso})` : ''}. Si llegas a ${MAX_ADVERTENCIAS}, tu cuenta puede suspenderse.`,
+        enlace: '/mensajes/equipo',
+        accion: { tipo: 'ABRIR', texto: 'Ver el motivo', enlace: '/mensajes/equipo' },
+      },
+    );
+    const conCaso = caso && !datos.motivo.includes(caso) ? ` (caso ${caso})` : '';
+    await this.anotar(
+      sesion,
+      `le dio una advertencia a ${tienda.nombre}${conCaso}: ${datos.motivo}`,
+      tiendaId,
+    );
   }
 
   /** «Suspender»: no entra y sus publicaciones dejan de verse. «Reactivar» lo deshace. */
@@ -604,6 +633,7 @@ export class PanelService {
       datos.suspender
         ? `suspendió a ${tienda.nombre}${datos.motivo ? ` · ${datos.motivo}` : ''}`
         : `reactivó a ${tienda.nombre}`,
+      tiendaId,
     );
   }
 
