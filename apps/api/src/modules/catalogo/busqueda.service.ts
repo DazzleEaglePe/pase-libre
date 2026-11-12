@@ -480,7 +480,7 @@ export class BusquedaService {
       const conGaleria = consulta.galeria.filter((g) => g !== INDEPENDIENTES.slug);
       const independientes = consulta.galeria.includes(INDEPENDIENTES.slug);
       const partes: Prisma.Sql[] = [];
-      if (conGaleria.length > 0) partes.push(Prisma.sql`g.slug IN (${Prisma.join(conGaleria)})`);
+      if (conGaleria.length > 0) partes.push(Prisma.sql`ga.slug IN (${Prisma.join(conGaleria)})`);
       if (independientes) partes.push(Prisma.sql`t.galeria_id IS NULL`);
       condiciones.push(Prisma.sql`(${Prisma.join(partes, ' OR ')})`);
     }
@@ -503,10 +503,17 @@ export class BusquedaService {
     return condiciones;
   }
 
-  private filtradas(palabras: string[], consulta: BuscarConsulta, conPrecio: boolean): Prisma.Sql {
+  /** Las ofertas que coinciden, una fila por oferta. `extra` agrega una condición (una ficha). */
+  private filtradas(
+    palabras: string[],
+    consulta: BuscarConsulta,
+    conPrecio: boolean,
+    extra: Prisma.Sql | null = null,
+  ): Prisma.Sql {
     const condiciones = [
       ...this.condicionesBase(palabras, consulta),
       ...this.condicionesFaceta(consulta, conPrecio),
+      ...(extra ? [extra] : []),
     ];
     // `precio_eq`: el precio visible en céntimos de dólar, solo para comparar (nunca se muestra).
     const columnasPrecio = conPrecio
@@ -520,11 +527,11 @@ export class BusquedaService {
       : Prisma.empty;
     return Prisma.sql`
       SELECT o.producto_id, o.condicion, o.stock, o.actualizada_en,
-             coalesce(g.nombre, ${INDEPENDIENTES.nombre}) AS galeria_nombre
+             coalesce(ga.nombre, ${INDEPENDIENTES.nombre}) AS galeria_nombre
              ${columnasPrecio}
       FROM oferta o
       JOIN tienda t ON t.id = o.tienda_id
-      LEFT JOIN galeria g ON g.id = t.galeria_id
+      LEFT JOIN galeria ga ON ga.id = t.galeria_id
       JOIN producto p ON p.id = o.producto_id
       JOIN categoria c ON c.id = p.categoria_id
       LEFT JOIN marca m ON m.id = p.marca_id
@@ -549,6 +556,11 @@ export class BusquedaService {
     return filas.map((fila) => fila.productoId);
   }
 
+  /**
+   * Una página de resultados y sus totales en una sola consulta: se agrupan las ofertas por
+   * producto una vez, los totales salen de esa misma agrupación (`OVER ()`) y lo caro (la foto,
+   * la oferta destacada) se busca solo para los productos de la página.
+   */
   private async ejecutar(
     palabras: string[],
     consulta: BuscarConsulta,
@@ -558,15 +570,23 @@ export class BusquedaService {
     miTiendaId: string | null = null,
   ): Promise<Resultado> {
     const filtradas = this.filtradas(palabras, consulta, conPrecio);
+    // Con sesión se compara en dólares (`precio_eq`): un precio en soles y uno en dólares
+    // quedan en la misma vara, y los productos sin precio visible van al final.
+    // `d_eq` es el precio de la oferta que se destacará si tiene stock (ver `destacada`): la de
+    // otra tienda si la hay, y entre esas la más barata con stock. Con él sale «Más barato»
+    // de todos los resultados sin armar la destacada de cada producto.
+    const ajena = Prisma.sql`f.tienda_id IS DISTINCT FROM CAST(${miTiendaId} AS uuid)`;
     const agregadosPrecio = conPrecio
       ? Prisma.sql`,
         min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'USD') AS desde_usd,
         min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'PEN') AS desde_pen,
         min(f.precio_eq) AS desde_eq,
-        count(*) FILTER (WHERE NOT f.precio_visible OR f.precio_centimos IS NULL)::int AS al_interno`
+        count(*) FILTER (WHERE NOT f.precio_visible OR f.precio_centimos IS NULL)::int AS al_interno,
+        CASE WHEN bool_or(${ajena})
+             THEN min(f.precio_eq) FILTER (WHERE ${ajena} AND f.stock > 0)
+             ELSE min(f.precio_eq) FILTER (WHERE f.stock > 0)
+        END AS d_eq`
       : Prisma.empty;
-    // Con sesión se compara en dólares (`precio_eq`): un precio en soles y uno en dólares
-    // quedan en la misma vara, y los productos sin precio visible van al final.
     // «Destacar en silencio» (COR16): más arriba en las búsquedas de su categoría.
     const impulsados =
       consulta.categoria && consulta.orden !== 'precio_asc' && consulta.orden !== 'precio_desc'
@@ -585,64 +605,75 @@ export class BusquedaService {
     // a alguien), con stock, con precio visible y la más barata; entre iguales, la más reciente.
     // «Más barata» es la de menor precio entre todos los resultados.
     const destacada = conPrecio
-      ? Prisma.sql`,
-        d AS (
-          SELECT DISTINCT ON (f.producto_id)
-                 f.producto_id, f.oferta_id, f.tienda_id, f.tienda_nombre, f.tienda_stand,
+      ? Prisma.sql`
+        JOIN LATERAL (
+          SELECT f.oferta_id, f.tienda_id, f.tienda_nombre, f.tienda_stand,
                  f.tienda_visible AS d_tienda_visible,
                  f.condicion::text AS d_condicion, f.stock AS d_stock, f.galeria_nombre AS d_galeria,
                  f.moneda::text AS d_moneda, f.precio_centimos AS d_precio,
-                 f.precio_visible AS d_visible, f.precio_eq AS d_eq
-          FROM f
-          ORDER BY f.producto_id, COALESCE(f.tienda_id = CAST(${miTiendaId} AS uuid), false) ASC,
+                 f.precio_visible AS d_visible,
+                 (f.stock > 0 AND f.precio_eq IS NOT NULL AND f.precio_eq = g.barata) AS d_mas_barato
+          FROM (${this.filtradas(palabras, consulta, conPrecio, Prisma.sql`o.producto_id = g.producto_id`)}) f
+          ORDER BY COALESCE(f.tienda_id = CAST(${miTiendaId} AS uuid), false) ASC,
                    (f.stock > 0) DESC, (f.precio_eq IS NOT NULL) DESC,
                    f.precio_eq ASC, f.actualizada_en DESC, f.oferta_id
-        )`
+          LIMIT 1
+        ) d ON true`
       : Prisma.empty;
-    const columnasDestacada = conPrecio
-      ? Prisma.sql`, d.oferta_id, d.tienda_id, d.tienda_nombre, d.tienda_stand, d.d_tienda_visible,
-               d.d_condicion,
-               d.d_stock, d.d_galeria, d.d_moneda, d.d_precio, d.d_visible,
-               (d.d_stock > 0 AND d.d_eq IS NOT NULL
-                 AND d.d_eq = min(d.d_eq) FILTER (WHERE d.d_stock > 0) OVER ()) AS d_mas_barato`
-      : Prisma.empty;
-    const unirDestacada = conPrecio
-      ? Prisma.sql`JOIN d ON d.producto_id = g.producto_id`
-      : Prisma.empty;
+    const barata = conPrecio ? Prisma.sql`, min(g.d_eq) OVER () AS barata` : Prisma.empty;
 
-    const [filas, totales] = await Promise.all([
-      this.prisma.$queryRaw<FilaProducto[]>`
-        WITH f AS (${filtradas}),
-        g AS (
-          SELECT p.id AS producto_id, p.slug::text AS slug, p.titulo,
-                 c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
-                 m.nombre::text AS marca,
-                 (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto,
-                 count(*)::int AS cantidad,
-                 array_agg(DISTINCT f.galeria_nombre) AS galerias,
-                 array_agg(DISTINCT f.condicion::text) AS condiciones,
-                 sum(f.stock)::int AS stock_total,
-                 max(f.actualizada_en) AS actualizada_en
-                 ${agregadosPrecio}
-          FROM f
-          JOIN producto p ON p.id = f.producto_id
-          JOIN categoria c ON c.id = p.categoria_id
-          LEFT JOIN marca m ON m.id = p.marca_id
-          GROUP BY p.id, c.slug, c.nombre, m.nombre
-        )${destacada}
-        SELECT g.*${columnasDestacada}
-        FROM g
-        ${unirDestacada}
+    const filas = await this.prisma.$queryRaw<
+      Array<FilaProducto & { total_productos: number; total_ofertas: number }>
+    >`
+      WITH f AS (${filtradas}),
+      g AS (
+        SELECT f.producto_id,
+               count(*)::int AS cantidad,
+               array_agg(DISTINCT f.galeria_nombre) AS galerias,
+               array_agg(DISTINCT f.condicion::text) AS condiciones,
+               sum(f.stock)::int AS stock_total,
+               max(f.actualizada_en) AS actualizada_en
+               ${agregadosPrecio}
+        FROM f
+        GROUP BY f.producto_id
+      ),
+      pagina AS (
+        SELECT g.*,
+               count(*) OVER ()::int AS total_productos,
+               sum(g.cantidad) OVER ()::int AS total_ofertas
+               ${barata}
+        FROM (SELECT g.*, p.titulo FROM g JOIN producto p ON p.id = g.producto_id) g
         ORDER BY ${orden}
-        LIMIT ${limite} OFFSET ${(consulta.pagina - 1) * limite}`,
-      this.prisma.$queryRaw<Array<{ productos: number; ofertas: number }>>`
-        WITH f AS (${filtradas})
-        SELECT count(DISTINCT producto_id)::int AS productos, count(*)::int AS ofertas FROM f`,
-    ]);
+        LIMIT ${limite} OFFSET ${(consulta.pagina - 1) * limite}
+      )
+      SELECT g.*, p.slug::text AS slug,
+             c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
+             m.nombre::text AS marca,
+             (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto
+             ${conPrecio ? Prisma.sql`, d.*` : Prisma.empty}
+      FROM pagina g
+      JOIN producto p ON p.id = g.producto_id
+      JOIN categoria c ON c.id = p.categoria_id
+      LEFT JOIN marca m ON m.id = p.marca_id
+      ${destacada}
+      ORDER BY ${orden}`;
+    const [primera] = filas;
+    if (primera) {
+      return {
+        filas,
+        totalProductos: primera.total_productos,
+        totalOfertas: primera.total_ofertas,
+      };
+    }
+    // Una página después de la última: no trae filas, pero los totales siguen valiendo.
+    if (consulta.pagina === 1) return { filas, totalProductos: 0, totalOfertas: 0 };
+    const [totales] = await this.prisma.$queryRaw<Array<{ productos: number; ofertas: number }>>`
+      WITH f AS (${filtradas})
+      SELECT count(DISTINCT producto_id)::int AS productos, count(*)::int AS ofertas FROM f`;
     return {
       filas,
-      totalProductos: totales[0]?.productos ?? 0,
-      totalOfertas: totales[0]?.ofertas ?? 0,
+      totalProductos: totales?.productos ?? 0,
+      totalOfertas: totales?.ofertas ?? 0,
     };
   }
 
