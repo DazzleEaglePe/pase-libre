@@ -386,7 +386,7 @@ export async function sembrarDemo(prisma: PrismaClient): Promise<void> {
           // El asesor de la demo es «de antes» (N12): puede todo, como los que ya existían.
           ...(u.rol === 'ASESOR' ? { permisos: [...PERMISOS_ASESOR] } : {}),
           respuestasRapidas: {
-            create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
+            create: [...RESPUESTAS_RAPIDAS_INICIALES],
           },
         },
       });

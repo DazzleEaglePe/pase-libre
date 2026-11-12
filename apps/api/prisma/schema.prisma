@@ -68,8 +68,38 @@ enum TipoMensaje {
   TEXTO
   FOTO
   SISTEMA
+  /// «X te pidió tu WhatsApp» (N01): la otra tienda lo acepta o dice «Ahora no».
+  PEDIDO_WHATSAPP
+  /// «WhatsApp de X · +51 … · Abrir» (N01): el número de la tienda, compartido a propósito.
+  WHATSAPP
 
   @@map("tipo_mensaje")
+}
+
+/// En qué quedó un pedido de WhatsApp (N01).
+enum EstadoPedidoWhatsapp {
+  PENDIENTE
+  ACEPTADO
+  RECHAZADO
+
+  @@map("estado_pedido_whatsapp")
+}
+
+/// Por qué se guardó lo que decía un mensaje antes (N01): lo lee el Equipo, nunca el chat.
+enum CambioMensaje {
+  EDITADO
+  ELIMINADO
+
+  @@map("cambio_mensaje")
+}
+
+/// El papel de una respuesta rápida (N11): «Cuando te escriben» (vendes) o «Cuando tú
+/// preguntas» (compras o buscas). En cada chat salen las del papel que se tiene ahí.
+enum PapelRespuesta {
+  VENDEDOR
+  COMPRADOR
+
+  @@map("papel_respuesta")
 }
 
 enum TipoAviso {
@@ -640,6 +670,9 @@ model Participacion {
   silenciada     Boolean   @default(false)
   noLeidaManual  Boolean   @default(false) @map("no_leida_manual")
   leidoHasta     DateTime? @map("leido_hasta") @db.Timestamptz(6)
+  /// Hasta cuándo le llegaron los mensajes (N01, dos checks grises): tenía el chat abierto en
+  /// algún equipo cuando se enviaron, o se conectó después.
+  recibidoHasta  DateTime? @map("recibido_hasta") @db.Timestamptz(6)
 
   conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
   usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
@@ -659,18 +692,55 @@ model Mensaje {
   foto           String?     @db.VarChar(300)
   creadoEn       DateTime    @default(now()) @map("creado_en") @db.Timestamptz(6)
 
+  /// «editado ·» (N01): la última vez que su autor lo cambió, dentro de los 15 minutos.
+  editadoEn    DateTime?             @map("editado_en") @db.Timestamptz(6)
+  /// «Eliminar para todos» (N01): el texto y la foto se vacían; lo de antes queda en
+  /// `mensaje_version` para el Equipo.
+  eliminadoEn  DateTime?             @map("eliminado_en") @db.Timestamptz(6)
+  /// «Eliminar para mí»: quienes ya no lo ven. Para el otro y para el Equipo sigue igual.
+  ocultoPara   String[]              @default([]) @map("oculto_para") @db.Uuid
+  /// «Responder»: el mensaje que cita.
+  respondeAId  String?               @map("responde_a_id") @db.Uuid
+  /// En qué quedó el pedido de WhatsApp. Solo en `PEDIDO_WHATSAPP`.
+  pedidoEstado EstadoPedidoWhatsapp? @map("pedido_estado")
+  /// El WhatsApp de la tienda tal como estaba al compartirlo. Solo en `WHATSAPP`.
+  whatsapp     String?               @db.VarChar(20)
+
   conversacion Conversacion @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
   autor        Usuario?     @relation(fields: [autorId], references: [id])
+
+  respondeA  Mensaje?         @relation("Respuestas", fields: [respondeAId], references: [id], onDelete: SetNull)
+  respuestas Mensaje[]        @relation("Respuestas")
+  versiones  MensajeVersion[]
 
   @@index([conversacionId, creadoEn])
   @@map("mensaje")
 }
 
+/// Lo que decía un mensaje antes de editarlo o de eliminarlo para todos (N01). El chat ya no lo
+/// muestra; queda para que el Equipo lo lea en solo lectura (ficha de la tienda › Conversaciones).
+model MensajeVersion {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  mensajeId String        @map("mensaje_id") @db.Uuid
+  cambio    CambioMensaje
+  texto     String?       @db.VarChar(2000)
+  foto      String?       @db.VarChar(300)
+  creadaEn  DateTime      @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  mensaje Mensaje @relation(fields: [mensajeId], references: [id], onDelete: Cascade)
+
+  @@index([mensajeId, creadaEn])
+  @@map("mensaje_version")
+}
+
 model RespuestaRapida {
   id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   usuarioId String @map("usuario_id") @db.Uuid
+  /// Con `{tienda}` donde va el nombre de la otra tienda («Nombre de la tienda», N11).
   texto     String @db.VarChar(120)
   orden     Int    @default(0) @db.SmallInt
+
+  papel PapelRespuesta @default(VENDEDOR)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 

@@ -494,13 +494,19 @@ describe('Mensajes, campanita, bloqueo y «Vendido» (RF-39, RF-40, RF-47, RF-55
       expect(mios.body[0]).toMatchObject({ estado: 'ENVIADO', tipo: 'TRATO', resolucion: null });
     });
 
-    it('trae las respuestas rápidas de la persona (RF-56)', async () => {
+    it('trae las respuestas rápidas de la persona, de los dos papeles (RF-56, N11)', async () => {
       const respuesta = await como('tiendab').get('/v1/cuenta/respuestas-rapidas').expect(200);
-      expect(respuesta.body.map((r: { texto: string }) => r.texto)).toEqual([
-        '¿Sigue disponible?',
-        'Te lo separo',
-        'Paso a recoger',
-        'Ya no tengo',
+      expect(
+        respuesta.body.map((r: { texto: string; papel: string }) => `${r.papel}: ${r.texto}`),
+      ).toEqual([
+        'vendedor: Hola, {tienda}, ¿qué tal? 👋',
+        'vendedor: Déjame revisar el stock y en breve te confirmo.',
+        'vendedor: Te lo separo',
+        'vendedor: Ahora no lo tengo, pero te aviso si me llega.',
+        'comprador: ¿Sigue disponible?',
+        'comprador: ¿Me lo separas?',
+        'comprador: Paso a recoger',
+        'comprador: ¿Cuál es tu mejor precio?',
       ]);
     });
 

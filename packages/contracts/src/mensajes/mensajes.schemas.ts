@@ -22,7 +22,7 @@ export const historialSchema = z.object({
   limite: z.coerce.number().int().min(1).max(100).default(MENSAJES_POR_PAGINA),
 });
 
-/** Texto, foto o foto con texto (RF-39). Nada de archivos (D-30). */
+/** Texto, foto o foto con texto (RF-39). Nada de archivos (D-30). `responde_a`: «Responder» (N01). */
 export const enviarMensajeSchema = z
   .strictObject({
     texto: z
@@ -31,9 +31,35 @@ export const enviarMensajeSchema = z
       .max(MAX_TEXTO_MENSAJE, `El mensaje llega hasta ${MAX_TEXTO_MENSAJE} caracteres.`)
       .optional(),
     foto: rutaFotoSchema.optional(),
+    responde_a: z.uuid('Ese mensaje ya no está.').optional(),
   })
-  .transform(({ texto, foto }) => ({ texto: texto || undefined, foto }))
+  .transform(
+    ({ texto, foto, responde_a }): { texto?: string; foto?: string; responde_a?: string } => ({
+      texto: texto || undefined,
+      foto,
+      ...(responde_a ? { responde_a } : {}),
+    }),
+  )
   .refine((mensaje) => mensaje.texto || mensaje.foto, 'Escribe un mensaje o elige una foto.');
+
+/** `PATCH /v1/conversaciones/:id/mensajes/:mensajeId` (N01): editar dentro de los 15 minutos. */
+export const editarMensajeSchema = z.strictObject({
+  texto: z
+    .string()
+    .trim()
+    .min(1, 'Escribe el mensaje.')
+    .max(MAX_TEXTO_MENSAJE, `El mensaje llega hasta ${MAX_TEXTO_MENSAJE} caracteres.`),
+});
+
+/** `DELETE /v1/conversaciones/:id/mensajes/:mensajeId?para=` (N01): para todos o solo para mí. */
+export const eliminarMensajeSchema = z.object({
+  para: z.enum(['todos', 'mi'], 'Elige para quién se elimina.'),
+});
+
+/** `POST /v1/conversaciones/:id/whatsapp/pedido/:mensajeId` (N01): Aceptar o «Ahora no». */
+export const responderPedidoWhatsappSchema = z.strictObject({
+  aceptar: z.boolean(),
+});
 
 /** `PATCH /v1/conversaciones/:id` (RF-57): leída o no leída, silenciar y archivar. */
 export const cambiarConversacionSchema = z
@@ -84,6 +110,9 @@ export type CambiarConversacion = z.output<typeof cambiarConversacionSchema>;
 export type DenunciaEntrada = z.input<typeof denunciaSchema>;
 export type DenunciaDatos = z.output<typeof denunciaSchema>;
 export type Vendido = z.output<typeof vendidoSchema>;
+export type EditarMensaje = z.output<typeof editarMensajeSchema>;
+export type EliminarMensaje = z.output<typeof eliminarMensajeSchema>;
+export type ResponderPedidoWhatsapp = z.output<typeof responderPedidoWhatsappSchema>;
 export type LeerAvisos = z.output<typeof leerAvisosSchema>;
 
 /** `GET /v1/avisos?categoria=&limite=` (AV_Web): un filtro y cuántos traer. */

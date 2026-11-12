@@ -218,7 +218,7 @@ export class EquipoService {
             claveHash,
             debeCambiarClave: true,
             respuestasRapidas: {
-              create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
+              create: [...RESPUESTAS_RAPIDAS_INICIALES],
             },
           },
           include: INCLUIR_TIENDA,

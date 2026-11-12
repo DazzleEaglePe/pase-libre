@@ -1,7 +1,7 @@
 'use client';
 
 import { ASPECTOS_DEL_COMPRADOR, ASPECTOS_DEL_VENDEDOR } from '@paselibre/contracts';
-import { IconStar, IconStarFilled } from '@tabler/icons-react';
+import { IconStar, IconStarFilled, IconX } from '@tabler/icons-react';
 import { useId, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
@@ -16,12 +16,15 @@ export function TarjetaCalificar({
   tienda,
   deVendedor = true,
   alTerminar,
+  alCerrar,
 }: {
   ventaId: string;
   tienda: string;
   /** Se califica a quien vendió (lo hace quien compró). */
   deVendedor?: boolean;
   alTerminar: (estrellas: number) => void;
+  /** Con esto sale la X arriba a la derecha y «Ahora no» (N03): la tarjeta queda chiquita. */
+  alCerrar?: () => void;
 }) {
   const id = useId();
   const [estrellas, setEstrellas] = useState(0);
@@ -47,8 +50,18 @@ export function TarjetaCalificar({
   }
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-2xl border-2 border-pase bg-pase-suave p-4 sm:p-5">
-      <div className="flex flex-col gap-1">
+    <div className="relative flex flex-col gap-3.5 rounded-2xl border-2 border-pase bg-pase-suave p-4 sm:p-5">
+      {alCerrar && (
+        <button
+          type="button"
+          aria-label="Cerrar"
+          onClick={alCerrar}
+          className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-borde bg-white text-tinta"
+        >
+          <IconX size={18} stroke={1.8} aria-hidden="true" />
+        </button>
+      )}
+      <div className={`flex flex-col gap-1 ${alCerrar ? 'pr-12' : ''}`}>
         <b className="text-[17px] font-bold leading-6">¿Cómo te fue con {tienda}?</b>
         <span className="text-apoyo text-secundario">
           Opcional. La venta ya cuenta; esto suma a su reputación.
@@ -123,6 +136,15 @@ export function TarjetaCalificar({
         >
           {enviando ? 'Enviando…' : 'Enviar opinión'}
         </button>
+        {alCerrar && (
+          <button
+            type="button"
+            onClick={alCerrar}
+            className="h-11 font-bold text-tinta underline underline-offset-2"
+          >
+            Ahora no
+          </button>
+        )}
         <span className="text-nota text-secundario">
           Suma a su reputación. La otra tienda no ve quién dio cada estrella.
         </span>

@@ -6,6 +6,7 @@ import type {
   AvisosCuentaDatos,
   RespuestaAvisosCuenta,
   RespuestaCuenta,
+  PapelRespuesta,
   RespuestaRapida,
   RespuestaSesiones,
   TiendaBloqueada,
@@ -26,6 +27,7 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
 import { INTERRUPTOR_EN_VIVO, type InterruptorEnVivo } from '../en-vivo/interruptor';
 import { dispositivoDe, LUGAR_DE_SESION } from '../../shared/dispositivo';
+import { papelEnBase, respuestaRapida } from './respuestas-rapidas';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
@@ -321,19 +323,27 @@ export class CuentaService {
 
   // ── Respuestas rápidas (RF-56) ────────────────────────────────────────────
 
-  respuestasRapidas(usuarioId: string): Promise<RespuestaRapida[]> {
-    return this.prisma.respuestaRapida.findMany({
+  /** Las de los dos papeles (N11): primero «Cuando te escriben», después «Cuando tú preguntas». */
+  async respuestasRapidas(usuarioId: string): Promise<RespuestaRapida[]> {
+    const filas = await this.prisma.respuestaRapida.findMany({
       where: { usuarioId },
-      orderBy: { orden: 'asc' },
-      select: { id: true, texto: true },
+      orderBy: [{ papel: 'asc' }, { orden: 'asc' }],
+      select: { id: true, texto: true, papel: true },
     });
+    return filas.map(respuestaRapida);
   }
 
-  async guardarRespuestasRapidas(usuarioId: string, textos: string[]): Promise<RespuestaRapida[]> {
+  /** Cambia la lista de un papel; la del otro queda igual. */
+  async guardarRespuestasRapidas(
+    usuarioId: string,
+    papel: PapelRespuesta,
+    textos: string[],
+  ): Promise<RespuestaRapida[]> {
+    const enBase = papelEnBase(papel);
     await this.prisma.$transaction([
-      this.prisma.respuestaRapida.deleteMany({ where: { usuarioId } }),
+      this.prisma.respuestaRapida.deleteMany({ where: { usuarioId, papel: enBase } }),
       this.prisma.respuestaRapida.createMany({
-        data: textos.map((texto, orden) => ({ usuarioId, texto, orden })),
+        data: textos.map((texto, orden) => ({ usuarioId, texto, orden, papel: enBase })),
       }),
     ]);
     return this.respuestasRapidas(usuarioId);

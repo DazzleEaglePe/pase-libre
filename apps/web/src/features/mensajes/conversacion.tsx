@@ -1,20 +1,33 @@
 'use client';
 
 import {
+  conNombreDeTienda,
   EVENTOS,
   formatearPrecio,
   TIENDA_RESERVADA,
-  urlFoto,
   type CambiarConversacion,
   type DetalleConversacion,
+  type EventoMensajeCambio,
   type EventoMensajeNuevo,
+  type EventoMensajeRecibido,
   type EventoMensajeVisto,
   type EventoOfertaStock,
+  type EventoPresencia,
   type MensajeChat,
   type RespuestaMensajes,
+  type RespuestaPedidoWhatsapp,
   type RespuestaRapida,
+  type RespuestaVendido,
 } from '@paselibre/contracts';
-import { IconCheck, IconMapPin, IconStarFilled } from '@tabler/icons-react';
+import {
+  IconArrowBackUp,
+  IconBrandWhatsapp,
+  IconCheck,
+  IconMapPin,
+  IconPencil,
+  IconStarFilled,
+  IconX,
+} from '@tabler/icons-react';
 import Link from 'next/link';
 import {
   Fragment,
@@ -27,22 +40,34 @@ import {
 } from 'react';
 
 import { EnVivoEnElChat } from '@/features/en-vivo/en-chat';
-import { TarjetaCalificar } from '@/features/tiendas/calificar';
+import { VentanaBloquear, VentanaReporte } from '@/features/reportes/ventanas';
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
-import { cuandoFue, diaDelChat, hora, haceRato } from '@/shared/fechas';
+import { cuandoFue, diaDelChat, haceRato } from '@/shared/fechas';
 import { iniciales } from '@/shared/iniciales';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
 import { Miniatura } from '@/shared/ui/miniatura';
 
-import { VentanaVendido } from './ventana-vendido';
-import { VentanaBloquear, VentanaReporte } from '@/features/reportes/ventanas';
+import { Burbuja, type AccionMensaje } from './burbuja';
+import { CalificarEnChat } from './calificar-en-chat';
+import {
+  enlaceWhatsapp,
+  estadoDeCheck,
+  minutosQueQuedan,
+  numeroConPrefijo,
+  textoActivo,
+} from './estado-chat';
+import { MarcarVendido } from './marcar-vendido';
 
 const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
 
-function estadoDelOtro(d: DetalleConversacion): string {
-  if (d.otro.en_linea) return 'Activo ahora';
-  if (d.otro.ultima_conexion) return `Activo ${haceRato(d.otro.ultima_conexion).toLowerCase()}`;
-  return '';
+/** La hora de ahora, que se renueva cada medio minuto: «Activo hace…» y «quedan N min» se mueven solos. */
+function useAhora(cadaMs = 30_000): Date {
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const reloj = setInterval(() => setAhora(new Date()), cadaMs);
+    return () => clearInterval(reloj);
+  }, [cadaMs]);
+  return ahora;
 }
 
 function lineaDeOferta(d: DetalleConversacion): string {
@@ -56,44 +81,6 @@ function lineaDeOferta(d: DetalleConversacion): string {
         ? '1 en stock'
         : `${oferta.stock} en stock`;
   return [precio, stock, oferta.estado === 'PAUSADA' && 'Pausada'].filter(Boolean).join(' · ');
-}
-
-function Burbuja({ m, alCargarFoto }: { m: MensajeChat; alCargarFoto: () => void }) {
-  if (m.tipo === 'SISTEMA') {
-    return (
-      <div
-        role="status"
-        className="max-w-[85%] self-center rounded-full bg-ok-fondo px-3.5 py-1.5 text-center text-nota font-semibold text-ok"
-      >
-        {m.texto}
-      </div>
-    );
-  }
-  return (
-    <div
-      className={`max-w-[80%] px-3.5 py-2.5 sm:max-w-[70%] ${
-        m.mio
-          ? 'self-end rounded-[18px_18px_6px_18px] bg-tinta text-white'
-          : 'self-start rounded-[18px_18px_18px_6px] bg-superficie'
-      }`}
-    >
-      {m.foto && (
-        <a href={urlFoto(m.foto)} target="_blank" rel="noopener noreferrer" className="mb-2 block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={urlFoto(m.foto)}
-            alt={m.mio ? 'Foto que enviaste' : 'Foto que te enviaron'}
-            onLoad={alCargarFoto}
-            className="max-h-[260px] w-[220px] max-w-full rounded-xl object-cover"
-          />
-        </a>
-      )}
-      {m.texto && <span className="whitespace-pre-wrap break-words">{m.texto}</span>}
-      <span className={`block text-right text-[11px] ${m.mio ? 'text-white/60' : 'text-detalle'}`}>
-        {hora(m.creado_en)}
-      </span>
-    </div>
-  );
 }
 
 type SobreTienda = NonNullable<DetalleConversacion['sobre_tienda']>;
@@ -270,20 +257,74 @@ function PanelTienda({
   );
 }
 
+/** Botón de la cabecera: «Pedir WhatsApp», o «WhatsApp» si ya te lo compartió (N01). */
+function BotonWhatsapp({
+  detalle,
+  pidiendo,
+  alPedir,
+}: {
+  detalle: DetalleConversacion;
+  pidiendo: boolean;
+  alPedir: () => void;
+}) {
+  const { whatsapp } = detalle;
+  const clase =
+    'flex h-10 shrink-0 items-center gap-2 rounded-full border-[1.5px] border-tinta bg-white px-3.5 text-nota font-bold text-tinta no-underline disabled:border-borde disabled:text-detalle max-sm:w-10 max-sm:justify-center max-sm:border-0 max-sm:px-0';
+  if (whatsapp.suyo) {
+    return (
+      <a
+        href={enlaceWhatsapp(whatsapp.suyo)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={clase}
+      >
+        <IconBrandWhatsapp size={18} stroke={1.8} aria-hidden="true" />
+        <span className="max-sm:sr-only">WhatsApp</span>
+      </a>
+    );
+  }
+  if (!whatsapp.puedes_pedir || detalle.bloqueaste) return null;
+  return (
+    <button
+      type="button"
+      disabled={whatsapp.pedido_pendiente || pidiendo}
+      title={whatsapp.pedido_pendiente ? 'Ya se lo pediste: esperando que acepte' : undefined}
+      onClick={alPedir}
+      className={clase}
+    >
+      <IconBrandWhatsapp size={18} stroke={1.8} aria-hidden="true" />
+      <span className="max-sm:sr-only">Pedir WhatsApp</span>
+    </button>
+  );
+}
+
 /**
- * Una conversación (C_Mensajes, F_MovilChat): quién es y si está activo, el producto fijo
- * arriba con «Vendido» para quien vende, el historial y la caja con respuestas rápidas y
- * fotos. Los mensajes llegan por el socket; al reconectar se vuelve a pedir todo.
+ * Una conversación (C_Mensajes, F_MovilChat, N01): quién es y si está activa, «Pedir WhatsApp»,
+ * el producto fijo arriba con «Marcar vendido» para quien vende, el historial con los checks y
+ * el menú de cada mensaje, y la caja con las respuestas rápidas de su papel y fotos. Todo llega
+ * por el socket; al reconectar se vuelve a pedir.
  */
-export function Conversacion({ id }: { id: string }) {
+export function Conversacion({
+  id,
+  puedeMarcarVendido = true,
+}: {
+  id: string;
+  /** El asesor sin el permiso «Marcar vendido» (N12) no ve el botón ni «Deshacer». */
+  puedeMarcarVendido?: boolean;
+}) {
   const conexion = useConexionTiempoReal();
+  const ahora = useAhora();
   const [detalle, setDetalle] = useState<DetalleConversacion | null>(null);
   const [mensajes, setMensajes] = useState<MensajeChat[]>([]);
   const [hayMas, setHayMas] = useState(false);
   const [vistoHasta, setVistoHasta] = useState<string | null>(null);
+  const [recibidoHasta, setRecibidoHasta] = useState<string | null>(null);
   const [rapidas, setRapidas] = useState<RespuestaRapida[]>([]);
   const [borrador, setBorrador] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [editando, setEditando] = useState<MensajeChat | null>(null);
+  const [respondiendo, setRespondiendo] = useState<MensajeChat | null>(null);
+  const [pidiendo, setPidiendo] = useState(false);
   // EV_WebNet: sin señal se sigue escribiendo; se envía al volver.
   const [enLinea, setEnLinea] = useState(true);
   const [pendientes, setPendientes] = useState<string[]>([]);
@@ -292,12 +333,15 @@ export function Conversacion({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [noExiste, setNoExiste] = useState(false);
   const [menu, setMenu] = useState(false);
-  const [ventana, setVentana] = useState<'bloquear' | 'denunciar' | 'vendido' | null>(null);
+  const [ventana, setVentana] = useState<'bloquear' | 'denunciar' | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [llegar, setLlegar] = useState(false);
   const historial = useRef<HTMLDivElement>(null);
   const alFondo = useRef(true);
   const entradaFoto = useRef<HTMLInputElement>(null);
+  const entrada = useRef<HTMLInputElement>(null);
+  // Lo que estaba escrito antes de editar un mensaje: vuelve al terminar.
+  const borradorGuardado = useRef('');
 
   const leer = useCallback(() => {
     void llamarApi<DetalleConversacion>(`/conversaciones/${id}`, {
@@ -317,6 +361,7 @@ export function Conversacion({ id }: { id: string }) {
       setCargadoEn(Date.now());
       setHayMas(h.hay_mas);
       setVistoHasta(h.visto_hasta);
+      setRecibidoHasta(h.recibido_hasta);
       alFondo.current = true;
       if (d.no_leidos > 0 || d.no_leida) leer();
     } catch (e) {
@@ -325,6 +370,11 @@ export function Conversacion({ id }: { id: string }) {
     }
   }, [id, leer]);
 
+  /** El detalle solo (WhatsApp, venta), sin volver a pedir los mensajes. */
+  const refrescarDetalle = useCallback(() => {
+    void llamarApi<DetalleConversacion>(`/conversaciones/${id}`).then(setDetalle, () => undefined);
+  }, [id]);
+
   useEffect(() => {
     void cargar();
   }, [cargar, conexion]);
@@ -332,6 +382,11 @@ export function Conversacion({ id }: { id: string }) {
   useEffect(() => {
     llamarApi<RespuestaRapida[]>('/cuenta/respuestas-rapidas').then(setRapidas, () => undefined);
   }, []);
+
+  useEffect(() => {
+    setEditando(null);
+    setRespondiendo(null);
+  }, [id]);
 
   useEffect(() => {
     if (!aviso) return;
@@ -354,13 +409,70 @@ export function Conversacion({ id }: { id: string }) {
   const agregar = (mensaje: MensajeChat) =>
     setMensajes((lista) => (lista.some((m) => m.id === mensaje.id) ? lista : [...lista, mensaje]));
 
+  /** Un mensaje que cambió (editado, eliminado, pedido respondido) y las citas que lo muestran. */
+  const reemplazar = (mensaje: MensajeChat) =>
+    setMensajes((lista) =>
+      lista.map((m) => {
+        if (m.id === mensaje.id) return { ...mensaje, autor: mensaje.autor ?? m.autor };
+        if (m.responde_a?.id === mensaje.id) {
+          return {
+            ...m,
+            responde_a: {
+              ...m.responde_a,
+              texto: mensaje.texto,
+              foto: mensaje.foto,
+              eliminado: mensaje.eliminado,
+            },
+          };
+        }
+        return m;
+      }),
+    );
+
+  const quitar = (mensajeId: string) =>
+    setMensajes((lista) => lista.filter((m) => m.id !== mensajeId));
+
   useEvento<EventoMensajeNuevo>(EVENTOS.mensajeNuevo, (evento) => {
     if (evento.conversacion_id !== id) return;
-    agregar(evento.mensaje);
-    if (!evento.mensaje.mio && document.visibilityState === 'visible') leer();
+    const { mensaje } = evento;
+    agregar(mensaje);
+    if (!mensaje.mio && document.visibilityState === 'visible') leer();
+    // Una venta marcada o deshecha, o un WhatsApp que llegó: cambian la cabecera y lo que se
+    // puede editar.
+    if (mensaje.tipo === 'SISTEMA' && !mensaje.mio) void cargar();
+    else if (mensaje.tipo === 'WHATSAPP' && !mensaje.mio) refrescarDetalle();
+  });
+  useEvento<EventoMensajeCambio>(EVENTOS.mensajeCambio, (evento) => {
+    if (evento.conversacion_id !== id) return;
+    if (evento.mensaje) {
+      reemplazar(evento.mensaje);
+      if (evento.mensaje.tipo === 'PEDIDO_WHATSAPP') refrescarDetalle();
+    } else {
+      quitar(evento.mensaje_id);
+    }
   });
   useEvento<EventoMensajeVisto>(EVENTOS.mensajeVisto, (evento) => {
     if (evento.conversacion_id === id) setVistoHasta(evento.visto_hasta);
+  });
+  useEvento<EventoMensajeRecibido>(EVENTOS.mensajeRecibido, (evento) => {
+    if (evento.conversacion_id !== id) return;
+    setRecibidoHasta((antes) =>
+      antes && antes > evento.recibido_hasta ? antes : evento.recibido_hasta,
+    );
+  });
+  useEvento<EventoPresencia>(EVENTOS.presencia, (evento) => {
+    setDetalle((d) =>
+      d && d.otro.tienda.id && d.otro.tienda.id === evento.tienda_id
+        ? {
+            ...d,
+            otro: {
+              ...d.otro,
+              en_linea: evento.en_linea,
+              ultima_conexion: evento.ultima_conexion ?? d.otro.ultima_conexion,
+            },
+          }
+        : d,
+    );
   });
   useEvento<EventoOfertaStock>(EVENTOS.ofertaStock, (evento) => {
     setDetalle((d) =>
@@ -392,7 +504,7 @@ export function Conversacion({ id }: { id: string }) {
     });
   }
 
-  async function enviar(cuerpo: { texto?: string; foto?: string }) {
+  async function enviar(cuerpo: { texto?: string; foto?: string; responde_a?: string }) {
     setEnviando(true);
     setError(null);
     try {
@@ -402,6 +514,7 @@ export function Conversacion({ id }: { id: string }) {
       });
       alFondo.current = true;
       agregar(mensaje);
+      setRespondiendo(null);
       return true;
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No se pudo enviar. Vuelve a intentarlo.');
@@ -411,16 +524,46 @@ export function Conversacion({ id }: { id: string }) {
     }
   }
 
+  function terminarEdicion() {
+    setEditando(null);
+    setBorrador(borradorGuardado.current);
+    borradorGuardado.current = '';
+  }
+
+  async function guardarEdicion(mensaje: MensajeChat, texto: string) {
+    setEnviando(true);
+    setError(null);
+    try {
+      reemplazar(
+        await llamarApi<MensajeChat>(`/conversaciones/${id}/mensajes/${mensaje.id}`, {
+          metodo: 'PATCH',
+          cuerpo: { texto },
+        }),
+      );
+      terminarEdicion();
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos editar el mensaje.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   async function enviarBorrador(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const texto = borrador.trim();
     if (!texto || enviando) return;
+    if (editando) {
+      await guardarEdicion(editando, texto);
+      return;
+    }
     if (!enLinea) {
       setPendientes((lista) => [...lista, texto]);
       setBorrador('');
       return;
     }
-    if (await enviar({ texto })) setBorrador('');
+    if (await enviar({ texto, ...(respondiendo ? { responde_a: respondiendo.id } : {}) })) {
+      setBorrador('');
+    }
   }
 
   // Sin conexión: el aviso arriba y los mensajes en espera; al volver, se envían en orden.
@@ -468,11 +611,118 @@ export function Conversacion({ id }: { id: string }) {
     setEnviando(true);
     try {
       const foto = await subirFoto(archivo);
-      const texto = borrador.trim();
-      if (await enviar({ foto: foto.ruta, ...(texto ? { texto } : {}) })) setBorrador('');
+      const texto = editando ? '' : borrador.trim();
+      if (
+        await enviar({
+          foto: foto.ruta,
+          ...(texto ? { texto } : {}),
+          ...(respondiendo ? { responde_a: respondiendo.id } : {}),
+        })
+      ) {
+        if (!editando) setBorrador('');
+      }
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No pudimos subir la foto.');
       setEnviando(false);
+    }
+  }
+
+  /** El menú de cada mensaje (N01): Responder, Copiar, Editar y Eliminar. */
+  async function alElegir(m: MensajeChat, accion: AccionMensaje) {
+    setError(null);
+    if (accion === 'responder') {
+      if (editando) terminarEdicion();
+      setRespondiendo(m);
+      entrada.current?.focus();
+      return;
+    }
+    if (accion === 'copiar') {
+      const texto = m.texto ?? (m.whatsapp ? numeroConPrefijo(m.whatsapp) : '');
+      navigator.clipboard.writeText(texto).then(
+        () => setAviso('Copiado.'),
+        () => setError('No pudimos copiar el mensaje.'),
+      );
+      return;
+    }
+    if (accion === 'editar') {
+      setRespondiendo(null);
+      if (!editando) borradorGuardado.current = borrador;
+      setEditando(m);
+      setBorrador(m.texto ?? '');
+      entrada.current?.focus();
+      return;
+    }
+    const para = accion === 'eliminar-todos' ? 'todos' : 'mi';
+    try {
+      const respuesta = await llamarApi<EventoMensajeCambio>(
+        `/conversaciones/${id}/mensajes/${m.id}?para=${para}`,
+        { metodo: 'DELETE' },
+      );
+      if (respuesta.mensaje) reemplazar(respuesta.mensaje);
+      else quitar(m.id);
+      if (editando?.id === m.id) terminarEdicion();
+      if (respondiendo?.id === m.id) setRespondiendo(null);
+      setAviso(para === 'todos' ? 'Eliminaste el mensaje para todos.' : 'Lo eliminaste para ti.');
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos eliminar el mensaje.');
+    }
+  }
+
+  async function pedirWhatsapp() {
+    if (!detalle) return;
+    setPidiendo(true);
+    setError(null);
+    try {
+      const mensaje = await llamarApi<MensajeChat>(`/conversaciones/${id}/whatsapp/pedido`, {
+        metodo: 'POST',
+      });
+      alFondo.current = true;
+      agregar(mensaje);
+      setDetalle({ ...detalle, whatsapp: { ...detalle.whatsapp, pedido_pendiente: true } });
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos pedirle su WhatsApp.');
+    } finally {
+      setPidiendo(false);
+    }
+  }
+
+  async function compartirWhatsapp() {
+    setMenu(false);
+    setError(null);
+    try {
+      const mensaje = await llamarApi<MensajeChat>(`/conversaciones/${id}/whatsapp`, {
+        metodo: 'POST',
+      });
+      alFondo.current = true;
+      agregar(mensaje);
+      // Si había un pedido suyo, quedó aceptado.
+      setMensajes((lista) =>
+        lista.map((m) =>
+          m.tipo === 'PEDIDO_WHATSAPP' && !m.mio && m.pedido === 'PENDIENTE'
+            ? { ...m, pedido: 'ACEPTADO' }
+            : m,
+        ),
+      );
+      setAviso('Le compartiste tu WhatsApp.');
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos compartir tu WhatsApp.');
+    }
+  }
+
+  async function responderPedido(m: MensajeChat, aceptar: boolean) {
+    setError(null);
+    try {
+      const respuesta = await llamarApi<RespuestaPedidoWhatsapp>(
+        `/conversaciones/${id}/whatsapp/pedido/${m.id}`,
+        { metodo: 'POST', cuerpo: { aceptar } },
+      );
+      reemplazar(respuesta.pedido);
+      if (respuesta.compartido) {
+        alFondo.current = true;
+        agregar(respuesta.compartido);
+      }
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos responder el pedido.');
     }
   }
 
@@ -527,25 +777,24 @@ export function Conversacion({ id }: { id: string }) {
   }
 
   const { otro, oferta } = detalle;
+  const reservada = otro.tienda.nombre === TIENDA_RESERVADA;
   const lugar = [
     otro.tienda.galeria ?? 'Independiente',
     otro.tienda.stand && `Stand ${otro.tienda.stand}`,
   ]
     .filter(Boolean)
     .join(' · ');
-  const misMensajes = mensajes.filter((m) => m.mio);
-  const ultimoMio = misMensajes[misMensajes.length - 1];
-  const visto =
-    ultimoMio &&
-    mensajes[mensajes.length - 1]?.id === ultimoMio.id &&
-    vistoHasta !== null &&
-    vistoHasta >= ultimoMio.creado_en;
+  const activo = textoActivo(otro.en_linea, otro.ultima_conexion, ahora);
+  // N11: en cada chat, solo las respuestas rápidas del papel que tienes en él.
+  const deMiPapel = rapidas.filter((r) => r.papel === detalle.rol);
+  const puedePedirAqui =
+    detalle.whatsapp.puedes_pedir && !detalle.whatsapp.pedido_pendiente && !detalle.whatsapp.suyo;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1">
       <section
         aria-label={`Conversación con ${otro.tienda.nombre}`}
-        className="relative flex h-[calc(100dvh-130px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border-[1.5px] border-linea lg:h-auto lg:min-h-0 lg:rounded-none lg:border-0"
+        className="relative flex h-[calc(100dvh-160px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border-[1.5px] border-linea lg:h-auto lg:min-h-0 lg:rounded-none lg:border-0"
       >
         <div className="flex items-center gap-3 border-b border-linea px-3 py-3 sm:px-4">
           <Link
@@ -573,17 +822,22 @@ export function Conversacion({ id }: { id: string }) {
           >
             {iniciales(otro.tienda.nombre)}
             {otro.en_linea && (
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-ok" />
+              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-[2.5px] border-white bg-[#22C55E]" />
             )}
           </span>
           <span className="flex min-w-0 flex-1 flex-col">
             <b className="truncate text-tarjeta">{otro.tienda.nombre}</b>
             <span className="truncate text-nota text-secundario">
-              {[otro.nombre !== otro.tienda.nombre && otro.nombre, estadoDelOtro(detalle), lugar]
-                .filter(Boolean)
-                .join(' · ')}
+              {otro.en_linea ? <b className="font-bold text-pase-texto">● {activo}</b> : activo}
+              {activo && !reservada ? ' · ' : ''}
+              {!reservada && lugar}
             </span>
           </span>
+          <BotonWhatsapp
+            detalle={detalle}
+            pidiendo={pidiendo}
+            alPedir={() => void pedirWhatsapp()}
+          />
           <div className="relative">
             <button
               type="button"
@@ -617,6 +871,17 @@ export function Conversacion({ id }: { id: string }) {
                   role="menu"
                   className="absolute right-0 top-12 z-20 flex w-[240px] flex-col rounded-2xl border border-linea bg-white p-1.5 text-apoyo shadow-[0_18px_40px_rgba(20,22,26,0.16)]"
                 >
+                  {detalle.whatsapp.puedes_compartir && !detalle.bloqueaste && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => void compartirWhatsapp()}
+                      className="flex min-h-11 items-center gap-2 rounded-[10px] px-3 text-left hover:bg-superficie"
+                    >
+                      <IconBrandWhatsapp size={18} stroke={1.8} aria-hidden="true" />
+                      Compartir mi WhatsApp
+                    </button>
+                  )}
                   <button
                     type="button"
                     role="menuitem"
@@ -715,7 +980,7 @@ export function Conversacion({ id }: { id: string }) {
         </div>
 
         {/* «Hablan de» (PCH_WebTienda): cada producto con esa tienda es su propio hilo. */}
-        <div className="flex items-center gap-2 border-b border-linea bg-superficie px-3 py-2.5 sm:px-4">
+        <div className="relative flex items-center gap-2 border-b border-linea bg-superficie px-3 py-2.5 sm:px-4">
           <span className="shrink-0 text-nota font-bold text-secundario">Hablan de</span>
           <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none]">
             {detalle.hablan_de.map((hilo) => {
@@ -751,22 +1016,24 @@ export function Conversacion({ id }: { id: string }) {
               );
             })}
           </div>
-          {detalle.rol === 'vendedor' &&
-            (detalle.puede_vender ? (
-              <button
-                type="button"
-                onClick={() => setVentana('vendido')}
-                className="h-9 shrink-0 rounded-full bg-tinta px-3.5 text-nota font-bold text-white"
-              >
-                Vendido
-              </button>
-            ) : (
-              oferta.stock === 0 && (
-                <Link href="/mis-publicaciones" className="shrink-0 text-nota font-bold">
-                  Reponer stock
-                </Link>
-              )
-            ))}
+          {puedeMarcarVendido && (
+            <MarcarVendido
+              detalle={detalle}
+              alError={setError}
+              alVender={(venta) => {
+                alFondo.current = true;
+                void cargar();
+                setAviso(`Listo: stock ${venta.stock_antes} → ${venta.stock_despues}.`);
+              }}
+              alDeshacer={(venta: RespuestaVendido) => {
+                alFondo.current = true;
+                void cargar();
+                setAviso(
+                  `Deshiciste la venta: stock ${venta.stock_antes} → ${venta.stock_despues}.`,
+                );
+              }}
+            />
+          )}
         </div>
         {detalle.en_vivo && (
           <EnVivoEnElChat enVivo={detalle.en_vivo} alCambiar={() => void cargar()} />
@@ -774,6 +1041,7 @@ export function Conversacion({ id }: { id: string }) {
 
         <div
           ref={historial}
+          data-historial
           onScroll={(evento) => {
             const caja = evento.currentTarget;
             alFondo.current = caja.scrollHeight - caja.scrollTop - caja.clientHeight < 80;
@@ -834,17 +1102,28 @@ export function Conversacion({ id }: { id: string }) {
             return (
               <Fragment key={m.id}>
                 {(!anterior || diaDelChat(anterior.creado_en) !== dia) && (
-                  <span className="self-center text-[12px] text-detalle first-letter:uppercase">
+                  <span className="self-center rounded-full bg-pase-suave px-3.5 py-1 text-[12px] font-bold text-marca first-letter:uppercase">
                     {dia}
                   </span>
                 )}
-                <Burbuja m={m} alCargarFoto={bajarSiHaceFalta} />
+                <Burbuja
+                  m={m}
+                  otro={otro.tienda.nombre}
+                  check={
+                    m.mio && (m.tipo === 'TEXTO' || m.tipo === 'FOTO')
+                      ? estadoDeCheck(m, recibidoHasta, vistoHasta)
+                      : null
+                  }
+                  ahora={ahora}
+                  puedesCompartir={detalle.whatsapp.puedes_compartir}
+                  alCargarFoto={bajarSiHaceFalta}
+                  alElegir={(mensaje, accion) => void alElegir(mensaje, accion)}
+                  alResponderPedido={responderPedido}
+                  alCompartir={() => void compartirWhatsapp()}
+                />
               </Fragment>
             );
           })}
-          {visto && pendientes.length === 0 && (
-            <span className="self-end text-[12px] text-detalle">Visto</span>
-          )}
           {pendientes.map((texto, indice) => (
             <div
               key={`${indice}-${texto}`}
@@ -860,7 +1139,7 @@ export function Conversacion({ id }: { id: string }) {
             <VentaCerrada detalle={detalle} alReclamar={() => setVentana('denunciar')} />
           )}
           {detalle.venta && !detalle.venta.calificaste && (
-            <TarjetaCalificar
+            <CalificarEnChat
               ventaId={detalle.venta.id}
               tienda={otro.tienda.nombre}
               deVendedor={detalle.venta.mi_lado === 'comprador'}
@@ -933,22 +1212,81 @@ export function Conversacion({ id }: { id: string }) {
           </div>
         ) : (
           <div className="flex flex-col gap-2.5 border-t border-linea p-3">
-            {rapidas.length > 0 && (
+            {editando && (
+              <div className="flex items-center gap-2.5 rounded-xl bg-superficie px-3 py-2 text-apoyo">
+                <IconPencil size={18} stroke={1.8} className="shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate">
+                  <b className="font-bold">Editando</b>
+                  {minutosQueQuedan(editando.cambiable_hasta, ahora) > 0 &&
+                    ` · quedan ${minutosQueQuedan(editando.cambiable_hasta, ahora)} min`}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Cancelar la edición"
+                  onClick={terminarEdicion}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white"
+                >
+                  <IconX size={18} stroke={1.8} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+            {respondiendo && (
+              <div className="flex items-center gap-2.5 rounded-xl border-l-4 border-pase bg-superficie px-3 py-2 text-apoyo">
+                <IconArrowBackUp size={18} stroke={1.8} className="shrink-0" aria-hidden="true" />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <b className="font-bold">
+                    Respondiendo a {respondiendo.mio ? 'tu mensaje' : otro.tienda.nombre}
+                  </b>
+                  <span className="truncate text-nota text-secundario">
+                    {respondiendo.texto ?? (respondiendo.foto ? 'Foto' : '')}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  aria-label="No responder a ese mensaje"
+                  onClick={() => setRespondiendo(null)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white"
+                >
+                  <IconX size={18} stroke={1.8} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+            {!editando && (puedePedirAqui || deMiPapel.length > 0) && (
               <div
                 aria-label="Respuestas rápidas"
-                className="flex gap-1.5 overflow-x-auto sm:flex-wrap"
+                role="group"
+                className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]"
               >
-                {rapidas.map((r) => (
+                {puedePedirAqui && (
                   <button
-                    key={r.id}
                     type="button"
-                    disabled={enviando}
-                    onClick={() => void enviar({ texto: r.texto })}
-                    className="h-[34px] shrink-0 rounded-full border-[1.5px] border-borde bg-white px-3 text-nota font-semibold"
+                    disabled={pidiendo}
+                    onClick={() => void pedirWhatsapp()}
+                    className="flex h-[34px] shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-borde bg-white px-3 text-nota font-semibold"
                   >
-                    {r.texto}
+                    <IconBrandWhatsapp size={16} stroke={1.8} aria-hidden="true" />
+                    Pedir WhatsApp
                   </button>
-                ))}
+                )}
+                {deMiPapel.map((r) => {
+                  // «Nombre de la tienda» se vuelve el nombre de la otra tienda (N11).
+                  const texto = conNombreDeTienda(r.texto, reservada ? null : otro.tienda.nombre);
+                  return (
+                    <button
+                      key={r.id}
+                      type="button"
+                      title={texto}
+                      onClick={() => {
+                        // Se escribe en la caja; no se envía sola.
+                        setBorrador(texto);
+                        entrada.current?.focus();
+                      }}
+                      className="h-[34px] max-w-[200px] shrink-0 truncate rounded-full border-[1.5px] border-borde bg-white px-3 text-nota font-semibold"
+                    >
+                      {texto}
+                    </button>
+                  );
+                })}
               </div>
             )}
             <form onSubmit={enviarBorrador} className="flex items-center gap-2">
@@ -963,57 +1301,79 @@ export function Conversacion({ id }: { id: string }) {
                   evento.target.value = '';
                 }}
               />
-              <button
-                type="button"
-                aria-label="Enviar foto"
-                disabled={enviando}
-                onClick={() => entradaFoto.current?.click()}
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-superficie"
-              >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
+              {!editando && (
+                <button
+                  type="button"
+                  aria-label="Enviar foto"
+                  disabled={enviando}
+                  onClick={() => entradaFoto.current?.click()}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-superficie"
                 >
-                  <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
-                  <circle cx="12" cy="13" r="3.5" />
-                </svg>
-              </button>
-              <label className="flex min-w-0 flex-1">
-                <span className="sr-only">Mensaje</span>
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+                    <circle cx="12" cy="13" r="3.5" />
+                  </svg>
+                </button>
+              )}
+              <label className="relative flex min-w-0 flex-1">
+                <span className="sr-only">{editando ? 'Editar mensaje' : 'Mensaje'}</span>
                 <input
+                  ref={entrada}
                   value={borrador}
                   onChange={(evento) => setBorrador(evento.target.value)}
+                  onKeyDown={(evento) => {
+                    if (evento.key !== 'Escape') return;
+                    if (editando) terminarEdicion();
+                    else setRespondiendo(null);
+                  }}
                   placeholder="Escribe un mensaje"
                   maxLength={2000}
-                  className="h-11 min-w-0 flex-1 rounded-full border-[1.5px] border-borde px-4 text-cuerpo placeholder:text-detalle"
+                  className={`h-11 min-w-0 flex-1 rounded-full border-[1.5px] px-4 text-cuerpo placeholder:text-detalle sm:pr-[140px] ${
+                    borrador.trim() ? 'border-pase' : 'border-borde'
+                  }`}
                 />
+                {borrador.trim() && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-nota text-detalle max-sm:hidden"
+                  >
+                    Enter para {editando ? 'guardar' : 'enviar'}
+                  </span>
+                )}
               </label>
               <button
                 type="submit"
-                aria-label="Enviar"
+                aria-label={editando ? 'Guardar' : 'Enviar'}
                 disabled={(enviando && enLinea) || !borrador.trim()}
                 className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-pase text-white disabled:bg-superficie disabled:text-borde-control"
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M4 12l16-8-6 16-2.5-6.5z" />
-                </svg>
+                {editando ? (
+                  <IconCheck size={20} stroke={2} aria-hidden="true" />
+                ) : (
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 12l16-8-6 16-2.5-6.5z" />
+                  </svg>
+                )}
               </button>
             </form>
           </div>
@@ -1045,32 +1405,10 @@ export function Conversacion({ id }: { id: string }) {
             objeto="CONVERSACION"
             objetoId={id}
             conversacionId={id}
-            tienda={otro.tienda.nombre === TIENDA_RESERVADA ? null : otro.tienda.nombre}
+            tienda={reservada ? null : otro.tienda.nombre}
             sobre={`Chat · ${otro.tienda.nombre}`}
             alCerrar={() => setVentana(null)}
             alBloquear={() => setDetalle({ ...detalle, bloqueaste: true })}
-          />
-        )}
-
-        {detalle.rol === 'vendedor' && (
-          <VentanaVendido
-            abierta={ventana === 'vendido'}
-            ofertaId={oferta.id}
-            conversacionId={id}
-            producto={oferta.producto.titulo}
-            stock={oferta.stock}
-            alCerrar={() => setVentana(null)}
-            alVender={(venta, vendidaEn) => {
-              setVentana(null);
-              alFondo.current = true;
-              setDetalle({
-                ...detalle,
-                oferta: { ...oferta, stock: venta.stock_despues },
-                puede_vender: venta.stock_despues > 0,
-              });
-              if (vendidaEn === id) agregar(venta.mensaje);
-              setAviso(`Listo: stock ${venta.stock_antes} → ${venta.stock_despues}.`);
-            }}
           />
         )}
       </section>

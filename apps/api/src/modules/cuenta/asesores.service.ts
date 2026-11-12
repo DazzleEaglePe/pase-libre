@@ -113,7 +113,7 @@ export class AsesoresService {
             debeCambiarClave: false,
             permisos: datos.permisos ?? [...PERMISOS_INICIALES],
             respuestasRapidas: {
-              create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
+              create: [...RESPUESTAS_RAPIDAS_INICIALES],
             },
           },
           select: SELECT_ASESOR,
