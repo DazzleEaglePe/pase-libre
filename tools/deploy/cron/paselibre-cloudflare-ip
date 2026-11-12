@@ -1,0 +1,2 @@
+# Rangos de Cloudflare para la IP real en nginx (docs/16 §4.1). Los lunes a las 04:17 (hora del servidor).
+17 4 * * 1 root /usr/local/sbin/paselibre-cloudflare-ip.sh >> /var/log/paselibre-cloudflare-ip.log 2>&1

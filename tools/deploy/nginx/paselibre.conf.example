@@ -5,6 +5,9 @@
 #   - La web y la API comparten dominio: la cookie de sesión es del mismo sitio y no hace falta CORS.
 #   - Los certificados los pide certbot (webroot en /var/www/certbot).
 #   - Límites de peticiones y tiempos de espera: docs/16 §4.2 (en producción desde el 12/11/2026).
+#   - Detrás de Cloudflare la IP real sale de CF-Connecting-IP, solo si el pedido viene de un rango de
+#     Cloudflare: antes de activar este archivo, instala y corre scripts/cloudflare-ip.sh (crea
+#     /etc/nginx/snippets/paselibre-cloudflare-ip.conf) y su cron. Sin Cloudflare delante no cambia nada.
 
 map $http_upgrade $paselibre_conexion {
     default upgrade;
@@ -28,6 +31,7 @@ server {
     listen [::]:80;
     server_name staging.paselibre.example;
     server_tokens off;
+    include /etc/nginx/snippets/paselibre-cloudflare-ip.conf;
 
     location ^~ /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -53,6 +57,15 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/staging.paselibre.example/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    include /etc/nginx/snippets/paselibre-cloudflare-ip.conf;
+
+    # La renovación del certificado también por HTTPS: detrás de Cloudflare, con «Always use
+    # HTTPS», el pedido de Let's Encrypt puede llegar redirigido aquí.
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        default_type text/plain;
+        try_files $uri =404;
+    }
 
     # Para la web y lo que no tenga ruta propia. La API pide menos (ver /v1/ abajo).
     client_max_body_size 9m;
