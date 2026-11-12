@@ -97,6 +97,8 @@ const detalleOferta = {
   descuento_socio: montoSchema.optional(),
   quien_ve_precio: z.enum(QUIEN_VE_PRECIO).optional(),
   acepta_ofertas: z.boolean().optional(),
+  /** «Precio fijo ▾ / Negociable» del campo de precio (N06). */
+  negociable: z.boolean().optional(),
 };
 const monedaSchema = z.enum(['USD', 'PEN'], 'Elige la moneda.');
 

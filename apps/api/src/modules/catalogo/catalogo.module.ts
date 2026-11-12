@@ -6,11 +6,12 @@ import { CatalogoController } from './catalogo.controller';
 import { CatalogoService } from './catalogo.service';
 import { DirectorioController } from './directorio.controller';
 import { DirectorioService } from './directorio.service';
+import { InicioController } from './inicio.controller';
 import { InicioService } from './inicio.service';
 import { WilsonService } from './wilson.service';
 
 @Module({
-  controllers: [CatalogoController, DirectorioController],
+  controllers: [CatalogoController, DirectorioController, InicioController],
   providers: [
     CatalogoService,
     BusquedaService,

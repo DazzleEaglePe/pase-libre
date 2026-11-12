@@ -62,6 +62,7 @@ function columnasDeDetalle(datos: Partial<EditarOfertaDatos>): Prisma.OfertaUpda
     columnas.soloSocios = datos.quien_ve_precio === 'SOCIOS';
   }
   if (datos.acepta_ofertas !== undefined) columnas.aceptaOfertas = datos.acepta_ofertas;
+  if (datos.negociable !== undefined) columnas.negociable = datos.negociable;
   return columnas;
 }
 
@@ -96,6 +97,7 @@ const SELECT_OFERTA_PROPIA = {
   descuentoSocioCentimos: true,
   soloSocios: true,
   aceptaOfertas: true,
+  negociable: true,
   razonPausa: true,
   stock: true,
   precioCentimos: true,
@@ -865,6 +867,7 @@ export class OfertasService {
           : precioDe(Number(o.descuentoSocioCentimos), o.moneda),
       quien_ve_precio: o.precioVisible ? 'TODOS' : o.soloSocios ? 'SOCIOS' : 'NADIE',
       acepta_ofertas: o.aceptaOfertas,
+      negociable: o.negociable,
       chats_semana: 0,
       vistas_semana: 0,
       razon_pausa: o.estado === 'PAUSADA' ? o.razonPausa : null,

@@ -23,10 +23,11 @@ function Ventaja({ titulo, children }: { titulo: string; children: ReactNode }) 
 }
 
 /**
- * Pie de página (D_Pie del lienzo «Versión final»): fondo tinta, la invitación en una banda
- * verde (pedir la cuenta o invitar a una tienda vecina), las ventajas en texto y una línea con
- * la dirección y los enlaces. Sin franja de íconos: cada ventaja se dice una vez, sin adornos.
- * Lo que falta del equipo (WhatsApp, redes, razón social) no sale en producción.
+ * Pie de página (D_Pie, elegido A en N07): fondo tinta, las cuatro ventajas en texto («Tu venta
+ * es tuya» cierra) y una línea con la dirección y los enlaces. Sin sesión, arriba va la banda
+ * verde para pedir la cuenta; con sesión, invitar a otra tienda sale solo al final del inicio
+ * (`BannerInvitar`), no aquí. Lo que falta del equipo (WhatsApp, redes, razón social) no sale
+ * en producción.
  */
 export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
   const { whatsapp, legal } = CONTACTO;
@@ -34,7 +35,7 @@ export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
   return (
     <footer className="bg-tinta text-white">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-9 px-4 pb-7 pt-10 sm:px-8 sm:pt-12">
-        <InvitacionPie conSesion={conSesion} />
+        {!conSesion && <InvitacionPie conSesion={false} />}
 
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <SiHayPasesDelDia>
@@ -46,8 +47,9 @@ export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
           <Ventaja titulo="Precios entre tiendas">
             Tus precios solo los ven cuentas verificadas.
           </Ventaja>
-          <Ventaja titulo="Sin comisiones">
-            Gratis para el piloto: PaseLibre no cobra ni intermedia.
+          <Ventaja titulo="Tu venta es tuya">
+            Tú y la otra tienda acuerdan precio y pago. PaseLibre nunca te cobrará comisión por tus
+            ventas.
           </Ventaja>
         </ul>
 

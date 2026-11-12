@@ -25,6 +25,7 @@ import { BotonCompartir } from '@/shared/ui/boton-compartir';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { MenuOpciones } from '@/features/reportes/menu-opciones';
 import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
+import { BurbujaNegociable, BurbujaSocio } from '@/shared/ui/tarjeta-producto';
 
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
@@ -232,7 +233,7 @@ export function FichaProducto({
     ? [
         textoGarantia(oferta.detalle),
         oferta.detalle.con_caja ? 'Con caja' : null,
-        oferta.detalle.con_factura ? 'Con factura o boleta' : null,
+        oferta.detalle.con_factura ? 'Con comprobante' : null,
         oferta.detalle.probado ? 'Probado en el stand' : null,
         oferta.detalle.en_almacen ? 'En almacén · ~30 min' : null,
       ].filter((texto): texto is string => texto !== null)
@@ -426,10 +427,9 @@ export function FichaProducto({
               </span>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 {precioGrande}
-                {oferta.precioSocio && (
-                  <span className="rounded-full bg-marca px-2.5 text-[12px] font-bold leading-[22px] text-white">
-                    Precio socio
-                  </span>
+                {oferta.precioSocio && <BurbujaSocio />}
+                {oferta.negociable && (oferta.precio || oferta.precioFacturado) && (
+                  <BurbujaNegociable />
                 )}
                 {esLaMasBarata && (
                   <span className="rounded-full bg-contador px-2 text-[12px] font-bold leading-[22px] text-tinta">

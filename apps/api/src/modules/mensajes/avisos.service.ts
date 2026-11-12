@@ -223,10 +223,17 @@ export class AvisosService {
     return this.lista(usuarioId);
   }
 
-  /** Al abrir una conversación su aviso queda leído. */
+  /**
+   * Al abrir una conversación su aviso queda leído (N07, error 36): el de sus mensajes y
+   * cualquier otro que lleve a ese chat (una venta, un «¡Lo tengo!»…).
+   */
   async leerDeConversacion(usuarioId: string, conversacionId: string): Promise<void> {
     await this.prisma.aviso.updateMany({
-      where: { usuarioId, conversacionId, leidoEn: null },
+      where: {
+        usuarioId,
+        leidoEn: null,
+        OR: [{ conversacionId }, { enlace: `/mensajes/${conversacionId}` }],
+      },
       data: { leidoEn: new Date() },
     });
   }

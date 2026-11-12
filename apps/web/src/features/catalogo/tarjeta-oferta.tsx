@@ -1,5 +1,4 @@
 import {
-  formatearPrecio,
   type Audiencia,
   type TarjetaOferta,
   type TarjetaOfertaConVendedor,
@@ -8,6 +7,7 @@ import Link from 'next/link';
 
 import { haceCuanto } from '@/shared/fechas';
 import { Miniatura } from '@/shared/ui/miniatura';
+import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoEstado, textoStock } from './textos';
@@ -32,7 +32,7 @@ export function TarjetaOfertaPortada({
   return (
     <Link
       href={`/p/${tarjeta.producto.slug}`}
-      className="flex min-w-0 flex-col gap-3 rounded-2xl border border-linea p-3 no-underline hover:border-borde"
+      className="flex min-w-0 flex-col gap-3 rounded-[18px] border-2 border-borde bg-white p-3 no-underline hover:border-borde-control"
     >
       <Miniatura
         ruta={tarjeta.producto.foto}
@@ -56,13 +56,11 @@ export function TarjetaOfertaPortada({
         )}
         <span className="mt-auto pt-1">
           {conTienda ? (
-            tarjeta.precio_visible && tarjeta.precio ? (
-              <span className="text-precio text-tinta">{formatearPrecio(tarjeta.precio)}</span>
-            ) : (
-              <span className="text-apoyo font-semibold text-secundario">
-                Al interno · consultar
-              </span>
-            )
+            <PrecioBurbuja
+              precio={tarjeta.precio_visible || tarjeta.precio_socio ? tarjeta.precio : null}
+              socio={tarjeta.precio_socio}
+              negociable={tarjeta.negociable}
+            />
           ) : (
             <PrecioConSesion className="text-apoyo text-secundario" />
           )}

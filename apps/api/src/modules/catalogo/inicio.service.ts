@@ -1,24 +1,66 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { normalizarTexto, type FaseInicio, type RespuestaInicio } from '@paselibre/contracts';
+import {
+  normalizarTexto,
+  PUBLICACIONES_INICIO_NORMAL,
+  RECIEN_POR_PAGINA,
+  type FaseInicio,
+  type RespuestaInicio,
+  type RespuestaRecienInicio,
+  type RespuestaRecienLlegados,
+} from '@paselibre/contracts';
+import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { destacadasAhora, mezclarDestacadas } from '../../shared/destacados';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { BusquedaService } from './busqueda.service';
-import { CatalogoService, OFERTA_VIGENTE } from './catalogo.service';
+import {
+  CatalogoService,
+  OFERTA_VIGENTE,
+  PRODUCTO_TARJETA,
+  SELECT_OFERTA_CON_VENDEDOR,
+  tarjetaConVendedor,
+} from './catalogo.service';
 
-/** «Con 20 tiendas, aquí vas a encontrar casi todo» (FI_Web): la meta del piloto. */
+/** «Con 20 tiendas, aquí vas a encontrar casi todo» (N16): la meta del piloto. */
 export const META_TIENDAS = 20;
-/** Desde cuántas publicaciones de otras tiendas el inicio es el de todos los días. */
-export const PUBLICACIONES_NORMAL = 12;
+/** Desde cuántas publicaciones de otras tiendas el inicio es el de todos los días (N16). */
+export const PUBLICACIONES_NORMAL = PUBLICACIONES_INICIO_NORMAL;
 const MAS_PEDIDO = 4;
+/** «Recién llegados» cuenta como máximo lo de las últimas 24 h (N07, mejora 20). */
+const RECIEN_LLEGADOS_MS = 24 * 60 * 60 * 1000;
+/** Cuántas de más se miran para mezclar sin dejar dos seguidas de la misma tienda. */
+const HOLGURA_MEZCLA = 2 * RECIEN_POR_PAGINA;
+
+type Ordenable = { id: string; tiendaId: string };
 
 /**
- * El inicio de una tienda (sección 5 del lienzo final): crece solo. El primer día, sin nada
- * publicado por las demás, invita a pedir en vivo, explica que los precios están protegidos y
- * guía con «Primeros pasos»; con pocas publicaciones las muestra en fila; con 12 o más, el
- * inicio normal (eso ya lo trae la portada).
+ * «Mezclado por tienda: nunca salen dos seguidos de la misma» (N15). Va en el orden de lo más
+ * reciente y, si la siguiente es de la misma tienda que la anterior, adelanta la primera de otra
+ * tienda. Solo se repite si ya no quedan de otras.
+ */
+export function mezclarSinRepetir<T extends { tiendaId: string }>(lista: T[]): T[] {
+  const pendientes = [...lista];
+  const resultado: T[] = [];
+  while (pendientes.length > 0) {
+    const anterior = resultado[resultado.length - 1]?.tiendaId;
+    const indice = Math.max(
+      0,
+      pendientes.findIndex((item) => item.tiendaId !== anterior),
+    );
+    resultado.push(...pendientes.splice(indice, 1));
+  }
+  return resultado;
+}
+
+/**
+ * El inicio de una tienda (N16, N15): crece solo. Sin nada publicado por las demás, bienvenida,
+ * precios protegidos, lo que más se pide y primeros pasos; de 1 a 11, lo nuevo en lista con
+ * «Van N de 12»; desde 12, el inicio normal con «Recién publicado» de a 24. Al llegar a 12 se
+ * guarda el hito en la tienda y ya no vuelve atrás.
  */
 @Injectable()
 export class InicioService {
@@ -28,34 +70,198 @@ export class InicioService {
     @Inject(BusquedaService) private readonly busqueda: BusquedaService,
   ) {}
 
-  async inicio(mirada: Mirada): Promise<RespuestaInicio> {
-    const tiendaId = mirada.tiendaId;
-    if (!tiendaId || !mirada.usuarioId) {
+  /** El inicio es de las cuentas con tienda (dueño o asesor): el equipo no tiene. */
+  private deTienda(mirada: Mirada): { tiendaId: string; usuarioId: string } {
+    if (!mirada.tiendaId || !mirada.usuarioId) {
       throw new ApiHttpException(
         HttpStatus.FORBIDDEN,
         'PROHIBIDO',
         'El inicio de tienda es para cuentas con tienda.',
       );
     }
-    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
-    const [deOtras, deSeguidas, masPedido, tiendas, pasos] = await Promise.all([
-      this.prisma.oferta.count({
-        where: {
-          AND: [
-            OFERTA_VIGENTE,
-            { stock: { gt: 0 } },
-            { tiendaId: { notIn: [tiendaId, ...bloqueadas] } },
-          ],
-        },
+    return { tiendaId: mirada.tiendaId, usuarioId: mirada.usuarioId };
+  }
+
+  /** Lo vigente y con stock de las demás tiendas, sin las que bloqueaste. */
+  private deOtras(tiendaId: string, bloqueadas: string[]): Prisma.OfertaWhereInput {
+    return {
+      AND: [
+        OFERTA_VIGENTE,
+        { stock: { gt: 0 } },
+        { tiendaId: { notIn: [tiendaId, ...bloqueadas] } },
+      ],
+    };
+  }
+
+  async inicio(mirada: Mirada): Promise<RespuestaInicio> {
+    const { tiendaId, usuarioId } = this.deTienda(mirada);
+    const bloqueadas = await tiendasBloqueadasPor(this.prisma, usuarioId);
+    const [tienda, usuario, publicaciones, deSeguidas, masPedido, tiendas, pasos] =
+      await Promise.all([
+        this.prisma.tienda.findUniqueOrThrow({
+          where: { id: tiendaId },
+          select: { inicioNormalEn: true },
+        }),
+        this.prisma.usuario.findUniqueOrThrow({
+          where: { id: usuarioId },
+          select: { invitarCerradoEn: true },
+        }),
+        this.prisma.oferta.count({ where: this.deOtras(tiendaId, bloqueadas) }),
+        this.catalogo.deSeguidas(mirada),
+        this.masPedido(tiendaId),
+        this.tiendas(tiendaId, bloqueadas),
+        this.pasos(tiendaId),
+      ]);
+
+    // «Cambia solo y no vuelve atrás»: el hito queda en la tienda la primera vez que llega a 12.
+    let normal = tienda.inicioNormalEn !== null;
+    if (!normal && publicaciones >= PUBLICACIONES_NORMAL) {
+      await this.prisma.tienda.updateMany({
+        where: { id: tiendaId, inicioNormalEn: null },
+        data: { inicioNormalEn: new Date() },
+      });
+      normal = true;
+    }
+    const fase: FaseInicio = normal ? 'NORMAL' : publicaciones === 0 ? 'DIA_1' : 'POCAS';
+    const recien =
+      fase === 'DIA_1'
+        ? []
+        : (
+            await this.pagina(
+              mirada,
+              bloqueadas,
+              0,
+              fase === 'POCAS' ? PUBLICACIONES_NORMAL - 1 : RECIEN_POR_PAGINA,
+            )
+          ).tarjetas;
+    return {
+      fase,
+      de_seguidas: deSeguidas,
+      mas_pedido: masPedido,
+      tiendas,
+      pasos,
+      publicaciones,
+      recien,
+      invitar_cerrado: usuario.invitarCerradoEn !== null,
+    };
+  }
+
+  /** «La flechita trae las siguientes 24, sin fin» (N15). */
+  async recien(mirada: Mirada, desde: number): Promise<RespuestaRecienInicio> {
+    const { usuarioId } = this.deTienda(mirada);
+    const bloqueadas = await tiendasBloqueadasPor(this.prisma, usuarioId);
+    return this.pagina(mirada, bloqueadas, desde, RECIEN_POR_PAGINA);
+  }
+
+  /**
+   * Una página de «Recién publicado»: lo más reciente de las demás tiendas, con lo destacado por
+   * el equipo entre los 4 primeros (COR16) y mezclado por tienda. El orden se arma siempre desde
+   * el principio, así cada página sigue donde terminó la anterior.
+   */
+  private async pagina(
+    mirada: Mirada,
+    bloqueadas: string[],
+    desde: number,
+    cuantas: number,
+  ): Promise<RespuestaRecienInicio> {
+    const tiendaId = mirada.tiendaId ?? '';
+    const where = this.deOtras(tiendaId, bloqueadas);
+    const orderBy = [
+      { actualizadaEn: 'desc' },
+      { creadaEn: 'desc' },
+      { id: 'asc' },
+    ] satisfies Prisma.OfertaOrderByWithRelationInput[];
+    const destacadas = await destacadasAhora(this.prisma);
+    const hayDestacadas = destacadas.tiendas.size > 0 || destacadas.ofertas.size > 0;
+    const [filas, total, impulsadas, socios] = await Promise.all([
+      this.prisma.oferta.findMany({
+        where,
+        orderBy,
+        take: desde + cuantas + HOLGURA_MEZCLA,
+        select: { id: true, tiendaId: true },
       }),
-      this.catalogo.deSeguidas(mirada),
-      this.masPedido(tiendaId),
-      this.tiendas(tiendaId, bloqueadas),
-      this.pasos(tiendaId),
+      this.prisma.oferta.count({ where }),
+      hayDestacadas
+        ? this.prisma.oferta.findMany({
+            where: {
+              AND: [
+                where,
+                {
+                  OR: [
+                    { tiendaId: { in: [...destacadas.tiendas] } },
+                    { id: { in: [...destacadas.ofertas] } },
+                  ],
+                },
+              ],
+            },
+            orderBy,
+            take: 4,
+            select: { id: true, tiendaId: true },
+          })
+        : Promise.resolve([] as Ordenable[]),
+      tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId),
     ]);
-    const fase: FaseInicio =
-      deOtras === 0 ? 'DIA_1' : deOtras < PUBLICACIONES_NORMAL ? 'POCAS' : 'NORMAL';
-    return { fase, de_seguidas: deSeguidas, mas_pedido: masPedido, tiendas, pasos };
+    const arriba = new Set(impulsadas.map((o) => o.id));
+    const orden = mezclarSinRepetir(
+      mezclarDestacadas([...impulsadas, ...filas.filter((o) => !arriba.has(o.id))], (o) =>
+        arriba.has(o.id),
+      ),
+    );
+    const ids = orden.slice(desde, desde + cuantas).map((o) => o.id);
+    const completas = await this.prisma.oferta.findMany({
+      where: { id: { in: ids } },
+      select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
+    });
+    const porId = new Map(completas.map((o) => [o.id, o]));
+    return {
+      tarjetas: ids
+        .map((id) => porId.get(id))
+        .filter((o) => o !== undefined)
+        .map((o) => tarjetaConVendedor(o, mirada, socios)),
+      desde,
+      total,
+    };
+  }
+
+  /** La X del banner «¿Conoces una tienda…?» (N07): se guarda en la cuenta. */
+  async cerrarInvitar(mirada: Mirada): Promise<void> {
+    const { usuarioId } = this.deTienda(mirada);
+    await this.prisma.usuario.updateMany({
+      where: { id: usuarioId, invitarCerradoEn: null },
+      data: { invitarCerradoEn: new Date() },
+    });
+  }
+
+  /**
+   * «Recién llegados +N nuevo» (N07, mejora 20): lo publicado desde tu última visita a la
+   * página, sin lo de tu tienda ni lo de las que bloqueaste, y como máximo de las últimas 24 h.
+   */
+  async recienLlegados(mirada: Mirada): Promise<RespuestaRecienLlegados> {
+    const { tiendaId, usuarioId } = this.deTienda(mirada);
+    const [usuario, bloqueadas] = await Promise.all([
+      this.prisma.usuario.findUniqueOrThrow({
+        where: { id: usuarioId },
+        select: { recienVistoEn: true },
+      }),
+      tiendasBloqueadasPor(this.prisma, usuarioId),
+    ]);
+    const hace24 = new Date(Date.now() - RECIEN_LLEGADOS_MS);
+    const desde =
+      usuario.recienVistoEn && usuario.recienVistoEn > hace24 ? usuario.recienVistoEn : hace24;
+    const nuevos = await this.prisma.oferta.count({
+      where: { AND: [this.deOtras(tiendaId, bloqueadas), { creadaEn: { gt: desde } }] },
+    });
+    return { nuevos };
+  }
+
+  /** Entró a «Recién llegados»: el contador vuelve a cero. */
+  async recienVisto(mirada: Mirada): Promise<RespuestaRecienLlegados> {
+    const { usuarioId } = this.deTienda(mirada);
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { recienVistoEn: new Date() },
+    });
+    return { nuevos: 0 };
   }
 
   /**
@@ -151,17 +357,18 @@ export class InicioService {
     };
   }
 
+  /** «Primeros pasos»: «Completa tu perfil» pide portada, horario y qué vendes (N16). */
   private async pasos(tiendaId: string): Promise<RespuestaInicio['pasos']> {
     const [tienda, publicadas, enVivo] = await Promise.all([
       this.prisma.tienda.findUnique({
         where: { id: tiendaId },
-        select: { horario: true, descripcion: true },
+        select: { horario: true, descripcion: true, portadaRuta: true },
       }),
       this.prisma.oferta.count({ where: { tiendaId, estado: { not: 'ELIMINADA' } } }),
       this.prisma.enVivo.count({ where: { tiendaId } }),
     ]);
     return {
-      perfil: Boolean(tienda?.horario && tienda.descripcion),
+      perfil: Boolean(tienda?.horario && tienda.descripcion && tienda.portadaRuta),
       publicadas,
       en_vivo: enVivo > 0,
     };

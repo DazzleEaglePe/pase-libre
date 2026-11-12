@@ -44,6 +44,11 @@ export const portadaSchema = z.object({
   galeria: slug.optional(),
 });
 
+/** `GET /v1/inicio/recien`: desde qué publicación (de a 24, N15). */
+export const inicioRecienSchema = z.object({
+  desde: z.coerce.number().int().min(0).max(5000).default(0),
+});
+
 /**
  * Consulta de `GET /v1/buscar/sugerencias`: lo que se va escribiendo en el buscador de la
  * barra, para sugerir productos antes de buscar. No se registra como búsqueda.
@@ -64,4 +69,5 @@ export const masBuscadoSchema = z.object({
 export type BuscarConsulta = z.output<typeof buscarSchema>;
 export type MasBuscadoConsulta = z.output<typeof masBuscadoSchema>;
 export type PortadaConsulta = z.output<typeof portadaSchema>;
+export type InicioRecienConsulta = z.output<typeof inicioRecienSchema>;
 export type SugerenciasBusquedaConsulta = z.output<typeof sugerenciasBusquedaSchema>;

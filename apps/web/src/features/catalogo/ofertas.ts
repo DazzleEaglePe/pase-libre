@@ -30,6 +30,8 @@ export interface OfertaVista {
   /** Solo lo ven sus socios: para las demás, «Precio por chat». */
   soloSocios: boolean;
   aceptaOfertas: boolean;
+  /** «Negociable» al lado del precio (N06). */
+  negociable: boolean;
   /** Falso: las demás tiendas la ven como «Tienda reservada» (y sin WhatsApp). */
   tiendaVisible: boolean;
   /** «Responde en ~10 min»: minutos, o nulo si no hay datos (o la tienda es reservada). */
@@ -57,6 +59,7 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
       descuentoSocio: null,
       soloSocios: false,
       aceptaOfertas: false,
+      negociable: false,
       tiendaVisible: true,
       respondeEnMin: null,
       propia: false,
@@ -80,6 +83,7 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
     descuentoSocio: oferta.descuento_socio,
     soloSocios: oferta.solo_socios,
     aceptaOfertas: oferta.acepta_ofertas,
+    negociable: oferta.negociable,
     tiendaVisible: oferta.tienda_visible,
     respondeEnMin: oferta.responde_en_min,
     propia: oferta.propia,
