@@ -57,7 +57,7 @@ export function RecienPublicado({
           </Link>
         </div>
         <span className="text-nota text-detalle">
-          Mezclado por tienda: nunca salen dos seguidos de la misma.
+          Lo más nuevo primero, mezclado entre tiendas.
         </span>
       </div>
 
