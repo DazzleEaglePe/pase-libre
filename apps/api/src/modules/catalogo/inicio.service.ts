@@ -100,7 +100,7 @@ export class InicioService {
       await Promise.all([
         this.prisma.tienda.findUniqueOrThrow({
           where: { id: tiendaId },
-          select: { inicioNormalEn: true, logo: true },
+          select: { inicioNormalEn: true },
         }),
         this.prisma.usuario.findUniqueOrThrow({
           where: { id: usuarioId },
@@ -142,7 +142,6 @@ export class InicioService {
       pasos,
       publicaciones,
       recien,
-      logo: tienda.logo,
       invitar_cerrado: usuario.invitarCerradoEn !== null,
     };
   }
