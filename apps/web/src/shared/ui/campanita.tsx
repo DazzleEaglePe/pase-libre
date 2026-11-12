@@ -13,11 +13,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FiltrosAvisos, ListaAvisos } from '@/features/avisos/lista-avisos';
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
+import { conAvisoLeido, useAvisoLeido } from '@/shared/avisos-leidos';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
 
 /**
  * Los contadores de Mensajes y la campanita. Se piden al entrar, al reconectar el socket y
- * cada vez que llega algo que los mueve.
+ * cada vez que llega algo que los mueve. Tocar un aviso baja el de la campanita al toque
+ * (N07, error 36), antes de que conteste la API.
  */
 export function useContadores(): Contadores {
   const conexion = useConexionTiempoReal();
@@ -32,6 +34,13 @@ export function useContadores(): Contadores {
   useEvento(EVENTOS.mensajeNuevo, agrupado);
   useEvento(EVENTOS.avisoNuevo, agrupado);
   useEvento(EVENTOS.contadores, agrupado);
+  useAvisoLeido(
+    useCallback(
+      () =>
+        setContadores((actuales) => ({ ...actuales, avisos: Math.max(0, actuales.avisos - 1) })),
+      [],
+    ),
+  );
   return contadores;
 }
 
@@ -74,6 +83,7 @@ export function Campanita({
   useEffect(() => {
     if (abierta) cargar();
   }, [abierta, cargar, sinLeer]);
+  useAvisoLeido(useCallback((leido) => setDatos((actuales) => conAvisoLeido(actuales, leido)), []));
 
   useEffect(() => {
     if (!abierta) return;

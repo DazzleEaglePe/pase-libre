@@ -9,22 +9,25 @@ import type {
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 
 import { BotonSalir } from '@/features/acceso/boton-salir';
 import { useEnVivoMontado } from '@/features/en-vivo/contexto';
+import { enPlural } from '@/shared/plural';
 
 import { Buscador } from './buscador';
 import { Campanita, Insignia, useContadores } from './campanita';
 import { Marca } from './marca';
 import { MenuCategorias } from './menu-categorias';
 import { MenuCuenta } from './menu-cuenta';
+import { VigiaRecienLlegados } from './recien-llegados';
 
 /** Los numeritos de la barra: los de Pedidos en vivo salen del contexto, el resto de `/barra`. */
 export interface NumerosBarra {
   /** Nulo con Pedidos en vivo apagado (`EN_VIVO`): sus entradas no se muestran. */
   enVivo: number | null;
   remates: number | null;
+  /** «Recién llegados +N nuevo» (N07): con tienda, desde su última visita; sin tienda, lo de hoy. */
   recienHoy: number;
 }
 
@@ -243,7 +246,11 @@ function BandaComputadora({
         >
           {iconoEstrella}
           Recién llegados
-          {numeros.recienHoy > 0 && <Cuenta tono="verde">+{numeros.recienHoy} hoy</Cuenta>}
+          {numeros.recienHoy > 0 && (
+            <Cuenta tono="verde">
+              +{numeros.recienHoy} {enPlural(numeros.recienHoy, 'nuevo', 'nuevos')}
+            </Cuenta>
+          )}
         </Link>
         {conTienda && (
           <Link
@@ -315,7 +322,11 @@ function BurbujasCelular({ numeros, conTienda }: { numeros: NumerosBarra; conTie
         <Link href="/buscar?orden=recientes" className={clara}>
           {iconoEstrella}
           Recién llegados
-          {numeros.recienHoy > 0 && <Cuenta tono="verde">+{numeros.recienHoy}</Cuenta>}
+          {numeros.recienHoy > 0 && (
+            <Cuenta tono="verde">
+              +{numeros.recienHoy} {enPlural(numeros.recienHoy, 'nuevo', 'nuevos')}
+            </Cuenta>
+          )}
         </Link>
         {conTienda && (
           <Link href="/tiendas-que-sigues" className={clara}>
@@ -427,7 +438,9 @@ export function Cabecera({
   barra: RespuestaBarra | null;
 }) {
   const tienda = sesion?.tienda ?? null;
-  const numeros = useNumeros(barra);
+  const [nuevos, setNuevos] = useState(0);
+  const delServidor = useNumeros(barra);
+  const numeros = tienda ? { ...delServidor, recienHoy: nuevos } : delServidor;
   const ruta = usePathname();
   // En Mensajes el chat necesita el alto: sin las burbujas en el celular.
   const enMensajes = ruta.startsWith('/mensajes');
@@ -471,6 +484,11 @@ export function Cabecera({
         />
       </Suspense>
       {!enMensajes && <BurbujasCelular numeros={numeros} conTienda={Boolean(tienda)} />}
+      {tienda && (
+        <Suspense fallback={null}>
+          <VigiaRecienLlegados alCambiar={setNuevos} />
+        </Suspense>
+      )}
     </header>
   );
 

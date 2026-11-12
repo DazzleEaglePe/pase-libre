@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
+import { conAvisoLeido, useAvisoLeido } from '@/shared/avisos-leidos';
 import { useEvento } from '@/shared/tiempo-real';
 
 import { ConfigurarAvisos } from './configurar';
@@ -27,6 +28,9 @@ export function PaginaAvisos() {
   useEffect(cargar, [cargar]);
   const agrupado = useAgrupado(cargar);
   useEvento(EVENTOS.avisoNuevo, agrupado);
+  // Abrir un chat en otra pestaña (o tocar un aviso allá) también lo marca leído aquí.
+  useEvento(EVENTOS.contadores, agrupado);
+  useAvisoLeido(useCallback((leido) => setDatos((actuales) => conAvisoLeido(actuales, leido)), []));
 
   useEffect(() => {
     if (window.location.hash === '#configurar') setConfigurar(true);
