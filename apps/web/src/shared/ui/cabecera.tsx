@@ -455,6 +455,7 @@ export function Cabecera({
           </div>
           <Buscador
             sobreMarca
+            conSesion={Boolean(sesion)}
             className="order-3 basis-full md:order-2 md:min-w-0 md:flex-1 md:basis-auto"
           />
           <div className="order-2 ml-auto flex items-center gap-1.5 md:order-3">

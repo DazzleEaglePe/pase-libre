@@ -6,7 +6,8 @@ import {
   type ProductoEnLista,
   type ProductoEnListaConPrecio,
   type RespuestaMasBuscado,
-  type RespuestaSugerenciasBusqueda,
+  type RespuestaSugerenciasConTiendas,
+  type TiendaEnBuscador,
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -22,7 +23,14 @@ import {
 } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
+import {
+  lugarDeTienda,
+  partirCoincidencia,
+  reputacionParaLeer,
+  textoReputacion,
+} from '@/shared/tiendas';
 
+import { AvatarTienda } from './avatar-tienda';
 import { Miniatura } from './miniatura';
 
 const CLAVE_RECIENTES = 'paselibre:busquedas-recientes';
@@ -140,15 +148,87 @@ const iconoReloj = (
 );
 
 const tituloGrupo = 'px-3 pb-1 pt-2 text-etiqueta uppercase text-detalle';
+const separador = <span aria-hidden="true" className="mx-3 my-1 h-px shrink-0 bg-linea" />;
+
+/** «Ver todas las tiendas ›»: la pestaña «Tiendas» de Wilson en vivo (N13). */
+const DIRECTORIO = '/wilson-en-vivo?pestana=tiendas';
+
+/** El nombre con lo escrito subrayado: «<u>Pega</u>sus5000». */
+function NombreResaltado({ nombre, buscado }: { nombre: string; buscado: string }) {
+  const partes = partirCoincidencia(nombre, buscado);
+  if (!partes) return <>{nombre}</>;
+  const [antes, igual, despues] = partes;
+  return (
+    <>
+      {antes}
+      <u className="decoration-[1.5px] underline-offset-2">{igual}</u>
+      {despues}
+    </>
+  );
+}
+
+/**
+ * «Ver productos de …» (N13): con una sola tienda, su perfil (abre en sus productos); con
+ * varias, el directorio con las que se llaman así. La búsqueda de productos no mira el nombre
+ * de la tienda.
+ */
+function productosDeTiendas(tiendas: TiendaEnBuscador[], escrito: string) {
+  const [una] = tiendas;
+  if (tiendas.length === 1 && una) {
+    return { href: `/tiendas/${una.id}`, texto: `Ver productos de ${una.nombre}` };
+  }
+  return {
+    href: `${DIRECTORIO}&q=${encodeURIComponent(escrito)}`,
+    texto: `Ver productos de tiendas «${escrito}…»`,
+  };
+}
+
+const iconoLupa = (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="shrink-0 text-detalle"
+  >
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </svg>
+);
+
+const iconoTienda = (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    className="shrink-0"
+  >
+    <path d="M4 10l1-6h14l1 6M5 10v10h14V10M4 10h16" />
+    <path d="M10 20v-5h4v5" />
+  </svg>
+);
 
 function Formulario({
   className,
   categorias,
   sobreMarca,
+  conSesion,
 }: {
   className: string;
   categorias: CategoriaResumen[];
   sobreMarca: boolean;
+  conSesion: boolean;
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -169,7 +249,7 @@ function Formulario({
   const [activa, setActiva] = useState(-1);
   const [recientes, setRecientes] = useState<string[]>([]);
   const [masBuscado, setMasBuscado] = useState<string[]>([]);
-  const [sugerencias, setSugerencias] = useState<RespuestaSugerenciasBusqueda | null>(null);
+  const [sugerencias, setSugerencias] = useState<RespuestaSugerenciasConTiendas | null>(null);
   const [cargando, setCargando] = useState(false);
 
   // Al navegar, la barra muestra lo que dice la dirección.
@@ -195,7 +275,7 @@ function Formulario({
     const espera = setTimeout(() => {
       const consulta = new URLSearchParams({ q: escrito });
       if (categoria) consulta.set('categoria', categoria);
-      llamarApi<RespuestaSugerenciasBusqueda>(`/buscar/sugerencias?${consulta.toString()}`).then(
+      llamarApi<RespuestaSugerenciasConTiendas>(`/buscar/sugerencias?${consulta.toString()}`).then(
         (respuesta) => {
           if (numero !== pedido.current) return;
           setSugerencias(respuesta);
@@ -251,8 +331,11 @@ function Formulario({
   // Las opciones en el orden en que se ven, para moverse con las flechas.
   const productos = escribiendo ? (sugerencias?.productos ?? []) : [];
   const correccion = escribiendo ? (sugerencias?.correccion ?? null) : null;
+  // «TIENDAS» (N13): solo llegan con sesión; las reservadas las quita la API.
+  const tiendas = escribiendo ? (sugerencias?.tiendas ?? []) : [];
   const opciones: Opcion[] = [];
   const agregar = (opcion: Opcion) => opciones.push(opcion) - 1;
+  const iTiendas = tiendas.map((tienda) => agregar({ href: `/tiendas/${tienda.id}` }));
   const iCorreccion = correccion
     ? agregar({
         href: hrefBuscar(correccion.mostramos, categoria),
@@ -260,6 +343,8 @@ function Formulario({
       })
     : -1;
   const iProductos = productos.map((producto) => agregar({ href: `/p/${producto.slug}` }));
+  const deTiendas = tiendas.length > 0 ? productosDeTiendas(tiendas, escrito) : null;
+  const iDeTiendas = deTiendas ? agregar({ href: deTiendas.href }) : -1;
   // «Ver todo en Tarjetas de video» cuando una palabra nombró la categoría (BUS_WebSug).
   const categoriaEntendida = correccion?.categoria ?? null;
   const iCategoria = categoriaEntendida
@@ -268,6 +353,7 @@ function Formulario({
   const iBuscar = escribiendo
     ? agregar({ href: hrefBuscar(escrito, categoria), busqueda: escrito })
     : -1;
+  const iDirectorio = tiendas.length > 0 ? agregar({ href: DIRECTORIO }) : -1;
   const iRecientes = escribiendo
     ? []
     : recientes.map((r) => agregar({ href: hrefBuscar(r, categoria), busqueda: r }));
@@ -355,7 +441,7 @@ function Formulario({
             <path d="M20 20l-3.5-3.5" />
           </svg>
           <label htmlFor="buscar-q" className="sr-only">
-            Buscar productos
+            {conSesion ? 'Buscar productos o tiendas' : 'Buscar productos'}
           </label>
           <input
             ref={campo}
@@ -376,7 +462,11 @@ function Formulario({
             onFocus={abrir}
             onKeyDown={teclas}
             autoComplete="off"
-            placeholder={sobreMarca ? 'Busca por modelo, marca o código' : 'Modelo, marca o código'}
+            placeholder={
+              sobreMarca
+                ? `Busca por modelo, marca${conSesion ? ', código o tienda' : ' o código'}`
+                : `Modelo, marca${conSesion ? ', código o tienda' : ' o código'}`
+            }
             className="h-full min-w-0 flex-1 bg-transparent text-cuerpo text-tinta outline-none placeholder:text-detalle [&::-webkit-search-cancel-button]:hidden"
           />
           {texto && (
@@ -437,6 +527,40 @@ function Formulario({
           >
             {escribiendo ? (
               <>
+                {tiendas.length > 0 && (
+                  <>
+                    <span className={tituloGrupo}>Tiendas</span>
+                    {tiendas.map((tienda, n) => (
+                      <OpcionLista
+                        key={tienda.id}
+                        {...propiedades(iTiendas[n]!)}
+                        className={`${claseOpcion(iTiendas[n]!)} py-2`}
+                      >
+                        <AvatarTienda
+                          nombre={tienda.nombre}
+                          logo={tienda.logo}
+                          enLinea={tienda.en_linea}
+                        />
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <b className="truncate font-bold">
+                            <NombreResaltado nombre={tienda.nombre} buscado={escrito} />
+                          </b>
+                          <span className="truncate text-nota text-detalle">
+                            {lugarDeTienda(tienda, true)}
+                          </span>
+                        </span>
+                        <span
+                          className="shrink-0 text-nota text-detalle"
+                          aria-label={reputacionParaLeer(tienda.reputacion)}
+                        >
+                          {textoReputacion(tienda.reputacion, true)}
+                        </span>
+                      </OpcionLista>
+                    ))}
+                    {separador}
+                    <span className={tituloGrupo}>Productos</span>
+                  </>
+                )}
                 {correccion && (
                   <OpcionLista {...propiedades(iCorreccion)} className={claseOpcion(iCorreccion)}>
                     <span className="text-secundario">
@@ -447,7 +571,9 @@ function Formulario({
                     </span>
                   </OpcionLista>
                 )}
-                {productos.length > 0 && <span className={tituloGrupo}>Productos</span>}
+                {productos.length > 0 && tiendas.length === 0 && (
+                  <span className={tituloGrupo}>Productos</span>
+                )}
                 {productos.map((producto, n) => (
                   <OpcionLista
                     key={producto.slug}
@@ -468,11 +594,21 @@ function Formulario({
                     </span>
                   </OpcionLista>
                 ))}
-                {!cargando && sugerencias && productos.length === 0 && !correccion && (
-                  <p className="px-3 py-2 text-apoyo text-secundario">
-                    Nadie lo tiene publicado. Pulsa Buscar y te damos opciones.
-                  </p>
+                {deTiendas && (
+                  <OpcionLista {...propiedades(iDeTiendas)} className={claseOpcion(iDeTiendas)}>
+                    {iconoLupa}
+                    <span className="truncate">{deTiendas.texto}</span>
+                  </OpcionLista>
                 )}
+                {!cargando &&
+                  sugerencias &&
+                  productos.length === 0 &&
+                  tiendas.length === 0 &&
+                  !correccion && (
+                    <p className="px-3 py-2 text-apoyo text-secundario">
+                      Nadie lo tiene publicado. Pulsa Buscar y te damos opciones.
+                    </p>
+                  )}
                 {categoriaEntendida && (
                   <OpcionLista
                     {...propiedades(iCategoria)}
@@ -492,6 +628,18 @@ function Formulario({
                     ? `Ver todos los resultados de «${escrito}»`
                     : `Buscar «${escrito}»`}
                 </OpcionLista>
+                {tiendas.length > 0 && (
+                  <>
+                    {separador}
+                    <OpcionLista
+                      {...propiedades(iDirectorio)}
+                      className={`${claseOpcion(iDirectorio)} font-bold text-marca`}
+                    >
+                      {iconoTienda}
+                      Ver todas las tiendas ›
+                    </OpcionLista>
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -555,21 +703,34 @@ function Formulario({
 /**
  * El buscador de la barra (C_Header): texto, categoría y «Buscar». Al enfocarlo muestra las
  * búsquedas recientes y lo más buscado; mientras se escribe, sugiere productos con la misma
- * búsqueda tolerante y avisa «¿Quisiste decir…?». Sin JavaScript sigue llevando a `/buscar`.
+ * búsqueda tolerante y avisa «¿Quisiste decir…?». Con sesión, arriba van las tiendas que se
+ * llaman así («TIENDAS», N13) y «Ver todas las tiendas ›». Sin JavaScript sigue llevando a
+ * `/buscar`.
  */
 export function Buscador({
   className = '',
   categorias = [],
   sobreMarca = false,
+  conSesion = false,
 }: {
   className?: string;
   categorias?: CategoriaResumen[];
   /** La píldora blanca de la barra verde (D_Barra), con «Buscar» adentro y sin categoría. */
   sobreMarca?: boolean;
+  /**
+   * Con sesión también busca tiendas («Busca por modelo, marca, código o tienda», N13). Solo
+   * cambia el texto: las tiendas las manda la API, y nunca a un visitante.
+   */
+  conSesion?: boolean;
 }) {
   return (
     <Suspense fallback={<div className={`${sobreMarca ? 'h-12' : 'h-[52px]'} ${className}`} />}>
-      <Formulario className={className} categorias={categorias} sobreMarca={sobreMarca} />
+      <Formulario
+        className={className}
+        categorias={categorias}
+        sobreMarca={sobreMarca}
+        conSesion={conSesion}
+      />
     </Suspense>
   );
 }
