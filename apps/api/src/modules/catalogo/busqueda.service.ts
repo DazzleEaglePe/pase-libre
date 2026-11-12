@@ -25,6 +25,7 @@ import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { destacadasAhora } from '../../shared/destacados';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { MemoriaPorClave } from '../../shared/memoria';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { INDEPENDIENTES } from './catalogo.service';
 import { conSesion, tiendaPara } from './visibilidad';
@@ -41,6 +42,35 @@ const PARECIDAS = 3;
 type ConsultaInterna = BuscarConsulta & { excluirTiendas?: string[] };
 /** Cuántos de lo más buscado se prueban contra una categoría antes de rendirse. */
 const CANDIDATOS_POR_CATEGORIA = 20;
+/**
+ * Lo que ve un visitante es igual para todos: resultados y sugerencias se guardan 30 s por
+ * consulta normalizada (docs/16 §4.4). Con sesión nunca: depende de la tienda, de sus bloqueos
+ * y de la audiencia.
+ */
+const MEMORIA_VISITANTE_MS = 30_000;
+
+/** La clave de una búsqueda de visitante: lo que cambia sus resultados, ya normalizado. */
+function claveDeVisitante(consulta: BuscarConsulta): string {
+  const lista = (valores: string[]) => [...new Set(valores)].sort();
+  // Al visitante se le ignoran el precio, el orden y la moneda: no van en la clave.
+  return JSON.stringify([
+    normalizarTexto(consulta.q),
+    consulta.categoria ?? '',
+    lista(consulta.galeria),
+    lista(consulta.marca),
+    lista(consulta.condicion),
+    consulta.stock,
+    consulta.pagina,
+    consulta.tal_cual,
+  ]);
+}
+
+/** Lo guardado con lo que escribió esta persona en «Buscaste …» (lo demás sale de lo normalizado). */
+function conLoEscrito<T extends { correccion: Correccion | null }>(respuesta: T, q: string): T {
+  return respuesta.correccion
+    ? { ...respuesta, correccion: { ...respuesta.correccion, buscaste: q } }
+    : respuesta;
+}
 
 interface FilaProducto {
   slug: string;
@@ -95,6 +125,15 @@ export class BusquedaService {
   /** Soles por dólar, solo para comparar (TIPO_CAMBIO). */
   private readonly tipoCambio: number;
 
+  private readonly buscadoPorVisitantes = new MemoriaPorClave<RespuestaBuscar>(
+    MEMORIA_VISITANTE_MS,
+    500,
+  );
+  private readonly sugeridoAVisitantes = new MemoriaPorClave<RespuestaSugerenciasBusqueda>(
+    MEMORIA_VISITANTE_MS,
+    1_000,
+  );
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) config: ConfigService<Environment, true>,
@@ -103,6 +142,25 @@ export class BusquedaService {
   }
 
   async buscar(consulta: BuscarConsulta, mirada: Mirada): Promise<RespuestaBuscar> {
+    const respuesta = conSesion(mirada)
+      ? await this.resolver(consulta, mirada)
+      : conLoEscrito(
+          await this.buscadoPorVisitantes.recordar(claveDeVisitante(consulta), () =>
+            this.resolver(consulta, mirada),
+          ),
+          consulta.q,
+        );
+    // Cada búsqueda se registra, también la que sale de la memoria (RF-31, RF-32).
+    await this.registrar(
+      consulta.q,
+      respuesta.correccion?.mostramos ?? null,
+      respuesta.total_productos,
+      mirada,
+    );
+    return respuesta;
+  }
+
+  private async resolver(consulta: BuscarConsulta, mirada: Mirada): Promise<RespuestaBuscar> {
     const conPrecio = conSesion(mirada);
     // Al visitante se le ignoran el filtro y el orden por precio: si no, podría deducir
     // los precios probando rangos (docs/05 §5).
@@ -157,12 +215,6 @@ export class BusquedaService {
     }
 
     const facetas = await this.facetas(usadas, usada);
-    await this.registrar(
-      consulta.q,
-      correccion?.mostramos ?? null,
-      resultado.totalProductos,
-      mirada,
-    );
 
     const base = {
       correccion,
@@ -194,6 +246,18 @@ export class BusquedaService {
    * siempre como para un visitante: el desplegable no muestra precios ni tiendas.
    */
   async sugerencias(
+    consulta: SugerenciasBusquedaConsulta,
+    mirada: Mirada,
+  ): Promise<RespuestaSugerenciasBusqueda> {
+    if (conSesion(mirada)) return this.sugerir(consulta, mirada);
+    const clave = JSON.stringify([normalizarTexto(consulta.q), consulta.categoria ?? '']);
+    return conLoEscrito(
+      await this.sugeridoAVisitantes.recordar(clave, () => this.sugerir(consulta, mirada)),
+      consulta.q,
+    );
+  }
+
+  private async sugerir(
     consulta: SugerenciasBusquedaConsulta,
     mirada: Mirada,
   ): Promise<RespuestaSugerenciasBusqueda> {

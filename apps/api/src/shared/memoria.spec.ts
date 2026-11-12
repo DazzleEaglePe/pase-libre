@@ -65,4 +65,35 @@ describe('MemoriaPorClave', () => {
     expect(memoria.leer('t9')).toBe(9);
     expect(memoria.tiene('t0')).toBe(false);
   });
+
+  it('al llenarse saca la más antigua, no todas', () => {
+    const memoria = new MemoriaPorClave<number>(60_000, 3);
+    for (let i = 0; i < 4; i++) memoria.guardar(`t${i}`, i);
+    expect([0, 1, 2, 3].map((i) => memoria.tiene(`t${i}`))).toEqual([false, true, true, true]);
+  });
+
+  it('con «recordar», los pedidos a la vez de una clave comparten la consulta', async () => {
+    const memoria = new MemoriaPorClave<number>(60_000);
+    const cargar = vi.fn(async () => 7);
+    const [a, b] = await Promise.all([
+      memoria.recordar('a', cargar),
+      memoria.recordar('a', cargar),
+    ]);
+    expect([a, b, await memoria.recordar('a', cargar)]).toEqual([7, 7, 7]);
+    expect(cargar).toHaveBeenCalledTimes(1);
+    await memoria.recordar('b', cargar);
+    expect(cargar).toHaveBeenCalledTimes(2);
+  });
+
+  it('con «recordar», un error no se guarda', async () => {
+    const memoria = new MemoriaPorClave<string>(60_000);
+    let veces = 0;
+    const cargar = async () => {
+      veces += 1;
+      if (veces === 1) throw new Error('la base no respondió');
+      return 'bien';
+    };
+    await expect(memoria.recordar('a', cargar)).rejects.toThrow('la base no respondió');
+    await expect(memoria.recordar('a', cargar)).resolves.toBe('bien');
+  });
 });

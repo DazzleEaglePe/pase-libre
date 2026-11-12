@@ -18,9 +18,13 @@ export function recordarPor<T>(ms: number, cargar: () => Promise<T>): () => Prom
   };
 }
 
-/** Lo mismo, por clave: guarda cada valor `ms` y deja de crecer en `maximo` claves. */
+/**
+ * Lo mismo, por clave: guarda cada valor `ms` y no pasa de `maximo` claves (al llenarse sale la
+ * más antigua). Con `recordar`, los pedidos a la vez de una misma clave comparten la consulta.
+ */
 export class MemoriaPorClave<V> {
   private readonly valores = new Map<string, { hasta: number; valor: V }>();
+  private readonly enCurso = new Map<string, Promise<V>>();
 
   constructor(
     private readonly ms: number,
@@ -47,7 +51,30 @@ export class MemoriaPorClave<V> {
 
   guardar(clave: string, valor: V): void {
     if (process.env.NODE_ENV === 'test') return;
-    if (this.valores.size >= this.maximo) this.valores.clear();
+    this.valores.delete(clave);
+    if (this.valores.size >= this.maximo) {
+      const masAntigua = this.valores.keys().next().value;
+      if (masAntigua !== undefined) this.valores.delete(masAntigua);
+    }
     this.valores.set(clave, { hasta: Date.now() + this.ms, valor });
+  }
+
+  /**
+   * Lo guardado o, si no está, lo carga una sola vez aunque lo pidan muchos a la vez (una sola
+   * consulta en curso por clave). Si falla no se guarda: el siguiente pedido vuelve a intentar.
+   */
+  recordar(clave: string, cargar: () => Promise<V>): Promise<V> {
+    if (process.env.NODE_ENV === 'test') return cargar();
+    if (this.tiene(clave)) return Promise.resolve(this.leer(clave) as V);
+    const pendiente = this.enCurso.get(clave);
+    if (pendiente) return pendiente;
+    const promesa = cargar()
+      .then((valor) => {
+        this.guardar(clave, valor);
+        return valor;
+      })
+      .finally(() => this.enCurso.delete(clave));
+    this.enCurso.set(clave, promesa);
+    return promesa;
   }
 }
