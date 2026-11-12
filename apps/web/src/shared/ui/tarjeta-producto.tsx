@@ -121,8 +121,8 @@ export function PrecioBurbuja({
 
 /**
  * La tarjeta de producto de todo el sitio (N04 B, N06, N15): blanca con borde de 2 px para que
- * se separe aunque cada foto traiga su propio fondo, la foto con «Hace 5 min» encima, el
- * producto en dos líneas, el precio con su burbujita y «Nuevo · Pegasus5000» abajo. La usan el
+ * se separe aunque cada foto traiga su propio fondo, la foto, el producto en dos líneas, el
+ * precio con su burbujita, «Nuevo · Pegasus5000» y, en su propia línea, «Hace 5 min». La usan el
  * feed, el perfil de la tienda y los demás listados tal cual.
  */
 export function TarjetaProducto({
@@ -149,7 +149,10 @@ export function TarjetaProducto({
   negociable?: boolean;
   /** «Nuevo · Pegasus5000». */
   linea?: string;
-  /** «Hace 5 min», en una píldora sobre la foto. */
+  /**
+   * «Hace 5 min», en su línea debajo de «Nuevo · Pegasus5000» (docs/18 §5): sobre la foto tapaba
+   * el nombre del producto que trae la imagen.
+   */
   etiqueta?: string;
   /** Algo más al final (las vistas y los chats en tu propio perfil, por ejemplo). */
   pie?: ReactNode;
@@ -169,21 +172,21 @@ export function TarjetaProducto({
           grosor={2}
           prioridad={prioridad}
         />
-        {etiqueta && (
-          // «Hace 5 min» puede cambiar entre el servidor y el navegador.
-          <span
-            suppressHydrationWarning
-            className="absolute left-2 top-2 rounded-full border border-[#E2E7E4] bg-white px-2 py-0.5 text-[11px] font-extrabold leading-4 text-secundario"
-          >
-            {etiqueta}
-          </span>
-        )}
       </span>
       <b className="line-clamp-2 min-h-9 text-[13px] font-bold leading-[18px] group-hover:underline">
         {titulo}
       </b>
       <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />
       {linea && <span className="truncate text-[12px] leading-4 text-detalle">{linea}</span>}
+      {etiqueta && (
+        // «Hace 5 min» puede cambiar entre el servidor y el navegador.
+        <span
+          suppressHydrationWarning
+          className={`truncate text-[12px] font-bold leading-4 text-secundario ${linea ? '-mt-1.5' : ''}`}
+        >
+          {etiqueta}
+        </span>
+      )}
       {pie}
     </Link>
   );

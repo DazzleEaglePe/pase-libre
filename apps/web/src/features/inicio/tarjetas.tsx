@@ -14,8 +14,8 @@ const lineaDe = (tarjeta: TarjetaOfertaConVendedor) =>
   `${textoEstado(tarjeta.condicion)} · ${tarjeta.tienda.nombre}`;
 
 /**
- * Una tarjeta de «Recién publicado» (N15): la de todo el sitio, con «Hace 5 min» sobre la foto
- * y el precio con su burbujita.
+ * Una tarjeta de «Recién publicado» (N15): la de todo el sitio, con el precio con su burbujita y
+ * «Hace 5 min» en su línea, debajo de «Nuevo · Tienda» (docs/18 §5).
  */
 export function TarjetaInicio({
   tarjeta,

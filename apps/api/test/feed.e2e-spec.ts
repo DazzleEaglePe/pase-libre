@@ -1,10 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import type {
-  OfertaPropia,
-  RespuestaInicio,
-  RespuestaRecienInicio,
-  RespuestaRecienLlegados,
-  TarjetaOfertaConVendedor,
+import {
+  RECIEN_INICIO,
+  type OfertaPropia,
+  type RespuestaInicio,
+  type RespuestaRecienInicio,
+  type RespuestaRecienLlegados,
+  type TarjetaOfertaConVendedor,
 } from '@paselibre/contracts';
 import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
@@ -99,7 +100,7 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
     });
   });
 
-  describe('«Recién publicado» de a 24 (N15)', () => {
+  describe('«Recién publicado»: de a 24 por la flechita y 72 en el inicio (N15, docs/18 §5)', () => {
     it('trae todo lo de las demás tiendas, sin lo tuyo, sin repetir y sin dos seguidas de la misma', async () => {
       const tiendaB = await tienda('Tienda B');
       const total = await prisma.oferta.count({
@@ -133,15 +134,65 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
       });
     });
 
-    it('el inicio normal trae las primeras 24 y la página siguiente sigue donde terminó', async () => {
+    it('con menos de 72, el inicio normal las trae todas, en el orden de la flechita', async () => {
       const inicio = (await como('tiendab').get('/v1/inicio').expect(200)).body as RespuestaInicio;
       expect(inicio.fase).toBe('NORMAL');
-      const primera = (await como('tiendab').get('/v1/inicio/recien').expect(200))
-        .body as RespuestaRecienInicio;
+      const todas = await todoRecien('tiendab');
+      expect(todas.length).toBeLessThan(RECIEN_INICIO);
+      expect(inicio.total).toBe(todas.length);
+      expect(inicio.publicaciones).toBe(inicio.total);
       expect(inicio.recien.map((t) => t.oferta_id)).toEqual(
-        primera.tarjetas.map((t) => t.oferta_id),
+        todas.slice(0, RECIEN_INICIO).map((t) => t.oferta_id),
       );
-      expect(inicio.publicaciones).toBe(primera.total);
+    });
+
+    it('con más de 72, el inicio manda 72 y el total de todas (docs/18 §5)', async () => {
+      const tiendaA = await tienda('Tienda A');
+      const responsable = await prisma.usuario.findFirstOrThrow({ where: { usuario: 'tiendaa' } });
+      const categoria = await prisma.categoria.findFirstOrThrow();
+      const productos = await Promise.all(
+        Array.from({ length: RECIEN_INICIO + 8 }, (_, n) =>
+          prisma.producto.create({
+            data: {
+              categoriaId: categoria.id,
+              titulo: `Producto de relleno ${n}`,
+              slug: `producto-de-relleno-${n}`,
+            },
+            select: { id: true },
+          }),
+        ),
+      );
+      await prisma.oferta.createMany({
+        data: productos.map((producto) => ({
+          productoId: producto.id,
+          tiendaId: tiendaA.id,
+          responsableId: responsable.id,
+          condicion: 'NUEVO' as const,
+          precioCentimos: 10_000n,
+          precioVisible: true,
+        })),
+      });
+      try {
+        const inicio = (await como('tiendab').get('/v1/inicio').expect(200))
+          .body as RespuestaInicio;
+        const todas = await todoRecien('tiendab');
+        expect(todas.length).toBeGreaterThan(RECIEN_INICIO);
+        expect(inicio.recien).toHaveLength(RECIEN_INICIO);
+        expect(inicio.total).toBe(todas.length);
+        expect(new Set(inicio.recien.map((t) => t.oferta_id)).size).toBe(RECIEN_INICIO);
+        expect(inicio.recien.some((t) => t.propia)).toBe(false);
+        // Lo de relleno es de una sola tienda: la mezcla adelanta las de las demás.
+        const deOtras = new Set(
+          todas.filter((t) => t.tienda.nombre !== 'Tienda A').map((t) => t.oferta_id),
+        );
+        for (const id of deOtras) {
+          expect(inicio.recien.map((t) => t.oferta_id)).toContain(id);
+        }
+      } finally {
+        const ids = productos.map((producto) => producto.id);
+        await prisma.oferta.deleteMany({ where: { productoId: { in: ids } } });
+        await prisma.producto.deleteMany({ where: { id: { in: ids } } });
+      }
     });
 
     it('lo de una tienda bloqueada no sale ni cuenta', async () => {

@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   normalizarTexto,
   PUBLICACIONES_INICIO_NORMAL,
+  RECIEN_INICIO,
   RECIEN_POR_PAGINA,
   type FaseInicio,
   type RespuestaInicio,
@@ -59,8 +60,8 @@ export function mezclarSinRepetir<T extends { tiendaId: string }>(lista: T[]): T
 /**
  * El inicio de una tienda (N16, N15): crece solo. Sin nada publicado por las demás, bienvenida,
  * precios protegidos, lo que más se pide y primeros pasos; de 1 a 11, lo nuevo en lista con
- * «Van N de 12»; desde 12, el inicio normal con «Recién publicado» de a 24. Al llegar a 12 se
- * guarda el hito en la tienda y ya no vuelve atrás.
+ * «Van N de 12»; desde 12, el inicio normal con «Recién publicado» en 4 filas de hasta 18 (las 72
+ * van de una vez, docs/18 §5). Al llegar a 12 se guarda el hito en la tienda y ya no vuelve atrás.
  */
 @Injectable()
 export class InicioService {
@@ -131,7 +132,7 @@ export class InicioService {
               mirada,
               bloqueadas,
               0,
-              fase === 'POCAS' ? PUBLICACIONES_NORMAL - 1 : RECIEN_POR_PAGINA,
+              fase === 'POCAS' ? PUBLICACIONES_NORMAL - 1 : RECIEN_INICIO,
             )
           ).tarjetas;
     return {
@@ -142,6 +143,8 @@ export class InicioService {
       pasos,
       publicaciones,
       recien,
+      // Es el mismo conteo que `publicaciones`: lo vigente de las demás, sin las bloqueadas.
+      total: publicaciones,
       invitar_cerrado: usuario.invitarCerradoEn !== null,
     };
   }

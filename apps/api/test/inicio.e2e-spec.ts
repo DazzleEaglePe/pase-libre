@@ -78,6 +78,7 @@ describe('Inicio de una tienda (sección 5)', () => {
     expect(dia1.fase).toBe('DIA_1');
     expect(dia1.publicaciones).toBe(0);
     expect(dia1.recien).toEqual([]);
+    expect(dia1.total).toBe(0);
 
     for (const oferta of guardadas.slice(0, 3)) {
       await prisma.oferta.update({ where: { id: oferta.id }, data: { stock: 1 } });
@@ -86,6 +87,7 @@ describe('Inicio de una tienda (sección 5)', () => {
     expect(pocas.fase).toBe('POCAS');
     expect(pocas.publicaciones).toBe(3);
     expect(pocas.recien).toHaveLength(3);
+    expect(pocas.total).toBe(3);
     expect(pocas.recien.every((t: { propia: boolean }) => !t.propia)).toBe(true);
     // Todavía no llegó a 12: no hay hito.
     expect(
