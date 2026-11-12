@@ -102,6 +102,8 @@ enum ObjetoDenuncia {
   CONVERSACION
   TIENDA
   EN_VIVO
+  /// «Pedir revisión al Equipo» de una opinión (N03): la pide la tienda calificada.
+  OPINION
 
   @@map("objeto_denuncia")
 }
@@ -171,6 +173,8 @@ model Galeria {
 
   tiendas Tienda[]
   enVivo  EnVivo[]
+  /// Los cambios de lugar pedidos hacia esta galería (N09).
+  cambiosLugar CambioLugar[]
 
   @@map("galeria")
 }
@@ -186,6 +190,11 @@ model Tienda {
   piso                 String?      @db.VarChar(20)
   whatsapp             String       @db.VarChar(20)
   horario              String?      @db.VarChar(120)
+  /// El horario por días (N09): `[{ dias: ['lun', …], desde: '10:00', hasta: '19:00' }]`. Con él,
+  /// `horario` se escribe solo («Lunes a sábado, 10:00 a 19:00 · Domingo cerrado»).
+  horarioDatos         Json?        @map("horario_datos")
+  /// Galería, piso o stand nuevos que esperan al Equipo (N09: «Pendiente de aprobación»).
+  cambiosLugar         CambioLugar[]
   /// «Cómo llegar» (PCH_WebLlegar): «Subes por la escalera central y es el segundo pasillo…».
   indicaciones         String?      @db.VarChar(240)
   descripcion          String?      @db.VarChar(500)
@@ -1297,4 +1306,39 @@ model ImportacionCatalogo {
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 
   @@map("importacion_catalogo")
+}
+
+enum EstadoCambioLugar {
+  PENDIENTE
+  APROBADO
+  RECHAZADO
+  /// La tienda lo cambió por otro o volvió a su lugar de antes.
+  RETIRADO
+
+  @@map("estado_cambio_lugar")
+}
+
+/// Galería, piso y stand nuevos de una tienda (N09_ConfigWebTodo). No cambian al guardar: quedan
+/// «Pendiente de aprobación» hasta que el Equipo los confirma (o no). Una pendiente por tienda.
+/// Quién lo pidió y quién lo revisó van sin llave foránea, como en `Solicitud`.
+model CambioLugar {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId      String            @map("tienda_id") @db.Uuid
+  galeriaId     String            @map("galeria_id") @db.Uuid
+  piso          String?           @db.VarChar(20)
+  stand         String            @db.VarChar(20)
+  estado        EstadoCambioLugar @default(PENDIENTE)
+  pedidoPorId   String            @map("pedido_por_id") @db.Uuid
+  /// Lo que el Equipo le dice al rechazar.
+  motivo        String?           @db.VarChar(300)
+  revisadoPorId String?           @map("revisado_por_id") @db.Uuid
+  revisadoEn    DateTime?         @map("revisado_en") @db.Timestamptz(6)
+  creadoEn      DateTime          @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  tienda  Tienda  @relation(fields: [tiendaId], references: [id], onDelete: Cascade)
+  galeria Galeria @relation(fields: [galeriaId], references: [id])
+
+  @@index([estado, creadoEn])
+  @@index([tiendaId])
+  @@map("cambio_lugar")
 }

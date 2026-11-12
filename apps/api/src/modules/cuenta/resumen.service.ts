@@ -14,6 +14,18 @@ function tapar(numero: string): string {
   return `+51 ${local[0]}•• ••• ${local.slice(-3)}`;
 }
 
+const MES_LIMA = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/Lima',
+  year: 'numeric',
+  month: '2-digit',
+});
+
+/** El primer instante del mes en curso en Lima (UTC-5, sin horario de verano). */
+export function inicioDelMesEnLima(ahora = new Date()): Date {
+  const [anio, mes] = MES_LIMA.format(ahora).slice(0, 7).split('-').map(Number) as [number, number];
+  return new Date(Date.UTC(anio, mes - 1, 1, 5));
+}
+
 /**
  * Lo que «Tu cuenta» (D_Cuenta) y tu perfil (P_WebCuentaD2) cuentan de tu tienda: desde cuándo
  * está, cómo vende y responde, qué vende y su WhatsApp tapado.
@@ -32,16 +44,26 @@ export class ResumenService {
     }
     const hace60 = new Date(Date.now() - 60 * 86_400_000);
     const hace30 = new Date(Date.now() - 30 * 86_400_000);
-    const [tienda, registro, ventas, respondeEn, chats, opiniones, categorias, abiertos] =
-      await Promise.all([
-        this.prisma.tienda.findUniqueOrThrow({
-          where: { id: tiendaId },
-          select: { creadaEn: true, whatsapp: true },
-        }),
-        this.prisma.solicitud.count({ where: { tiendaId } }),
-        this.prisma.venta.count({ where: { oferta: { tiendaId }, creadaEn: { gte: hace60 } } }),
-        this.catalogo.respondeEn([tiendaId]),
-        this.prisma.$queryRaw<Array<{ total: number; respondidos: number }>>`
+    const [
+      tienda,
+      registro,
+      ventas,
+      respondeEn,
+      chats,
+      opiniones,
+      categorias,
+      abiertos,
+      ventasMes,
+      [sinResponder],
+    ] = await Promise.all([
+      this.prisma.tienda.findUniqueOrThrow({
+        where: { id: tiendaId },
+        select: { creadaEn: true, whatsapp: true },
+      }),
+      this.prisma.solicitud.count({ where: { tiendaId } }),
+      this.prisma.venta.count({ where: { oferta: { tiendaId }, creadaEn: { gte: hace60 } } }),
+      this.catalogo.respondeEn([tiendaId]),
+      this.prisma.$queryRaw<Array<{ total: number; respondidos: number }>>`
           SELECT count(*)::int AS total,
                  count(*) FILTER (WHERE EXISTS (
                    SELECT 1 FROM mensaje m JOIN usuario u ON u.id = m.autor_id
@@ -50,25 +72,37 @@ export class ResumenService {
           FROM conversacion c
           WHERE c.tienda_vendedora_id = ${tiendaId}::uuid AND c.creada_en > ${hace60}
             AND EXISTS (SELECT 1 FROM mensaje m WHERE m.conversacion_id = c.id)`,
-        this.prisma.opinion.aggregate({
-          where: { tiendaId },
-          _avg: { estrellas: true },
-          _count: { _all: true },
-        }),
-        this.prisma.$queryRaw<Array<{ nombre: string }>>`
+      this.prisma.opinion.aggregate({
+        where: { tiendaId },
+        _avg: { estrellas: true },
+        _count: { _all: true },
+      }),
+      this.prisma.$queryRaw<Array<{ nombre: string }>>`
           SELECT c.nombre FROM oferta o
           JOIN producto p ON p.id = o.producto_id
           JOIN categoria c ON c.id = p.categoria_id
           WHERE o.tienda_id = ${tiendaId}::uuid AND o.estado = 'ACTIVA'
           GROUP BY c.nombre ORDER BY count(*) DESC, c.nombre LIMIT 3`,
-        this.prisma.conversacion.count({
-          where: {
-            OR: [{ tiendaVendedoraId: tiendaId }, { tiendaCompradoraId: tiendaId }],
-            ultimoMensajeEn: { gte: hace30 },
-            mensajes: { some: {} },
-          },
-        }),
-      ]);
+      this.prisma.conversacion.count({
+        where: {
+          OR: [{ tiendaVendedoraId: tiendaId }, { tiendaCompradoraId: tiendaId }],
+          ultimoMensajeEn: { gte: hace30 },
+          mensajes: { some: {} },
+        },
+      }),
+      this.prisma.venta.count({
+        where: { oferta: { tiendaId }, creadaEn: { gte: inicioDelMesEnLima() } },
+      }),
+      // «Tu mes» (N04): chats de 30 días cuyo último mensaje lo escribió la otra tienda.
+      this.prisma.$queryRaw<Array<{ cuantos: number }>>`
+          SELECT count(*)::int AS cuantos FROM conversacion c
+          WHERE (c.tienda_vendedora_id = ${tiendaId}::uuid OR c.tienda_compradora_id = ${tiendaId}::uuid)
+            AND c.ultimo_mensaje_en >= ${hace30}
+            AND (SELECT u.tienda_id FROM mensaje m JOIN usuario u ON u.id = m.autor_id
+                 WHERE m.conversacion_id = c.id
+                 ORDER BY m.creado_en DESC LIMIT 1) IS DISTINCT FROM ${tiendaId}::uuid
+            AND EXISTS (SELECT 1 FROM mensaje m WHERE m.conversacion_id = c.id AND m.autor_id IS NOT NULL)`,
+    ]);
     const [chat] = chats;
     const promedio = opiniones._avg.estrellas;
     return {
@@ -83,6 +117,8 @@ export class ResumenService {
       vende: categorias.map((fila) => fila.nombre),
       chats_abiertos: abiertos,
       whatsapp: tienda.whatsapp ? tapar(tienda.whatsapp) : null,
+      ventas_mes: ventasMes,
+      sin_responder: sinResponder?.cuantos ?? 0,
     };
   }
 }

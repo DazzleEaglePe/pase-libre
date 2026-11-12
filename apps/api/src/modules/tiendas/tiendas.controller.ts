@@ -21,6 +21,7 @@ import {
   filtroOpinionesSchema,
   novedadesSchema,
   opinarSchema,
+  pedirRevisionSchema,
   responderOpinionSchema,
   seguirTiendaSchema,
   type AgregarSocioDatos,
@@ -30,6 +31,7 @@ import {
   type NovedadesConsulta,
   type OpinarDatos,
   type OpinionPublica,
+  type PedirRevisionDatos,
   type PerfilTienda,
   type ResponderOpinionDatos,
   type RespuestaNovedades,
@@ -41,9 +43,11 @@ import {
   type TiendaBreve,
   type TiendaSeguida,
 } from '@paselibre/contracts';
+import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 
-import { SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { LIMITE_PERSONA } from '../../shared/limites';
+import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { NovedadesService } from './novedades.service';
@@ -207,5 +211,21 @@ export class TiendasController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<void> {
     return this.tiendas.responder(opinionId, datos.texto, sesion);
+  }
+
+  /**
+   * «Pedir revisión al Equipo» (N03): solo la tienda calificada, sobre una opinión de ella. Va a
+   * la cola de reportes del Equipo; si ya hay una abierta, devuelve esa.
+   */
+  @Post('opiniones/:id/revision')
+  @HttpCode(HttpStatus.OK)
+  @Roles('DUENO', 'ASESOR')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 10, ttl: 60 * 60_000 } })
+  pedirRevision(
+    @Param('id', id('Esta opinión no existe.')) opinionId: string,
+    @Body(new ZodValidationPipe(pedirRevisionSchema)) datos: PedirRevisionDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<{ codigo: string; resuelta: boolean }> {
+    return this.tiendas.pedirRevision(opinionId, datos.motivo, sesion);
   }
 }
