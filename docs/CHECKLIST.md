@@ -243,7 +243,7 @@ Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`)
 - [x] Memoria corta para «Recién publicado» del visitante y 503 con `Retry-After` (en producción desde el 12/11/2026, `16f8c2c7`; volver con `desplegar.sh produccion.env add9c5bd`): con el catálogo grande de docs/16 tal cual, de 330–413 a 3 604–4 069 pedidos/s; base saturada o caída responde 503 con `Retry-After` 5 o 15 s y `pool_timeout` baja de 20 a 5 s (resultados en `tools/carga/README.md`)
 - [x] Fase 0 · `unattended-upgrades` (parches de seguridad de Debian, sin reinicio solo) y `fail2ban` para SSH (12/11, en el servidor; CrowdSec descartado por poca RAM libre)
 - [x] Fase 1 · nginx listo para Cloudflare: IP real solo desde sus rangos y renovación del certificado por HTTPS (12/11, en producción)
-- [ ] Fase 1 · Cloudflare: Dazz crea la cuenta, apaga DNSSEC en Spaceship y cambia los *nameservers* (guía en el chat del 12/11)
+- [x] Fase 1 · Cloudflare: cuenta creada, dominio agregado (plan Free, DNS A `@`/`www` → 167.148.33.199 en proxy), DNSSEC apagado en Spaceship y *nameservers* cambiados a `dahlia.ns.cloudflare.com`/`mack.ns.cloudflare.com` (12/11). **En propagación** (Cloudflare: 1-2 h, hasta 24-48 h); el servidor sigue sano (probado por IP directa). Falta: cuando Cloudflare diga «Active», configurar caché, WAF y reglas de límite
 - [ ] VPS propio o más RAM para PaseLibre (decisión y compra de Dazz/Fabrizio)
 - [ ] Dos réplicas de la API con Redis (después del VPS: en el servidor actual no hay RAM)
 
