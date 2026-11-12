@@ -3,11 +3,15 @@
 import type {
   ArchivoSubido,
   CategoriaResumen,
+  ModoExistentes,
   ProductoDelCatalogo,
   ProductoPorRevisar,
+  ProductoQueYaEsta,
   RespuestaCatalogoEquipo,
+  RespuestaEliminarCatalogo,
   RespuestaImportacion,
   RespuestaPorRevisar,
+  ResumenEliminarCatalogo,
   RevisionImportacion,
 } from '@paselibre/contracts';
 import {
@@ -17,6 +21,7 @@ import {
   IconFileSpreadsheet,
   IconPlus,
   IconSearch,
+  IconTrash,
   IconUpload,
   IconX,
 } from '@tabler/icons-react';
@@ -37,6 +42,10 @@ const botonVerde =
   'inline-flex h-11 items-center justify-center gap-2 rounded-full bg-pase px-5 text-apoyo font-bold text-white no-underline disabled:bg-borde disabled:text-detalle';
 const botonBorde =
   'inline-flex h-11 items-center justify-center gap-2 rounded-full border border-tinta bg-white px-5 text-apoyo font-bold text-tinta no-underline';
+const botonRojo =
+  'inline-flex h-11 items-center justify-center gap-2 rounded-full bg-error px-5 text-apoyo font-bold text-white no-underline disabled:bg-borde disabled:text-detalle';
+const botonRojoBorde =
+  'inline-flex h-11 items-center justify-center gap-2 rounded-full border border-error bg-white px-5 text-apoyo font-bold text-error no-underline';
 
 function useCategorias(): CategoriaResumen[] {
   const [categorias, setCategorias] = useState<CategoriaResumen[]>([]);
@@ -84,6 +93,110 @@ interface Editable {
   version: string;
   codigo_parte: string;
   sinonimos: string;
+  /** Sus fotos, la principal primero; nulo cuando no se editan (lo publicado a mano). */
+  fotos: string[] | null;
+  /** Publicaciones que lo usan: con alguna, «¿Estás seguro?» antes de guardar (docs/17 §2). */
+  publicaciones: number;
+  /** Desde «Por revisar», guardar también lo agrega al catálogo. */
+  porRevisar: boolean;
+}
+
+/** Las fotos del producto: subir, quitar y elegir la principal (la portada). */
+function FotosDelProducto({
+  fotos,
+  categoria,
+  alCambiar,
+  alError,
+}: {
+  fotos: string[];
+  categoria: string;
+  alCambiar: (fotos: string[]) => void;
+  alError: (mensaje: string) => void;
+}) {
+  const entrada = useRef<HTMLInputElement>(null);
+  const [subiendo, setSubiendo] = useState(false);
+  return (
+    <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+      <legend className="mb-1 p-0 text-apoyo font-bold">Fotos</legend>
+      <span className="text-nota text-secundario">
+        La principal es la portada: sale primero en el catálogo y en las publicaciones.
+      </span>
+      <div className="flex flex-wrap gap-3">
+        {fotos.map((ruta, indice) => (
+          <span key={ruta} className="flex w-[88px] flex-col items-center gap-1">
+            <span className="relative">
+              <Miniatura
+                ruta={ruta}
+                categoria={categoria}
+                className={`h-[84px] w-[84px] rounded-[10px] border-2 ${
+                  indice === 0 ? 'border-pase' : 'border-transparent'
+                }`}
+              />
+              {indice === 0 && (
+                <span className="absolute left-1 top-1 rounded-full bg-pase px-1.5 text-[10px] font-extrabold leading-4 text-white">
+                  Principal
+                </span>
+              )}
+            </span>
+            {indice > 0 && (
+              <button
+                type="button"
+                onClick={() => alCambiar([ruta, ...fotos.filter((f) => f !== ruta)])}
+                className="text-[12px] font-bold text-pase-texto underline"
+              >
+                Hacer principal
+              </button>
+            )}
+            <button
+              type="button"
+              aria-label={`Quitar la foto ${indice + 1}`}
+              onClick={() => alCambiar(fotos.filter((f) => f !== ruta))}
+              className="text-[12px] font-semibold text-error"
+            >
+              Quitar
+            </button>
+          </span>
+        ))}
+        {fotos.length < 8 && (
+          <button
+            type="button"
+            disabled={subiendo}
+            onClick={() => entrada.current?.click()}
+            className="flex h-[84px] w-[84px] flex-col items-center justify-center gap-1 rounded-[10px] border border-dashed border-borde-control text-[12px] text-secundario"
+          >
+            {subiendo ? (
+              'Subiendo…'
+            ) : (
+              <>
+                <IconPlus size={18} stroke={2} aria-hidden="true" />
+                Subir foto
+              </>
+            )}
+          </button>
+        )}
+      </div>
+      <input
+        ref={entrada}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+        className="hidden"
+        onChange={async (e) => {
+          const foto = e.target.files?.[0];
+          e.target.value = '';
+          if (!foto) return;
+          setSubiendo(true);
+          try {
+            const subida = await subirFoto(foto);
+            alCambiar([...fotos, subida.ruta]);
+          } catch (er) {
+            alError(er instanceof ErrorApi ? er.message : 'No pudimos subir la foto.');
+          } finally {
+            setSubiendo(false);
+          }
+        }}
+      />
+    </fieldset>
+  );
 }
 
 function VentanaEditar({
@@ -99,13 +212,18 @@ function VentanaEditar({
   const [datos, setDatos] = useState<Editable | null>(producto);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
   useEffect(() => {
     setDatos(producto);
     setError(null);
+    setConfirmando(false);
   }, [producto]);
 
-  async function guardar(evento: FormEvent) {
-    evento.preventDefault();
+  const fotosCambiaron =
+    Boolean(datos?.fotos && producto?.fotos) &&
+    datos!.fotos!.join('|') !== producto!.fotos!.join('|');
+
+  async function guardar() {
     if (!datos) return;
     setGuardando(true);
     setError(null);
@@ -122,14 +240,24 @@ function VentanaEditar({
             .split(/[;,]/)
             .map((s) => s.trim())
             .filter(Boolean),
+          ...(fotosCambiaron && datos.fotos ? { fotos: datos.fotos } : {}),
         },
       });
       alGuardar();
     } catch (e) {
+      setConfirmando(false);
       setError(e instanceof ErrorApi ? e.message : 'No pudimos guardar el producto.');
     } finally {
       setGuardando(false);
     }
+  }
+
+  function enviar(evento: FormEvent) {
+    evento.preventDefault();
+    if (!datos) return;
+    // Si alguna tienda lo usa, se pregunta antes (docs/17 §2).
+    if (datos.publicaciones > 0 && !datos.porRevisar) setConfirmando(true);
+    else void guardar();
   }
 
   const cambio = (clave: keyof Editable) => (evento: { target: { value: string } }) =>
@@ -137,65 +265,108 @@ function VentanaEditar({
 
   return (
     <Ventana titulo="Corregir el producto" abierta={Boolean(producto)} alCerrar={alCerrar}>
-      {datos && (
-        <form onSubmit={guardar} className="flex flex-col gap-3.5">
-          <p className="m-0 text-apoyo text-secundario">«{datos.titulo}»</p>
-          {error && <Mensaje tipo="error">{error}</Mensaje>}
-          <label className={etiqueta}>
-            Categoría
-            <select value={datos.categoria} onChange={cambio('categoria')} className={campo}>
-              {categorias.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className={etiqueta}>
-              Marca
-              <input value={datos.marca} onChange={cambio('marca')} className={campo} required />
-            </label>
-            <label className={etiqueta}>
-              Modelo (familia)
-              <input value={datos.modelo} onChange={cambio('modelo')} className={campo} required />
-            </label>
-            <label className={etiqueta}>
-              Versión
-              <input
-                value={datos.version}
-                onChange={cambio('version')}
-                className={campo}
-                placeholder="OC, Normal…"
-              />
-            </label>
-            <label className={etiqueta}>
-              Código de parte
-              <input
-                value={datos.codigo_parte}
-                onChange={cambio('codigo_parte')}
-                className={`${campo} font-mono`}
-              />
-            </label>
-          </div>
-          <label className={etiqueta}>
-            Sinónimos (opcional)
-            <input
-              value={datos.sinonimos}
-              onChange={cambio('sinonimos')}
-              className={campo}
-              placeholder="5070 tuf, tuf 5070"
-            />
-          </label>
-          <div className="flex gap-2 pt-1">
-            <button type="submit" disabled={guardando} className={botonVerde}>
-              {guardando ? 'Guardando…' : 'Guardar y agregar'}
-            </button>
-            <button type="button" onClick={alCerrar} className={botonBorde}>
+      {datos && confirmando ? (
+        <div role="alertdialog" aria-labelledby="titulo-seguro" className="flex flex-col gap-3.5">
+          <h2 id="titulo-seguro" className="m-0 text-seccion">
+            ¿Estás seguro?
+          </h2>
+          <p className="m-0 text-apoyo text-secundario">
+            Se van a actualizar{' '}
+            <b className="text-tinta">
+              {datos.publicaciones === 1
+                ? 'la publicación que usa'
+                : `las ${datos.publicaciones} publicaciones que usan`}
+            </b>{' '}
+            este producto. Las tiendas que eligieron su propia portada la conservan.
+          </p>
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={() => setConfirmando(false)} className={botonBorde}>
               Cancelar
             </button>
+            <button
+              type="button"
+              disabled={guardando}
+              onClick={() => void guardar()}
+              className={botonVerde}
+            >
+              {guardando ? 'Guardando…' : 'Sí, guardar'}
+            </button>
           </div>
-        </form>
+        </div>
+      ) : (
+        datos && (
+          <form onSubmit={enviar} className="flex flex-col gap-3.5">
+            <p className="m-0 text-apoyo text-secundario">«{datos.titulo}»</p>
+            {error && <Mensaje tipo="error">{error}</Mensaje>}
+            <label className={etiqueta}>
+              Categoría
+              <select value={datos.categoria} onChange={cambio('categoria')} className={campo}>
+                {categorias.map((c) => (
+                  <option key={c.slug} value={c.slug}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className={etiqueta}>
+                Marca
+                <input value={datos.marca} onChange={cambio('marca')} className={campo} required />
+              </label>
+              <label className={etiqueta}>
+                Modelo (familia)
+                <input
+                  value={datos.modelo}
+                  onChange={cambio('modelo')}
+                  className={campo}
+                  required
+                />
+              </label>
+              <label className={etiqueta}>
+                Versión
+                <input
+                  value={datos.version}
+                  onChange={cambio('version')}
+                  className={campo}
+                  placeholder="OC, Normal…"
+                />
+              </label>
+              <label className={etiqueta}>
+                Código de parte
+                <input
+                  value={datos.codigo_parte}
+                  onChange={cambio('codigo_parte')}
+                  className={`${campo} font-mono`}
+                />
+              </label>
+            </div>
+            <label className={etiqueta}>
+              Sinónimos (opcional)
+              <input
+                value={datos.sinonimos}
+                onChange={cambio('sinonimos')}
+                className={campo}
+                placeholder="5070 tuf, tuf 5070"
+              />
+            </label>
+            {datos.fotos && (
+              <FotosDelProducto
+                fotos={datos.fotos}
+                categoria={datos.categoria}
+                alCambiar={(fotos) => setDatos({ ...datos, fotos })}
+                alError={setError}
+              />
+            )}
+            <div className="flex gap-2 pt-1">
+              <button type="submit" disabled={guardando} className={botonVerde}>
+                {guardando ? 'Guardando…' : datos.porRevisar ? 'Guardar y agregar' : 'Guardar'}
+              </button>
+              <button type="button" onClick={alCerrar} className={botonBorde}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )
       )}
     </Ventana>
   );
@@ -300,8 +471,9 @@ function Productos({ alEditar, recargar }: { alEditar: (p: Editable) => void; re
                         href={`/p/${p.slug}`}
                         className="font-bold text-tinta no-underline hover:underline"
                       >
-                        {p.version
-                          ? p.titulo.replace(new RegExp(`\\s+${p.version}$`), '')
+                        {/* Sin expresión regular: «Box (con disipador)» trae paréntesis. */}
+                        {p.version && p.titulo.endsWith(` ${p.version}`)
+                          ? p.titulo.slice(0, -(p.version.length + 1))
                           : p.titulo}
                       </Link>
                       {p.version && <Version texto={p.version} />}
@@ -324,6 +496,9 @@ function Productos({ alEditar, recargar }: { alEditar: (p: Editable) => void; re
                           version: p.version ?? '',
                           codigo_parte: p.codigo_parte ?? '',
                           sinonimos: p.sinonimos.join(', '),
+                          fotos: p.rutas_fotos,
+                          publicaciones: p.publicaciones,
+                          porRevisar: false,
                         })
                       }
                       className="font-bold text-pase-texto"
@@ -487,6 +662,9 @@ function PorRevisar({
                   version: p.version ?? '',
                   codigo_parte: p.codigo_parte ?? '',
                   sinonimos: '',
+                  fotos: null,
+                  publicaciones: 0,
+                  porRevisar: true,
                 })
               }
               className="h-11 px-3 text-apoyo font-bold text-secundario"
@@ -530,6 +708,94 @@ function PorRevisar({
 
 // ── Subir archivo ──────────────────────────────────────────────────────────
 
+/** Las tres opciones para los que ya están (docs/17 §3). */
+const OPCIONES_EXISTENTES: Array<{ modo: ModoExistentes; titulo: string; detalle: string }> = [
+  { modo: 'DEJAR', titulo: 'Dejarlos como están', detalle: '' },
+  {
+    modo: 'SOLO_FOTOS',
+    titulo: 'Reemplazar solo las fotos',
+    detalle: 'Nombre, versión y código no cambian.',
+  },
+  {
+    modo: 'FOTOS_Y_DATOS',
+    titulo: 'Reemplazar fotos y datos',
+    detalle: 'Todo lo del archivo: foto, nombre, versión (OC, Ti, Super…), categoría y sinónimos.',
+  },
+];
+
+/** Lo que el modo elegido le haría a un producto que ya está. */
+function loQueCambia(p: ProductoQueYaEsta, modo: ModoExistentes): boolean {
+  if (modo === 'DEJAR') return false;
+  if (modo === 'SOLO_FOTOS') return Boolean(p.foto_nueva);
+  return Boolean(p.foto_nueva) || p.cambios.length > 0;
+}
+
+/** Una fila de «Lo que cambia»: la foto de antes → la nueva y los datos resaltados. */
+function FilaQueCambia({
+  producto,
+  modo,
+  marcada,
+  alMarcar,
+}: {
+  producto: ProductoQueYaEsta;
+  modo: ModoExistentes;
+  marcada: boolean;
+  alMarcar: (marcada: boolean) => void;
+}) {
+  return (
+    <label className="grid cursor-pointer grid-cols-[20px_auto_minmax(0,1fr)] items-center gap-3 border-t border-linea px-3.5 py-2.5">
+      <input
+        type="checkbox"
+        checked={marcada}
+        onChange={(e) => alMarcar(e.target.checked)}
+        className="h-[18px] w-[18px] accent-pase"
+      />
+      <span className="flex items-center gap-1.5">
+        <Miniatura
+          ruta={producto.foto_antes}
+          categoria=""
+          className="h-11 w-11 rounded-lg"
+          glifo={26}
+        />
+        {producto.foto_nueva && (
+          <>
+            <IconArrowRight size={14} stroke={2.4} aria-hidden="true" className="text-detalle" />
+            <Miniatura
+              ruta={producto.foto_nueva}
+              categoria=""
+              className="h-11 w-11 rounded-lg"
+              glifo={26}
+            />
+          </>
+        )}
+      </span>
+      <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <b className="text-apoyo">{producto.titulo}</b>
+          <span className="font-mono text-[12px] text-detalle">
+            {producto.codigo_parte ?? 'sin código'}
+          </span>
+        </span>
+        <span className="flex flex-wrap gap-x-3 gap-y-1 text-nota text-secundario">
+          {producto.foto_nueva && <span>Foto: nueva</span>}
+          {modo === 'FOTOS_Y_DATOS' &&
+            producto.cambios.map((c) => (
+              <span key={c.campo}>
+                {c.campo}: {c.antes} →{' '}
+                <b className="rounded bg-ambar px-1 text-tinta">{c.despues}</b>
+              </span>
+            ))}
+          {producto.publicaciones > 0 && (
+            <span className="font-semibold text-aviso">
+              {conPlural(producto.publicaciones, 'publicación', 'publicaciones')}
+            </span>
+          )}
+        </span>
+      </span>
+    </label>
+  );
+}
+
 function SubirArchivo({ alCrear }: { alCrear: () => void }) {
   const entrada = useRef<HTMLInputElement>(null);
   const [revision, setRevision] = useState<RevisionImportacion | null>(null);
@@ -537,13 +803,19 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
   const [creando, setCreando] = useState(false);
   const [encima, setEncima] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [listo, setListo] = useState<number | null>(null);
+  const [listo, setListo] = useState<RespuestaImportacion | null>(null);
+  const [modo, setModo] = useState<ModoExistentes>('FOTOS_Y_DATOS');
+  const [omitir, setOmitir] = useState<Set<number>>(new Set());
+  const [verTodos, setVerTodos] = useState(false);
 
   async function leer(archivo: File) {
     setLeyendo(true);
     setError(null);
     setListo(null);
     setRevision(null);
+    setModo('FOTOS_Y_DATOS');
+    setOmitir(new Set());
+    setVerTodos(false);
     try {
       const formulario = new FormData();
       formulario.append('archivo', archivo);
@@ -560,24 +832,37 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
     }
   }
 
+  const cambian = revision ? revision.ya_estan.filter((p) => loQueCambia(p, modo)) : [];
+  const seActualizan = cambian.filter((p) => !omitir.has(p.fila));
+  const conPublicaciones = seActualizan.filter((p) => p.publicaciones > 0).length;
+  const visibles = verTodos ? cambian : cambian.slice(0, 3);
+
   async function crear() {
     if (!revision) return;
     setCreando(true);
     setError(null);
     try {
-      const { creados } = await llamarApi<RespuestaImportacion>(
+      const respuesta = await llamarApi<RespuestaImportacion>(
         `/equipo/catalogo/importar/${revision.id}/crear`,
-        { metodo: 'POST' },
+        { metodo: 'POST', cuerpo: { existentes: modo, omitir: [...omitir] } },
       );
-      setListo(creados);
+      setListo(respuesta);
       setRevision(null);
       alCrear();
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No pudimos crear los productos.');
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos guardar los productos.');
     } finally {
       setCreando(false);
     }
   }
+
+  const textoBoton = !revision
+    ? ''
+    : seActualizan.length === 0
+      ? `Crear los ${revision.crear}`
+      : revision.crear === 0
+        ? `Guardar: actualizar ${seActualizan.length}`
+        : `Guardar: crear ${revision.crear} y actualizar ${seActualizan.length}`;
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)]">
@@ -631,7 +916,8 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
         <span className="text-nota text-secundario">
           <b className="text-tinta">.zip</b> = tu Excel + una carpeta{' '}
           <b className="text-tinta">fotos/</b>. Cada foto se llama como el código de parte (ej.
-          TUF-RTX5070-O12G-GAMING.jpg).
+          TUF-RTX5070-O12G-GAMING.jpg); sin código, como el producto (Antec CX300 ARGB.jpg). Puedes
+          subir siempre el archivo completo: lo que ya está se actualiza.
         </span>
         <a
           href="/plantilla-catalogo.csv"
@@ -647,11 +933,15 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
         {error && <Mensaje tipo="error">{error}</Mensaje>}
         {listo !== null && (
           <Mensaje tipo="ok">
-            Listo: {conPlural(listo, 'producto nuevo', 'productos nuevos')} en el catálogo.
+            Listo: {conPlural(listo.creados, 'producto nuevo', 'productos nuevos')}
+            {listo.actualizados > 0
+              ? ` y ${conPlural(listo.actualizados, 'actualizado', 'actualizados')}`
+              : ''}{' '}
+            en el catálogo.
           </Mensaje>
         )}
         {revision ? (
-          <section className="flex flex-col gap-3 rounded-[20px] border border-linea bg-white p-4">
+          <section className="flex flex-col gap-3.5 rounded-[20px] border border-linea bg-white p-4">
             <span className="flex flex-col">
               <b className="text-cuerpo">Revisión antes de guardar · {revision.nombre}</b>
               <span className="text-nota text-secundario">
@@ -664,13 +954,9 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
             <div className="grid gap-2 sm:grid-cols-3">
               {(
                 [
-                  [revision.crear, 'se van a crear', 'bg-pase-suave text-marca'],
-                  [revision.existentes, 'ya existían (se omiten)', 'bg-superficie text-tinta'],
-                  [
-                    revision.incompletas.length,
-                    'con datos incompletos',
-                    'bg-aviso-fondo text-aviso',
-                  ],
+                  [revision.crear, 'nuevos: se crean', 'bg-pase-suave text-marca'],
+                  [revision.existentes, 'ya existen', 'bg-superficie text-tinta'],
+                  [revision.incompletas.length, 'con errores', 'bg-aviso-fondo text-aviso'],
                 ] as const
               ).map(([numero, texto, clase]) => (
                 <span key={texto} className={`flex flex-col rounded-xl px-3.5 py-2.5 ${clase}`}>
@@ -679,6 +965,116 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                 </span>
               ))}
             </div>
+
+            {revision.existentes > 0 && (
+              <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
+                <legend className="mb-2 p-0 text-apoyo font-bold">
+                  ¿Qué hacemos con{' '}
+                  {revision.existentes === 1
+                    ? 'el que ya existe'
+                    : `los ${revision.existentes} que ya existen`}
+                  ?
+                </legend>
+                {OPCIONES_EXISTENTES.map((opcion) => (
+                  <label
+                    key={opcion.modo}
+                    className={`flex cursor-pointer gap-2.5 rounded-xl px-3.5 py-3 ${
+                      modo === opcion.modo
+                        ? 'border-[2.5px] border-pase bg-pase-suave'
+                        : 'border border-borde bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="existentes"
+                      checked={modo === opcion.modo}
+                      onChange={() => setModo(opcion.modo)}
+                      className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-pase"
+                    />
+                    <span className="flex flex-col">
+                      <b className="text-apoyo">{opcion.titulo}</b>
+                      <span className="text-nota text-secundario">
+                        {opcion.modo === 'DEJAR'
+                          ? `Solo se crean ${revision.crear === 1 ? 'el nuevo' : `los ${revision.crear} nuevos`}.`
+                          : opcion.detalle}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
+
+            {modo !== 'DEJAR' && cambian.length > 0 && (
+              <div className="flex flex-col overflow-hidden rounded-xl border border-borde">
+                <span className="flex flex-wrap items-baseline justify-between gap-2 px-3.5 py-2.5">
+                  <b className="text-apoyo">Lo que cambia · {cambian.length}</b>
+                  <span className="text-nota text-secundario">
+                    Desmarca los que no quieras tocar
+                  </span>
+                </span>
+                {visibles.map((p) => (
+                  <FilaQueCambia
+                    key={p.fila}
+                    producto={p}
+                    modo={modo}
+                    marcada={!omitir.has(p.fila)}
+                    alMarcar={(marcada) =>
+                      setOmitir((antes) => {
+                        const nuevo = new Set(antes);
+                        if (marcada) nuevo.delete(p.fila);
+                        else nuevo.add(p.fila);
+                        return nuevo;
+                      })
+                    }
+                  />
+                ))}
+                {cambian.length > visibles.length && (
+                  <button
+                    type="button"
+                    onClick={() => setVerTodos(true)}
+                    className="border-t border-linea px-3.5 py-2.5 text-left text-apoyo font-bold text-pase-texto"
+                  >
+                    Ver{' '}
+                    {cambian.length - visibles.length === 1
+                      ? 'el que falta'
+                      : `los ${cambian.length - visibles.length} restantes`}{' '}
+                    ›
+                  </button>
+                )}
+              </div>
+            )}
+            {modo !== 'DEJAR' && conPublicaciones > 0 && (
+              <p className="m-0 rounded-xl bg-aviso-fondo px-3.5 py-2.5 text-apoyo text-aviso">
+                {conPublicaciones === 1
+                  ? '1 de estos tiene publicaciones: se van a actualizar.'
+                  : `${conPublicaciones} de estos tienen publicaciones: se van a actualizar.`}{' '}
+                Las tiendas que eligieron su propia portada la conservan.
+              </p>
+            )}
+
+            {revision.parecidos.length > 0 && (
+              <div className="flex flex-col gap-2 rounded-xl bg-ambar px-3.5 py-2.5 text-apoyo text-ambar-texto">
+                <span>
+                  <b>
+                    {revision.parecidos.length === 1
+                      ? '1 parecido con código distinto'
+                      : `${revision.parecidos.length} parecidos con código distinto`}
+                  </b>
+                  : mismo nombre que uno del catálogo, pero otro código. No se crean: revísalos
+                  antes, para que no se dupliquen.
+                </span>
+                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-nota">
+                  {revision.parecidos.slice(0, 20).map((p) => (
+                    <li key={p.fila}>
+                      Fila {p.fila}: <b>{p.producto}</b>{' '}
+                      <span className="font-mono">{p.codigo_parte}</span> · en el catálogo:{' '}
+                      <span className="font-mono">{p.con.codigo_parte ?? 'sin código'}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {revision.incompletas.length > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[480px] border-collapse text-left text-apoyo">
@@ -701,14 +1097,9 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                 </table>
               </div>
             )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={creando || revision.crear === 0}
-                onClick={() => void crear()}
-                className={botonVerde}
-              >
-                {creando ? 'Creando…' : `Crear los ${revision.crear}`}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" onClick={() => setRevision(null)} className={botonBorde}>
+                Cancelar
               </button>
               {revision.incompletas.length > 0 && (
                 <button
@@ -716,16 +1107,28 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                   onClick={() => entrada.current?.click()}
                   className={botonBorde}
                 >
-                  Corregir los {revision.incompletas.length} primero
+                  Corregir{' '}
+                  {revision.incompletas.length === 1
+                    ? 'el que falta'
+                    : `los ${revision.incompletas.length}`}{' '}
+                  primero
                 </button>
               )}
+              <button
+                type="button"
+                disabled={creando || (revision.crear === 0 && seActualizan.length === 0)}
+                onClick={() => void crear()}
+                className={botonVerde}
+              >
+                {creando ? 'Guardando…' : textoBoton}
+              </button>
             </div>
           </section>
         ) : (
           !listo && (
             <p className="m-0 rounded-[20px] border border-linea bg-white px-5 py-6 text-apoyo text-secundario">
-              Sube el Excel con la plantilla. Antes de guardar te mostramos cuántos se crean, cuáles
-              ya estaban y qué les falta a los demás.
+              Sube el Excel o el .zip con la plantilla. Antes de guardar te mostramos cuántos se
+              crean, cuáles ya estaban y qué les cambia, y qué les falta a los demás.
             </p>
           )
         )}
@@ -1017,6 +1420,172 @@ function AgregarUno({ alAgregar }: { alAgregar: () => void }) {
   );
 }
 
+// ── Eliminar todos ─────────────────────────────────────────────────────────
+
+/**
+ * «Eliminar todos» (docs/17 §4): pregunta antes, borra por tandas mostrando el avance y nunca
+ * toca los que usa una tienda.
+ */
+function VentanaEliminarTodos({
+  abierta,
+  alCerrar,
+  alEliminar,
+  alSubir,
+}: {
+  abierta: boolean;
+  alCerrar: () => void;
+  alEliminar: () => void;
+  alSubir: () => void;
+}) {
+  const [resumen, setResumen] = useState<ResumenEliminarCatalogo | null>(null);
+  const [hechos, setHechos] = useState<number | null>(null);
+  const [fin, setFin] = useState<RespuestaEliminarCatalogo | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const trabajando = hechos !== null && !fin;
+
+  useEffect(() => {
+    if (!abierta) return;
+    setResumen(null);
+    setHechos(null);
+    setFin(null);
+    setError(null);
+    void llamarApi<ResumenEliminarCatalogo>('/equipo/catalogo/eliminar-todos').then(
+      setResumen,
+      (e: unknown) =>
+        setError(e instanceof ErrorApi ? e.message : 'No pudimos contar los productos.'),
+    );
+  }, [abierta]);
+
+  async function eliminar() {
+    if (!resumen) return;
+    setHechos(0);
+    setError(null);
+    let total = 0;
+    try {
+      for (let vuelta = 0; vuelta < 1000; vuelta++) {
+        const tanda = await llamarApi<RespuestaEliminarCatalogo>(
+          '/equipo/catalogo/eliminar-todos',
+          {
+            metodo: 'POST',
+            cuerpo: { tanda: 50 },
+          },
+        );
+        total += tanda.eliminados;
+        setHechos(total);
+        if (tanda.quedan === 0 || tanda.eliminados === 0) {
+          setFin({ ...tanda, eliminados: total });
+          break;
+        }
+      }
+    } catch (e) {
+      setError(
+        `${e instanceof ErrorApi ? e.message : 'Se cortó.'} Se eliminaron ${total}; vuelve a intentarlo para seguir.`,
+      );
+      setHechos(null);
+    }
+    alEliminar();
+  }
+
+  return (
+    <Ventana
+      titulo="Eliminar todos"
+      abierta={abierta}
+      alCerrar={() => {
+        if (!trabajando) alCerrar();
+      }}
+    >
+      <div role="alertdialog" aria-labelledby="titulo-eliminar" className="flex flex-col gap-3.5">
+        {error && <Mensaje tipo="error">{error}</Mensaje>}
+        {fin ? (
+          <>
+            <Mensaje tipo="ok">
+              Listo: se eliminaron {conPlural(fin.eliminados, 'producto', 'productos')}.
+              {fin.se_quedan > 0
+                ? ` ${fin.se_quedan === 1 ? 'Queda 1 que usan' : `Quedan ${fin.se_quedan} que usan`} las tiendas.`
+                : ''}{' '}
+              Ya puedes subir el catálogo nuevo.
+            </Mensaje>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={alCerrar} className={botonBorde}>
+                Cerrar
+              </button>
+              <button type="button" onClick={alSubir} className={botonVerde}>
+                <IconUpload size={17} stroke={1.9} aria-hidden="true" />
+                Subir archivo
+              </button>
+            </div>
+          </>
+        ) : !resumen ? (
+          <p className="m-0 text-secundario">{error ? '' : 'Contando…'}</p>
+        ) : resumen.se_eliminan === 0 ? (
+          <>
+            <h2 id="titulo-eliminar" className="m-0 text-seccion">
+              No hay nada que eliminar
+            </h2>
+            <p className="m-0 text-apoyo text-secundario">
+              {resumen.total === 0
+                ? 'El catálogo ya está vacío.'
+                : `Los ${resumen.total} productos los usan tiendas en sus publicaciones o pedidos.`}
+            </p>
+            <div className="flex justify-end">
+              <button type="button" onClick={alCerrar} className={botonBorde}>
+                Cerrar
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 id="titulo-eliminar" className="m-0 text-seccion">
+              ¿Estás seguro de que quieres eliminar{' '}
+              {resumen.total === 1 ? 'el producto' : `${resumen.total} productos`}?
+            </h2>
+            <p className="m-0 text-apoyo text-secundario">
+              Se borran del catálogo con sus fotos.{' '}
+              <b className="text-tinta">No se puede deshacer.</b>
+            </p>
+            {resumen.se_quedan > 0 && (
+              <p className="m-0 rounded-xl bg-ambar px-3.5 py-2.5 text-apoyo text-ambar-texto">
+                {resumen.se_quedan === 1
+                  ? '1 se queda: lo usan'
+                  : `${resumen.se_quedan} se quedan: los usan`}{' '}
+                tiendas en sus publicaciones o pedidos. Se{' '}
+                {resumen.se_eliminan === 1
+                  ? 'elimina el otro'
+                  : `eliminan los otros ${resumen.se_eliminan}`}
+                .
+              </p>
+            )}
+            {trabajando ? (
+              <div className="flex flex-col gap-2" role="status">
+                <span className="text-apoyo font-semibold">
+                  Eliminando productos… {hechos} de {resumen.se_eliminan} · no cierres esta ventana
+                </span>
+                <span className="h-2 overflow-hidden rounded-full bg-superficie">
+                  <span
+                    className="block h-full rounded-full bg-error transition-[width]"
+                    style={{
+                      width: `${Math.min(100, Math.round(((hechos ?? 0) / resumen.se_eliminan) * 100))}%`,
+                    }}
+                  />
+                </span>
+              </div>
+            ) : (
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={alCerrar} className={botonBorde}>
+                  Cancelar
+                </button>
+                <button type="button" onClick={() => void eliminar()} className={botonRojo}>
+                  Sí, eliminar {resumen.se_eliminan}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Ventana>
+  );
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 /**
@@ -1030,6 +1599,7 @@ export function CatalogoEquipo({ pestanaInicial }: { pestanaInicial: Pestana }) 
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const [resumen, setResumen] = useState<{ total: number; por_revisar: number } | null>(null);
   const [editando, setEditando] = useState<Editable | null>(null);
+  const [eliminando, setEliminando] = useState(false);
   const [recargar, setRecargar] = useState(0);
 
   const actualizar = useCallback(() => {
@@ -1074,6 +1644,10 @@ export function CatalogoEquipo({ pestanaInicial }: { pestanaInicial: Pestana }) 
             <IconPlus size={17} stroke={2.2} aria-hidden="true" />
             Agregar producto
           </button>
+          <button type="button" onClick={() => setEliminando(true)} className={botonRojoBorde}>
+            <IconTrash size={17} stroke={1.9} aria-hidden="true" />
+            Eliminar todos
+          </button>
         </span>
       </div>
       <div
@@ -1113,6 +1687,15 @@ export function CatalogoEquipo({ pestanaInicial }: { pestanaInicial: Pestana }) 
       )}
       {pestana === 'excel' && <SubirArchivo alCrear={() => setRecargar((n) => n + 1)} />}
       {pestana === 'agregar' && <AgregarUno alAgregar={() => setRecargar((n) => n + 1)} />}
+      <VentanaEliminarTodos
+        abierta={eliminando}
+        alCerrar={() => setEliminando(false)}
+        alEliminar={() => setRecargar((n) => n + 1)}
+        alSubir={() => {
+          setEliminando(false);
+          ir('excel');
+        }}
+      />
       <VentanaEditar
         producto={editando}
         alCerrar={() => setEditando(null)}
