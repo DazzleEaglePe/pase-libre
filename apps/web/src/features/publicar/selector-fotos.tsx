@@ -138,13 +138,13 @@ export function SelectorFotos({
       {fotos.map((foto, indice) => (
         <span
           key={foto.ruta}
-          className="relative h-[88px] w-[104px] overflow-hidden rounded-xl bg-superficie"
+          className="relative flex h-[88px] w-[104px] items-center justify-center overflow-hidden rounded-xl bg-foto-fondo"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={urlFoto(foto.ruta)}
             alt={`Foto ${indice + 1}`}
-            className="h-full w-full object-cover"
+            className="h-[86%] w-[86%] object-contain mix-blend-multiply"
           />
           {indice === 0 && variante === 'zona' && (
             <span className="absolute bottom-1.5 left-1.5 rounded-full bg-white px-2 text-etiqueta normal-case leading-5 tracking-normal">
