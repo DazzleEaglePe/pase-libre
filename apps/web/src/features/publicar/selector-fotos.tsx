@@ -13,54 +13,24 @@ import {
 
 import { ErrorApi, subirFoto } from '@/shared/api/cliente';
 
-const TIPOS = ['image/jpeg', 'image/png', 'image/webp'];
+export const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_BYTES = 8 * 1024 * 1024;
 
-function IconoCamara({ tamano }: { tamano: number }) {
-  return (
-    <svg
-      width={tamano}
-      height={tamano}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
-      <circle cx="12" cy="13" r="3.5" />
-    </svg>
-  );
-}
-
 /**
- * Fotos del producto («zona», con arrastrar y soltar) o fotos propias de la oferta
- * («mosaico», con el recuadro «Agregar»). Cada foto se sube al elegirla, una tras otra
- * para conservar el orden; la primera es la portada.
+ * Sube las fotos elegidas (o arrastradas) una tras otra, para conservar el orden, y junta los
+ * errores en español. `alCargar` avisa si hay fotos subiendo, para no publicar a medias.
  */
-export function SelectorFotos({
+export function useSubirFotos({
   fotos,
   alCambiar,
   alCargar,
-  variante,
-  titulo,
-  ayuda,
 }: {
   fotos: ArchivoSubido[];
   alCambiar: Dispatch<SetStateAction<ArchivoSubido[]>>;
-  /** Avisa si hay fotos subiendo, para no publicar a medias. */
   alCargar: (cargando: boolean) => void;
-  variante: 'zona' | 'mosaico';
-  titulo: string;
-  ayuda: string;
 }) {
-  const id = useId();
-  const entrada = useRef<HTMLInputElement>(null);
   const [subiendo, setSubiendo] = useState(0);
   const [errores, setErrores] = useState<string[]>([]);
-  const [encima, setEncima] = useState(false);
   const libres = MAX_FOTOS - fotos.length - subiendo;
 
   useEffect(() => alCargar(subiendo > 0), [subiendo, alCargar]);
@@ -70,7 +40,7 @@ export function SelectorFotos({
     const archivos = Array.from(lista);
     const nuevosErrores: string[] = [];
     const validos = archivos.filter((archivo) => {
-      if (!TIPOS.includes(archivo.type)) {
+      if (!TIPOS_FOTO.includes(archivo.type)) {
         nuevosErrores.push(`«${archivo.name}» no es una foto JPEG, PNG o WebP.`);
         return false;
       }
@@ -100,6 +70,54 @@ export function SelectorFotos({
       }
     }
   }
+
+  return { subiendo, errores, libres, agregar };
+}
+
+function IconoCamara({ tamano }: { tamano: number }) {
+  return (
+    <svg
+      width={tamano}
+      height={tamano}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+      <circle cx="12" cy="13" r="3.5" />
+    </svg>
+  );
+}
+
+/**
+ * Fotos del producto nuevo, «zona» (con arrastrar y soltar) o «mosaico» (con el recuadro
+ * «Agregar»). Cada foto se sube al elegirla, una tras otra para conservar el orden; la primera
+ * queda como la del catálogo. Las de la tienda y la portada van en `FotosPublicacion`.
+ */
+export function SelectorFotos({
+  fotos,
+  alCambiar,
+  alCargar,
+  variante,
+  titulo,
+  ayuda,
+}: {
+  fotos: ArchivoSubido[];
+  alCambiar: Dispatch<SetStateAction<ArchivoSubido[]>>;
+  /** Avisa si hay fotos subiendo, para no publicar a medias. */
+  alCargar: (cargando: boolean) => void;
+  variante: 'zona' | 'mosaico';
+  titulo: string;
+  ayuda: string;
+}) {
+  const id = useId();
+  const entrada = useRef<HTMLInputElement>(null);
+  const [encima, setEncima] = useState(false);
+  const { subiendo, errores, libres, agregar } = useSubirFotos({ fotos, alCambiar, alCargar });
 
   const arrastre = {
     onDragOver: (evento: DragEvent) => {
@@ -165,7 +183,7 @@ export function SelectorFotos({
         ref={entrada}
         id={`${id}-archivo`}
         type="file"
-        accept={TIPOS.join(',')}
+        accept={TIPOS_FOTO.join(',')}
         multiple
         hidden
         aria-labelledby={`${id}-titulo`}

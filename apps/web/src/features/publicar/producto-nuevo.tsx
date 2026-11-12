@@ -160,8 +160,8 @@ export function ProductoNuevo({
       </div>
       <SelectorFotos
         variante="mosaico"
-        titulo="Fotos (opcional)"
-        ayuda="JPG, PNG o fotos de iPhone · la primera es la portada."
+        titulo="Fotos del producto (opcional)"
+        ayuda="JPG, PNG o fotos de iPhone · la primera queda como la del catálogo."
         fotos={fotos}
         alCambiar={alCambiarFotos}
         alCargar={alCargarFotos}

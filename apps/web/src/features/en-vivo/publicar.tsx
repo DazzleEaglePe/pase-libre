@@ -4,6 +4,7 @@ import {
   formatearPrecio,
   HORA_CIERRE_EN_VIVO,
   MAX_EN_VIVO_POR_CUENTA,
+  portadaDeOferta,
   type CategoriaResumen,
   type DuracionEnVivo,
   type EnVivoPropio,
@@ -501,7 +502,7 @@ export function FormularioEnVivo({
                               className="h-4 w-4 accent-pase"
                             />
                             <Miniatura
-                              ruta={o.producto.foto}
+                              ruta={portadaDeOferta(o)}
                               categoria={o.producto.categoria.slug}
                               className="h-9 w-11 rounded-lg"
                               glifo={30}
