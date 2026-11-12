@@ -304,7 +304,8 @@ export function FichaProducto({
     ) : null;
 
   return (
-    <div className="flex flex-col gap-12 max-md:gap-5">
+    // `ficha-fondo` oscurece un tono el fondo de esta página (docs/18 §4, globals.css).
+    <div className="ficha-fondo flex flex-col gap-12 max-md:gap-5">
       {/* En el celular, la cabecera propia de M_Ficha: volver, la categoría y compartir. */}
       <CabeceraMovil titulo={producto.categoria.nombre}>
         <BotonCompartir titulo={producto.titulo} soloIcono />
@@ -347,7 +348,7 @@ export function FichaProducto({
             <Miniatura
               ruta={fotoActual?.ruta ?? null}
               categoria={producto.categoria.slug}
-              className="aspect-[4/3] w-full rounded-[20px] max-md:aspect-[358/240]"
+              className="aspect-[4/3] w-full rounded-[20px] border-[1.5px] border-borde max-md:aspect-[358/240]"
               glifo={240}
               grosor={0.8}
               prioridad
@@ -411,7 +412,7 @@ export function FichaProducto({
               {producto.etiquetas.map((etiqueta) => (
                 <li
                   key={etiqueta}
-                  className="rounded-full bg-superficie px-2.5 text-nota leading-6 text-secundario"
+                  className="rounded-full bg-white px-2.5 text-nota leading-6 text-secundario"
                 >
                   {etiqueta}
                 </li>
@@ -420,7 +421,7 @@ export function FichaProducto({
           )}
 
           {oferta ? (
-            <div className="flex flex-col gap-4 rounded-[20px] border border-linea p-[22px] max-md:border-0 max-md:p-0">
+            <div className="flex flex-col gap-4 rounded-[20px] border border-borde bg-white p-[22px] max-md:p-4">
               <span className="text-nota text-secundario max-md:hidden">
                 <b className="font-semibold text-tinta">{textoEstadoDetalle(oferta.detalle)}</b> ·
                 Actualizado {haceCuanto(oferta.actualizadaEn).toLowerCase()}
@@ -566,7 +567,7 @@ export function FichaProducto({
               )}
             </div>
           ) : (
-            <div className="flex flex-col gap-3 rounded-[20px] border border-linea p-[22px]">
+            <div className="flex flex-col gap-3 rounded-[20px] border border-borde bg-white p-[22px]">
               <span className="text-apoyo text-secundario">
                 Ninguna tienda lo tiene publicado ahora. Pídelo en vivo: alguna puede tenerlo en su
                 almacén.
@@ -593,7 +594,7 @@ export function FichaProducto({
           {conPublicarIgual && (
             <Link
               href={`/publicar?igual=${producto.slug}`}
-              className="flex items-center justify-between gap-3 rounded-2xl bg-pase-suave px-[18px] py-3.5 text-tinta no-underline hover:bg-pase-medio"
+              className="flex items-center justify-between gap-3 rounded-2xl border-[1.5px] border-[#B9E6CC] bg-pase-suave px-[18px] py-3.5 text-tinta no-underline hover:bg-pase-medio"
             >
               <span className="flex flex-col">
                 <b className="text-cuerpo font-bold">¿Tienes este producto?</b>
@@ -625,11 +626,13 @@ export function FichaProducto({
                 : 'De la más reciente a la más antigua.'}
             </span>
           </div>
-          <div className="relative overflow-x-auto">
+          {/* Tarjeta blanca con títulos en negro y filas alternadas (docs/18 §4). En el celular
+              la tabla se sigue deslizando a lo ancho dentro de la tarjeta. */}
+          <div className="relative overflow-x-auto rounded-[20px] border border-borde bg-white">
             <table className="w-full min-w-[720px] border-collapse text-left text-apoyo">
               <thead>
-                <tr className="text-nota font-semibold text-secundario">
-                  <th className="h-11 pr-4 font-semibold">Tienda</th>
+                <tr className="bg-tinta text-nota font-semibold text-white">
+                  <th className="h-11 pl-5 pr-4 font-semibold">Tienda</th>
                   <th className="pr-4 font-semibold">Galería</th>
                   <th className="pr-4 font-semibold">Estado</th>
                   <th className="pr-4 font-semibold">Stock</th>
@@ -640,15 +643,17 @@ export function FichaProducto({
                 </tr>
               </thead>
               <tbody>
-                {ofertas.map((fila) => {
+                {ofertas.map((fila, indice) => {
                   const viendo = fila.id === elegida;
                   return (
                     <tr
                       key={fila.id}
-                      className={`h-16 border-t border-linea ${viendo ? 'bg-pase-suave' : ''}`}
+                      className={`h-16 ${
+                        viendo ? 'bg-pase-suave' : indice % 2 ? 'bg-[#F1F6F3]' : 'bg-white'
+                      }`}
                     >
                       <td
-                        className={`pr-4 ${viendo ? 'font-bold' : ''} ${esReservada(fila) ? 'italic' : ''}`}
+                        className={`pl-5 pr-4 ${viendo ? 'font-bold' : ''} ${esReservada(fila) ? 'italic' : ''}`}
                       >
                         {nombreDe(fila)}
                       </td>
@@ -713,18 +718,27 @@ export function FichaProducto({
             <span className="text-nota text-detalle">Cambia con la oferta que estás viendo.</span>
           )}
         </div>
-        <div className="flex min-w-0 flex-col gap-3">
-          <h2 className="text-seccion">Características</h2>
+        {/* Tarjeta blanca con el título en una franja negra y filas alternadas, sin líneas. */}
+        <div className="flex min-w-0 flex-col self-start overflow-hidden rounded-[20px] border border-borde bg-white">
+          <h2 className="bg-tinta px-5 py-3 text-seccion text-white">Características</h2>
           <dl className="m-0 grid grid-cols-[minmax(110px,0.3fr)_minmax(0,1fr)]">
             {[
               ...(producto.marca ? [['Marca', producto.marca] as const] : []),
               ...(producto.modelo ? [['Modelo', producto.modelo] as const] : []),
               ...caracteristicas,
               ['Categoría', producto.categoria.nombre] as const,
-            ].map(([nombre, valor]) => (
+            ].map(([nombre, valor], indice) => (
               <div key={nombre} className="contents">
-                <dt className="border-b border-linea py-3 text-apoyo text-secundario">{nombre}</dt>
-                <dd className="m-0 border-b border-linea py-3 text-apoyo">{valor}</dd>
+                <dt
+                  className={`py-3 pl-5 pr-3 text-apoyo text-secundario ${indice % 2 ? 'bg-white' : 'bg-[#F1F6F3]'}`}
+                >
+                  {nombre}
+                </dt>
+                <dd
+                  className={`m-0 py-3 pr-5 text-apoyo ${indice % 2 ? 'bg-white' : 'bg-[#F1F6F3]'}`}
+                >
+                  {valor}
+                </dd>
               </div>
             ))}
           </dl>

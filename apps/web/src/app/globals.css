@@ -141,3 +141,8 @@
     animation: none;
   }
 }
+
+/* La ficha del producto va sobre un fondo un tono más oscuro que `fondo` (docs/18 §4). */
+body:has(.ficha-fondo) {
+  background-color: #e4eae7;
+}
