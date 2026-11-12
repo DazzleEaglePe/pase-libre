@@ -4,7 +4,7 @@
 
 Esto **se suma** a los documentos 16 y 17 y no cambia nada de lo que ya está en ellos. Lo revisé contra `main` en `f977acf`.
 
-Las pantallas finales están en el lienzo **«PaseLibre Demo 2»** (privado: Bruno (diseño) te comparte el enlace). Cada punto tiene su tablero con el mismo número. Las fotos de antes y después van en la carpeta `version_1_9_0/`.
+Las pantallas finales están en el lienzo **«PaseLibre Demo 2»**: https://claude.ai/artifact/RzQKVgD6cqUs5ihp44HThz (es privado: Bruno (diseño) tiene que compartirlo contigo para que puedas abrirlo). Cada punto tiene su tablero con el mismo número. Las fotos de antes y después van en la carpeta `version_1_9_0/`.
 
 | # | Qué | Tam. |
 |---|---|---|
@@ -18,7 +18,7 @@ Las pantallas finales están en el lienzo **«PaseLibre Demo 2»** (privado: Bru
 | 8 | Las filas con error dicen qué pasa | S |
 | 9 | Número de versión en el pie, «Novedades» para las tiendas y «Versiones» en el panel | M |
 
-**Orden sugerido:** primero 3 (los datos de las galerías se pueden cargar hoy mismo), después 1, 4, 7 y 8 (son cortos), luego 6, 5 y 2, y al final 9, con la lista de novedades de esta tanda.
+**Orden sugerido:** primero **6 (el logo: es lo más importante de esta tanda)** y 3 (los datos de las galerías se pueden cargar hoy mismo), después 1, 4, 7 y 8 (son cortos), luego 5 y 2, y al final 9, con la lista de novedades de esta tanda.
 
 ---
 
@@ -133,13 +133,21 @@ La causa es solo de datos: `GALERIAS` en `apps/api/prisma/semilla.ts` crea únic
 
 El tablero «5 · La flecha de cada fila» tiene la animación funcionando (botón ▶ del tablero).
 
-## 6. El logo de la tienda en todos lados
+## 6. El logo de la tienda en todos lados · PRIORIDAD
+
+> **Lo más importante de esta tanda.** Hoy, en paselibre.shop, una tienda que ya subió su logo **sigue viendo letras en 3 lugares de la misma pantalla de inicio**:
+> 1. el circulito de la cabecera, arriba a la derecha («D»);
+> 2. la tarjeta de arriba del menú que se abre desde ese circulito («DA», con «Ver mi perfil ›»);
+> 3. el saludo del inicio, «Hola, Dark Alien Planeta» («DA»).
+>
+> La foto `6_logo_tienda.jpg` muestra los tres marcados. Los tres tienen que mostrar el logo. Después, el resto de la lista de abajo.
 
 Ya existe `shared/ui/avatar-tienda.tsx` (`AvatarTienda`): muestra el logo o las iniciales. Hoy solo lo usan el directorio y el buscador; en los demás lugares las iniciales están escritas a mano.
 
 - **A `AvatarTienda`** hay que agregarle una prop de tamaño en px (28, 32, 40, 44, 52) y usarlo en lugar de `iniciales(...)` en:
-  - la cabecera y el menú de la cuenta: `menu-cuenta.tsx:139`;
-  - el saludo del inicio: `en-vivo-ahora.tsx:44`;
+  - **el circulito de la cabecera, arriba a la derecha** (el botón que hoy muestra «D»): `menu-cuenta.tsx:234` y `:253`. Ahí ni siquiera se usa `iniciales()`: es la primera letra a mano. Va en web y en celular;
+  - **la tarjeta de la tienda que aparece al abrir ese menú** («Ver mi perfil ›»): `menu-cuenta.tsx:139`;
+  - el saludo del inicio («Hola, Dark Alien Planeta», arriba del feed): `en-vivo-ahora.tsx:44`;
   - el piloto: `piloto.tsx:69`;
   - «Tiendas que ya están»: `inicio-tienda.tsx:141`;
   - la ficha, en la fila de la tienda (`Avatar` en `ficha-producto.tsx:78`) y en cada fila de «Las tiendas que lo tienen», donde hoy no hay círculo;
@@ -237,7 +245,7 @@ La versión de antes de esta tanda es la **1.8.7**.
 - [ ] Crear cuenta, Configuración y Wilson en vivo muestran las 7 galerías en el orden de Equipo › Galerías.
 - [ ] La ficha se ve como el tablero 4, en web y en celular.
 - [ ] El inicio normal muestra 4 filas: la flecha se ve transparente y se pone negra con el cursor, cada fila se desliza sola, y el final de la fila y el botón «Ver todas» aparecen en los casos descritos.
-- [ ] Una tienda con logo lo ve en todos los lugares del punto 6.
+- [ ] **Una tienda con logo lo ve en el circulito de la cabecera, en la tarjeta del menú de la cuenta y en el saludo del inicio** (en web y en celular), y además en el resto de los lugares del punto 6.
 - [ ] Un ZIP de 35 MB muestra el porcentaje y después «Revisando…».
 - [ ] Un ZIP con filas malas muestra los motivos y los textos nuevos.
 - [ ] El pie dice «PaseLibre 1.9 · Novedades», y `/equipo/versiones` muestra la 1.9.0 con el detalle.
