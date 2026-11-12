@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { whatsappSchema } from '../equipo/equipo.schemas.js';
 import { rutaFotoSchema } from '../ofertas/ofertas.schemas.js';
+import { horarioTiendaSchema } from '../tiendas/horario.js';
 
 export const MAX_RESPUESTAS_RAPIDAS = 8;
 
@@ -44,6 +45,8 @@ export const actualizarCuentaSchema = z
           .max(120, 'El nombre llega hasta 120 caracteres.'),
         whatsapp: whatsappSchema,
         horario: textoOpcional(120, 'El horario llega hasta 120 caracteres.'),
+        /** El horario por días (N09); con él, `horario` se escribe solo. Nulo lo borra. */
+        horario_tramos: horarioTiendaSchema.nullable(),
         /** «Cómo llegar» (PCH_WebLlegar): cómo se sube hasta el stand. */
         indicaciones: textoOpcional(240, 'Las indicaciones llegan hasta 240 caracteres.'),
         descripcion: textoOpcional(500, 'La descripción llega hasta 500 caracteres.'),
@@ -58,6 +61,32 @@ export const actualizarCuentaSchema = z
       .optional(),
   })
   .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.');
+
+/**
+ * `PUT /v1/cuenta/lugar` (N09): galería, piso y stand nuevos. No cambian al toque: quedan
+ * «Pendiente de aprobación» hasta que el Equipo los confirma.
+ */
+export const cambioLugarSchema = z.strictObject({
+  galeria_id: z.uuid('Elige la galería.'),
+  piso: opcional(z.string().trim().max(20, 'El piso llega hasta 20 caracteres.')).optional(),
+  stand: z
+    .string()
+    .trim()
+    .min(1, 'Escribe tu stand.')
+    .max(20, 'El stand llega hasta 20 caracteres.'),
+});
+export type CambioLugarDatos = z.output<typeof cambioLugarSchema>;
+
+/** `POST /v1/equipo/cambios-de-lugar/:id/rechazar`: por qué no (le llega a la tienda). */
+export const rechazarCambioLugarSchema = z.strictObject({
+  motivo: z
+    .string()
+    .trim()
+    .max(300, 'Escribe hasta 300 caracteres.')
+    .optional()
+    .transform((texto) => texto || undefined),
+});
+export type RechazarCambioLugarDatos = z.output<typeof rechazarCambioLugarSchema>;
 
 /** «22:00» → 1320. */
 const horaSchema = z

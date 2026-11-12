@@ -1,5 +1,7 @@
 import type { Condicion } from '../catalogo/catalogo.types.js';
 import type { Precio } from '../comun/dinero.js';
+import type { TramoHorario } from './horario.js';
+import type { NivelReputacion } from './reputacion.js';
 import type { AVISOS_SEGUIMIENTO } from './tiendas.schemas.js';
 
 export type AvisosSeguimiento = (typeof AVISOS_SEGUIMIENTO)[number];
@@ -10,6 +12,21 @@ export interface Reputacion {
   promedio: number | null;
   opiniones: number;
   ventas: number;
+}
+
+/**
+ * La reputación completa (N03, N04): el nivel que junta estrellas, pases cerrados y rapidez, y
+ * los tres datos que se muestran. Sale de `ReputacionService` en la API.
+ */
+export interface ReputacionDetallada extends Reputacion {
+  /** Nulo con menos de 5 opiniones: «🌱 Nueva en PaseLibre». */
+  nivel: NivelReputacion | null;
+  /** «18 pases cerrados en 60 días». */
+  pases_60: number;
+  /** «~10 min para responder»: nulo con menos de 3 chats contestados. */
+  responde_en: number | null;
+  /** «96 % chats respondidos» en 60 días: nulo sin chats. */
+  respondidos: number | null;
 }
 
 /** Un producto en el perfil de una tienda: solo lo que publica con su nombre a la vista. */
@@ -49,7 +66,15 @@ export interface PerfilTienda {
   stand: string | null;
   horario: string | null;
   descripcion: string | null;
-  reputacion: Reputacion;
+  /** El horario por días (Configuración · Datos de la tienda), o leído del escrito; nulo si no se entiende. */
+  horario_tramos: TramoHorario[] | null;
+  /** «Cómo llegar: escalera central, 2.º pasillo a la derecha». */
+  indicaciones: string | null;
+  /** Ruta del logo (`/media/<ruta>`), o nulo: van sus iniciales. */
+  logo: string | null;
+  /** «En PaseLibre desde nov 2026». */
+  desde: string;
+  reputacion: ReputacionDetallada;
   seguidores: number;
   /** Nulo si tu tienda no la sigue. */
   siguiendo: { avisos: AvisosSeguimiento } | null;
@@ -99,6 +124,13 @@ export interface OpinionPublica {
   texto: string | null;
   respuesta: string | null;
   creada_en: string;
+  /**
+   * Opinión baja (2 estrellas o menos): el comentario y la respuesta solo los ven la tienda
+   * calificada, quien la escribió y el Equipo. Para los demás, `texto` y `respuesta` van nulos.
+   */
+  privada: boolean;
+  /** Solo para la tienda calificada: si pidió revisión al Equipo, el código del reporte. */
+  revision: { codigo: string; resuelta: boolean } | null;
 }
 
 /** «Lo que dicen las tiendas»: qué tanto se marcó cada cosa, sobre 100. */
