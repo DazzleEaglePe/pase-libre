@@ -718,7 +718,10 @@ export function FormularioPublicar({
                   width="18"
                   height="18"
                   viewBox="0 0 24 24"
-                  fill="#FACC15"
+                  fill="none"
+                  stroke="#006B47"
+                  strokeWidth="2"
+                  strokeLinejoin="round"
                   aria-hidden="true"
                 >
                   <path d="M13 2L4 14h7l-1 8 9-12h-7z" />
@@ -760,9 +763,11 @@ export function FormularioPublicar({
                   activa ? 'border-pase bg-pase-suave' : 'border-transparent hover:bg-superficie'
                 }`}
               >
+                {/* Cada círculo tiene su color fijo (docs/18 §1): el rayo verde sobre verde clarito y
+                    el lápiz blanco sobre negro, esté elegida o no su pestaña. */}
                 <span
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                    activa ? 'bg-marca text-white' : 'bg-secundario text-white'
+                    mano ? 'bg-tinta text-white' : 'bg-pase-medio'
                   }`}
                 >
                   {icono}
