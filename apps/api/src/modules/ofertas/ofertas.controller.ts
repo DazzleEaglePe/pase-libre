@@ -32,7 +32,7 @@ import {
 } from '@paselibre/contracts';
 import { z } from 'zod';
 
-import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { Permiso, Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { OfertasService } from './ofertas.service';
@@ -63,6 +63,7 @@ export class OfertasController {
   }
 
   @Post('ofertas')
+  @Permiso('PUBLICAR')
   @Header('Cache-Control', 'no-store')
   publicar(
     @Body(new ZodValidationPipe(publicarSchema)) datos: PublicarDatos,
@@ -82,6 +83,7 @@ export class OfertasController {
 
   /** «Siguen igual»: va antes de `ofertas/:id` para que «confirmar» no se lea como id. */
   @Post('ofertas/confirmar')
+  @Permiso('PUBLICAR')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   confirmar(
@@ -101,6 +103,7 @@ export class OfertasController {
   }
 
   @Patch('ofertas/:id')
+  @Permiso('PUBLICAR')
   @Header('Cache-Control', 'no-store')
   editar(
     @Param('id', idDeOferta) id: string,
@@ -111,6 +114,7 @@ export class OfertasController {
   }
 
   @Delete('ofertas/:id')
+  @Permiso('PUBLICAR')
   @HttpCode(HttpStatus.NO_CONTENT)
   eliminar(
     @Param('id', idDeOferta) id: string,

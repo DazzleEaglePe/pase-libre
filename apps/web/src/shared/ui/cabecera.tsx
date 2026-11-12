@@ -3,6 +3,7 @@
 import type {
   CategoriaResumen,
   Contadores,
+  PermisoAsesor,
   RespuestaBarra,
   RespuestaYo,
   TiendaDeSesion,
@@ -14,6 +15,7 @@ import { Suspense, useState, type ReactNode } from 'react';
 import { BotonSalir } from '@/features/acceso/boton-salir';
 import { useEnVivoMontado } from '@/features/en-vivo/contexto';
 import { enPlural } from '@/shared/plural';
+import { puede } from '@/shared/permisos';
 
 import { Buscador } from './buscador';
 import { Campanita, Insignia, useContadores } from './campanita';
@@ -347,9 +349,12 @@ function BurbujasCelular({ numeros, conTienda }: { numeros: NumerosBarra; conTie
 function AccionesTienda({
   tienda,
   contadores,
+  permisos,
 }: {
   tienda: TiendaDeSesion;
   contadores: Contadores;
+  /** Lo que puede el asesor (N12): sin «Publicar», no se muestra el botón. */
+  permisos?: readonly PermisoAsesor[];
 }) {
   const ruta = usePathname();
   const enMensajes = ruta.startsWith('/mensajes');
@@ -361,7 +366,7 @@ function AccionesTienda({
     <div className="flex items-center gap-1.5">
       <Link
         href="/publicar"
-        className="flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-apoyo font-semibold text-marca no-underline hover:bg-pase-suave max-md:hidden"
+        className={`flex h-10 items-center gap-1.5 rounded-full bg-white px-4 text-apoyo font-semibold text-marca no-underline hover:bg-pase-suave max-md:hidden ${puede(permisos, 'PUBLICAR') ? '' : 'hidden'}`}
       >
         <svg
           width="16"
@@ -404,7 +409,7 @@ function AccionesTienda({
       </Link>
       <Campanita sinLeer={contadores.avisos} sobreMarca />
       <div className="max-md:hidden">
-        <MenuCuenta tienda={tienda} lugar={lugar} sobreMarca />
+        <MenuCuenta tienda={tienda} lugar={lugar} permisos={permisos} sobreMarca />
       </div>
     </div>
   );
@@ -412,13 +417,15 @@ function AccionesTienda({
 
 function ConTienda({
   tienda,
+  permisos,
   children,
 }: {
   tienda: TiendaDeSesion;
+  permisos?: readonly PermisoAsesor[];
   children: (acciones: ReactNode) => ReactNode;
 }) {
   const contadores = useContadores();
-  return children(<AccionesTienda tienda={tienda} contadores={contadores} />);
+  return children(<AccionesTienda tienda={tienda} contadores={contadores} permisos={permisos} />);
 }
 
 /**
@@ -493,7 +500,13 @@ export function Cabecera({
     </header>
   );
 
-  return tienda ? <ConTienda tienda={tienda}>{armar}</ConTienda> : armar(null);
+  return tienda ? (
+    <ConTienda tienda={tienda} permisos={sesion?.usuario.permisos}>
+      {armar}
+    </ConTienda>
+  ) : (
+    armar(null)
+  );
 }
 
 function BotonIngresar() {

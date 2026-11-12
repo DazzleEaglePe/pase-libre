@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { ContactoEquipo, Documento, Seccion } from './documento';
+import { PedirAyudaEquipo } from './pedir-ayuda';
 
 const enlace = 'font-medium underline';
 
@@ -156,7 +157,11 @@ export function Ayuda() {
 
       <Seccion titulo="Mensajes" id="mensajes">
         <Pregunta titulo="¿Quién ve mis mensajes?">
-          <p>Solo tú y la otra persona de la conversación. El equipo de PaseLibre no los lee.</p>
+          <p>
+            Tú y la otra tienda de la conversación. Si hace falta revisar algo (un reporte, por
+            ejemplo), el Equipo PaseLibre puede abrir un chat solo para leerlo, y queda anotado
+            quién lo abrió y cuándo.
+          </p>
         </Pregunta>
         <Pregunta titulo="Alguien me molesta: ¿cómo lo bloqueo?">
           <p>
@@ -183,6 +188,8 @@ export function Ayuda() {
           </p>
         </Pregunta>
       </Seccion>
+
+      <PedirAyudaEquipo />
 
       <Seccion titulo="¿No encontraste tu respuesta?">
         <p>

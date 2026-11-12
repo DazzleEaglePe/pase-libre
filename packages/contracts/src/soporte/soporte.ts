@@ -24,12 +24,23 @@ export interface MensajeChatEquipo {
   creado_en: string;
   /** «Caso R-1031 · No cumplió con lo descrito · Abierto». */
   caso: { codigo: string; motivo: string; estado: string } | null;
+  /** La respuesta automática del equipo (N14). */
+  automatica: boolean;
 }
 
 /** `GET /v1/equipo-chat`: el chat de tu tienda con el equipo (se marca leído al abrirlo). */
 export interface RespuestaChatEquipo {
   mensajes: MensajeChatEquipo[];
   sin_leer: number;
+  /**
+   * Del lado de la tienda: «Recibiste 1 advertencia de 3» (N14). Cuenta las advertencias que dio
+   * el equipo, no los reportes. Nulo si no tiene.
+   */
+  advertencias?: {
+    total: number;
+    maximo: number;
+    ultima: { motivo: string; caso: string | null; fecha: string };
+  } | null;
 }
 
 /** Un renglón de los chats del panel del equipo. */

@@ -53,7 +53,13 @@ import { z } from 'zod';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { LIMITE_PERSONA } from '../../shared/limites';
-import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import {
+  NoEnSoporte,
+  Permiso,
+  Roles,
+  SesionActual,
+  SesionGuard,
+} from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { AvisosService } from './avisos.service';
@@ -105,6 +111,7 @@ export class MensajesController {
    * el enlace de WhatsApp trae el número, y no se debe poder cosechar números (RNF-21).
    */
   @Post('ofertas/:id/contacto')
+  @Permiso('COMPRAR_VENDER')
   @Throttle({ [LIMITE_PERSONA]: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -117,6 +124,7 @@ export class MensajesController {
   }
 
   @Get('conversaciones')
+  @NoEnSoporte()
   @Header('Cache-Control', 'no-store')
   lista(
     @Query(new ZodValidationPipe(filtroConversacionesSchema)) filtro: FiltroConversaciones,
@@ -126,6 +134,7 @@ export class MensajesController {
   }
 
   @Get('conversaciones/:id')
+  @NoEnSoporte()
   @Header('Cache-Control', 'no-store')
   detalle(
     @Param('id', idDeConversacion) id: string,
@@ -135,6 +144,7 @@ export class MensajesController {
   }
 
   @Get('conversaciones/:id/mensajes')
+  @NoEnSoporte()
   @Header('Cache-Control', 'no-store')
   historial(
     @Param('id', idDeConversacion) id: string,
@@ -204,6 +214,7 @@ export class MensajesController {
   }
 
   @Post('ofertas/:id/vendido')
+  @Permiso('MARCAR_VENDIDO')
   @Header('Cache-Control', 'no-store')
   vendido(
     @Param('id', idDeOferta) id: string,

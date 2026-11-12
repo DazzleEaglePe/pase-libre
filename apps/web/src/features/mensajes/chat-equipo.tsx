@@ -41,6 +41,51 @@ function Caso({ caso }: { caso: NonNullable<MensajeChatEquipo['caso']> }) {
 }
 
 /**
+ * «Recibiste 1 advertencia de 3» (N14): cuenta las advertencias que dio el equipo después de
+ * revisar, no los reportes recibidos.
+ */
+function Advertencias({
+  advertencias,
+  alVerMotivo,
+  alEscribir,
+}: {
+  advertencias: NonNullable<RespuestaChatEquipo['advertencias']>;
+  alVerMotivo: () => void;
+  alEscribir: () => void;
+}) {
+  const { total, maximo, ultima } = advertencias;
+  return (
+    <div className="mx-3 mt-3 flex flex-col gap-2 rounded-2xl border-[1.5px] border-[#F5D5BC] bg-aviso-fondo px-4 py-3.5">
+      <b className="flex items-center gap-2 text-cuerpo font-bold">
+        <IconFlag size={18} stroke={1.8} className="text-aviso" aria-hidden="true" />
+        Recibiste {total} {total === 1 ? 'advertencia' : 'advertencias'} de {maximo}
+      </b>
+      <p className="m-0 text-apoyo text-secundario">
+        Motivo: {ultima.motivo}
+        {ultima.caso && !ultima.motivo.includes(ultima.caso) ? ` (caso ${ultima.caso})` : ''}. Si
+        llegas a {maximo}, tu cuenta puede suspenderse.
+      </p>
+      <span className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={alVerMotivo}
+          className="h-10 rounded-full border-[1.5px] border-tinta bg-white px-4 text-apoyo font-bold"
+        >
+          Ver el motivo
+        </button>
+        <button
+          type="button"
+          onClick={alEscribir}
+          className="h-10 text-apoyo font-semibold underline"
+        >
+          Escribir al Equipo
+        </button>
+      </span>
+    </div>
+  );
+}
+
+/**
  * El chat oficial con el equipo (REP_WebChatEquipo, REP_ChatEquipo): banda negra con el escudo,
  * «Canal oficial. Nunca te pediremos contraseñas, códigos ni pagos.», los mensajes del equipo
  * con quién escribe y respuestas rápidas. Se lee al abrirlo.
@@ -79,8 +124,14 @@ export function ChatEquipo() {
         metodo: 'POST',
         cuerpo: { texto: texto.trim() },
       });
-      setDatos((antes) => ({ mensajes: [...(antes?.mensajes ?? []), mensaje], sin_leer: 0 }));
+      setDatos((antes) => ({
+        ...antes,
+        mensajes: [...(antes?.mensajes ?? []), mensaje],
+        sin_leer: 0,
+      }));
       setBorrador('');
+      // La primera vez (o tras 12 h) llega también la respuesta automática (N14).
+      void cargar();
     } catch (falla) {
       setError(falla instanceof ErrorApi ? falla.message : 'No se pudo enviar.');
     } finally {
@@ -89,6 +140,7 @@ export function ChatEquipo() {
   }
 
   const mensajes = datos?.mensajes ?? [];
+  const advertencias = datos?.advertencias ?? null;
   return (
     <section
       aria-label="Chat con el equipo PaseLibre"
@@ -128,6 +180,20 @@ export function ChatEquipo() {
           pagos.
         </span>
       </p>
+      {advertencias && (
+        <Advertencias
+          advertencias={advertencias}
+          alVerMotivo={() => {
+            const motivo = [...mensajes]
+              .reverse()
+              .find((m) => m.de_equipo && m.texto.includes(advertencias.ultima.motivo));
+            document
+              .getElementById(motivo ? `mensaje-${motivo.id}` : 'fin-del-chat')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+          alEscribir={() => document.getElementById('mensaje-al-equipo')?.focus()}
+        />
+      )}
 
       <div ref={caja} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-5">
         {datos === null && !error && <p className="m-auto text-secundario">Cargando…</p>}
@@ -149,11 +215,20 @@ export function ChatEquipo() {
               )}
               {mensaje.caso && <Caso caso={mensaje.caso} />}
               {mensaje.de_equipo ? (
-                <div className="flex max-w-[85%] flex-col gap-1 self-start sm:max-w-[75%]">
-                  <span className="flex items-center gap-1 text-nota font-bold text-marca">
-                    <IconShieldCheck size={13} stroke={2} aria-hidden="true" />
-                    {mensaje.autor} · Equipo PaseLibre
-                  </span>
+                <div
+                  id={`mensaje-${mensaje.id}`}
+                  className="flex max-w-[85%] flex-col gap-1 self-start sm:max-w-[75%]"
+                >
+                  {mensaje.automatica ? (
+                    <span className="self-start rounded-full bg-marca px-2 text-[11px] font-bold leading-5 text-acento">
+                      Respuesta automática
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-nota font-bold text-marca">
+                      <IconShieldCheck size={13} stroke={2} aria-hidden="true" />
+                      {mensaje.autor} · Equipo PaseLibre
+                    </span>
+                  )}
                   <span className="rounded-[18px_18px_18px_6px] bg-tinta px-4 py-3 text-cuerpo text-white">
                     <span className="whitespace-pre-wrap break-words">{mensaje.texto}</span>
                     <span className="block text-right text-[11px] text-white/60">
@@ -172,6 +247,7 @@ export function ChatEquipo() {
             </Fragment>
           );
         })}
+        <span id="fin-del-chat" />
       </div>
 
       {error && (
@@ -206,6 +282,7 @@ export function ChatEquipo() {
           <label className="flex min-w-0 flex-1">
             <span className="sr-only">Mensaje al equipo</span>
             <input
+              id="mensaje-al-equipo"
               value={borrador}
               onChange={(evento) => setBorrador(evento.target.value)}
               placeholder="Escribe al equipo"

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 
 import { Configuracion, type Seccion } from '@/features/configuracion/configuracion';
+import { obtenerSesion } from '@/shared/api/servidor';
+import { puede } from '@/shared/permisos';
 
 export const metadata: Metadata = {
   title: 'Configuración',
@@ -32,7 +34,10 @@ export default async function PaginaConfiguracion({
 }: {
   searchParams: Promise<{ seccion?: string }>;
 }) {
-  const { seccion } = await searchParams;
-  const inicial = SECCIONES_VALIDAS.find((valida) => valida === seccion) ?? 'datos';
-  return <Configuracion seccionInicial={inicial} />;
+  const [{ seccion }, sesion] = await Promise.all([searchParams, obtenerSesion()]);
+  const permisos = sesion?.usuario.permisos;
+  // El asesor sin permiso para los datos de la tienda empieza en «Mi acceso» (N12).
+  const porDefecto: Seccion = puede(permisos, 'DATOS_TIENDA') ? 'datos' : 'acceso';
+  const inicial = SECCIONES_VALIDAS.find((valida) => valida === seccion) ?? porDefecto;
+  return <Configuracion seccionInicial={inicial} rol={sesion?.usuario.rol} permisos={permisos} />;
 }

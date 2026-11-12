@@ -29,3 +29,5 @@ export * from './wilson/wilson.schemas.js';
 export * from './wilson/wilson.types.js';
 export * from './soporte/soporte.js';
 export * from './soporte/panel.js';
+export * from './cuenta/asesores.js';
+export * from './soporte/ficha.js';

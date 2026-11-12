@@ -7,7 +7,9 @@ import type {
   RespuestaAcceso,
   RespuestaCuentas,
 } from '@paselibre/contracts';
-import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState, type MouseEvent } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { conPlural } from '@/shared/plural';
@@ -36,11 +38,15 @@ const TIPO_DE_CUENTA = { DUENO: 'Dueño de tienda', ASESOR: 'Asesor' } as const;
 
 type Confirmacion = { cuenta: CuentaEquipo; accion: 'clave' | 'suspender' };
 
+/** «987 654 321». */
+const whatsappLegible = (numero: string) => numero.replace(/^(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3');
+
 const columnas =
-  'xl:grid xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_130px_110px_150px_minmax(260px,auto)] xl:items-center xl:gap-x-4';
+  'xl:grid xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_130px_120px_150px_minmax(330px,auto)] xl:items-center xl:gap-x-4';
 
 /** Cuentas del piloto (RF-49), con las acciones de la fila según su estado. */
 export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean }) {
+  const router = useRouter();
   const [filtro, setFiltro] = useState<Filtro>('todas');
   const [galeria, setGaleria] = useState('');
   const [busqueda, setBusqueda] = useState('');
@@ -221,7 +227,12 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
             <div
               key={cuenta.id}
               role="row"
-              className={`flex flex-col gap-2 border-b border-linea py-4 xl:min-h-[68px] xl:py-2 ${columnas}`}
+              // Toda la fila abre la ficha de la tienda (N14); los botones hacen lo suyo.
+              onClick={(evento: MouseEvent<HTMLDivElement>) => {
+                if ((evento.target as HTMLElement).closest('a, button')) return;
+                router.push(`/equipo/tiendas/${cuenta.tienda.id}`);
+              }}
+              className={`flex cursor-pointer flex-col gap-2 border-b border-linea py-4 hover:bg-superficie xl:min-h-[68px] xl:py-2 ${columnas}`}
             >
               <span role="cell" className="flex min-w-0 flex-col">
                 <span className="text-cuerpo font-medium">{cuenta.tienda.nombre}</span>
@@ -258,8 +269,9 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
               <span role="cell" className="font-mono text-nota">
                 {cuenta.usuario}
               </span>
-              <span role="cell" className="text-apoyo text-secundario">
-                {cuenta.whatsapp ?? '—'}
+              {/* Error 40: el número de la tienda, no el de la persona (que suele estar vacío). */}
+              <span role="cell" className="text-apoyo font-bold text-pase-texto">
+                {whatsappLegible(cuenta.tienda.whatsapp)}
               </span>
               <span role="cell" className="flex flex-col items-start gap-1">
                 <span
@@ -275,6 +287,12 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
                 role="cell"
                 className="flex flex-wrap items-center gap-x-4 gap-y-2 xl:justify-end"
               >
+                <Link
+                  href={`/equipo/tiendas/${cuenta.tienda.id}`}
+                  className="text-apoyo font-bold text-pase-texto no-underline"
+                >
+                  Ver ficha ›
+                </Link>
                 {cuenta.estado === 'SUSPENDIDA' ? (
                   <button
                     type="button"

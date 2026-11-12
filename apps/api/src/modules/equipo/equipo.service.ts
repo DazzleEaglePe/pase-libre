@@ -64,6 +64,7 @@ function aCuenta(usuario: UsuarioConTienda): CuentaEquipo {
       tipo: tienda.tipo,
       galeria: tienda.galeria?.nombre ?? null,
       stand: tienda.stand,
+      whatsapp: tienda.whatsapp,
       cuentas: tienda._count.usuarios,
     },
     a_cargo: {

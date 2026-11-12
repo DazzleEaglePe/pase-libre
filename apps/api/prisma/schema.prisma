@@ -157,6 +157,24 @@ enum EstadoCarga {
   @@map("estado_carga")
 }
 
+/// Lo que el dueño le deja hacer a cada asesor (N12). Chatear y responder no está aquí: siempre se
+/// puede. Agregar asesores y la seguridad de la tienda son solo del dueño.
+enum PermisoAsesor {
+  /// Comprar y vender a nombre de la tienda: contactar una publicación y responder en vivo.
+  COMPRAR_VENDER
+  MARCAR_VENDIDO
+  /// Publicar en vivo (busco y oferta flash).
+  EN_VIVO
+  /// Publicar productos y cambiar precios.
+  PUBLICAR
+  /// Cambiar logo, banner o datos de la tienda.
+  DATOS_TIENDA
+  /// Ver el historial de ventas.
+  HISTORIAL
+
+  @@map("permiso_asesor")
+}
+
 // ── Cuentas ────────────────────────────────────────────────────────────────
 
 /// La galería es un dato, no una constante (RNF-29).
@@ -171,8 +189,8 @@ model Galeria {
   metros   Int?
   creadaEn DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
 
-  tiendas Tienda[]
-  enVivo  EnVivo[]
+  tiendas      Tienda[]
+  enVivo       EnVivo[]
   /// Los cambios de lugar pedidos hacia esta galería (N09).
   cambiosLugar CambioLugar[]
 
@@ -181,42 +199,44 @@ model Galeria {
 
 /// Quien vende: una tienda de galería o un independiente (sin galería).
 model Tienda {
-  id                   String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                   String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tipo                 TipoTienda
-  nombre               String       @db.VarChar(120)
-  galeriaId            String?      @map("galeria_id") @db.Uuid
-  stand                String?      @db.VarChar(20)
+  nombre               String        @db.VarChar(120)
+  galeriaId            String?       @map("galeria_id") @db.Uuid
+  stand                String?       @db.VarChar(20)
   /// «Sótano», «1», «2»… Lo trae el registro propio; el equipo lo completa en las demás.
-  piso                 String?      @db.VarChar(20)
-  whatsapp             String       @db.VarChar(20)
-  horario              String?      @db.VarChar(120)
+  piso                 String?       @db.VarChar(20)
+  whatsapp             String        @db.VarChar(20)
+  horario              String?       @db.VarChar(120)
   /// El horario por días (N09): `[{ dias: ['lun', …], desde: '10:00', hasta: '19:00' }]`. Con él,
   /// `horario` se escribe solo («Lunes a sábado, 10:00 a 19:00 · Domingo cerrado»).
-  horarioDatos         Json?        @map("horario_datos")
+  horarioDatos         Json?         @map("horario_datos")
   /// Galería, piso o stand nuevos que esperan al Equipo (N09: «Pendiente de aprobación»).
   cambiosLugar         CambioLugar[]
   /// «Cómo llegar» (PCH_WebLlegar): «Subes por la escalera central y es el segundo pasillo…».
-  indicaciones         String?      @db.VarChar(240)
-  descripcion          String?      @db.VarChar(500)
-  logo                 String?      @db.VarChar(300)
+  indicaciones         String?       @db.VarChar(240)
+  descripcion          String?       @db.VarChar(500)
+  logo                 String?       @db.VarChar(300)
   /// La portada del perfil (COR1): una foto subida con `POST /v1/archivos`. Sin ella, la
   /// automática. `portada_posicion` es qué parte se ve de arriba (0) a abajo (100): «Acomodar».
-  portadaRuta          String?      @map("portada_ruta") @db.VarChar(300)
-  portadaAncho         Int?         @map("portada_ancho")
-  portadaAlto          Int?         @map("portada_alto")
-  portadaPosicion      Int          @default(50) @map("portada_posicion") @db.SmallInt
+  portadaRuta          String?       @map("portada_ruta") @db.VarChar(300)
+  portadaAncho         Int?          @map("portada_ancho")
+  portadaAlto          Int?          @map("portada_alto")
+  portadaPosicion      Int           @default(50) @map("portada_posicion") @db.SmallInt
   /// Valores por defecto al publicar (D-37): precio oculto y en dólares.
-  precioVisibleDefecto Boolean      @default(false) @map("precio_visible_defecto")
+  precioVisibleDefecto Boolean       @default(false) @map("precio_visible_defecto")
   /// Soles por defecto (guía del lienzo final); la tienda lo cambia en Configuración.
-  monedaDefecto        Moneda       @default(PEN) @map("moneda_defecto")
+  monedaDefecto        Moneda        @default(PEN) @map("moneda_defecto")
   /// Cuándo su inicio llegó a 12 publicaciones de otras tiendas (N16): desde ahí es el inicio
   /// normal y ya no vuelve atrás, aunque después haya menos.
-  inicioNormalEn       DateTime?    @map("inicio_normal_en") @db.Timestamptz(6)
+  inicioNormalEn       DateTime?     @map("inicio_normal_en") @db.Timestamptz(6)
   /// Fase 2 (RF-41). Se crea ahora para no migrar después.
-  perfilPrivado        Boolean      @default(false) @map("perfil_privado")
-  estado               EstadoTienda @default(ACTIVA)
-  creadaEn             DateTime     @default(now()) @map("creada_en") @db.Timestamptz(6)
-  actualizadaEn        DateTime     @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
+  perfilPrivado        Boolean       @default(false) @map("perfil_privado")
+  estado               EstadoTienda  @default(ACTIVA)
+  /// Máximo de sesiones abiertas de la cuenta principal (N10). El equipo lo sube a pedido.
+  limiteDispositivos   Int           @default(2) @map("limite_dispositivos") @db.SmallInt
+  creadaEn             DateTime      @default(now()) @map("creada_en") @db.Timestamptz(6)
+  actualizadaEn        DateTime      @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
 
   galeria              Galeria?          @relation(fields: [galeriaId], references: [id])
   usuarios             Usuario[]
@@ -250,49 +270,58 @@ model Tienda {
   advertencias Advertencia[]
   destacados   Destacado[]
 
+  registrosEquipo RegistroEquipo[]
+  modosSoporte    ModoSoporte[]
+
   @@index([galeriaId])
   @@map("tienda")
 }
 
 model Usuario {
-  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Nula solo para el equipo de PaseLibre (CHECK en la migración).
-  tiendaId          String?       @map("tienda_id") @db.Uuid
+  tiendaId          String?         @map("tienda_id") @db.Uuid
   rol               Rol
-  usuario           String        @unique @db.Citext
-  correo            String?       @unique @db.Citext
-  nombre            String        @db.VarChar(120)
-  whatsapp          String?       @db.VarChar(20)
-  claveHash         String        @map("clave_hash") @db.VarChar(255)
+  usuario           String          @unique @db.Citext
+  correo            String?         @unique @db.Citext
+  nombre            String          @db.VarChar(120)
+  whatsapp          String?         @db.VarChar(20)
+  claveHash         String          @map("clave_hash") @db.VarChar(255)
   /// La clave que entrega el equipo es temporal: el primer ingreso obliga a cambiarla.
-  debeCambiarClave  Boolean       @default(true) @map("debe_cambiar_clave")
+  debeCambiarClave  Boolean         @default(true) @map("debe_cambiar_clave")
   /// El panel del equipo en oscuro (COR18): se guarda en la cuenta.
-  temaOscuro        Boolean       @default(false) @map("tema_oscuro")
-  primerIngresoEn   DateTime?     @map("primer_ingreso_en") @db.Timestamptz(6)
-  estado            EstadoUsuario @default(ACTIVO)
-  intentosFallidos  Int           @default(0) @map("intentos_fallidos") @db.SmallInt
-  intentosDesde     DateTime?     @map("intentos_desde") @db.Timestamptz(6)
-  bloqueadoHasta    DateTime?     @map("bloqueado_hasta") @db.Timestamptz(6)
-  ultimoIngresoEn   DateTime?     @map("ultimo_ingreso_en") @db.Timestamptz(6)
+  temaOscuro        Boolean         @default(false) @map("tema_oscuro")
+  primerIngresoEn   DateTime?       @map("primer_ingreso_en") @db.Timestamptz(6)
+  estado            EstadoUsuario   @default(ACTIVO)
+  intentosFallidos  Int             @default(0) @map("intentos_fallidos") @db.SmallInt
+  intentosDesde     DateTime?       @map("intentos_desde") @db.Timestamptz(6)
+  bloqueadoHasta    DateTime?       @map("bloqueado_hasta") @db.Timestamptz(6)
+  ultimoIngresoEn   DateTime?       @map("ultimo_ingreso_en") @db.Timestamptz(6)
   /// Cuándo vio (o saltó) las pantallas de bienvenida del primer ingreso (OB_WebB).
-  bienvenidaVistaEn DateTime?     @map("bienvenida_vista_en") @db.Timestamptz(6)
+  bienvenidaVistaEn DateTime?       @map("bienvenida_vista_en") @db.Timestamptz(6)
   /// «¿Quieres seguir a…?» sale solo la primera vez que sigue a una tienda (SG_WebConfirmar).
-  seguirExplicadoEn DateTime?     @map("seguir_explicado_en") @db.Timestamptz(6)
+  seguirExplicadoEn DateTime?       @map("seguir_explicado_en") @db.Timestamptz(6)
   /// Tocó la X de «¿Conoces una tienda que debería estar aquí?» (N07): el banner del inicio no
   /// vuelve a salir en ningún dispositivo.
-  invitarCerradoEn  DateTime?     @map("invitar_cerrado_en") @db.Timestamptz(6)
+  invitarCerradoEn  DateTime?       @map("invitar_cerrado_en") @db.Timestamptz(6)
   /// La última vez que entró a «Recién llegados» (N07): el «+N nuevo» cuenta desde ahí.
-  recienVistoEn     DateTime?     @map("recien_visto_en") @db.Timestamptz(6)
+  recienVistoEn     DateTime?       @map("recien_visto_en") @db.Timestamptz(6)
   /// Última vez que tuvo el chat abierto (se conectó o se desconectó del tiempo real), para
   /// «Activo hace 2 h» (RF-47).
-  ultimaConexionEn  DateTime?     @map("ultima_conexion_en") @db.Timestamptz(6)
+  ultimaConexionEn  DateTime?       @map("ultima_conexion_en") @db.Timestamptz(6)
   /// «No molestar» (RF-59), en minutos desde la medianoche, hora de Lima.
-  noMolestarDesde   Int?          @map("no_molestar_desde") @db.SmallInt
-  noMolestarHasta   Int?          @map("no_molestar_hasta") @db.SmallInt
+  noMolestarDesde   Int?            @map("no_molestar_desde") @db.SmallInt
+  noMolestarHasta   Int?            @map("no_molestar_hasta") @db.SmallInt
   /// El «Visto» se puede desactivar (RF-57).
-  mostrarVisto      Boolean       @default(true) @map("mostrar_visto")
-  creadoEn          DateTime      @default(now()) @map("creado_en") @db.Timestamptz(6)
-  actualizadoEn     DateTime      @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+  mostrarVisto      Boolean         @default(true) @map("mostrar_visto")
+  /// Solo cuentan para el asesor (N12): el dueño puede todo.
+  permisos          PermisoAsesor[] @default([COMPRAR_VENDER, MARCAR_VENDIDO, EN_VIVO])
+  /// «Pausado» por el dueño: no entra hasta que lo vuelva a activar.
+  pausadoEn         DateTime?       @map("pausado_en") @db.Timestamptz(6)
+  /// El dueño lo quitó: ya no sale en su lista ni entra (lo suyo pasó al dueño).
+  quitadoEn         DateTime?       @map("quitado_en") @db.Timestamptz(6)
+  creadoEn          DateTime        @default(now()) @map("creado_en") @db.Timestamptz(6)
+  actualizadoEn     DateTime        @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
 
   tienda               Tienda?            @relation(fields: [tiendaId], references: [id])
   sesiones             Sesion[]
@@ -327,6 +356,9 @@ model Usuario {
   destacados        Destacado[]           @relation("DestacadosPor")
   importaciones     ImportacionCatalogo[]
 
+  soportesDados   ModoSoporte[] @relation("SoporteDelEquipo")
+  soportesPedidos ModoSoporte[] @relation("SoportePedidoPor")
+
   @@index([tiendaId])
   @@map("usuario")
 }
@@ -343,8 +375,12 @@ model Sesion {
   revocadaEn DateTime? @map("revocada_en") @db.Timestamptz(6)
   agente     String?   @db.VarChar(300)
   ip         String?   @db.VarChar(45)
+  /// La sesión de alguien del equipo en «Ayudar como la tienda» (N14): mientras dure, ve
+  /// PaseLibre como el dueño de esa tienda.
+  soporteId  String?   @map("soporte_id") @db.Uuid
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  soporte ModoSoporte? @relation(fields: [soporteId], references: [id], onDelete: SetNull)
 
   @@index([usuarioId])
   @@map("sesion")
@@ -1210,16 +1246,19 @@ model HiloEquipo {
 model MensajeEquipo {
   id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   hiloId     String   @map("hilo_id") @db.Uuid
-  autorId    String   @map("autor_id") @db.Uuid
+  /// Nulo en la respuesta automática (N14).
+  autorId    String?  @map("autor_id") @db.Uuid
   /// Lo escribió alguien del equipo (si no, alguien de la tienda).
   deEquipo   Boolean  @map("de_equipo")
+  /// La respuesta automática: sale la primera vez o tras 12 h sin conversación (N14).
+  automatica Boolean  @default(false)
   texto      String   @db.VarChar(2000)
   /// «Caso R-1031 · No cumplió con lo descrito»: el reporte del que se habla.
   denunciaId String?  @map("denuncia_id") @db.Uuid
   creadoEn   DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   hilo     HiloEquipo @relation(fields: [hiloId], references: [id], onDelete: Cascade)
-  autor    Usuario    @relation("MensajesEquipo", fields: [autorId], references: [id])
+  autor    Usuario?   @relation("MensajesEquipo", fields: [autorId], references: [id])
   denuncia Denuncia?  @relation(fields: [denunciaId], references: [id], onDelete: SetNull)
 
   @@index([hiloId, creadoEn])
@@ -1268,11 +1307,15 @@ model RegistroEquipo {
   autorId  String   @map("autor_id") @db.Uuid
   /// «aprobó a Tienda N (sin RUC) después de revisar su DNI».
   accion   String   @db.VarChar(240)
+  /// La tienda de la que se trata: sale en «Historial de cambios» de su ficha (N14).
+  tiendaId String?  @map("tienda_id") @db.Uuid
   creadoEn DateTime @default(now()) @map("creado_en") @db.Timestamptz(6)
 
-  autor Usuario @relation("RegistrosEquipo", fields: [autorId], references: [id])
+  autor  Usuario @relation("RegistrosEquipo", fields: [autorId], references: [id])
+  tienda Tienda? @relation(fields: [tiendaId], references: [id], onDelete: SetNull)
 
   @@index([creadoEn])
+  @@index([tiendaId, creadoEn])
   @@map("registro_equipo")
 }
 
@@ -1351,4 +1394,39 @@ model CambioLugar {
   @@index([estado, creadoEn])
   @@index([tiendaId])
   @@map("cambio_lugar")
+}
+
+/// «Ayudar como la tienda» (N14): alguien del equipo ve PaseLibre como el dueño durante 1 hora
+/// para acomodar algo (portada, datos). Lo pide la tienda («Pedir ayuda al Equipo») o lo activa el
+/// equipo; en los dos casos la tienda recibe aviso. No se puede chatear ni cerrar ventas.
+model ModoSoporte {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId    String    @map("tienda_id") @db.Uuid
+  /// Quien de la tienda lo pidió (nulo si lo activó el equipo).
+  pedidoPorId String?   @map("pedido_por_id") @db.Uuid
+  pedidoEn    DateTime? @map("pedido_en") @db.Timestamptz(6)
+  /// Quien del equipo entró.
+  equipoId    String?   @map("equipo_id") @db.Uuid
+  iniciadoEn  DateTime? @map("iniciado_en") @db.Timestamptz(6)
+  venceEn     DateTime? @map("vence_en") @db.Timestamptz(6)
+  terminadoEn DateTime? @map("terminado_en") @db.Timestamptz(6)
+  creadoEn    DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+
+  tienda    Tienda   @relation(fields: [tiendaId], references: [id], onDelete: Cascade)
+  pedidoPor Usuario? @relation("SoportePedidoPor", fields: [pedidoPorId], references: [id], onDelete: SetNull)
+  equipo    Usuario? @relation("SoporteDelEquipo", fields: [equipoId], references: [id], onDelete: SetNull)
+  sesiones  Sesion[]
+
+  @@index([tiendaId, creadoEn])
+  @@map("modo_soporte")
+}
+
+/// Ajustes del panel del equipo que se editan desde ahí, como la respuesta automática del chat.
+model AjusteEquipo {
+  clave            String   @id @db.VarChar(60)
+  valor            String   @db.VarChar(2000)
+  actualizadoEn    DateTime @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+  actualizadoPorId String?  @map("actualizado_por_id") @db.Uuid
+
+  @@map("ajuste_equipo")
 }

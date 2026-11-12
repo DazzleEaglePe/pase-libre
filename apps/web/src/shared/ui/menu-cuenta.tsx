@@ -1,6 +1,6 @@
 'use client';
 
-import type { TiendaDeSesion } from '@paselibre/contracts';
+import type { PermisoAsesor, TiendaDeSesion } from '@paselibre/contracts';
 import {
   IconBell,
   IconBolt,
@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useEnVivoCompartido } from '@/features/en-vivo/contexto';
 import { llamarApi } from '@/shared/api/cliente';
 import { iniciales } from '@/shared/iniciales';
+import { puede } from '@/shared/permisos';
 
 import { useContadores } from './campanita';
 
@@ -101,10 +102,13 @@ export function ContenidoMenuCuenta({
   tienda,
   lugar,
   alElegir,
+  permisos,
 }: {
   tienda: TiendaDeSesion;
   lugar: string;
   alElegir?: () => void;
+  /** Lo que puede el asesor (N12): sin «Historial», no sale. */
+  permisos?: readonly PermisoAsesor[];
 }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
@@ -147,7 +151,7 @@ export function ContenidoMenuCuenta({
           { href: '/mis-publicaciones', texto: 'Mis publicaciones', icono: IconListDetails },
           { href: '/historial', texto: 'Historial', icono: IconClock },
           { href: '/cuenta/socios', texto: 'Tus socios', icono: IconUsers },
-        ]}
+        ].filter((opcion) => opcion.href !== '/historial' || puede(permisos, 'HISTORIAL'))}
       />
       <Grupo
         titulo="Actividad"
@@ -199,10 +203,12 @@ export function ContenidoMenuCuenta({
 export function MenuCuenta({
   tienda,
   lugar,
+  permisos,
   sobreMarca = false,
 }: {
   tienda: TiendaDeSesion;
   lugar: string;
+  permisos?: readonly PermisoAsesor[];
   /** En la fila verde de la barra: el nombre de la tienda en blanco (D_Barra). */
   sobreMarca?: boolean;
 }) {
@@ -271,7 +277,12 @@ export function MenuCuenta({
           aria-label="Mi cuenta"
           className="absolute right-0 top-12 z-40 w-[340px] max-w-[calc(100vw-32px)] rounded-[22px] border border-linea bg-superficie p-2.5 text-tinta shadow-[0_18px_40px_rgba(20,22,26,0.18)]"
         >
-          <ContenidoMenuCuenta tienda={tienda} lugar={lugar} alElegir={() => setAbierto(false)} />
+          <ContenidoMenuCuenta
+            tienda={tienda}
+            lugar={lugar}
+            permisos={permisos}
+            alElegir={() => setAbierto(false)}
+          />
         </div>
       )}
     </div>

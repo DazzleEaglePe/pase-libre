@@ -35,7 +35,7 @@ import {
 import { z } from 'zod';
 
 import { LIMITE_PERSONA } from '../../shared/limites';
-import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { Permiso, Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
 import {
   MiradaActual,
   SesionOpcionalGuard,
@@ -92,6 +92,7 @@ export class EnVivoController {
 
   /** Cada busco avisa a varias tiendas: 10 por hora por persona, contra el spam. */
   @Post()
+  @Permiso('EN_VIVO')
   @Throttle({ [LIMITE_PERSONA]: { limit: 10, ttl: 60 * 60_000 } })
   @Header('Cache-Control', 'no-store')
   publicar(
@@ -102,6 +103,7 @@ export class EnVivoController {
   }
 
   @Patch(':id')
+  @Permiso('EN_VIVO')
   @Header('Cache-Control', 'no-store')
   cambiar(
     @Param('id', idDeEnVivo) id: string,
@@ -121,6 +123,7 @@ export class EnVivoController {
   }
 
   @Post(':id/respuestas')
+  @Permiso('COMPRAR_VENDER')
   @Throttle({ [LIMITE_PERSONA]: { limit: 30, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   @Header('Cache-Control', 'no-store')

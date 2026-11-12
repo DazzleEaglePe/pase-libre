@@ -34,13 +34,21 @@ import {
   type ResumenCuenta,
   type RespuestaRapida,
   type RespuestasRapidasDatos,
-  type SesionAbierta,
+  type RespuestaSesiones,
   type TiendaBloqueada,
 } from '@paselibre/contracts';
 import { z } from 'zod';
 
-import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import {
+  Permiso,
+  PermitirEnSoporte,
+  Roles,
+  SesionActual,
+  SesionGuard,
+} from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+import { permisosDe } from '../sesion/sesion.service';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { CuentaService } from './cuenta.service';
 import { LugarService } from './lugar.service';
@@ -74,12 +82,34 @@ export class CuentaController {
     return this.cuentas.cuenta(usuario.id);
   }
 
+  /**
+   * Los datos de la tienda solo los cambia el dueño o el asesor con ese permiso (N12). En modo
+   * soporte el equipo cambia los de la tienda, no los de la persona (N14).
+   */
   @Patch()
+  @PermitirEnSoporte('actualizó los datos de tu tienda')
   @Header('Cache-Control', 'no-store')
   actualizar(
     @Body(new ZodValidationPipe(actualizarCuentaSchema)) cambios: ActualizarCuentaDatos,
-    @SesionActual() { usuario }: SesionActiva,
+    @SesionActual() { usuario, soporte }: SesionActiva,
   ): Promise<RespuestaCuenta> {
+    if (cambios.tienda && !permisosDe(usuario).includes('DATOS_TIENDA')) {
+      throw new ApiHttpException(
+        HttpStatus.FORBIDDEN,
+        'SIN_PERMISO',
+        'El dueño de tu tienda no te dio permiso para cambiar sus datos.',
+      );
+    }
+    const dePersona = (['nombre', 'correo', 'whatsapp', 'mostrar_visto'] as const).some(
+      (campo) => cambios[campo] !== undefined,
+    );
+    if (soporte && (dePersona || !cambios.tienda)) {
+      throw new ApiHttpException(
+        HttpStatus.FORBIDDEN,
+        'MODO_SOPORTE',
+        'En modo soporte solo puedes cambiar los datos de la tienda.',
+      );
+    }
     return this.cuentas.actualizar(usuario.id, cambios);
   }
 
@@ -89,6 +119,8 @@ export class CuentaController {
    */
   @Put('portada')
   @Roles('DUENO', 'ASESOR')
+  @Permiso('DATOS_TIENDA')
+  @PermitirEnSoporte('actualizó tu portada')
   @Header('Cache-Control', 'no-store')
   portada(
     @Body(new ZodValidationPipe(portadaTiendaSchema)) datos: PortadaDatos,
@@ -100,6 +132,8 @@ export class CuentaController {
   /** «Quitar portada»: queda la automática. */
   @Delete('portada')
   @Roles('DUENO', 'ASESOR')
+  @Permiso('DATOS_TIENDA')
+  @PermitirEnSoporte('quitó tu portada')
   @HttpCode(HttpStatus.NO_CONTENT)
   async quitarPortada(@SesionActual() { usuario }: SesionActiva): Promise<void> {
     await this.cuentas.quitarPortada(usuario.id);
@@ -168,7 +202,7 @@ export class CuentaController {
 
   @Get('sesiones')
   @Header('Cache-Control', 'no-store')
-  sesiones(@SesionActual() sesion: SesionActiva): Promise<SesionAbierta[]> {
+  sesiones(@SesionActual() sesion: SesionActiva): Promise<RespuestaSesiones> {
     return this.cuentas.sesiones(sesion);
   }
 

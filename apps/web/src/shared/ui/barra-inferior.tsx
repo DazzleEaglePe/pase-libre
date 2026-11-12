@@ -49,7 +49,14 @@ function ContadorMensajes() {
  * La barra inferior del celular (RNF-55, M_Portada): Inicio, Buscar, Publicar, Mensajes y
  * Cuenta con sesión; sin sesión, Pedidos en vivo e Ingresar en lugar de lo que pide cuenta.
  */
-export function BarraInferior({ conTienda }: { conTienda: boolean }) {
+export function BarraInferior({
+  conTienda,
+  sinPublicar = false,
+}: {
+  conTienda: boolean;
+  /** El asesor sin permiso de publicar (N12) no ve «Publicar». */
+  sinPublicar?: boolean;
+}) {
   const ruta = usePathname();
   const visible = enSeccionPrincipal(ruta);
   useReservarAbajo(ALTO, visible);
@@ -62,7 +69,7 @@ export function BarraInferior({ conTienda }: { conTienda: boolean }) {
         { href: '/publicar', texto: 'Publicar', icono: IconPlus },
         { href: '/mensajes', texto: 'Mensajes', icono: IconMessageCircle, contador: true },
         { href: '/cuenta/menu', texto: 'Cuenta', icono: IconUser },
-      ]
+      ].filter((item) => !sinPublicar || item.href !== '/publicar')
     : [
         { href: '/', texto: 'Inicio', icono: IconHome },
         { href: '/buscar', texto: 'Buscar', icono: IconSearch },

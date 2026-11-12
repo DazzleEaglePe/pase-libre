@@ -2,7 +2,7 @@
  * Datos y pasos de la semilla. Los usa `seed.ts` y también las pruebas del catálogo,
  * que así corren sobre los mismos productos y ofertas del lienzo.
  */
-import { normalizarTexto, slugDe } from '@paselibre/contracts';
+import { normalizarTexto, PERMISOS_ASESOR, slugDe } from '@paselibre/contracts';
 import type { Condicion, Moneda, PrismaClient, Rol } from '@prisma/client';
 
 import { RESPUESTAS_RAPIDAS_INICIALES } from '../src/modules/cuenta/respuestas-rapidas';
@@ -383,6 +383,8 @@ export async function sembrarDemo(prisma: PrismaClient): Promise<void> {
           claveHash,
           debeCambiarClave: Boolean(u.sinPrimerIngreso),
           primerIngresoEn: u.sinPrimerIngreso ? null : new Date(ahora - 5 * DIA),
+          // El asesor de la demo es «de antes» (N12): puede todo, como los que ya existían.
+          ...(u.rol === 'ASESOR' ? { permisos: [...PERMISOS_ASESOR] } : {}),
           respuestasRapidas: {
             create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
           },

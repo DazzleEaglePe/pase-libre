@@ -14,16 +14,16 @@ const ACCIONES: Array<[AccionReporte, string, string]> = [
     'Escribirle a la tienda',
     'Chat oficial con la tienda. Sus publicaciones siguen activas.',
   ],
-  ['ADVERTIR', 'Darle una advertencia', 'Queda en su historial. Con 3, revisamos la cuenta.'],
+  ['ADVERTIR', 'Dar advertencia', 'Queda en su historial. Con 3, revisamos la cuenta.'],
   ['SUSPENDER', 'Suspender la tienda', 'Solo con estafa comprobada.'],
-  ['NADA', 'No pasa nada', 'Se cierra sin cambios.'],
+  ['NADA', 'Cerrar sin cambios', 'No encontramos nada que corregir.'],
 ];
 
 const CONFIRMAR: Record<AccionReporte, string> = {
   ESCRIBIR: 'Escribirle',
   ADVERTIR: 'Enviar advertencia',
   SUSPENDER: 'Confirmar suspensión',
-  NADA: 'Cerrar el caso',
+  NADA: 'Cerrar sin cambios',
 };
 
 function quedan(iso: string): string {
@@ -211,7 +211,12 @@ export function ColaReportes() {
                         : ''}
                       {conPlural(detalle.tienda_reportada.ventas, 'venta', 'ventas')} ·{' '}
                       {detalle.tienda_reportada.advertencias}{' '}
-                      {detalle.tienda_reportada.advertencias === 1 ? 'advertencia' : 'advertencias'}
+                      {detalle.tienda_reportada.advertencias === 1 ? 'advertencia' : 'advertencias'}{' '}
+                      de 3
+                      <span className="block text-nota font-normal text-secundario">
+                        «1 de 3» cuenta advertencias que dio el Equipo después de revisar, no
+                        reportes recibidos.
+                      </span>
                     </li>
                     <li className="flex flex-col border-b border-linea px-4 py-3">
                       <b className="font-bold">
@@ -239,12 +244,20 @@ export function ColaReportes() {
                       </span>
                     </li>
                   </ul>
-                  <Link
-                    href={`/equipo/tiendas?tienda=${detalle.tienda_reportada.id}`}
-                    className="text-apoyo font-bold text-pase-texto"
-                  >
-                    Ver la tienda en el panel ›
-                  </Link>
+                  <span className="flex flex-wrap gap-x-4 gap-y-1">
+                    <Link
+                      href={`/equipo/tiendas/${detalle.tienda_reportada.id}?pestana=conversaciones`}
+                      className="text-apoyo font-bold text-pase-texto"
+                    >
+                      Ver el chat ›
+                    </Link>
+                    <Link
+                      href={`/equipo/tiendas/${detalle.tienda_reportada.id}`}
+                      className="text-apoyo font-bold text-pase-texto"
+                    >
+                      Ver la ficha de la tienda ›
+                    </Link>
+                  </span>
                 </div>
               )}
             </div>

@@ -76,8 +76,17 @@ export interface SesionAbierta {
   id: string;
   /** «Chrome en Android», a partir del navegador. */
   dispositivo: string;
+  /** «Lima». */
+  lugar: string;
   ultimo_uso: string;
   actual: boolean;
+}
+
+/** `GET /v1/cuenta/sesiones` (N10): «Sesiones abiertas · 2 de 2». */
+export interface RespuestaSesiones {
+  sesiones: SesionAbierta[];
+  /** Solo la cuenta principal tiene límite; nulo para el asesor. */
+  limite: number | null;
 }
 
 /** Una tienda bloqueada, para desbloquearla desde Configuración · Privacidad. */

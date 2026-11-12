@@ -1,6 +1,6 @@
 'use client';
 
-import type { RespuestaCuenta } from '@paselibre/contracts';
+import type { PermisoAsesor, RespuestaCuenta, Rol } from '@paselibre/contracts';
 import {
   IconAdjustmentsHorizontal,
   IconBan,
@@ -14,14 +14,15 @@ import {
   IconUsers,
   type Icon,
 } from '@tabler/icons-react';
-import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { puede } from '@/shared/permisos';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 
 import { SeccionAcceso } from './acceso';
+import { SeccionAsesores } from './asesores';
 import { SeccionAvisos } from './avisos';
 import { SeccionBloqueadas } from './bloqueadas';
 import { SeccionDatos } from './datos';
@@ -118,29 +119,21 @@ function OpcionMenu({
   );
 }
 
-/** Asesores (hasta 3, con permisos) los arma otra parte de esta ronda; mientras, cómo pedirlos. */
-function SeccionAsesores() {
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="m-0 text-cuerpo text-secundario">
-        Puedes tener hasta 3 asesores, cada uno con su usuario y su contraseña.
-      </p>
-      <Link
-        href="/mensajes/equipo"
-        className="self-start text-apoyo font-bold text-pase-texto underline"
-      >
-        Pídeselos al Equipo PaseLibre por el chat
-      </Link>
-    </div>
-  );
-}
-
 /**
  * Configuración (N09_ConfigWebTodo, A + B): en la computadora, el menú a la izquierda con rayitas
  * entre opciones y la sección a la derecha. En el celular (N09_Celulares), primero el menú y al
  * tocar una opción, su pantalla con «volver».
  */
-export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
+export function Configuracion({
+  seccionInicial,
+  rol,
+  permisos,
+}: {
+  seccionInicial: Seccion;
+  rol?: Rol;
+  /** Lo que el dueño le dejó hacer al asesor (N12); al dueño no se le esconde nada. */
+  permisos?: readonly PermisoAsesor[];
+}) {
   const router = useRouter();
   const pedida = useSearchParams().get('seccion');
   const seccion: Seccion = esSeccion(pedida) ? pedida : seccionInicial;
@@ -177,6 +170,15 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
   }
 
   const { titulo } = SECCIONES[seccion];
+  const verDatos = puede(permisos, 'DATOS_TIENDA');
+  const visibles = (Object.keys(SECCIONES) as Seccion[]).filter((clave) => {
+    // Agregar asesores es solo del dueño (N12).
+    if (clave === 'asesores') return rol === 'DUENO';
+    // Los datos de la tienda, solo si el dueño se lo permitió al asesor (N12).
+    if (clave === 'datos') return verDatos;
+    return true;
+  });
+
   const contenido = (
     <>
       {error && (
@@ -185,18 +187,27 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
         </p>
       )}
       {!cuenta && !error && <p className="text-secundario">Cargando…</p>}
-      {cuenta && seccion === 'datos' && (
+      {cuenta && seccion === 'datos' && verDatos && (
         <SeccionDatos cuenta={cuenta} alGuardar={alGuardarCuenta} />
+      )}
+      {seccion === 'datos' && !verDatos && (
+        <p className="m-0 text-cuerpo text-secundario">
+          Los datos de la tienda los cambia el dueño. Si necesitas cambiar algo, pídeselo.
+        </p>
       )}
       {cuenta && seccion === 'acceso' && (
         <SeccionAcceso cuenta={cuenta} alGuardar={alGuardarCuenta} />
       )}
-      {cuenta && seccion === 'seguridad' && <SeccionSeguridad alAvisar={setAviso} />}
+      {cuenta && seccion === 'seguridad' && (
+        <SeccionSeguridad alAvisar={setAviso} rol={cuenta.usuario.rol} />
+      )}
       {cuenta && seccion === 'avisos' && <SeccionAvisos alAvisar={setAviso} />}
       {cuenta && seccion === 'privacidad' && (
         <SeccionPrivacidad cuenta={cuenta} alGuardar={alGuardarCuenta} />
       )}
-      {cuenta && seccion === 'asesores' && <SeccionAsesores />}
+      {cuenta && seccion === 'asesores' && rol === 'DUENO' && (
+        <SeccionAsesores tienda={cuenta.tienda?.nombre ?? 'tu tienda'} alAvisar={setAviso} />
+      )}
       {cuenta && seccion === 'reportes' && <SeccionReportes />}
       {cuenta && seccion === 'bloqueadas' && <SeccionBloqueadas alAvisar={setAviso} />}
       {cuenta && seccion === 'preferencias' && (
@@ -228,7 +239,7 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
             aria-orientation="vertical"
             className="m-0 flex list-none flex-col rounded-2xl border-[1.5px] border-linea bg-white p-1.5"
           >
-            {(Object.keys(SECCIONES) as Seccion[]).map((clave) => (
+            {visibles.map((clave) => (
               <OpcionMenu
                 key={clave}
                 clave={clave}
