@@ -246,3 +246,16 @@ Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`)
 - [ ] Fase 1 · Cloudflare: Dazz crea la cuenta, apaga DNSSEC en Spaceship y cambia los *nameservers* (guía en el chat del 12/11)
 - [ ] VPS propio o más RAM para PaseLibre (decisión y compra de Dazz/Fabrizio)
 - [ ] Dos réplicas de la API con Redis (después del VPS: en el servidor actual no hay RAM)
+
+## 13. Catálogo: fotos, ZIP que actualiza y «Eliminar todos» ([docs/17](17-catalogo-fotos-y-zip.md))
+
+En `main` desde el 12/11/2026, **sin desplegar** (dos migraciones nuevas: 35 en total).
+
+- [x] 1 · Fondo gris clarito `#F1F4F2` con la foto en `multiply` en todas las miniaturas; tarjetas cuadradas
+- [x] 2 · «Editar» en Catálogo cambia también las fotos y la principal, con «¿Estás seguro?» si hay publicaciones
+- [x] 3 · Subir el ZIP: «Dejarlos como están», «Reemplazar solo las fotos» o «Reemplazar fotos y datos», con «Lo que cambia» y casillas; «por confirmar» no es un código; fotos por código o por el nombre del producto; aviso de parecidos y filas repetidas
+- [x] 4 · «Eliminar todos» por tandas: nunca borra un producto con publicaciones, pedidos en vivo o uniones
+- [x] 5 · La tienda elige la portada de su publicación (al publicar y al editar); el visitante ve la elegida, que ya veía en la ficha
+- [x] 6 · nginx: ya estaba (41m en la ruta de importar desde la fase 0)
+- [ ] Antes del primer ZIP grande en producción: copia de `/var/lib/paselibre/produccion/media` (el respaldo de la base no guarda las fotos, y reemplazar borra las viejas)
+- [ ] Subir el catálogo de 302 productos con «Reemplazar fotos y datos» y revisar «Lo que cambia» antes de guardar
