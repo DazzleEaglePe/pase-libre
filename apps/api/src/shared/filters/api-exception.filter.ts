@@ -10,6 +10,7 @@ import type { CodigoError, RespuestaError } from '@paselibre/contracts';
 import type { Response } from 'express';
 
 import { ApiHttpException } from '../errors/api-http.exception';
+import { baseNoDisponible } from './base-no-disponible';
 
 const statusToCode: Partial<Record<number, CodigoError>> = {
   [HttpStatus.BAD_REQUEST]: 'DATOS_INVALIDOS',
@@ -33,6 +34,10 @@ const statusToMessage: Partial<Record<number, string>> = {
   [HttpStatus.SERVICE_UNAVAILABLE]: 'El servicio no está disponible por ahora.',
 };
 
+/** Lo que lee quien llega con la base saturada o caída: es pasajero y puede volver a intentar. */
+export const MENSAJE_BASE_NO_DISPONIBLE =
+  'Hay mucha gente en PaseLibre en este momento. Vuelve a intentarlo en unos segundos.';
+
 /** Todas las respuestas de error con la forma de docs/05 §6.2, en español. */
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -40,9 +45,36 @@ export class ApiExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+    const requestId = String(response.locals.requestId ?? 'desconocido');
+
+    // Base saturada o caída: 503 con cuándo volver, no un 500 (docs/16 §4.4). Una línea en el
+    // registro, sin la traza: con la base saturada llegan muchas a la vez y todas dicen lo mismo.
+    const base = baseNoDisponible(exception);
+    if (base) {
+      // La causa está en la última línea del mensaje de Prisma (la primera dice «Invalid … invocation»).
+      const lineas = exception instanceof Error ? exception.message.split('\n') : [];
+      const causa =
+        lineas
+          .map((linea) => linea.trim())
+          .filter(Boolean)
+          .at(-1) ?? '';
+      this.logger.warn(`[${requestId}] Base ${base.motivo}: ${causa.slice(0, 200)}`);
+      const body: RespuestaError = {
+        error: {
+          codigo: 'SERVICIO_NO_DISPONIBLE',
+          mensaje: MENSAJE_BASE_NO_DISPONIBLE,
+          id_solicitud: requestId,
+        },
+      };
+      response
+        .status(HttpStatus.SERVICE_UNAVAILABLE)
+        .setHeader('Retry-After', String(base.segundos))
+        .json(body);
+      return;
+    }
+
     const isHttpException = exception instanceof HttpException;
     const status = isHttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-    const requestId = String(response.locals.requestId ?? 'desconocido');
 
     // Para los 5xx el cliente recibe un mensaje genérico; el detalle queda solo en el registro.
     if (status >= 500) {

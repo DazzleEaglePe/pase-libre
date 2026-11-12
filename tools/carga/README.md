@@ -154,6 +154,27 @@ real tiene cientos.
 4. **`statement_timeout` de 8 s y sin JIT** en la conexión de la API (no en las migraciones). El JIT
    de Postgres gastaba ~1,2 s de CPU compilando una búsqueda que se ejecutaba en 0,4 s.
 
-**Lo que falta para ≥ 500 pedidos/s con el catálogo de docs/16 tal cual:** la portada (fuera de
-la búsqueda). Con fechas reales ya se pasa con holgura; si se quiere blindar contra ese caso, una
-memoria de 30 s para «Recién publicado» del visitante, como la de la búsqueda.
+### Resultados del 12/11/2026 (tarde): memoria de la portada y 503
+
+Lo que faltaba para pasar de 500 pedidos/s con el catálogo de docs/16 tal cual era la portada:
+cada «Recién publicado» del visitante ordenaba las 180 mil ofertas de la misma hora. Ahora se
+guarda **30 s por galería** (como la búsqueda, una sola consulta en curso por clave, a lo más 100
+claves; con sesión nunca). Misma Mac y método que arriba (API compilada, pool de 15, 50 visitantes,
+IP por pedido, 20 s, tres corridas, la misma compilación con y sin el cambio):
+
+| | Pedidos/s | p95 portada | p95 ficha | p95 buscar con texto | Errores |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Antes (`8728bd7`) | 330–413 | 395–453 ms | 268–409 ms | 169–237 ms | 0 |
+| Con la memoria de la portada | 3 604–4 069 | 11–13 ms | 36–45 ms | 19–23 ms | 0 |
+
+La ficha y la búsqueda también bajan porque la portada ya no acapara el pool.
+
+**Base saturada o caída → 503 con `Retry-After`** (`shared/filters/base-no-disponible.ts`): sin
+conexión libre a tiempo (`P2024`), consulta vencida (Postgres `57014`) o demasiadas conexiones
+(`53300`) responden 503 con `Retry-After: 5`; la base caída o reiniciándose, 503 con
+`Retry-After: 15`. Antes eran 500 con la traza en el registro; ahora es una línea de aviso
+(«Base saturada: …»). En `compose.yml`, `pool_timeout` baja de 20 a 5 s: pasado ese umbral se
+responde 503 en vez de dejar a la persona esperando. Probado de verdad con la API sobre esta base,
+2 conexiones y `statement_timeout` de 20 ms: `/v1/portada` y `/v1/categorias` respondieron 503 con
+`Retry-After: 5`, el registro dijo «Base saturada» y no hubo ningún «Error no controlado». Con 2
+conexiones y el tiempo máximo normal no hubo un solo 503: 755 pedidos/s con `--variar`.

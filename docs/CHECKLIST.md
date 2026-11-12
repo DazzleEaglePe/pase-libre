@@ -240,7 +240,7 @@ Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`)
 
 - [x] Fase 0 · nginx: límites, tiempos de espera y subidas por ruta (11/11, en producción)
 - [x] Búsqueda: caché de visitantes, una sola consulta y tabla resumen; volver a medir con `tools/carga` (con fechas reales: 1 010–1 799 pedidos/s y p95 de búsqueda 40–88 ms; ver `tools/carga/README.md`)
-- [ ] Memoria corta para «Recién publicado» del visitante y 503 con `Retry-After` (lo que queda de docs/16 §4.4)
+- [x] Memoria corta para «Recién publicado» del visitante y 503 con `Retry-After` (12/11, sin desplegar): con el catálogo grande de docs/16 tal cual, de 330–413 a 3 604–4 069 pedidos/s; base saturada o caída responde 503 con `Retry-After` 5 o 15 s y `pool_timeout` baja de 20 a 5 s (resultados en `tools/carga/README.md`)
 - [ ] Fase 0 · `unattended-upgrades` y CrowdSec o `fail2ban` para SSH
 - [x] Fase 1 · nginx listo para Cloudflare: IP real solo desde sus rangos y renovación del certificado por HTTPS (12/11, en producción)
 - [ ] Fase 1 · Cloudflare: Dazz crea la cuenta, apaga DNSSEC en Spaceship y cambia los *nameservers* (guía en el chat del 12/11)
