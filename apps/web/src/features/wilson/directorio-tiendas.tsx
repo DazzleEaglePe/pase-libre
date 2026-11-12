@@ -83,7 +83,13 @@ function TarjetaTienda({ tienda }: { tienda: TiendaDelDirectorio }) {
   return (
     <li className="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-borde bg-white p-4">
       <div className="flex items-center gap-2.5">
-        <AvatarTienda nombre={tienda.nombre} logo={tienda.logo} enLinea={tienda.en_linea} grande />
+        <AvatarTienda
+          nombre={tienda.nombre}
+          logo={tienda.logo}
+          enLinea={tienda.en_linea}
+          tamano={48}
+          letra={17}
+        />
         <span className="flex min-w-0 flex-col">
           <b className="truncate text-[16px] font-bold leading-[22px]">{tienda.nombre}</b>
           <span className="truncate text-nota text-detalle">

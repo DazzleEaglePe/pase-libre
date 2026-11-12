@@ -6,7 +6,7 @@ import {
 import { IconCheck, IconInfoCircle, IconLock } from '@tabler/icons-react';
 import Link from 'next/link';
 
-import { iniciales } from '@/shared/iniciales';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { enPlural } from '@/shared/plural';
 
 import { BannerInvitar } from './banner-invitar';
@@ -134,12 +134,13 @@ function TiendasQueYaEstan({ tiendas }: { tiendas: RespuestaInicio['tiendas'] })
               href={`/tiendas/${tienda.id}`}
               className="flex h-full flex-col items-center gap-1.5 rounded-2xl border-[1.5px] border-borde bg-white px-2.5 py-4 text-center text-tinta no-underline hover:border-borde-control"
             >
-              <span
-                aria-hidden="true"
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-pase-medio text-[15px] font-extrabold text-marca"
-              >
-                {iniciales(tienda.nombre)}
-              </span>
+              <AvatarTienda
+                nombre={tienda.nombre}
+                logo={tienda.logo}
+                tamano={44}
+                fondo="bg-pase-medio font-extrabold text-marca"
+                oculto
+              />
               <b className="text-apoyo font-bold">{tienda.nombre}</b>
               <span className="text-[12px] leading-4 text-detalle">{tienda.detalle}</span>
             </Link>
@@ -208,7 +209,9 @@ export function InicioTienda({
   }
 
   const dia1 = inicio.fase === 'DIA_1';
-  const miTienda = sesion.tienda?.nombre ?? '';
+  const miTienda = sesion.tienda
+    ? { nombre: sesion.tienda.nombre, logo: sesion.tienda.logo }
+    : null;
   return (
     <div className="flex flex-col gap-6">
       {/* En el celular: el día 1 lleva el piloto arriba y los pasos al final; la primera semana,

@@ -8,7 +8,7 @@ import { useAhora } from '@/features/en-vivo/datos';
 import { BotonResponder } from '@/features/en-vivo/responder';
 import { conVendedor, cuantoQueda, etiquetaTipo, type ItemEnVivo } from '@/features/en-vivo/textos';
 import { haceRato } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { BotonBrasa } from '@/shared/ui/brasa';
 
 /** Lo que piden o rematan las demás tiendas ahora (sin lo tuyo). */
@@ -37,12 +37,14 @@ export function SaludoTienda({ sesion }: { sesion: RespuestaYo }) {
       className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border-[1.5px] border-linea bg-white px-6 py-5 max-sm:px-4 max-sm:py-4"
     >
       <div className="flex min-w-0 items-center gap-3.5">
-        <span
-          aria-hidden="true"
-          className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-tinta text-[17px] font-extrabold text-white max-sm:h-11 max-sm:w-11 max-sm:text-[15px]"
-        >
-          {iniciales(nombre)}
-        </span>
+        <AvatarTienda
+          nombre={nombre}
+          logo={tienda?.logo}
+          tamano={52}
+          tamanoCelular={44}
+          fondo="bg-tinta font-extrabold text-white"
+          oculto
+        />
         <div className="flex min-w-0 flex-col">
           <h1 className="tit truncate text-[26px] leading-8 max-sm:text-[19px] max-sm:leading-6">
             Hola, {nombre}

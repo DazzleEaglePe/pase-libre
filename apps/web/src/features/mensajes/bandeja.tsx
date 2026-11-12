@@ -16,9 +16,9 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { horaCorta } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
 import { useAgrupado } from '@/shared/agrupar';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import { extractoDeMensaje } from './estado-chat';
 
@@ -38,6 +38,8 @@ const FILTROS: Array<[Filtro, string]> = [
 interface Grupo {
   clave: string;
   tienda: string;
+  /** El logo de la tienda (`urlFoto`), o nulo: van sus iniciales. */
+  logo: string | null;
   hilos: ConversacionEnLista[];
 }
 
@@ -49,7 +51,12 @@ function agrupar(conversaciones: ConversacionEnLista[]): Grupo[] {
       c.otro.tienda.id && c.otro.tienda.nombre !== TIENDA_RESERVADA
         ? `t:${c.otro.tienda.id}`
         : `c:${c.id}`;
-    const grupo = grupos.get(clave) ?? { clave, tienda: c.otro.tienda.nombre, hilos: [] };
+    const grupo = grupos.get(clave) ?? {
+      clave,
+      tienda: c.otro.tienda.nombre,
+      logo: c.otro.tienda.logo ?? null,
+      hilos: [],
+    };
     grupo.hilos.push(c);
     grupos.set(clave, grupo);
   }
@@ -93,15 +100,15 @@ function Renglon({
           activa ? 'bg-pase-suave' : 'hover:bg-superficie'
         }`}
       >
-        <span
-          aria-hidden="true"
-          className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-tinta text-apoyo font-bold text-white"
-        >
-          {iniciales(grupo.tienda)}
-          {enLinea && (
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-[2.5px] border-white bg-[#22C55E]" />
-          )}
-        </span>
+        <AvatarTienda
+          nombre={grupo.tienda}
+          logo={grupo.logo}
+          tamano={46}
+          letra={14}
+          fondo="bg-tinta font-bold text-white"
+          enLinea={enLinea}
+          oculto
+        />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex justify-between gap-2">
             <b className="truncate text-cuerpo font-bold">

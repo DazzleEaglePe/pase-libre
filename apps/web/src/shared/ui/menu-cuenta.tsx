@@ -18,9 +18,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useEnVivoCompartido } from '@/features/en-vivo/contexto';
 import { llamarApi } from '@/shared/api/cliente';
-import { iniciales } from '@/shared/iniciales';
 import { puede } from '@/shared/permisos';
 
+import { AvatarTienda } from './avatar-tienda';
 import { useContadores } from './campanita';
 
 interface Opcion {
@@ -132,12 +132,14 @@ export function ContenidoMenuCuenta({
         onClick={alElegir}
         className="flex items-center gap-3 rounded-2xl border border-[#A7E3C3] bg-white p-3.5 text-tinta no-underline hover:bg-pase-suave"
       >
-        <span
-          aria-hidden="true"
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-marca text-[16px] font-extrabold text-white"
-        >
-          {iniciales(tienda.nombre)}
-        </span>
+        <AvatarTienda
+          nombre={tienda.nombre}
+          logo={tienda.logo}
+          tamano={48}
+          letra={16}
+          fondo="bg-marca font-extrabold text-white"
+          oculto
+        />
         <span className="flex min-w-0 flex-col">
           <b className="truncate text-[16px] font-bold">{tienda.nombre}</b>
           {lugar && <span className="text-nota text-secundario">{lugar}</span>}
@@ -248,12 +250,17 @@ export function MenuCuenta({
               : 'hover:bg-superficie'
         }`}
       >
-        <span
-          aria-hidden="true"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-tinta font-semibold text-white"
-        >
-          {inicial}
-        </span>
+        <AvatarTienda
+          nombre={tienda.nombre}
+          logo={tienda.logo}
+          tamano={36}
+          letra={14}
+          letras={inicial}
+          fondo="bg-tinta font-semibold text-white"
+          oculto
+          // Sobre la fila verde, el logo lleva su aro blanco (tablero 6).
+          className={sobreMarca && tienda.logo ? 'ring-2 ring-white' : ''}
+        />
         <span className="max-w-[160px] truncate font-semibold max-sm:sr-only">
           {sobreMarca ? tienda.nombre : 'Mi cuenta'}
         </span>

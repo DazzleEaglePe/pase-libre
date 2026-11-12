@@ -11,8 +11,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
 import { conPlural } from '@/shared/plural';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import { DestacadasAhora, Destacar } from './destacar';
 
@@ -152,12 +152,13 @@ export function TiendasPanel() {
                     elegida === tienda.id ? 'bg-pase-suave' : 'hover:bg-superficie'
                   }`}
                 >
-                  <span
-                    aria-hidden="true"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tinta text-nota font-bold text-white"
-                  >
-                    {iniciales(tienda.nombre)}
-                  </span>
+                  <AvatarTienda
+                    nombre={tienda.nombre}
+                    logo={tienda.logo}
+                    letra={13}
+                    fondo="bg-tinta font-bold text-white"
+                    oculto
+                  />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <b className="truncate text-apoyo font-bold">{tienda.nombre}</b>
                     <span className="truncate text-nota text-secundario">
@@ -212,12 +213,14 @@ export function TiendasPanel() {
           ) : (
             <>
               <div className="flex items-center gap-4">
-                <span
-                  aria-hidden="true"
-                  className="flex h-14 w-14 items-center justify-center rounded-full bg-tinta text-[18px] font-bold text-white"
-                >
-                  {iniciales(detalle.nombre)}
-                </span>
+                <AvatarTienda
+                  nombre={detalle.nombre}
+                  logo={detalle.logo}
+                  tamano={56}
+                  letra={18}
+                  fondo="bg-tinta font-bold text-white"
+                  oculto
+                />
                 <span className="flex flex-1 flex-col">
                   <h2 className="text-[24px] font-bold leading-7">{detalle.nombre}</h2>
                   <span className="text-apoyo text-secundario">

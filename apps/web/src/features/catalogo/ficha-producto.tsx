@@ -19,6 +19,7 @@ import { useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { BotonCompartir } from '@/shared/ui/boton-compartir';
@@ -75,16 +76,18 @@ function masBarata(ofertas: OfertaVista[], moneda?: Precio['moneda']): OfertaVis
   }, null);
 }
 
+/** El círculo de la tienda (punto 6): su logo o sus iniciales. La reservada, sin logo. */
 function Avatar({ oferta, chico = false }: { oferta: OfertaVista; chico?: boolean }) {
   return (
-    <span
-      aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full bg-tinta font-semibold text-white ${
-        chico ? 'h-9 w-9 text-apoyo' : 'h-[42px] w-[42px] text-apoyo font-bold'
-      }`}
-    >
-      {inicialDe(oferta)}
-    </span>
+    <AvatarTienda
+      nombre={oferta.tienda?.nombre ?? ''}
+      logo={esReservada(oferta) ? null : oferta.tienda?.logo}
+      tamano={chico ? 30 : 44}
+      letra={chico ? 12 : 14}
+      letras={inicialDe(oferta)}
+      fondo={`bg-tinta text-white ${chico ? 'font-extrabold' : 'font-bold'}`}
+      oculto
+    />
   );
 }
 
@@ -650,7 +653,10 @@ export function FichaProducto({
                       <td
                         className={`pr-4 ${viendo ? 'font-bold' : ''} ${esReservada(fila) ? 'italic' : ''}`}
                       >
-                        {nombreDe(fila)}
+                        <span className="flex items-center gap-2.5">
+                          <Avatar oferta={fila} chico />
+                          {nombreDe(fila)}
+                        </span>
                       </td>
                       <td className="pr-4 text-secundario">{fila.galeria ?? 'Independiente'}</td>
                       <td className="pr-4 text-secundario">{textoEstadoDetalle(fila.detalle)}</td>

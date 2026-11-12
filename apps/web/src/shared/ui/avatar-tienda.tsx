@@ -1,4 +1,5 @@
 import { urlFoto } from '@paselibre/contracts';
+import type { CSSProperties } from 'react';
 
 import { iniciales } from '@/shared/iniciales';
 
@@ -11,27 +12,62 @@ function fondoDe(nombre: string): string {
   return FONDOS[suma % FONDOS.length] ?? 'bg-tinta';
 }
 
+/** El tamaño de las iniciales: un tercio del círculo, nunca menos de 10 px. */
+const letraPara = (tamano: number): number => Math.max(10, Math.round(tamano * 0.33));
+
 /**
- * El círculo de una tienda (N13): su logo o sus iniciales, y el puntito verde si alguien de la
- * tienda tiene PaseLibre abierto ahora.
+ * El círculo de una tienda (N13, punto 6 de la 1.9.0): su logo recortado en círculo, o sus
+ * iniciales si no lo subió, y el puntito verde si alguien de la tienda tiene PaseLibre abierto
+ * ahora. Es el único círculo de tienda del sitio: donde salga una tienda, va este.
  */
 export function AvatarTienda({
   nombre,
   logo,
+  tamano = 40,
+  tamanoCelular,
+  letra,
+  letras,
+  fondo,
   enLinea = false,
-  grande = false,
+  oculto = false,
+  className = '',
 }: {
   nombre: string;
-  logo: string | null;
+  /** La ruta del logo (`urlFoto`); nula o vacía: las iniciales. */
+  logo: string | null | undefined;
+  /** En px: 28, 32, 40, 44, 52… (40 por defecto). */
+  tamano?: number;
+  /** En px, para el celular (menos de 640 px de ancho), si cambia. */
+  tamanoCelular?: number;
+  /** Las iniciales, en px, si no van al tercio del círculo. */
+  letra?: number;
+  /** Otras letras en vez de las iniciales («D» en la cabecera, «·» en la reservada). */
+  letras?: string;
+  /** Fondo, color y grosor de las iniciales, como estaban en cada lugar. */
+  fondo?: string;
   enLinea?: boolean;
-  /** 48 px (directorio) en vez de 40 (buscador). */
-  grande?: boolean;
+  /** Solo de adorno: el nombre ya se lee al lado (lo saltan los lectores de pantalla). */
+  oculto?: boolean;
+  /** Clases de más: un borde, un margen. */
+  className?: string;
 }) {
+  const celular = tamanoCelular ?? tamano;
+  const estilo = {
+    '--avatar': `${tamano}px`,
+    '--avatar-cel': `${celular}px`,
+    '--avatar-letra': `${letra ?? letraPara(tamano)}px`,
+    '--avatar-letra-cel': `${letra ? Math.round((letra * celular) / tamano) : letraPara(celular)}px`,
+  } as CSSProperties;
+  const punto = tamano >= 48 ? 'h-[13px] w-[13px]' : 'h-[11px] w-[11px]';
+
   return (
     <span
-      className={`relative flex shrink-0 items-center justify-center rounded-full font-extrabold text-white ${
-        grande ? 'h-12 w-12 text-[17px]' : 'h-10 w-10 text-apoyo'
-      } ${logo ? 'bg-superficie' : fondoDe(nombre)}`}
+      aria-hidden={oculto ? 'true' : undefined}
+      data-logo={logo ? 'si' : 'no'}
+      style={estilo}
+      className={`relative flex h-[var(--avatar)] w-[var(--avatar)] shrink-0 items-center justify-center rounded-full text-[length:var(--avatar-letra)] max-sm:h-[var(--avatar-cel)] max-sm:w-[var(--avatar-cel)] max-sm:text-[length:var(--avatar-letra-cel)] ${
+        logo ? 'bg-superficie' : (fondo ?? `${fondoDe(nombre)} font-extrabold text-white`)
+      } ${className}`}
     >
       {logo ? (
         // eslint-disable-next-line @next/next/no-img-element
@@ -42,15 +78,13 @@ export function AvatarTienda({
           className="h-full w-full rounded-full object-cover"
         />
       ) : (
-        <span aria-hidden="true">{iniciales(nombre)}</span>
+        <span aria-hidden="true">{letras ?? iniciales(nombre)}</span>
       )}
       {enLinea && (
         <span
-          className={`absolute bottom-0 right-0 rounded-full border-[2.5px] border-white bg-[#22C55E] ${
-            grande ? 'h-[13px] w-[13px]' : 'h-[11px] w-[11px]'
-          }`}
+          className={`absolute bottom-0 right-0 rounded-full border-[2.5px] border-white bg-[#22C55E] ${punto}`}
         >
-          <span className="sr-only">En línea ahora</span>
+          {!oculto && <span className="sr-only">En línea ahora</span>}
         </span>
       )}
     </span>

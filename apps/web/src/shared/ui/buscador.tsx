@@ -540,6 +540,7 @@ function Formulario({
                           nombre={tienda.nombre}
                           logo={tienda.logo}
                           enLinea={tienda.en_linea}
+                          letra={14}
                         />
                         <span className="flex min-w-0 flex-1 flex-col">
                           <b className="truncate font-bold">

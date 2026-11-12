@@ -12,7 +12,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue, horaCorta } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 /**
  * Los chats oficiales con las tiendas, del lado del equipo: la lista (las que esperan respuesta
@@ -94,12 +94,13 @@ export function ChatsEquipo() {
                   tienda === hilo.tienda.id ? 'bg-pase-suave' : 'hover:bg-superficie'
                 }`}
               >
-                <span
-                  aria-hidden="true"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-tinta text-nota font-bold text-white"
-                >
-                  {iniciales(hilo.tienda.nombre)}
-                </span>
+                <AvatarTienda
+                  nombre={hilo.tienda.nombre}
+                  logo={hilo.tienda.logo}
+                  letra={13}
+                  fondo="bg-tinta font-bold text-white"
+                  oculto
+                />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="flex justify-between gap-2">
                     <b className="truncate text-apoyo font-bold">{hilo.tienda.nombre}</b>
