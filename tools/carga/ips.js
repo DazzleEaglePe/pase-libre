@@ -7,5 +7,7 @@ export default function () {
   const unicas = __ENV.UNICAS === '1';
   const n = __ITER * 50 + __VU;
   const ip = unicas ? `10.${(n >> 16) & 255}.${(n >> 8) & 255}.${n & 255}` : `10.7.7.${n % 40}`;
-  http.get(`${__ENV.BASE || 'http://localhost:3042'}/v1/categorias`, { headers: { 'X-Forwarded-For': ip } });
+  http.get(`${__ENV.BASE || 'http://localhost:3042'}/v1/categorias`, {
+    headers: { 'X-Forwarded-For': ip },
+  });
 }
