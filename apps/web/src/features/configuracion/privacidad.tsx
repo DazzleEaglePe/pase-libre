@@ -6,7 +6,10 @@ import { useState } from 'react';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { Interruptor } from '@/shared/ui/interruptor';
 
-/** Configuración · Privacidad (RF-57): el «Visto». Las bloqueadas tienen su sección. */
+/**
+ * Configuración · Privacidad (RF-57, N01): el «Visto», que pinta de verde los checks de quien te
+ * escribe. Las bloqueadas tienen su sección.
+ */
 export function SeccionPrivacidad({
   cuenta,
   alGuardar,
@@ -35,7 +38,8 @@ export function SeccionPrivacidad({
         <span className="flex flex-col">
           <b className="font-semibold">Mostrar «Visto» en los mensajes</b>
           <span className="text-apoyo text-secundario">
-            Si lo apagas, tampoco ves cuándo los demás leen lo tuyo.
+            Con el «Visto» activo, quien te escribe ve sus checks en verde cuando lo lees. Si lo
+            apagas, se quedan en gris y tú tampoco ves cuándo los demás leen lo tuyo.
           </span>
         </span>
         <Interruptor

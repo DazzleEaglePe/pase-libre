@@ -4,6 +4,7 @@ import {
   EVENTOS,
   TIENDA_RESERVADA,
   type ConversacionEnLista,
+  type EventoPresencia,
   type FiltroConversacion,
   type RespuestaChatEquipo,
   type RespuestaConversaciones,
@@ -18,6 +19,8 @@ import { horaCorta } from '@/shared/fechas';
 import { iniciales } from '@/shared/iniciales';
 import { useAgrupado } from '@/shared/agrupar';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
+
+import { extractoDeMensaje } from './estado-chat';
 
 type Filtro = FiltroConversacion | 'compras' | 'ventas';
 
@@ -62,13 +65,19 @@ function corto(titulo: string): string {
 }
 
 function extracto(c: ConversacionEnLista): string {
-  const m = c.ultimo_mensaje;
-  if (!m) return '';
-  const texto = m.tipo === 'FOTO' ? (m.texto ? `Foto · ${m.texto}` : 'Foto') : (m.texto ?? '');
-  return m.mio ? `Tú: ${texto}` : texto;
+  return c.ultimo_mensaje ? extractoDeMensaje(c.ultimo_mensaje) : '';
 }
 
-function Renglon({ grupo, abierta }: { grupo: Grupo; abierta: string | null }) {
+function Renglon({
+  grupo,
+  abierta,
+  enLinea,
+}: {
+  grupo: Grupo;
+  abierta: string | null;
+  /** El puntito verde (N01): la tienda está conectada ahora. */
+  enLinea: boolean;
+}) {
   const [ultimo] = grupo.hilos;
   if (!ultimo) return null;
   const activa = grupo.hilos.some((c) => c.id === abierta);
@@ -86,13 +95,19 @@ function Renglon({ grupo, abierta }: { grupo: Grupo; abierta: string | null }) {
       >
         <span
           aria-hidden="true"
-          className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-tinta text-apoyo font-bold text-white"
+          className="relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full bg-tinta text-apoyo font-bold text-white"
         >
           {iniciales(grupo.tienda)}
+          {enLinea && (
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-[2.5px] border-white bg-[#22C55E]" />
+          )}
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex justify-between gap-2">
-            <b className="truncate text-cuerpo font-bold">{grupo.tienda}</b>
+            <b className="truncate text-cuerpo font-bold">
+              {grupo.tienda}
+              {enLinea && <span className="sr-only"> (conectada ahora)</span>}
+            </b>
             <span className="shrink-0 text-nota text-secundario">
               {horaCorta(ultimo.actualizada_en)}
             </span>
@@ -218,6 +233,8 @@ export function Bandeja({ children }: { children: ReactNode }) {
   const [busca, setBusca] = useState('');
   const [q, setQ] = useState('');
   const [datos, setDatos] = useState<RespuestaConversaciones | null>(null);
+  // Lo que llegó por el socket desde la última carga: tienda → conectada (N01).
+  const [presencia, setPresencia] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const ultima = useRef(0);
 
@@ -239,6 +256,7 @@ export function Bandeja({ children }: { children: ReactNode }) {
       if (numero === ultima.current) setEquipo(chatEquipo);
       if (numero === ultima.current) {
         setDatos(respuesta);
+        setPresencia({});
         setError(null);
       }
     } catch (e) {
@@ -260,7 +278,18 @@ export function Bandeja({ children }: { children: ReactNode }) {
     return () => clearTimeout(espera);
   }, [enEquipo, cargar]);
   useEvento(EVENTOS.mensajeNuevo, recargar);
+  useEvento(EVENTOS.mensajeCambio, recargar);
   useEvento(EVENTOS.contadores, recargar);
+  // El puntito verde se prende y se apaga solo, sin recargar la lista.
+  useEvento<EventoPresencia>(EVENTOS.presencia, (evento) =>
+    setPresencia((antes) => ({ ...antes, [evento.tienda_id]: evento.en_linea })),
+  );
+  const conectada = (grupo: Grupo) =>
+    grupo.hilos.some((c) =>
+      c.otro.tienda.id && c.otro.tienda.id in presencia
+        ? presencia[c.otro.tienda.id]
+        : c.otro.en_linea,
+    );
 
   const visibles = (datos?.conversaciones ?? []).filter((c) =>
     filtro === 'compras'
@@ -339,7 +368,12 @@ export function Bandeja({ children }: { children: ReactNode }) {
             <ul className="m-0 flex list-none flex-col p-0">
               {filtro === 'todas' && !q && <RenglonEquipo chat={equipo} activo={enEquipo} />}
               {grupos.map((grupo) => (
-                <Renglon key={grupo.clave} grupo={grupo} abierta={abierta} />
+                <Renglon
+                  key={grupo.clave}
+                  grupo={grupo}
+                  abierta={abierta}
+                  enLinea={conectada(grupo)}
+                />
               ))}
             </ul>
             {datos === null && !error ? (
