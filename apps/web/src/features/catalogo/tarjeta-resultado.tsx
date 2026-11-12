@@ -1,5 +1,4 @@
 import {
-  formatearPrecio,
   TIENDA_RESERVADA,
   type ProductoEnLista,
   type ProductoEnListaConPrecio,
@@ -8,6 +7,7 @@ import { IconBuildingStore, IconMessageCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 
 import { Miniatura } from '@/shared/ui/miniatura';
+import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoCondiciones, textoEstado, textoStock } from './textos';
@@ -89,15 +89,11 @@ export function TarjetaResultado({
 
         {destacada ? (
           <span className="mt-1 flex flex-wrap items-center gap-2">
-            {destacada.precio ? (
-              <b className="inline-flex items-center rounded-full bg-tinta px-3.5 py-1 text-precio text-white">
-                {formatearPrecio(destacada.precio)}
-              </b>
-            ) : (
-              <span className="text-apoyo font-semibold text-secundario">
-                Al interno · consultar
-              </span>
-            )}
+            <PrecioBurbuja
+              precio={destacada.precio}
+              socio={destacada.precio_socio}
+              negociable={destacada.negociable}
+            />
             {masBarata && <span className="sm:hidden">{insignia}</span>}
           </span>
         ) : (

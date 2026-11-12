@@ -77,6 +77,10 @@ export interface OfertaDestacada {
   galeria: string;
   /** Nulo si está al interno: aquí no se cuenta ni el precio oculto de la tienda dueña. */
   precio: Precio | null;
+  /** La burbujita «Socio» del precio (N06), si la búsqueda la manda. */
+  precio_socio?: boolean;
+  /** La burbujita «Negociable» (N06), si la búsqueda la manda. */
+  negociable?: boolean;
   /** Con la tienda reservada: «Tienda reservada» y sin stand (salvo para la dueña y el equipo). */
   tienda: { nombre: string; stand: string | null };
   tienda_visible: boolean;
@@ -331,8 +335,6 @@ export interface RespuestaInicio {
    * publicado», mezcladas por tienda (nunca dos seguidas de la misma). Sin las tuyas.
    */
   recien: TarjetaOfertaConVendedor[];
-  /** El logo de tu tienda para el saludo (N16); nulo sin logo. */
-  logo: string | null;
   /** Tocaste la X del banner «¿Conoces una tienda…?» (N07): ya no sale. */
   invitar_cerrado: boolean;
 }

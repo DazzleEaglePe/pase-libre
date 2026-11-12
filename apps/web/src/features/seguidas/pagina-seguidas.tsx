@@ -14,6 +14,7 @@ import { diaCorto, haceCuanto, haceRato, hora } from '@/shared/fechas';
 import { iniciales } from '@/shared/iniciales';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Miniatura } from '@/shared/ui/miniatura';
+import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 import { BotonSeguir } from './boton-seguir';
 
@@ -88,14 +89,7 @@ function Producto({
           {oferta.stock === 1 ? '1 disponible' : `${oferta.stock} disponibles`}
         </span>
         <span className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          {oferta.precio ? (
-            <>
-              <span className="text-[11px] font-bold tracking-wide text-detalle">PASE</span>
-              <b className="text-[19px] font-bold">{formatearPrecio(oferta.precio)}</b>
-            </>
-          ) : (
-            <span className="text-apoyo font-semibold text-secundario">Precio por chat</span>
-          )}
+          <PrecioBurbuja precio={oferta.precio} />
           {antes && <s className="text-apoyo text-secundario">Antes {antes}</s>}
           {oferta.precio_socio && (
             <span className="text-apoyo font-bold text-pase-texto">
