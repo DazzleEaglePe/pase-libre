@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { Ayuda } from '@/features/informacion/ayuda';
+import { obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = {
   title: 'Ayuda',
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
 };
 
 /** `/ayuda`: preguntas frecuentes. */
-export default function PaginaAyuda() {
-  return <Ayuda />;
+export default async function PaginaAyuda() {
+  const sesion = await obtenerSesion();
+  return <Ayuda conTienda={Boolean(sesion?.tienda)} />;
 }

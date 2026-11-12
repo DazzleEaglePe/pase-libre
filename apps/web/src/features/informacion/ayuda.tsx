@@ -23,7 +23,8 @@ function Pregunta({ titulo, children }: { titulo: string; children: ReactNode })
 }
 
 /** Ayuda: las preguntas que más se repiten, con el camino corto a cada pantalla. */
-export function Ayuda() {
+/** `conTienda`: con sesión de una tienda sale «Pedir ayuda al Equipo»; sin ella, ni se pregunta. */
+export function Ayuda({ conTienda = false }: { conTienda?: boolean }) {
   return (
     <Documento
       titulo="Ayuda"
@@ -189,7 +190,7 @@ export function Ayuda() {
         </Pregunta>
       </Seccion>
 
-      <PedirAyudaEquipo />
+      {conTienda && <PedirAyudaEquipo />}
 
       <Seccion titulo="¿No encontraste tu respuesta?">
         <p>
