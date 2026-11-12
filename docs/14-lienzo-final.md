@@ -149,7 +149,7 @@ valores `OTRO` y `OTRA`; `producto.version` y `codigo_parte` (único); soles por
 
 ## 7. Correcciones 11/11 y feed (versión `1794455592-a02d`)
 
-Páginas «★ CORRECCIONES 11/11 · versión elegida» (`N00`–`N14`) y «★ FEED» (`N15`, `N16`). Se construyó en seis ramas en paralelo (`nov11/chat`, `perfil`, `equipo`, `feed`, `wilson`, `busqueda`) y se unió en `main`; el detalle de cada tarea está en el CHECKLIST §11 y §12.
+Páginas «★ CORRECCIONES 11/11 · versión elegida» (`N00`–`N14`) y «★ FEED» (`N15`, `N16`). Se construyó en seis ramas en paralelo (`nov11/chat`, `perfil`, `equipo`, `feed`, `wilson`, `busqueda`) y se unió en `main`; el detalle de cada tarea está en el CHECKLIST §11 y §12. En producción desde el 12/11/2026 con la etiqueta `add9c5bd` (anterior `8fb0eb41`): respaldo previo, 5 migraciones, prueba de humo 10/10 y verificación del visitante 27/27 (sin precio, tienda, stand ni WhatsApp; rutas nuevas con 401 sin sesión).
 
 | Área | Lo principal | Migración |
 |---|---|---|

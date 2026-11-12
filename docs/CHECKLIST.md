@@ -177,7 +177,7 @@ Se hace cuando exista el VPS. La guía está en [tools/deploy/DESPLIEGUE.md](../
 
 ## 11. Correcciones 11/11 y feed (lienzo versión `1794455592-a02d`)
 
-Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`) y «★ FEED» (`N15`, `N16`) del [lienzo](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7). Se construyó por áreas en ramas `nov11/*` y se unió en `main` el 12/11 (resumen en [docs/14 §7](14-lienzo-final.md#7-correcciones-1111-y-feed-versión-1794455592-a02d)); falta revisarlo en local y subirlo.
+Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`) y «★ FEED» (`N15`, `N16`) del [lienzo](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7). Se construyó por áreas en ramas `nov11/*` y se unió en `main` el 12/11 (resumen en [docs/14 §7](14-lienzo-final.md#7-correcciones-1111-y-feed-versión-1794455592-a02d)). **En producción desde el 12/11/2026** (`add9c5bd`), con respaldo previo (`paselibre-produccion-20261112T135627Z.dump`) y 5 migraciones (`20261112100000` a `20261112150000`); volver con `desplegar.sh produccion.env 8fb0eb41` (las migraciones no se deshacen; para eso está el respaldo).
 
 **A · Chat y respuestas rápidas** (rama `nov11/chat`)
 
