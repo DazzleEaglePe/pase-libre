@@ -207,7 +207,9 @@ enum PermisoAsesor {
 
 // ── Cuentas ────────────────────────────────────────────────────────────────
 
-/// La galería es un dato, no una constante (RNF-29).
+/// La galería es un dato, no una constante (RNF-29). Las de la avenida. El equipo las maneja en Equipo › Galerías (docs/18 §3): `orden`
+/// es el de la avenida y lo siguen Crear cuenta, Datos de la tienda y Wilson en vivo; ocultar
+/// pone `activa = false`. Una galería con tiendas no se borra, solo se oculta.
 model Galeria {
   id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nombre   String   @unique @db.VarChar(80)
@@ -1133,47 +1135,50 @@ enum MetodoSolicitud {
 /// Los ids de quien revisó y de lo que se creó no llevan llave foránea: la solicitud es un
 /// registro de lo que pasó y no debe impedir borrar una cuenta (auditoría guarda el resto).
 model Solicitud {
-  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                    String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   /// Quien se registra consulta su estado con un código que solo ella conoce: aquí va su sha256.
-  consultaHash        String          @unique @map("consulta_hash") @db.Char(64)
+  consultaHash          String          @unique @map("consulta_hash") @db.Char(64)
   /// Los 9 dígitos. Es también el usuario con el que entrará.
-  celular             String          @db.VarChar(9)
-  celularVerificadoEn DateTime        @map("celular_verificado_en") @db.Timestamptz(6)
-  metodo              MetodoSolicitud
-  ruc                 String?         @db.VarChar(11)
+  celular               String          @db.VarChar(9)
+  celularVerificadoEn   DateTime        @map("celular_verificado_en") @db.Timestamptz(6)
+  metodo                MetodoSolicitud
+  ruc                   String?         @db.VarChar(11)
   /// Lo que contestó SUNAT: razón social, estado, condición y domicilio fiscal.
-  rucDatos            Json?           @map("ruc_datos")
+  rucDatos              Json?           @map("ruc_datos")
   /// Solo lo ve el equipo y se borra al resolver la solicitud (minimizar datos, Ley 29733).
-  dni                 String?         @db.VarChar(8)
+  dni                   String?         @db.VarChar(8)
   /// Texto libre: la tienda verificada que la conoce, tal como la escribió.
-  recomiendaTienda    String?         @map("recomienda_tienda") @db.VarChar(120)
-  nombreComercial     String          @map("nombre_comercial") @db.VarChar(120)
-  categorias          String[]
-  galeriaId           String?         @map("galeria_id") @db.Uuid
+  recomiendaTienda      String?         @map("recomienda_tienda") @db.VarChar(120)
+  nombreComercial       String          @map("nombre_comercial") @db.VarChar(120)
+  categorias            String[]
+  galeriaId             String?         @map("galeria_id") @db.Uuid
   /// Si la galería no está registrada todavía: el nombre que escribió.
-  galeriaOtra         String?         @map("galeria_otra") @db.VarChar(120)
-  piso                String?         @db.VarChar(20)
-  stand               String          @db.VarChar(20)
-  referencia          String?         @db.VarChar(200)
+  galeriaOtra           String?         @map("galeria_otra") @db.VarChar(120)
+  /// Cuándo el equipo resolvió el aviso «Galería nueva: …» de Equipo › Galerías (docs/18 §3):
+  /// la agregó o lo descartó. Mientras sea nulo, el aviso sigue arriba de la lista.
+  galeriaOtraResueltaEn DateTime?       @map("galeria_otra_resuelta_en") @db.Timestamptz(6)
+  piso                  String?         @db.VarChar(20)
+  stand                 String          @db.VarChar(20)
+  referencia            String?         @db.VarChar(200)
   /// Ya armado para mostrar: «Lun a sáb, de 10:00 a. m. a 8:00 p. m.».
-  horario             String          @db.VarChar(120)
+  horario               String          @db.VarChar(120)
   /// Lo mismo por partes (días, apertura y cierre), para volver a llenar el formulario al corregir.
-  horarioDatos        Json            @map("horario_datos")
-  encargado           String          @db.VarChar(120)
-  claveHash           String          @map("clave_hash") @db.VarChar(255)
-  aceptoTerminosEn    DateTime        @map("acepto_terminos_en") @db.Timestamptz(6)
-  estado              EstadoSolicitud @default(PENDIENTE)
+  horarioDatos          Json            @map("horario_datos")
+  encargado             String          @db.VarChar(120)
+  claveHash             String          @map("clave_hash") @db.VarChar(255)
+  aceptoTerminosEn      DateTime        @map("acepto_terminos_en") @db.Timestamptz(6)
+  estado                EstadoSolicitud @default(PENDIENTE)
   /// Se aprobó sola por el RUC: queda a la vista del equipo por si el RUC era de otra persona.
-  aprobadaSola        Boolean         @default(false) @map("aprobada_sola")
+  aprobadaSola          Boolean         @default(false) @map("aprobada_sola")
   /// Lo que el equipo le dice: qué corregir, o por qué no.
-  mensajeEquipo       String?         @map("mensaje_equipo") @db.VarChar(500)
-  venceEn             DateTime?       @map("vence_en") @db.Timestamptz(6)
-  revisadaPorId       String?         @map("revisada_por_id") @db.Uuid
-  revisadaEn          DateTime?       @map("revisada_en") @db.Timestamptz(6)
-  tiendaId            String?         @unique @map("tienda_id") @db.Uuid
-  usuarioId           String?         @unique @map("usuario_id") @db.Uuid
-  creadaEn            DateTime        @default(now()) @map("creada_en") @db.Timestamptz(6)
-  actualizadaEn       DateTime        @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
+  mensajeEquipo         String?         @map("mensaje_equipo") @db.VarChar(500)
+  venceEn               DateTime?       @map("vence_en") @db.Timestamptz(6)
+  revisadaPorId         String?         @map("revisada_por_id") @db.Uuid
+  revisadaEn            DateTime?       @map("revisada_en") @db.Timestamptz(6)
+  tiendaId              String?         @unique @map("tienda_id") @db.Uuid
+  usuarioId             String?         @unique @map("usuario_id") @db.Uuid
+  creadaEn              DateTime        @default(now()) @map("creada_en") @db.Timestamptz(6)
+  actualizadaEn         DateTime        @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
 
   @@index([estado, creadaEn])
   @@index([celular])

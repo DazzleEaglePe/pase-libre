@@ -228,7 +228,7 @@ export class RegistroService {
     }
     const claveHash = await cifrarClave(entrada.clave);
     const consulta = randomBytes(24).toString('base64url');
-    const apta = campos.metodo === 'RUC' && esApto(campos.rucDatos as DatosRuc | undefined);
+    const apta = seApruebaSola(campos);
 
     const resultado = await this.prisma
       .$transaction(async (tx) => {
@@ -278,7 +278,7 @@ export class RegistroService {
     if (entrada.clave && esClaveComprometida(entrada.clave)) {
       throw invalido('Esa contraseña es demasiado común. Elige otra.');
     }
-    const apta = campos.metodo === 'RUC' && esApto(campos.rucDatos as DatosRuc | undefined);
+    const apta = seApruebaSola(campos);
 
     const resultado = await this.prisma
       .$transaction(async (tx) => {
@@ -384,6 +384,30 @@ export class RegistroService {
       'Tu cuenta de PaseLibre fue aprobada. Entra con tu celular y la contraseña que elegiste.',
     );
     return aEquipo(aprobada, await this.galeriasPorId());
+  }
+
+  /**
+   * Después de «Agregar» una galería nueva (docs/18 §3): la solicitud con RUC activo y habido
+   * que solo esperaba su galería se aprueba sola, como si la hubiera elegido de la lista. Las
+   * demás siguen en la cola del equipo. Devuelve si se aprobó.
+   */
+  async aprobarSiEsApta(id: string): Promise<boolean> {
+    const solicitud = await this.prisma.solicitud.findUnique({ where: { id } });
+    if (
+      !solicitud ||
+      solicitud.estado !== 'PENDIENTE' ||
+      !seApruebaSola({ ...solicitud, rucDatos: solicitud.rucDatos ?? undefined })
+    ) {
+      return false;
+    }
+    await this.prisma
+      .$transaction((tx) => this.aprobarEnTx(tx, solicitud, solicitud.galeriaId, null, true))
+      .catch(traducirDuplicado);
+    await this.sms.enviar(
+      solicitud.celular,
+      'Tu cuenta de PaseLibre fue aprobada. Entra con tu celular y la contraseña que elegiste.',
+    );
+    return true;
   }
 
   async pedirCambios(id: string, mensaje: string, actorId: string): Promise<SolicitudEquipo> {
@@ -545,6 +569,8 @@ export class RegistroService {
       categorias: entrada.categorias,
       galeriaId,
       galeriaOtra: entrada.galeria_otra,
+      // Al corregir con «Otra galería», el aviso de Equipo › Galerías vuelve a salir.
+      galeriaOtraResueltaEn: null,
       piso: entrada.piso || null,
       stand: entrada.stand,
       referencia: entrada.referencia || null,
@@ -597,6 +623,23 @@ export class RegistroService {
 /** Con SUNAT: activo y habido. */
 function esApto(datos: DatosRuc | null | undefined): boolean {
   return !!datos && datos.estado === 'ACTIVO' && datos.condicion === 'HABIDO';
+}
+
+/**
+ * Con RUC activo y habido se aprueba sola, pero solo si eligió una galería de la lista: una
+ * tienda no puede quedar sin galería. Con «Otra galería» espera a que el equipo la agregue en
+ * Equipo › Galerías (docs/18 §3) o le elija una.
+ */
+function seApruebaSola(campos: {
+  metodo: string;
+  rucDatos?: unknown;
+  galeriaId: string | null;
+}): boolean {
+  return (
+    campos.metodo === 'RUC' &&
+    campos.galeriaId !== null &&
+    esApto(campos.rucDatos as DatosRuc | undefined)
+  );
 }
 
 function aEquipo(

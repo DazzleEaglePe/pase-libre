@@ -22,5 +22,7 @@ import { RegistroService } from './registro.service';
     { provide: PROVEEDOR_SMS, useClass: SmsSimulado },
     { provide: PROVEEDOR_RUC, useClass: RucSimulado },
   ],
+  // Equipo › Galerías aprueba sola la solicitud con RUC que esperaba su galería nueva.
+  exports: [RegistroService],
 })
 export class RegistroModule {}

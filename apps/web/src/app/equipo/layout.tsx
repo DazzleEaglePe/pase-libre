@@ -42,6 +42,7 @@ export default async function LayoutEquipo({ children }: { children: ReactNode }
             reportes={inicio?.reportes.abiertos ?? 0}
             chats={inicio?.chats ?? 0}
             catalogo={inicio?.catalogo_por_revisar ?? 0}
+            galerias={inicio?.galerias_nuevas ?? 0}
           />
           <BotonTema oscuro={sesion.usuario.tema_oscuro} />
           <span className="flex shrink-0 items-center gap-3 text-apoyo">

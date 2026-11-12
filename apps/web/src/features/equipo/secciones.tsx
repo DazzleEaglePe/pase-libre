@@ -41,19 +41,22 @@ export function BotonTema({ oscuro }: { oscuro: boolean }) {
 }
 
 /**
- * La barra negra del panel del equipo (ADM_Web): Inicio, Solicitudes, Reportes, Tiendas, Chats,
- * Comunicados y Cuentas, con los numeritos de lo que espera.
+ * La barra negra del panel del equipo (ADM_Web): Inicio, Solicitudes, Reportes, Tiendas,
+ * Galerías (docs/18 §3), Chats, Comunicados y Cuentas, con los numeritos de lo que espera.
  */
 export function SeccionesDelPanel({
   solicitudes,
   reportes,
   chats,
   catalogo,
+  galerias,
 }: {
   solicitudes: number;
   reportes: number;
   chats: number;
   catalogo: number;
+  /** Avisos «Galería nueva: …» sin resolver. */
+  galerias: number;
 }) {
   const ruta = usePathname();
   const secciones = [
@@ -61,6 +64,7 @@ export function SeccionesDelPanel({
     { href: '/equipo/solicitudes', texto: 'Solicitudes', cuenta: solicitudes },
     { href: '/equipo/reportes', texto: 'Reportes', cuenta: reportes },
     { href: '/equipo/tiendas', texto: 'Tiendas', cuenta: 0 },
+    { href: '/equipo/galerias', texto: 'Galerías', cuenta: galerias },
     { href: '/equipo/chats', texto: 'Chats', cuenta: chats },
     { href: '/equipo/comunicados', texto: 'Comunicados', cuenta: 0 },
     { href: '/equipo/cuentas', texto: 'Cuentas', cuenta: 0 },

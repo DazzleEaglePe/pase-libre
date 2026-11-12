@@ -74,6 +74,8 @@ export interface RespuestaInicioEquipo {
   actividad: Array<{ id: string; autor: string; accion: string; fecha: string }>;
   /** «3 Por revisar en Catálogo · Publicados a mano» (COR18). */
   catalogo_por_revisar: number;
+  /** Avisos «Galería nueva: …» sin resolver en Equipo › Galerías (docs/18 §3). */
+  galerias_nuevas: number;
   /** «Destacadas ahora · 1 de 3 · CGS · 35 min» (COR18). */
   destacadas: {
     activas: number;

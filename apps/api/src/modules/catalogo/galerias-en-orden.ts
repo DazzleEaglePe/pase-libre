@@ -1,10 +1,10 @@
 import type { NivelGaleria } from '@paselibre/contracts';
 
 /**
- * El orden de las galerías en Wilson en vivo y en el directorio de tiendas (N08). Mientras
- * Fabrizio manda el listado en orden, va el de la base (`galeria.orden` y luego el nombre).
- * Cuando llegue, se escriben aquí los slugs en ese orden; las que no estén en la lista van
- * después, en el orden de la base. La galería de quien mira va primero igual («Estás aquí»).
+ * El orden de las galerías en Wilson en vivo y en el directorio de tiendas (N08): el de la base
+ * (`galeria.orden` y luego el nombre), que el equipo cambia arrastrando en Equipo › Galerías
+ * (docs/18 §3). Esta lista fija queda vacía a propósito; si algún día se llena, sus slugs van
+ * primero. La galería de quien mira va primero igual («Estás aquí»).
  */
 export const ORDEN_DE_GALERIAS: readonly string[] = [];
 

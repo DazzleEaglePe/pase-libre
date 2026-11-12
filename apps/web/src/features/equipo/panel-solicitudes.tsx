@@ -6,6 +6,7 @@ import type {
   RespuestaSolicitudesEquipo,
   SolicitudEquipo,
 } from '@paselibre/contracts';
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
@@ -287,6 +288,13 @@ export function PanelSolicitudes() {
                           </option>
                         ))}
                       </select>
+                      <span className="text-nota text-detalle">
+                        ¿Es una galería nueva? Agrégala desde el aviso en{' '}
+                        <Link href="/equipo/galerias" className="font-bold text-pase-texto">
+                          Galerías
+                        </Link>{' '}
+                        y queda elegida aquí.
+                      </span>
                     </label>
                   )}
 

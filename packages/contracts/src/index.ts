@@ -11,6 +11,7 @@ export * from './cuenta/cuenta.schemas.js';
 export * from './cuenta/cuenta.types.js';
 export * from './equipo/equipo.schemas.js';
 export * from './equipo/equipo.types.js';
+export * from './equipo/galerias.js';
 export * from './ofertas/ofertas.schemas.js';
 export * from './ofertas/ofertas.types.js';
 export * from './mensajes/mensajes.schemas.js';
