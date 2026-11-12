@@ -4,11 +4,20 @@
 #   - /v1 y /tiempo-real van a la API; /media sale directo de la carpeta de fotos; el resto, a la web.
 #   - La web y la API comparten dominio: la cookie de sesión es del mismo sitio y no hace falta CORS.
 #   - Los certificados los pide certbot (webroot en /var/www/certbot).
+#   - Límites de peticiones y tiempos de espera: docs/16 §4.2 (en producción desde el 12/11/2026).
 
 map $http_upgrade $paselibre_conexion {
     default upgrade;
     ''      close;
 }
+
+# Límites por IP del cliente. Una galería entera puede salir a internet por una sola IP, así que
+# los topes son altos a propósito: frenan a quien martilla, no a una galería. El límite fino (por
+# persona y por ruta) sigue en la API (apps/api/src/shared/limites.ts).
+# CAMBIAR: si otro entorno comparte este nginx, las zonas necesitan otro nombre (igual que los upstream).
+limit_req_zone  $binary_remote_addr zone=paselibre_api:10m     rate=60r/s;
+limit_req_zone  $binary_remote_addr zone=paselibre_ingreso:10m rate=20r/m;
+limit_conn_zone $binary_remote_addr zone=paselibre_conexiones:10m;
 
 # CAMBIAR: staging.paselibre.example → el dominio del entorno. Los puertos son WEB_HOST_PORT y API_HOST_PORT.
 upstream paselibre_web { server 127.0.0.1:3100; keepalive 16; }
@@ -45,8 +54,17 @@ server {
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
-    # Una foto pesa hasta 8 MB (MAX_BYTES_FOTO); lo demás sobra.
+    # Para la web y lo que no tenga ruta propia. La API pide menos (ver /v1/ abajo).
     client_max_body_size 9m;
+
+    # Un cliente lento (o a propósito lento) no retiene conexiones. No afecta al socket abierto
+    # de /tiempo-real: ese se rige por proxy_read_timeout.
+    client_header_timeout 10s;
+    client_body_timeout   30s;
+    send_timeout          30s;
+    keepalive_timeout     30s;
+    limit_req_status  429;
+    limit_conn_status 429;
 
     gzip on;
     gzip_types text/css application/javascript application/json image/svg+xml;
@@ -65,7 +83,8 @@ server {
         try_files $uri =404;
     }
 
-    # El chat y la campanita: WebSocket de socket.io. Quedan abiertos horas.
+    # El chat y la campanita: WebSocket de socket.io. Quedan abiertos horas. Sin límite de
+    # conexiones por IP: en una galería cientos de pestañas comparten la misma IP.
     location ^~ /tiempo-real {
         proxy_pass http://paselibre_api;
         proxy_http_version 1.1;
@@ -80,6 +99,10 @@ server {
     }
 
     location ^~ /v1/ {
+        # JSON chico: Express ya rechaza más de 100 KB. Las subidas tienen su ruta exacta abajo.
+        client_max_body_size 256k;
+        limit_req  zone=paselibre_api burst=120 nodelay;
+        limit_conn paselibre_conexiones 60;
         proxy_pass http://paselibre_api;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -88,6 +111,50 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Connection "";
         proxy_read_timeout 60s;
+    }
+
+    # Entrar (POST) y salir (DELETE). Verificar una clave cuesta 64 MB y CPU (argon2id): esto
+    # frena ráfagas antes de que lleguen a la API, que además cuenta 60 intentos cada 15 min por IP.
+    location = /v1/sesion {
+        client_max_body_size 16k;
+        limit_req  zone=paselibre_ingreso burst=10 nodelay;
+        limit_conn paselibre_conexiones 60;
+        proxy_pass http://paselibre_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    # Subir una foto: hasta 8 MB (MAX_BYTES_FOTO).
+    location = /v1/archivos {
+        client_max_body_size 9m;
+        limit_req  zone=paselibre_api burst=120 nodelay;
+        limit_conn paselibre_conexiones 60;
+        proxy_pass http://paselibre_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    # Importar catálogo (panel del equipo): hasta 40 MB (MAX_BYTES_ARCHIVO). Leer un .zip
+    # grande con fotos puede tardar más que un pedido normal.
+    location = /v1/equipo/catalogo/importar {
+        client_max_body_size 41m;
+        limit_req  zone=paselibre_api burst=120 nodelay;
+        limit_conn paselibre_conexiones 60;
+        proxy_pass http://paselibre_api;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_read_timeout 300s;
     }
 
     location / {

@@ -55,3 +55,23 @@ genera la carga). Un VPS chico puede ser 2 a 4 veces más lento: repetirlo en *s
 | Ingreso sostenido, 20 a la vez | 55 ingresos/s, p95 493 ms; la API sube a ~500 MB de RAM |
 | Una IP sin pausa | 120 respuestas y después 429 (en 3 ms) |
 | Sin pausas y con IP fija | Casi todo 429: el límite por persona y ruta (120/min) funciona |
+
+## Catálogo grande (análisis de `docs/16`)
+
+La prueba del 09/11 usaba 116 productos. Para ver cómo escala la búsqueda con un catálogo realista:
+
+```bash
+docker exec -i paselibre-local-postgres-1 psql -q -U paselibre -d postgres -c "CREATE DATABASE paselibre_carga"
+docker exec paselibre-local-postgres-1 pg_dump -U paselibre paselibre_lienzo | docker exec -i paselibre-local-postgres-1 psql -q -U paselibre -d paselibre_carga
+docker exec -i paselibre-local-postgres-1 psql -q -U paselibre -d paselibre_carga -v ON_ERROR_STOP=1 < tools/carga/catalogo-grande.sql
+```
+
+`catalogo-grande.sql` agrega ~60 000 productos y ~180 000 ofertas sintéticas (slug `sint-N`; se puede repetir) y también se niega a correr si la base no dice «carga». Después se arranca la API compilada sobre esa base (como arriba) y:
+
+| Comando | Qué mide |
+| --- | --- |
+| `node tools/carga/carga.mjs --api=http://localhost:3042 --escenario=visitante --usuarios=50 --segundos=20 --ip-por-pedido` | El techo con catálogo grande |
+| `BASE=http://localhost:3042 bash tools/carga/tiempos.sh` | Cada ruta pública, una a la vez (5 repeticiones) |
+| `UNICAS=0 k6 run tools/carga/ips.js` y `UNICAS=1 k6 run …` | Memoria de la API con pocas IPs frente a 120 000 IPs distintas (requiere [k6](https://k6.io)) |
+
+**Resultados del 11/11/2026** (API compilada, 60 117 productos, 179 663 ofertas, 50 visitantes, IP por pedido): **53 pedidos/s** (antes 2 071), p95 búsqueda con texto 2 177 ms, por categoría 2 743 ms, ficha 955 ms, portada 617 ms, 0 errores. Postgres a ~980 % de CPU (los 10 núcleos) y la API a 8–26 % de uno: el límite es la base. Una búsqueda sin texto tarda 1,2 s sola. Análisis completo en [docs/16](../../docs/16-seguridad-y-escala.md).
