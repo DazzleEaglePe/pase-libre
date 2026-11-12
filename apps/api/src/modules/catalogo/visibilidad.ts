@@ -34,15 +34,18 @@ export function precioPara(
 
 /**
  * La tienda de una oferta tal como la ve quien mira: con la tienda reservada, las demás
- * tiendas reciben «Tienda reservada», sin id ni stand. La dueña y el equipo la ven igual.
+ * tiendas reciben «Tienda reservada», sin id, ni stand, ni logo (el logo la delataría). La
+ * dueña y el equipo la ven igual.
  */
 export function tiendaPara(
   oferta: { tiendaVisible: boolean; tiendaId: string },
-  tienda: { id: string; nombre: string; stand: string | null },
+  tienda: { id: string; nombre: string; stand: string | null; logo?: string | null },
   mirada: Mirada,
-): { id: string; nombre: string; stand: string | null } {
-  if (oferta.tiendaVisible || veOculto(mirada, oferta.tiendaId)) return tienda;
-  return { id: '', nombre: TIENDA_RESERVADA, stand: null };
+): { id: string; nombre: string; stand: string | null; logo: string | null } {
+  if (oferta.tiendaVisible || veOculto(mirada, oferta.tiendaId)) {
+    return { id: tienda.id, nombre: tienda.nombre, stand: tienda.stand, logo: tienda.logo ?? null };
+  }
+  return { id: '', nombre: TIENDA_RESERVADA, stand: null, logo: null };
 }
 
 /** Lo que hace falta de una oferta para saber qué precios ve cada quien (PS_Precio). */

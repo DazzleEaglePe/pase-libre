@@ -84,6 +84,7 @@ export const SELECT_OFERTA_CON_VENDEDOR = {
       id: true,
       nombre: true,
       stand: true,
+      logo: true,
       tipo: true,
       galeria: { select: { nombre: true } },
     },

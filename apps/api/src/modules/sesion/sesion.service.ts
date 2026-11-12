@@ -52,6 +52,7 @@ export function tiendaDeSesion(tienda: NonNullable<UsuarioConTienda['tienda']>):
     tipo: tienda.tipo,
     galeria: tienda.galeria?.nombre ?? null,
     stand: tienda.stand,
+    logo: tienda.logo,
     precio_visible_defecto: tienda.precioVisibleDefecto,
     moneda_defecto: tienda.monedaDefecto,
   };

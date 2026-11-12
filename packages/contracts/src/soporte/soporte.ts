@@ -45,7 +45,14 @@ export interface RespuestaChatEquipo {
 
 /** Un renglón de los chats del panel del equipo. */
 export interface HiloEquipoEnLista {
-  tienda: { id: string; nombre: string; galeria: string | null; stand: string | null };
+  /** `logo`: la ruta (`urlFoto`); sin él, las iniciales. */
+  tienda: {
+    id: string;
+    nombre: string;
+    logo: string | null;
+    galeria: string | null;
+    stand: string | null;
+  };
   ultimo: MensajeChatEquipo | null;
   sin_leer: number;
   actualizado_en: string;

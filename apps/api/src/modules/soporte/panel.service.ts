@@ -465,6 +465,7 @@ export class PanelService {
       select: {
         id: true,
         nombre: true,
+        logo: true,
         stand: true,
         estado: true,
         creadaEn: true,
@@ -488,6 +489,7 @@ export class PanelService {
     return tiendas.map((tienda) => ({
       id: tienda.id,
       nombre: tienda.nombre,
+      logo: tienda.logo,
       galeria: tienda.galeria?.nombre ?? null,
       stand: tienda.stand,
       suspendida: tienda.estado === 'SUSPENDIDA',

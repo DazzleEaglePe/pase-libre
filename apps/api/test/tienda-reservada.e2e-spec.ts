@@ -10,6 +10,7 @@ const url = usarBaseDePruebas();
 const prisma = new PrismaClient({ datasources: { db: { url } } });
 
 const VENTUS = 'msi-geforce-rtx-3070-ventus-3-x-oc-8-gb';
+const LOGO_B = 'tiendas/logo-b.webp';
 
 /**
  * «Mostrar el nombre de mi tienda» apagado (lienzo «Demo · lo aprobado»): las demás tiendas
@@ -35,10 +36,14 @@ describe('Tienda reservada', () => {
     return cookie;
   }
 
-  /** Nada de Tienda B: ni su nombre, ni su stand, ni su WhatsApp, ni el nombre de su dueña. */
+  /**
+   * Nada de Tienda B: ni su nombre, ni su stand, ni su WhatsApp, ni el nombre de su dueña, ni su
+   * logo (1.9.0, punto 6).
+   */
   function sinRastroDeB(cuerpo: unknown): void {
     const texto = JSON.stringify(cuerpo);
     expect(texto).not.toContain('Tienda B');
+    expect(texto).not.toContain(LOGO_B);
     expect(texto).not.toContain('987222101');
     expect(texto).not.toContain('Carla V.');
     expect(texto).not.toMatch(/"stand":"101"/);
@@ -48,6 +53,7 @@ describe('Tienda reservada', () => {
     await vaciarBase(prisma);
     await sembrarBase(prisma);
     await sembrarDemo(prisma);
+    await prisma.tienda.updateMany({ where: { nombre: 'Tienda B' }, data: { logo: LOGO_B } });
     app = await crearApp();
 
     const mias = await http()
@@ -78,7 +84,7 @@ describe('Tienda reservada', () => {
       .expect(200);
     const oferta = ficha.body.ofertas.find((o: { id: string }) => o.id === ofertaId);
     expect(oferta).toMatchObject({
-      tienda: { id: '', nombre: 'Tienda reservada', stand: null },
+      tienda: { id: '', nombre: 'Tienda reservada', stand: null, logo: null },
       tienda_visible: false,
       galeria: 'Cyberplaza',
       precio: { centimos: 24000 },
@@ -93,7 +99,7 @@ describe('Tienda reservada', () => {
         .set('Cookie', await como(usuario))
         .expect(200);
       const oferta = ficha.body.ofertas.find((o: { id: string }) => o.id === ofertaId);
-      expect(oferta.tienda).toMatchObject({ nombre: 'Tienda B', stand: '101' });
+      expect(oferta.tienda).toMatchObject({ nombre: 'Tienda B', stand: '101', logo: LOGO_B });
     }
   });
 
@@ -152,7 +158,13 @@ describe('Tienda reservada', () => {
     const enLista = bandeja.body.conversaciones.find((c: { id: string }) => c.id === id);
     expect(enLista.otro).toMatchObject({
       nombre: 'Tienda reservada',
-      tienda: { id: '', nombre: 'Tienda reservada', galeria: 'Cyberplaza', stand: null },
+      tienda: {
+        id: '',
+        nombre: 'Tienda reservada',
+        galeria: 'Cyberplaza',
+        stand: null,
+        logo: null,
+      },
     });
     sinRastroDeB(bandeja.body);
 

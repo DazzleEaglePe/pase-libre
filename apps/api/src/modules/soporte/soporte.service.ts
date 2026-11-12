@@ -239,7 +239,13 @@ export class SoporteService {
         ultimoMensajeEn: true,
         leidoEquipoHasta: true,
         tienda: {
-          select: { id: true, nombre: true, stand: true, galeria: { select: { nombre: true } } },
+          select: {
+            id: true,
+            nombre: true,
+            logo: true,
+            stand: true,
+            galeria: { select: { nombre: true } },
+          },
         },
         mensajes: { orderBy: { creadoEn: 'desc' }, take: 1, select: SELECT_MENSAJE },
       },
@@ -259,6 +265,7 @@ export class SoporteService {
       tienda: {
         id: hilo.tienda.id,
         nombre: hilo.tienda.nombre,
+        logo: hilo.tienda.logo,
         galeria: hilo.tienda.galeria?.nombre ?? null,
         stand: hilo.tienda.stand,
       },

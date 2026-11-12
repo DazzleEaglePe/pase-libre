@@ -13,6 +13,8 @@ export interface PersonaChat {
     tipo: TipoTienda;
     galeria: string | null;
     stand: string | null;
+    /** La ruta del logo (`urlFoto`); nula sin logo o con la tienda reservada. */
+    logo: string | null;
   };
 }
 
