@@ -27,11 +27,19 @@ const Contexto = createContext<TiempoReal>({ socket: null, conexion: 0 });
  * a conectarse solo y avisa con `conexion` para que cada pantalla pida lo que se perdió.
  * Si la sesión ya no sirve, refresca la página y el layout manda a /ingresar.
  */
-export function ProveedorTiempoReal({ children }: { children: ReactNode }) {
+export function ProveedorTiempoReal({
+  children,
+  apagado = false,
+}: {
+  children: ReactNode;
+  /** En «Ayudar como la tienda» no hay tiempo real: el equipo no recibe los chats (N14). */
+  apagado?: boolean;
+}) {
   const router = useRouter();
   const [estado, setEstado] = useState<TiempoReal>({ socket: null, conexion: 0 });
 
   useEffect(() => {
+    if (apagado) return;
     const socket = io(DIRECCION ?? '', {
       path: RUTA_TIEMPO_REAL,
       withCredentials: true,
@@ -50,7 +58,7 @@ export function ProveedorTiempoReal({ children }: { children: ReactNode }) {
       socket.removeAllListeners();
       socket.disconnect();
     };
-  }, [router]);
+  }, [router, apagado]);
 
   return <Contexto.Provider value={estado}>{children}</Contexto.Provider>;
 }

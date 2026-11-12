@@ -218,13 +218,19 @@ export function TiendasPanel() {
                 >
                   {iniciales(detalle.nombre)}
                 </span>
-                <span className="flex flex-col">
+                <span className="flex flex-1 flex-col">
                   <h2 className="text-[24px] font-bold leading-7">{detalle.nombre}</h2>
                   <span className="text-apoyo text-secundario">
                     {detalle.suspendida ? 'Suspendida' : 'Activa'} ·{' '}
                     {detalle.con_ruc ? 'Verificada con RUC' : 'Verificada sin RUC'}
                   </span>
                 </span>
+                <Link
+                  href={`/equipo/tiendas/${detalle.id}`}
+                  className="shrink-0 text-apoyo font-bold text-pase-texto no-underline"
+                >
+                  Ver ficha completa ›
+                </Link>
               </div>
               <dl className="m-0 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {[

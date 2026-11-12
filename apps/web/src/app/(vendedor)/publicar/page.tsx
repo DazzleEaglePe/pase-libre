@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 
 import { FormularioPublicar } from '@/features/publicar/formulario-publicar';
 import { obtenerSesion } from '@/shared/api/servidor';
+import { sesionPuede } from '@/shared/permisos';
+import { SinPermiso } from '@/shared/ui/sin-permiso';
 
 export const metadata: Metadata = {
   title: 'Publicar',
@@ -21,6 +23,7 @@ export default async function PaginaPublicar({
 }) {
   const sesion = await obtenerSesion();
   if (!sesion?.tienda) redirect('/ingresar');
+  if (!sesionPuede(sesion, 'PUBLICAR')) return <SinPermiso que="publicar productos" />;
   const { igual, editar } = await searchParams;
 
   return (

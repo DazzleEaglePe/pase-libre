@@ -1,6 +1,6 @@
 'use client';
 
-import type { RespuestaYo } from '@paselibre/contracts';
+import type { DetallesLimiteDispositivos, RespuestaYo } from '@paselibre/contracts';
 import { IconBrandWhatsapp, IconLock } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -10,6 +10,8 @@ import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { iniciales } from '@/shared/iniciales';
 import { Marca } from '@/shared/ui/marca';
 import { enlaceWhatsappEquipo } from '@/shared/whatsapp-equipo';
+
+import { LimiteDispositivos } from './limite-dispositivos';
 
 type Pestana = 'ingresar' | 'crear';
 
@@ -169,6 +171,8 @@ function Ingreso({
   const [olvide, setOlvide] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  /** «Ya tienes 2 sesiones abiertas» (N10): solo llega con la contraseña correcta. */
+  const [limite, setLimite] = useState<DetallesLimiteDispositivos | null>(null);
   const whatsappClave = enlaceWhatsappEquipo(
     'Hola, olvidé mi contraseña de PaseLibre. Mi usuario es: ',
   );
@@ -182,21 +186,48 @@ function Ingreso({
       setError('Escribe tu celular, correo o usuario y tu contraseña.');
       return;
     }
+    await ingresar();
+  }
+
+  async function ingresar(cerrar?: string[] | 'todas') {
     setEnviando(true);
     setError(null);
     try {
       alIngresar(
         await llamarApi<RespuestaYo>('/sesion', {
           metodo: 'POST',
-          cuerpo: { usuario, clave, recordar },
+          cuerpo: { usuario, clave, recordar, ...(cerrar ? { cerrar } : {}) },
         }),
       );
     } catch (e) {
-      setError(
-        e instanceof ErrorApi ? e.message : 'No pudimos iniciar sesión. Vuelve a intentarlo.',
-      );
+      if (e instanceof ErrorApi && e.codigo === 'LIMITE_DISPOSITIVOS' && e.detalles) {
+        setLimite(e.detalles as unknown as DetallesLimiteDispositivos);
+        // Si eligió una que ya se cerró sola, vuelve a ver la lista al día.
+        if (cerrar) setError('Esa sesión ya no estaba abierta. Elige otra.');
+      } else {
+        setError(
+          e instanceof ErrorApi ? e.message : 'No pudimos iniciar sesión. Vuelve a intentarlo.',
+        );
+        if (cerrar) setLimite(null);
+      }
       setEnviando(false);
     }
+  }
+
+  if (limite) {
+    return (
+      <LimiteDispositivos
+        detalles={limite}
+        enviando={enviando}
+        error={error}
+        alCerrar={(cerrar) => void ingresar(cerrar)}
+        alCancelar={() => {
+          setLimite(null);
+          setError(null);
+          setClave('');
+        }}
+      />
+    );
   }
 
   return (

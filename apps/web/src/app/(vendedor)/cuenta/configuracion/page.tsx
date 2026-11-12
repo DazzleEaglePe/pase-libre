@@ -17,6 +17,7 @@ const SECCIONES_VALIDAS: readonly Seccion[] = [
   'avisos',
   'privacidad',
   'preferencias',
+  'asesores',
   'reportes',
   'bloqueadas',
 ];

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 
+import { SeccionAsesores } from './asesores';
 import { SeccionAvisos } from './avisos';
 import { SeccionBloqueadas } from './bloqueadas';
 import { SeccionDatos } from './datos';
@@ -20,6 +21,7 @@ export const SECCIONES = {
   avisos: { titulo: 'Avisos', resumen: 'Qué te avisamos y cuándo' },
   privacidad: { titulo: 'Privacidad', resumen: 'El «Visto» de tus mensajes' },
   preferencias: { titulo: 'Preferencias', resumen: 'Al publicar y respuestas rápidas' },
+  asesores: { titulo: 'Asesores', resumen: 'Hasta 3 personas' },
   reportes: { titulo: 'Mis reportes', resumen: 'Lo que reportaste y qué pasó' },
   bloqueadas: { titulo: 'Tiendas bloqueadas', resumen: 'No te escriben ni ves lo suyo' },
 } as const;
@@ -73,6 +75,8 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
           className="flex w-full gap-1 overflow-x-auto pb-1 md:w-[260px] md:shrink-0 md:flex-col md:overflow-visible"
         >
           {(Object.keys(SECCIONES) as Seccion[]).map((clave) => {
+            // Agregar asesores es solo del dueño (N12).
+            if (clave === 'asesores' && cuenta?.usuario.rol !== 'DUENO') return null;
             const elegida = clave === seccion;
             return (
               <button
@@ -109,7 +113,12 @@ export function Configuracion({ seccionInicial }: { seccionInicial: Seccion }) {
           {cuenta && seccion === 'datos' && (
             <SeccionDatos cuenta={cuenta} alGuardar={alGuardarCuenta} />
           )}
-          {cuenta && seccion === 'seguridad' && <SeccionSeguridad alAvisar={setAviso} />}
+          {cuenta && seccion === 'seguridad' && (
+            <SeccionSeguridad alAvisar={setAviso} rol={cuenta.usuario.rol} />
+          )}
+          {cuenta && seccion === 'asesores' && cuenta.usuario.rol === 'DUENO' && (
+            <SeccionAsesores tienda={cuenta.tienda?.nombre ?? 'tu tienda'} alAvisar={setAviso} />
+          )}
           {cuenta && seccion === 'avisos' && <SeccionAvisos alAvisar={setAviso} />}
           {cuenta && seccion === 'privacidad' && (
             <SeccionPrivacidad cuenta={cuenta} alGuardar={alGuardarCuenta} />

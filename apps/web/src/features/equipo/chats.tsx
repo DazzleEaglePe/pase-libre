@@ -3,6 +3,7 @@
 import type {
   HiloEquipoEnLista,
   MensajeChatEquipo,
+  RespuestaAutomatica,
   RespuestaChatEquipo,
 } from '@paselibre/contracts';
 import { IconSend } from '@tabler/icons-react';
@@ -57,7 +58,11 @@ export function ChatsEquipo() {
         metodo: 'POST',
         cuerpo: { texto: borrador.trim() },
       });
-      setChat((antes) => ({ mensajes: [...(antes?.mensajes ?? []), mensaje], sin_leer: 0 }));
+      setChat((antes) => ({
+        ...antes,
+        mensajes: [...(antes?.mensajes ?? []), mensaje],
+        sin_leer: 0,
+      }));
       setBorrador('');
       void cargarHilos();
     } catch (falla) {
@@ -72,6 +77,7 @@ export function ChatsEquipo() {
         <h1 className="m-0 border-b border-linea px-4 py-4 text-[19px] font-bold">
           Chats con las tiendas
         </h1>
+        <EditarRespuestaAutomatica />
         <ul className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-0">
           {hilos?.length === 0 && (
             <li className="px-4 py-6 text-apoyo text-secundario">
@@ -159,7 +165,11 @@ export function ChatsEquipo() {
                   )}
                   <span className="whitespace-pre-wrap break-words">{mensaje.texto}</span>
                   <span className="text-right text-[11px] opacity-70">
-                    {mensaje.de_equipo ? `${mensaje.autor} · ` : ''}
+                    {mensaje.automatica
+                      ? 'Respuesta automática · '
+                      : mensaje.de_equipo
+                        ? `${mensaje.autor} · `
+                        : ''}
                     {cuandoFue(mensaje.creado_en)}
                   </span>
                 </div>
@@ -194,6 +204,83 @@ export function ChatsEquipo() {
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+/**
+ * «Respuesta automática» (N14, mejoras 37 y 38): sale la primera vez que una tienda escribe (o
+ * tras 12 h sin conversación). «{tienda}» se cambia por su nombre.
+ */
+function EditarRespuestaAutomatica() {
+  const [abierta, setAbierta] = useState(false);
+  const [texto, setTexto] = useState<string | null>(null);
+  const [estado, setEstado] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!abierta || texto !== null) return;
+    llamarApi<RespuestaAutomatica>('/equipo/chats/respuesta-automatica').then(
+      (respuesta) => setTexto(respuesta.texto),
+      () => setEstado('No pudimos cargarla.'),
+    );
+  }, [abierta, texto]);
+
+  async function guardar(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (texto === null) return;
+    try {
+      await llamarApi('/equipo/chats/respuesta-automatica', { metodo: 'PUT', cuerpo: { texto } });
+      setEstado('Guardada. Sale desde el próximo mensaje.');
+    } catch (falla) {
+      setEstado(falla instanceof ErrorApi ? falla.message : 'No pudimos guardarla.');
+    }
+  }
+
+  return (
+    <div className="border-b border-linea px-4 py-3">
+      <button
+        type="button"
+        aria-expanded={abierta}
+        onClick={() => setAbierta(!abierta)}
+        className="flex w-full items-center justify-between text-apoyo font-bold"
+      >
+        <span className="flex items-center gap-2">
+          <span className="rounded-full bg-marca px-2 text-[11px] leading-5 text-acento">
+            Respuesta automática
+          </span>
+          La primera vez o tras 12 h
+        </span>
+        <span aria-hidden="true">{abierta ? '−' : '+'}</span>
+      </button>
+      {abierta && (
+        <form onSubmit={(evento) => void guardar(evento)} className="mt-3 flex flex-col gap-2">
+          <label className="flex flex-col gap-1.5 text-nota text-secundario">
+            Lo que reciben. «{'{tienda}'}» se cambia por el nombre de la tienda.
+            <textarea
+              rows={5}
+              maxLength={1000}
+              value={texto ?? ''}
+              disabled={texto === null}
+              onChange={(evento) => setTexto(evento.target.value)}
+              className="rounded-xl border border-borde px-3.5 py-3 text-apoyo text-tinta"
+            />
+          </label>
+          <span className="flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={texto === null || texto.trim().length < 10}
+              className="h-10 rounded-full bg-tinta px-4 text-apoyo font-bold text-white disabled:bg-borde"
+            >
+              Guardar
+            </button>
+            {estado && (
+              <span role="status" className="text-nota text-secundario">
+                {estado}
+              </span>
+            )}
+          </span>
+        </form>
+      )}
     </div>
   );
 }

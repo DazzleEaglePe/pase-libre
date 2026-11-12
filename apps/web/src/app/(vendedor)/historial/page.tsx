@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 
 import { PaginaHistorial } from '@/features/historial/pagina-historial';
+import { obtenerSesion } from '@/shared/api/servidor';
+import { sesionPuede } from '@/shared/permisos';
+import { SinPermiso } from '@/shared/ui/sin-permiso';
 
 export const metadata: Metadata = { title: 'Mis ventas y compras', robots: { index: false } };
 
@@ -14,5 +17,8 @@ export default async function Historial({
   searchParams: Promise<{ lado?: string }>;
 }) {
   const { lado } = await searchParams;
+  if (!sesionPuede(await obtenerSesion(), 'HISTORIAL')) {
+    return <SinPermiso que="ver el historial de ventas" />;
+  }
   return <PaginaHistorial ladoInicial={lado === 'compras' ? 'compras' : 'ventas'} />;
 }

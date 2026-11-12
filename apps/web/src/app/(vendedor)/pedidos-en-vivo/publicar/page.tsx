@@ -5,6 +5,8 @@ import { notFound, redirect } from 'next/navigation';
 
 import { FormularioEnVivo } from '@/features/en-vivo/publicar';
 import { consultarApi, consultarApiCompartida, obtenerSesion } from '@/shared/api/servidor';
+import { sesionPuede } from '@/shared/permisos';
+import { SinPermiso } from '@/shared/ui/sin-permiso';
 
 export const metadata: Metadata = {
   title: 'Publicar un pedido en vivo',
@@ -28,6 +30,7 @@ export default async function PublicarPedidoEnVivo({
   ]);
   if (!sesion?.tienda) redirect('/ingresar');
   if (estado === 404) notFound();
+  if (!sesionPuede(sesion, 'EN_VIVO')) return <SinPermiso que="publicar en vivo" />;
 
   return (
     <>

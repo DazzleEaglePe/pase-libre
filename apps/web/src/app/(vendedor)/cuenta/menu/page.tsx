@@ -24,7 +24,7 @@ export default async function MenuDeLaCuenta() {
       <CabeceraMovil titulo={`Tu cuenta · ${tienda.nombre}`} />
       <h1 className="text-titulo max-md:hidden">Tu cuenta</h1>
       <div className="rounded-[24px] border border-linea bg-superficie p-3 shadow-[0_12px_30px_rgba(20,22,26,0.08)]">
-        <ContenidoMenuCuenta tienda={tienda} lugar={lugar} />
+        <ContenidoMenuCuenta tienda={tienda} lugar={lugar} permisos={sesion.usuario.permisos} />
       </div>
     </div>
   );
