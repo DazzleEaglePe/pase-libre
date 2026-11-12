@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
@@ -24,6 +24,8 @@ const LADO_MAXIMO = 1600;
 const MAX_PIXELES = 24_000_000;
 
 const FOTO_INVALIDA = 'Sube una foto JPEG, PNG o WebP.';
+/** Como las escribe `subir`: así nunca se borra nada fuera de la carpeta de fotos. */
+const RUTA_SUBIDA = /^\d{4}\/\d{2}\/[0-9a-f-]{36}\.webp$/;
 
 /**
  * Fotos de ofertas, productos y, más adelante, del chat (docs/05 §9). Cada foto se vuelve
@@ -94,6 +96,38 @@ export class ArchivosService {
       );
     }
     return new Map(archivos.map((a) => [a.ruta, { ancho: a.ancho, alto: a.alto }]));
+  }
+
+  /**
+   * Borra las fotos que ya nadie usa: el archivo y su fila (docs/17: al reemplazar o eliminar
+   * productos del catálogo). Se llama **después** de la transacción que las dejó sin uso; si esa
+   * falla, las fotos siguen ahí. Una ruta que todavía usa un producto, una oferta, un mensaje o
+   * una tienda no se toca.
+   */
+  async borrarSinUso(rutas: readonly string[]): Promise<number> {
+    const unicas = [...new Set(rutas)].filter((ruta) => RUTA_SUBIDA.test(ruta));
+    if (unicas.length === 0) return 0;
+    const usadas = await this.prisma.$queryRaw<Array<{ ruta: string }>>`
+      SELECT ruta FROM producto_foto WHERE ruta = ANY(${unicas})
+      UNION SELECT ruta FROM oferta_foto WHERE ruta = ANY(${unicas})
+      UNION SELECT foto FROM mensaje WHERE foto = ANY(${unicas})
+      UNION SELECT foto FROM mensaje_version WHERE foto = ANY(${unicas})
+      UNION SELECT logo FROM tienda WHERE logo = ANY(${unicas})
+      UNION SELECT portada_ruta FROM tienda WHERE portada_ruta = ANY(${unicas})`;
+    const enUso = new Set(usadas.map((fila) => fila.ruta));
+    const libres = unicas.filter((ruta) => !enUso.has(ruta));
+    if (libres.length === 0) return 0;
+    await this.prisma.archivo.deleteMany({ where: { ruta: { in: libres } } });
+    let borradas = 0;
+    for (const ruta of libres) {
+      try {
+        await unlink(join(this.carpeta, ruta));
+        borradas++;
+      } catch {
+        // Ya no estaba: no importa.
+      }
+    }
+    return borradas;
   }
 
   private async procesar(contenido: Buffer) {

@@ -4,13 +4,21 @@ import {
   slugDe,
   tituloDeProducto,
   type AgregarCatalogoDatos,
+  type ArchivoSubido,
+  type CambioDeDato,
   type CatalogoEquipoConsulta,
+  type CrearImportacionDatos,
   type EditarCatalogoDatos,
   type FilaIncompleta,
+  type ModoExistentes,
+  type ParecidoImportacion,
   type ProductoDelCatalogo,
+  type ProductoQueYaEsta,
   type RespuestaCatalogoEquipo,
+  type RespuestaEliminarCatalogo,
   type RespuestaImportacion,
   type RespuestaPorRevisar,
+  type ResumenEliminarCatalogo,
   type RevisionImportacion,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
@@ -40,6 +48,118 @@ interface FilaLeida {
   foto: string;
   falta: string[];
   existe: boolean;
+  /** Le faltan categoría, marca o modelo: de uno que ya está, solo se cambia la foto. */
+  datosIncompletos?: boolean;
+  /** El nombre que tendría (`slugDe` del título), para emparejar las filas sin código. */
+  slug?: string;
+  /** El producto que ya está: mismo código de parte o, si la fila no tiene, mismo nombre. */
+  productoId?: string | null;
+  /** Mismo nombre que uno del catálogo con otro código: no se crea (docs/17 §3). */
+  parecido?: { titulo: string; codigo_parte: string | null } | null;
+  /** Otra fila del archivo ya es este producto. */
+  repetida?: boolean;
+  /** Con «Reemplazar fotos y datos», algún dato cambia. */
+  cambia?: boolean;
+  /** La foto del .zip que le toca: clave de `ImportacionCatalogo.fotos`. */
+  fotoClave?: string | null;
+}
+
+/**
+ * Lo que se escribe en «código de parte» cuando todavía no se sabe: no es un código. Como el
+ * código es único, tomarlo por uno haría que todas esas filas fueran «el mismo producto».
+ */
+const SIN_CODIGO =
+  /^(por\s+confirmar|pendiente|sin\s+c[oó]digo|no\s+tiene|s\/?[cn]|n\/?[ad]|[-—?x.]+)$/i;
+function codigoReal(texto: string | null | undefined): string | null {
+  const limpio = (texto ?? '').trim();
+  return limpio && !SIN_CODIGO.test(limpio) ? limpio : null;
+}
+
+/** Publicaciones que cuentan para «¿Estás seguro?»: las que una tienda tiene a la vista o pausadas. */
+const PUBLICACIONES_VIGENTES: Prisma.OfertaWhereInput = { estado: { in: ['ACTIVA', 'PAUSADA'] } };
+
+/** Lo que hace falta de un producto que ya está para comparar y actualizar desde el archivo. */
+const SELECT_YA_ESTA = {
+  id: true,
+  slug: true,
+  titulo: true,
+  modelo: true,
+  version: true,
+  codigoParte: true,
+  caracteristicas: true,
+  fusionadoEnId: true,
+  categoria: { select: { slug: true, nombre: true } },
+  marca: { select: { nombre: true } },
+  etiquetas: { select: { etiqueta: { select: { nombre: true } } } },
+  fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+  _count: { select: { ofertas: { where: PUBLICACIONES_VIGENTES } } },
+} satisfies Prisma.ProductoSelect;
+type ProductoYaEsta = Prisma.ProductoGetPayload<{ select: typeof SELECT_YA_ESTA }>;
+
+/** «Chip: AD104 · Memoria: 12 GB», ordenadas, para comparar y mostrar. */
+function textoCaracteristicas(valor: unknown): string {
+  if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return '';
+  return Object.entries(valor as Record<string, unknown>)
+    .map(([k, v]) => `${k}: ${String(v)}`)
+    .sort()
+    .join(' · ');
+}
+
+/** Lo que cambiaría en un producto que ya está con «Reemplazar fotos y datos». */
+function cambiosDe(
+  fila: FilaLeida,
+  producto: ProductoYaEsta,
+  categoria: { slug: string; nombre: string } | undefined,
+): CambioDeDato[] {
+  const cambios: CambioDeDato[] = [];
+  if (categoria && categoria.slug !== producto.categoria.slug) {
+    cambios.push({
+      campo: 'Categoría',
+      antes: producto.categoria.nombre,
+      despues: categoria.nombre,
+    });
+  }
+  const marca = producto.marca?.nombre ?? '';
+  if (normalizarTexto(fila.marca) !== normalizarTexto(marca)) {
+    cambios.push({ campo: 'Marca', antes: marca || 'sin marca', despues: fila.marca });
+  }
+  if (fila.modelo !== (producto.modelo ?? '')) {
+    cambios.push({ campo: 'Modelo', antes: producto.modelo || 'sin modelo', despues: fila.modelo });
+  }
+  if (fila.version !== (producto.version ?? '')) {
+    cambios.push({
+      campo: 'Versión',
+      antes: producto.version || 'sin versión',
+      despues: fila.version || 'sin versión',
+    });
+  }
+  const codigo = fila.codigo_parte || codigoReal(producto.codigoParte);
+  if ((codigo ?? '').toLowerCase() !== (producto.codigoParte ?? '').toLowerCase()) {
+    cambios.push({
+      campo: 'Código de parte',
+      antes: producto.codigoParte ?? 'sin código',
+      despues: codigo ?? 'sin código',
+    });
+  }
+  if (fila.sinonimos.length > 0) {
+    const antes = producto.etiquetas.map((e) => e.etiqueta.nombre);
+    const clave = (lista: string[]) => [...new Set(lista.map(normalizarTexto))].sort().join('|');
+    if (clave(antes) !== clave(fila.sinonimos)) {
+      cambios.push({
+        campo: 'Sinónimos',
+        antes: antes.join(', ') || 'ninguno',
+        despues: fila.sinonimos.join(', '),
+      });
+    }
+  }
+  if (Object.keys(fila.caracteristicas).length > 0) {
+    const antes = textoCaracteristicas(producto.caracteristicas);
+    const despues = textoCaracteristicas(fila.caracteristicas);
+    if (antes !== despues) {
+      cambios.push({ campo: 'Características', antes: antes || 'ninguna', despues });
+    }
+  }
+  return cambios;
 }
 
 const invalido = (mensaje: string) =>
@@ -52,7 +172,7 @@ function clave(texto: string): string {
 
 const COLUMNAS: Record<
   string,
-  keyof Omit<FilaLeida, 'fila' | 'falta' | 'existe' | 'caracteristicas'>
+  'categoria' | 'marca' | 'modelo' | 'version' | 'codigo_parte' | 'sinonimos' | 'foto'
 > = {
   categoria: 'categoria',
   marca: 'marca',
@@ -207,6 +327,7 @@ export class CatalogoEquipoService {
           select: { tiendaId: true },
           distinct: ['tiendaId'],
         },
+        _count: { select: { ofertas: { where: PUBLICACIONES_VIGENTES } } },
       },
     });
     const porId = new Map(filas.map((fila) => [fila.id, fila]));
@@ -238,7 +359,9 @@ export class CatalogoEquipoService {
           caracteristicas,
           foto: fila.fotos[0]?.ruta ?? null,
           fotos: fila.fotos.length,
+          rutas_fotos: fila.fotos.map((f) => f.ruta),
           tiendas: fila.ofertas.length,
+          publicaciones: fila._count.ofertas,
         },
       ];
     });
@@ -542,8 +665,14 @@ export class CatalogoEquipoService {
     });
   }
 
-  /** «Editar» y «Corregir y agregar»: cambia los datos y lo da por revisado. */
+  /**
+   * «Editar» y «Corregir y agregar»: cambia los datos y lo da por revisado. Con `fotos` también
+   * cambia sus fotos y cuál es la principal (docs/17 §2): las publicaciones que usan el producto
+   * toman la nueva, salvo las que eligieron su propia portada. Las fotos que quedan sin uso se
+   * borran después de guardar.
+   */
   async editar(id: string, datos: EditarCatalogoDatos, sesion: SesionActiva): Promise<void> {
+    let sinUso: string[] = [];
     try {
       await this.prisma.$transaction(async (tx) => {
         const actual = await tx.producto.findUnique({
@@ -554,6 +683,10 @@ export class CatalogoEquipoService {
             codigoParte: true,
             marca: { select: { nombre: true } },
             etiquetas: { select: { etiqueta: { select: { nombre: true } } } },
+            fotos: {
+              select: { ruta: true, ancho: true, alto: true },
+              orderBy: { orden: 'asc' },
+            },
           },
         });
         if (!actual) {
@@ -562,6 +695,40 @@ export class CatalogoEquipoService {
             'NO_ENCONTRADO',
             'Ese producto ya no está.',
           );
+        }
+        let fotosCambiaron = false;
+        if (datos.fotos) {
+          const rutas = [...new Set(datos.fotos)];
+          const deAntes = new Map(actual.fotos.map((f) => [f.ruta, f]));
+          const nuevas = rutas.filter((ruta) => !deAntes.has(ruta));
+          const subidas = nuevas.length
+            ? await tx.archivo.findMany({
+                where: { ruta: { in: nuevas }, usuarioId: sesion.usuario.id },
+                select: { ruta: true, ancho: true, alto: true },
+              })
+            : [];
+          if (subidas.length !== nuevas.length) {
+            throw invalido('Una de las fotos no es válida; súbela de nuevo.');
+          }
+          const medidas = new Map([...deAntes, ...subidas.map((s) => [s.ruta, s] as const)]);
+          fotosCambiaron = rutas.join('|') !== actual.fotos.map((f) => f.ruta).join('|');
+          if (fotosCambiaron) {
+            await tx.archivo.updateMany({
+              where: { ruta: { in: nuevas } },
+              data: { usadoEn: new Date() },
+            });
+            await tx.productoFoto.deleteMany({ where: { productoId: id } });
+            await tx.productoFoto.createMany({
+              data: rutas.map((ruta, orden) => ({
+                productoId: id,
+                ruta,
+                orden,
+                ancho: medidas.get(ruta)?.ancho ?? null,
+                alto: medidas.get(ruta)?.alto ?? null,
+              })),
+            });
+            sinUso = actual.fotos.map((f) => f.ruta).filter((ruta) => !rutas.includes(ruta));
+          }
         }
         const marca = datos.marca ? await this.marcaDe(tx, datos.marca) : null;
         const categoria = datos.categoria ? await this.categoriaDe(tx, datos.categoria) : null;
@@ -589,8 +756,13 @@ export class CatalogoEquipoService {
           },
         });
         if (datos.sinonimos) await this.guardarSinonimos(tx, id, datos.sinonimos);
-        await this.anotar(sesion, `corrigió en el catálogo «${titulo}»`, tx);
+        await this.anotar(
+          sesion,
+          `corrigió en el catálogo «${titulo}»${fotosCambiaron ? ' y cambió sus fotos' : ''}`,
+          tx,
+        );
       });
+      await this.archivos.borrarSinUso(sinUso);
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ApiHttpException(
@@ -614,6 +786,8 @@ export class CatalogoEquipoService {
     const extension = nombre.toLowerCase().split('.').pop() ?? '';
     let tabla: string[][];
     const fotosEnZip = new Map<string, JSZip.JSZipObject>();
+    // También por el nombre normalizado: «Antec CX300 ARGB.jpg» = «antec-cx300-argb.jpg».
+    const fotosPorNombre = new Map<string, JSZip.JSZipObject>();
     try {
       if (extension === 'zip') {
         const zip = await JSZip.loadAsync(archivo.buffer);
@@ -633,7 +807,9 @@ export class CatalogoEquipoService {
             EXTENSIONES_FOTO.test(base) &&
             !f.name.startsWith('__MACOSX')
           ) {
-            fotosEnZip.set(base.replace(EXTENSIONES_FOTO, '').toLowerCase(), f);
+            const sinExtension = base.replace(EXTENSIONES_FOTO, '');
+            fotosEnZip.set(sinExtension.toLowerCase(), f);
+            if (slugDe(sinExtension)) fotosPorNombre.set(slugDe(sinExtension), f);
           }
         }
       } else if (extension === 'xlsx') {
@@ -691,82 +867,217 @@ export class CatalogoEquipoService {
             .split(/[;,]/)
             .map((s) => s.trim())
             .filter(Boolean);
-        else if (campo) (fila[campo] as string) = valor;
+        else if (campo) fila[campo] = valor;
         else if (columna) fila.caracteristicas[nombreCaracteristica(cabecera[j]!)] = valor;
       });
+      // «por confirmar» no es un código: esa fila se empareja por el nombre (docs/17 §3).
+      fila.codigo_parte = codigoReal(fila.codigo_parte) ?? '';
       if (!fila.categoria || !categoriaValida(fila.categoria)) fila.falta.push('Categoría');
       if (!fila.marca) fila.falta.push('Marca');
       if (!fila.modelo) fila.falta.push('Modelo');
-      if (!fila.codigo_parte) fila.falta.push('Código de parte');
+      fila.datosIncompletos = fila.falta.length > 0;
+      if (!fila.datosIncompletos) {
+        fila.slug = slugDe(
+          tituloDeProducto(fila.marca, [fila.modelo, fila.version].filter(Boolean).join(' ')),
+        );
+      }
       return fila;
     });
 
-    // Fotos: por la columna «foto» o por el código de parte (TUF-RTX5070-O12G-GAMING.jpg).
-    const fotos: Record<string, { ruta: string; ancho: number; alto: number }> = {};
+    // ¿Ya está? Mismo código de parte; si la fila no tiene código, el mismo nombre.
+    const yaEstan = await this.emparejar(filas);
+    for (const fila of filas) fila.existe = Boolean(fila.productoId);
+
+    // Fotos: por la columna «foto», el código de parte o el nombre (TUF-RTX5070-O12G-GAMING.jpg).
+    const fotos: Record<string, ArchivoSubido> = {};
+    const fallidas = new Set<string>();
     if (fotosEnZip.size > 0) {
       for (const fila of filas) {
-        const buscada = (fila.foto || fila.codigo_parte)
-          .replace(EXTENSIONES_FOTO, '')
-          .toLowerCase();
-        const entrada = buscada ? fotosEnZip.get(buscada) : undefined;
-        if (!entrada) {
-          if (fila.falta.length === 0) fila.falta.push('Foto (no está en fotos/)');
-          continue;
+        if (fila.parecido || fila.repetida) continue;
+        const nueva = !fila.productoId;
+        const clave = [fila.foto, fila.codigo_parte, fila.slug ?? '']
+          .flatMap((texto) => {
+            const sin = texto.replace(EXTENSIONES_FOTO, '').trim();
+            return sin ? [sin.toLowerCase(), slugDe(sin)] : [];
+          })
+          .find((texto) => texto && (fotosEnZip.has(texto) || fotosPorNombre.has(texto)));
+        const entrada = clave ? (fotosEnZip.get(clave) ?? fotosPorNombre.get(clave)) : undefined;
+        if (clave && entrada && !fotos[clave] && !fallidas.has(clave)) {
+          try {
+            fotos[clave] = await this.archivos.subir(await entrada.async('nodebuffer'), {
+              id: sesion.usuario.id,
+              tiendaId: null,
+            });
+          } catch {
+            fallidas.add(clave);
+          }
         }
-        if (fotos[buscada]) continue;
-        try {
-          const subida = await this.archivos.subir(await entrada.async('nodebuffer'), {
-            id: sesion.usuario.id,
-            tiendaId: null,
-          });
-          fotos[buscada] = subida;
-        } catch {
-          if (fila.falta.length === 0) fila.falta.push('Foto (no se pudo leer)');
+        fila.fotoClave = clave && fotos[clave] ? clave : null;
+        if (nueva && fila.falta.length === 0 && !fila.fotoClave) {
+          fila.falta.push(clave ? 'Foto (no se pudo leer)' : 'Foto (no está en fotos/)');
         }
       }
     }
 
-    // Lo que ya está (mismo código de parte) se omite.
-    const codigos = filas.map((f) => f.codigo_parte).filter(Boolean);
-    const existentes = new Set(
-      (
-        await this.prisma.producto.findMany({
-          where: { codigoParte: { in: codigos, mode: 'insensitive' } },
-          select: { codigoParte: true },
-        })
-      ).map((p) => (p.codigoParte ?? '').toLowerCase()),
-    );
-    for (const fila of filas) fila.existe = existentes.has(fila.codigo_parte.toLowerCase());
+    const categoriaDeTexto = (texto: string) =>
+      categorias.find(
+        (c) =>
+          c.slug === texto.trim() ||
+          c.slug === slugDe(texto) ||
+          normalizarTexto(c.nombre) === normalizarTexto(texto),
+      );
+    const ya_estan: ProductoQueYaEsta[] = [];
+    for (const fila of filas) {
+      const producto = fila.productoId ? yaEstan.get(fila.productoId) : undefined;
+      if (!producto) continue;
+      const cambios = fila.datosIncompletos
+        ? []
+        : cambiosDe(fila, producto, categoriaDeTexto(fila.categoria));
+      fila.cambia = cambios.length > 0;
+      ya_estan.push({
+        fila: fila.fila,
+        id: producto.id,
+        titulo: producto.titulo,
+        codigo_parte: producto.codigoParte,
+        foto_antes: producto.fotos[0]?.ruta ?? null,
+        foto_nueva: fila.fotoClave ? (fotos[fila.fotoClave]?.ruta ?? null) : null,
+        cambios,
+        publicaciones: producto._count.ofertas,
+      });
+    }
 
     const importacion = await this.prisma.importacionCatalogo.create({
       data: {
         usuarioId: sesion.usuario.id,
         nombre,
         filas: filas as unknown as Prisma.InputJsonValue,
-        fotos,
+        fotos: fotos as unknown as Prisma.InputJsonValue,
       },
       select: { id: true },
     });
+    const nombreDe = (f: FilaLeida) =>
+      [f.marca, f.modelo, f.version].filter(Boolean).join(' ') || '(sin nombre)';
     const incompletas: FilaIncompleta[] = filas
-      .filter((f) => !f.existe && f.falta.length > 0)
-      .map((f) => ({
-        fila: f.fila,
-        producto: [f.marca, f.modelo, f.version].filter(Boolean).join(' ') || '(sin nombre)',
-        falta: f.falta.join(', '),
-      }));
+      .filter((f) => !f.parecido && f.falta.length > 0)
+      .map((f) => ({ fila: f.fila, producto: nombreDe(f), falta: f.falta.join(', ') }));
+    const parecidos: ParecidoImportacion[] = filas.flatMap((f) =>
+      f.parecido
+        ? [
+            {
+              fila: f.fila,
+              producto: nombreDe(f),
+              codigo_parte: f.codigo_parte,
+              con: f.parecido,
+            },
+          ]
+        : [],
+    );
     return {
       id: importacion.id,
       nombre,
       filas_leidas: filas.length,
       fotos_encontradas: fotosEnZip.size,
-      crear: filas.filter((f) => !f.existe && f.falta.length === 0).length,
-      existentes: filas.filter((f) => f.existe).length,
+      crear: filas.filter((f) => !f.productoId && !f.parecido && f.falta.length === 0).length,
+      existentes: ya_estan.length,
       incompletas,
+      ya_estan,
+      parecidos,
     };
   }
 
-  /** «Crear los 214»: solo las filas completas que no existían. */
-  async crearImportacion(id: string, sesion: SesionActiva): Promise<RespuestaImportacion> {
+  /**
+   * Marca en cada fila si el producto ya está (`productoId`), si es un parecido con otro código
+   * (`parecido`) o si otra fila del archivo ya es ese producto (`repetida`). Devuelve los
+   * productos que ya están, por id. Uno unido a otro (RF-54) cuenta como aquel con el que se unió.
+   */
+  private async emparejar(filas: FilaLeida[]): Promise<Map<string, ProductoYaEsta>> {
+    const codigos = [...new Set(filas.map((f) => f.codigo_parte).filter(Boolean))];
+    const slugs = [...new Set(filas.flatMap((f) => (f.slug ? [f.slug] : [])))];
+    const candidatos =
+      codigos.length || slugs.length
+        ? await this.prisma.producto.findMany({
+            where: {
+              OR: [
+                ...(codigos.length
+                  ? [{ codigoParte: { in: codigos, mode: 'insensitive' as const } }]
+                  : []),
+                ...(slugs.length ? [{ slug: { in: slugs } }] : []),
+              ],
+            },
+            select: SELECT_YA_ESTA,
+          })
+        : [];
+    const destinos = [
+      ...new Set(candidatos.flatMap((c) => (c.fusionadoEnId ? [c.fusionadoEnId] : []))),
+    ];
+    const unidos = destinos.length
+      ? await this.prisma.producto.findMany({
+          where: { id: { in: destinos } },
+          select: SELECT_YA_ESTA,
+        })
+      : [];
+    const porId = new Map([...candidatos, ...unidos].map((p) => [p.id, p]));
+    const final = (p: ProductoYaEsta) => (p.fusionadoEnId ? porId.get(p.fusionadoEnId) : p);
+    const porCodigo = new Map<string, ProductoYaEsta>();
+    const porSlug = new Map<string, ProductoYaEsta>();
+    for (const c of candidatos) {
+      if (c.codigoParte) porCodigo.set(c.codigoParte.toLowerCase(), c);
+      porSlug.set(c.slug, c);
+    }
+
+    const yaEstan = new Map<string, ProductoYaEsta>();
+    const vistas = new Map<string, number>();
+    for (const fila of filas) {
+      const mismoCodigo = fila.codigo_parte
+        ? porCodigo.get(fila.codigo_parte.toLowerCase())
+        : undefined;
+      const mismoNombre = !mismoCodigo && fila.slug ? porSlug.get(fila.slug) : undefined;
+      if (mismoNombre) {
+        const otroCodigo = codigoReal(mismoNombre.codigoParte);
+        if (
+          fila.codigo_parte &&
+          otroCodigo &&
+          otroCodigo.toLowerCase() !== fila.codigo_parte.toLowerCase()
+        ) {
+          fila.parecido = { titulo: mismoNombre.titulo, codigo_parte: mismoNombre.codigoParte };
+          continue;
+        }
+      }
+      const encontrado = mismoCodigo ?? mismoNombre;
+      const producto = encontrado ? final(encontrado) : undefined;
+      // Sin datos completos no se puede crear; solo cuenta si ya está (para cambiarle la foto).
+      if (!producto && fila.datosIncompletos) continue;
+      const claves = producto
+        ? [`p:${producto.id}`]
+        : [
+            `s:${fila.slug}`,
+            ...(fila.codigo_parte ? [`c:${fila.codigo_parte.toLowerCase()}`] : []),
+          ];
+      const antes = claves.map((k) => vistas.get(k)).find((n) => n !== undefined);
+      if (antes !== undefined) {
+        fila.repetida = true;
+        fila.falta.push(`Repetida (es la fila ${antes})`);
+        continue;
+      }
+      for (const k of claves) vistas.set(k, fila.fila);
+      if (producto) {
+        fila.productoId = producto.id;
+        yaEstan.set(producto.id, producto);
+      }
+    }
+    return yaEstan;
+  }
+
+  /**
+   * «Guardar: crear 153 y actualizar 149» (docs/17 §3): crea las filas completas que no estaban y,
+   * según `existentes`, actualiza las que ya estaban (menos las desmarcadas en `omitir`). Las
+   * fotos viejas se borran después de guardar, nunca antes.
+   */
+  async crearImportacion(
+    id: string,
+    datos: CrearImportacionDatos,
+    sesion: SesionActiva,
+  ): Promise<RespuestaImportacion> {
     const importacion = await this.prisma.importacionCatalogo.findFirst({
       where: { id, usuarioId: sesion.usuario.id },
     });
@@ -777,29 +1088,53 @@ export class CatalogoEquipoService {
         'Sube el archivo de nuevo.',
       );
     }
-    if (importacion.aplicadaEn) return { creados: importacion.creados };
+    if (importacion.aplicadaEn) {
+      return { creados: importacion.creados, actualizados: importacion.actualizados };
+    }
     const filas = importacion.filas as unknown as FilaLeida[];
-    const fotos = importacion.fotos as Record<
-      string,
-      { ruta: string; ancho: number; alto: number }
-    >;
-    const creados = await this.prisma.$transaction(
+    const fotos = importacion.fotos as unknown as Record<string, ArchivoSubido>;
+    // Las revisiones de antes no guardaban `fotoClave`: la foto iba por el código de parte.
+    const fotoDe = (fila: FilaLeida) => {
+      const clave =
+        fila.fotoClave !== undefined
+          ? fila.fotoClave
+          : (fila.foto || fila.codigo_parte).replace(EXTENSIONES_FOTO, '').toLowerCase();
+      return clave ? fotos[clave] : undefined;
+    };
+    const omitir = new Set(datos.omitir);
+    const sinUso: string[] = [];
+    const resultado = await this.prisma.$transaction(
       async (tx) => {
         const categorias = await tx.categoria.findMany({
           select: { id: true, slug: true, nombre: true },
         });
-        let cuenta = 0;
-        for (const fila of filas) {
-          if (fila.existe || fila.falta.length > 0) continue;
-          const categoria = categorias.find(
+        const categoriaDe = (texto: string) =>
+          categorias.find(
             (c) =>
-              c.slug === fila.categoria.trim() ||
-              c.slug === slugDe(fila.categoria) ||
-              normalizarTexto(c.nombre) === normalizarTexto(fila.categoria),
+              c.slug === texto.trim() ||
+              c.slug === slugDe(texto) ||
+              normalizarTexto(c.nombre) === normalizarTexto(texto),
           );
+        const usadas: string[] = [];
+        let creados = 0;
+        let actualizados = 0;
+        for (const fila of filas) {
+          const foto = fotoDe(fila);
+          if (fila.productoId) {
+            if (datos.existentes === 'DEJAR' || omitir.has(fila.fila)) continue;
+            const tocado = await this.actualizarDesdeFila(tx, fila, foto, datos.existentes, {
+              categoriaDe,
+              sinUso,
+            });
+            if (tocado) {
+              actualizados++;
+              if (foto) usadas.push(foto.ruta);
+            }
+            continue;
+          }
+          if (fila.existe || fila.parecido || fila.repetida || fila.falta.length > 0) continue;
+          const categoria = categoriaDe(fila.categoria);
           if (!categoria) continue;
-          const foto =
-            fotos[(fila.foto || fila.codigo_parte).replace(EXTENSIONES_FOTO, '').toLowerCase()];
           const nuevo = await this.crearProducto(tx, {
             categoriaId: categoria.id,
             marca: fila.marca,
@@ -810,21 +1145,164 @@ export class CatalogoEquipoService {
             caracteristicas: fila.caracteristicas,
             fotos: foto ? [foto] : [],
           });
-          if (nuevo) cuenta++;
+          if (nuevo) {
+            creados++;
+            if (foto) usadas.push(foto.ruta);
+          }
+        }
+        if (usadas.length) {
+          await tx.archivo.updateMany({
+            where: { ruta: { in: usadas } },
+            data: { usadoEn: new Date() },
+          });
         }
         await tx.importacionCatalogo.update({
           where: { id },
-          data: { aplicadaEn: new Date(), creados: cuenta },
+          data: { aplicadaEn: new Date(), creados, actualizados },
         });
-        await this.anotar(
-          sesion,
-          `subió ${cuenta} ${cuenta === 1 ? 'producto' : 'productos'} al catálogo (${importacion.nombre})`,
-          tx,
-        );
-        return cuenta;
+        const productos = (n: number) => `${n} ${n === 1 ? 'producto' : 'productos'}`;
+        const accion =
+          actualizados === 0
+            ? `subió ${productos(creados)} al catálogo`
+            : creados === 0
+              ? `actualizó ${productos(actualizados)} del catálogo`
+              : `subió ${productos(creados)} al catálogo y actualizó ${actualizados}`;
+        await this.anotar(sesion, `${accion} (${importacion.nombre})`, tx);
+        return { creados, actualizados };
       },
-      { timeout: 120_000 },
+      { timeout: 180_000 },
     );
-    return { creados };
+    await this.archivos.borrarSinUso(sinUso);
+    return resultado;
+  }
+
+  /** Una fila de un producto que ya está: su foto y, con `FOTOS_Y_DATOS`, sus datos. */
+  private async actualizarDesdeFila(
+    tx: Prisma.TransactionClient,
+    fila: FilaLeida,
+    foto: ArchivoSubido | undefined,
+    modo: Exclude<ModoExistentes, 'DEJAR'>,
+    ayuda: {
+      categoriaDe: (texto: string) => { id: string } | undefined;
+      sinUso: string[];
+    },
+  ): Promise<boolean> {
+    const producto = await tx.producto.findUnique({
+      where: { id: fila.productoId! },
+      select: {
+        id: true,
+        codigoParte: true,
+        etiquetas: { select: { etiqueta: { select: { nombre: true } } } },
+        fotos: { select: { ruta: true } },
+      },
+    });
+    if (!producto) return false;
+    let tocado = false;
+    if (foto) {
+      ayuda.sinUso.push(...producto.fotos.map((f) => f.ruta).filter((r) => r !== foto.ruta));
+      await tx.productoFoto.deleteMany({ where: { productoId: producto.id } });
+      await tx.productoFoto.create({
+        data: {
+          productoId: producto.id,
+          ruta: foto.ruta,
+          orden: 0,
+          ancho: foto.ancho,
+          alto: foto.alto,
+        },
+      });
+      tocado = true;
+    }
+    if (modo === 'FOTOS_Y_DATOS' && fila.cambia && !fila.datosIncompletos) {
+      const categoria = ayuda.categoriaDe(fila.categoria);
+      const marca = await this.marcaDe(tx, fila.marca);
+      const titulo = tituloDeProducto(
+        marca.nombre,
+        [fila.modelo, fila.version].filter(Boolean).join(' '),
+      );
+      let codigo = fila.codigo_parte || codigoReal(producto.codigoParte);
+      if (codigo && codigo.toLowerCase() !== (producto.codigoParte ?? '').toLowerCase()) {
+        const deOtro = await tx.producto.findFirst({
+          where: {
+            codigoParte: { equals: codigo, mode: 'insensitive' },
+            NOT: { id: producto.id },
+          },
+          select: { id: true },
+        });
+        if (deOtro) codigo = producto.codigoParte;
+      }
+      const sinonimos = fila.sinonimos.length
+        ? fila.sinonimos
+        : producto.etiquetas.map((e) => e.etiqueta.nombre);
+      await tx.producto.update({
+        where: { id: producto.id },
+        data: {
+          titulo,
+          modelo: fila.modelo,
+          version: fila.version || null,
+          codigoParte: codigo,
+          marcaId: marca.id,
+          ...(categoria ? { categoriaId: categoria.id } : {}),
+          ...(Object.keys(fila.caracteristicas).length
+            ? { caracteristicas: fila.caracteristicas }
+            : {}),
+          textoBusqueda: normalizarTexto(
+            [titulo, marca.nombre, fila.modelo, codigo ?? '', ...sinonimos].join(' '),
+          ),
+          revisado: true,
+        },
+      });
+      if (fila.sinonimos.length) await this.guardarSinonimos(tx, producto.id, fila.sinonimos);
+      tocado = true;
+    }
+    return tocado;
+  }
+
+  // ── Eliminar todos ───────────────────────────────────────────────────────
+
+  /**
+   * Los que se pueden borrar (docs/17 §4): ninguna publicación (de ningún estado), ningún pedido
+   * en vivo y nadie unido a él. Así ninguna publicación se queda sin producto.
+   */
+  private static readonly SIN_USO = Prisma.sql`p.fusionado_en_id IS NULL
+    AND NOT EXISTS (SELECT 1 FROM oferta o WHERE o.producto_id = p.id)
+    AND NOT EXISTS (SELECT 1 FROM en_vivo v WHERE v.producto_id = p.id)
+    AND NOT EXISTS (SELECT 1 FROM producto u WHERE u.fusionado_en_id = p.id)`;
+
+  async resumenEliminar(): Promise<ResumenEliminarCatalogo> {
+    const [fila] = await this.prisma.$queryRaw<Array<{ total: number; se_eliminan: number }>>`
+      SELECT count(*)::int AS total,
+        count(*) FILTER (WHERE ${CatalogoEquipoService.SIN_USO})::int AS se_eliminan
+      FROM producto p WHERE p.fusionado_en_id IS NULL`;
+    const total = fila?.total ?? 0;
+    const seEliminan = fila?.se_eliminan ?? 0;
+    return { total, se_eliminan: seEliminan, se_quedan: total - seEliminan };
+  }
+
+  /** «Eliminar todos»: borra una tanda; la página llama hasta que no quede ninguno. */
+  async eliminarTanda(tanda: number, sesion: SesionActiva): Promise<RespuestaEliminarCatalogo> {
+    const sinUso: string[] = [];
+    const eliminados = await this.prisma.$transaction(async (tx) => {
+      const filas = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT p.id FROM producto p WHERE ${CatalogoEquipoService.SIN_USO}
+        ORDER BY p.creado_en LIMIT ${tanda} FOR UPDATE SKIP LOCKED`;
+      const ids = filas.map((f) => f.id);
+      if (ids.length === 0) return 0;
+      const fotos = await tx.productoFoto.findMany({
+        where: { productoId: { in: ids } },
+        select: { ruta: true },
+      });
+      sinUso.push(...fotos.map((f) => f.ruta));
+      // Sus fotos, sinónimos y precios se van con él (en cascada).
+      const { count } = await tx.producto.deleteMany({ where: { id: { in: ids } } });
+      await this.anotar(
+        sesion,
+        `eliminó ${count} ${count === 1 ? 'producto' : 'productos'} del catálogo («Eliminar todos»)`,
+        tx,
+      );
+      return count;
+    });
+    await this.archivos.borrarSinUso(sinUso);
+    const resumen = await this.resumenEliminar();
+    return { eliminados, quedan: resumen.se_eliminan, se_quedan: resumen.se_quedan };
   }
 }

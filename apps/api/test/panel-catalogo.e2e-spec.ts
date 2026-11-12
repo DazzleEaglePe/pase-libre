@@ -190,7 +190,7 @@ describe('Panel: modo oscuro, Catálogo y Destacar (COR15 a COR18)', () => {
       );
     });
 
-    it('un .csv se revisa antes de guardar: crea los completos y omite los que ya están', async () => {
+    it('un .csv se revisa antes de guardar: crea los nuevos y deja los que ya están', async () => {
       const cabeceras = await equipo();
       const csv = [
         'categoria;marca;modelo;version;codigo_parte;chip;sinonimos',
@@ -208,23 +208,21 @@ describe('Panel: modo oscuro, Catálogo y Destacar (COR15 a COR18)', () => {
           contentType: 'text/csv',
         })
         .expect(201);
+      // Sin código de parte también entran: se reconocen por el nombre (docs/17 §3).
       expect(revision.body).toMatchObject({
         nombre: 'catalogo.csv',
         filas_leidas: 5,
-        crear: 2,
+        crear: 4,
         existentes: 1,
+        incompletas: [],
       });
-      expect(revision.body.incompletas).toEqual([
-        { fila: 5, producto: 'MSI RTX 5060 8 GB', falta: 'Código de parte' },
-        { fila: 6, producto: 'Corsair 4000D', falta: 'Código de parte' },
-      ]);
       expect(await prisma.producto.count({ where: { codigoParte: 'V531-002R' } })).toBe(0);
 
       const creados = await http()
         .post(`/v1/equipo/catalogo/importar/${revision.body.id}/crear`)
         .set(cabeceras)
         .expect(201);
-      expect(creados.body).toEqual({ creados: 2 });
+      expect(creados.body).toEqual({ creados: 4, actualizados: 0 });
       expect(
         await prisma.producto.findFirstOrThrow({ where: { codigoParte: 'V531-002R' } }),
       ).toMatchObject({ titulo: 'MSI RTX 5060 Ti Ventus 2X 16 GB', revisado: true });
@@ -232,7 +230,7 @@ describe('Panel: modo oscuro, Catálogo y Destacar (COR15 a COR18)', () => {
       await http()
         .post(`/v1/equipo/catalogo/importar/${revision.body.id}/crear`)
         .set(cabeceras)
-        .expect(201, { creados: 2 });
+        .expect(201, { creados: 4, actualizados: 0 });
     });
 
     it('un .zip trae el Excel y la carpeta fotos/ con el código de parte', async () => {
@@ -267,7 +265,7 @@ describe('Panel: modo oscuro, Catálogo y Destacar (COR15 a COR18)', () => {
       await http()
         .post(`/v1/equipo/catalogo/importar/${revision.body.id}/crear`)
         .set(cabeceras)
-        .expect(201, { creados: 1 });
+        .expect(201, { creados: 1, actualizados: 0 });
       const ryzen = await prisma.producto.findFirstOrThrow({
         where: { codigoParte: '100-100000910WOF' },
         include: { fotos: true },

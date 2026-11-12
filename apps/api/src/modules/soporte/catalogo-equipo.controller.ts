@@ -18,14 +18,20 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import {
   agregarCatalogoSchema,
   catalogoEquipoSchema,
+  crearImportacionSchema,
   editarCatalogoSchema,
+  eliminarCatalogoSchema,
   unirCatalogoSchema,
   type AgregarCatalogoDatos,
   type CatalogoEquipoConsulta,
+  type CrearImportacionDatos,
   type EditarCatalogoDatos,
+  type EliminarCatalogoDatos,
   type RespuestaCatalogoEquipo,
+  type RespuestaEliminarCatalogo,
   type RespuestaImportacion,
   type RespuestaPorRevisar,
+  type ResumenEliminarCatalogo,
   type RevisionImportacion,
   type UnirCatalogoDatos,
 } from '@paselibre/contracts';
@@ -40,6 +46,9 @@ import { CatalogoEquipoService } from './catalogo-equipo.service';
 const id = new ZodValidationPipe(z.uuid('Ese producto no existe.'));
 /** Un .zip con el Excel y las fotos: hasta 40 MB. */
 const MAX_BYTES_ARCHIVO = 40 * 1024 * 1024;
+/** Sin cuerpo vale lo de siempre (las páginas de antes no mandaban nada). */
+const opcional = <T>(esquema: z.ZodType<T>) =>
+  new ZodValidationPipe(z.preprocess((valor) => valor ?? {}, esquema));
 
 /** El catálogo del equipo (COR15). Solo `rol = EQUIPO`. */
 @Controller('equipo/catalogo')
@@ -94,9 +103,27 @@ export class CatalogoEquipoController {
   @Header('Cache-Control', 'no-store')
   crearImportacion(
     @Param('id', id) importacion: string,
+    @Body(opcional(crearImportacionSchema)) datos: CrearImportacionDatos,
     @SesionActual() sesion: SesionActiva,
   ): Promise<RespuestaImportacion> {
-    return this.catalogo.crearImportacion(importacion, sesion);
+    return this.catalogo.crearImportacion(importacion, datos, sesion);
+  }
+
+  /** «Eliminar todos» (docs/17 §4): cuántos se borran y cuántos se quedan. */
+  @Get('eliminar-todos')
+  @Header('Cache-Control', 'no-store')
+  resumenEliminar(): Promise<ResumenEliminarCatalogo> {
+    return this.catalogo.resumenEliminar();
+  }
+
+  /** Borra una tanda de los que nadie usa; la página repite hasta que `quedan` es 0. */
+  @Post('eliminar-todos')
+  @Header('Cache-Control', 'no-store')
+  eliminarTanda(
+    @Body(opcional(eliminarCatalogoSchema)) datos: EliminarCatalogoDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaEliminarCatalogo> {
+    return this.catalogo.eliminarTanda(datos.tanda, sesion);
   }
 
   @Patch(':id')

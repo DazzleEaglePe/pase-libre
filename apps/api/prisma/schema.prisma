@@ -1415,16 +1415,18 @@ model Destacado {
 /// Un archivo para el catálogo (COR15): se lee y se revisa antes de guardar; nada se crea hasta
 /// que el equipo lo confirma.
 model ImportacionCatalogo {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  usuarioId  String    @map("usuario_id") @db.Uuid
-  nombre     String    @db.VarChar(200)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuarioId    String    @map("usuario_id") @db.Uuid
+  nombre       String    @db.VarChar(200)
   /// Las filas leídas, ya limpias, con lo que les falta.
-  filas      Json
+  filas        Json
   /// Las fotos de la carpeta `fotos/` del .zip, por código de parte → ruta en /media.
-  fotos      Json      @default("{}")
-  creadaEn   DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
-  aplicadaEn DateTime? @map("aplicada_en") @db.Timestamptz(6)
-  creados    Int       @default(0)
+  fotos        Json      @default("{}")
+  creadaEn     DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
+  aplicadaEn   DateTime? @map("aplicada_en") @db.Timestamptz(6)
+  creados      Int       @default(0)
+  /// Los que ya estaban y se actualizaron (docs/17 §3).
+  actualizados Int       @default(0)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id])
 

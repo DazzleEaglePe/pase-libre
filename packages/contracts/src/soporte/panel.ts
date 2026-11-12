@@ -217,8 +217,12 @@ export interface ProductoDelCatalogo {
   caracteristicas: Record<string, string>;
   foto: string | null;
   fotos: number;
+  /** Las rutas de todas sus fotos, la principal primero: «Editar» (docs/17 §2). */
+  rutas_fotos: string[];
   /** Tiendas con una publicación vigente. */
   tiendas: number;
+  /** Publicaciones activas o pausadas que lo usan: el «¿Estás seguro?» antes de guardar. */
+  publicaciones: number;
 }
 
 /** `GET /v1/equipo/catalogo`. */
@@ -285,7 +289,11 @@ export const agregarCatalogoSchema = z.strictObject({
 });
 export type AgregarCatalogoDatos = z.output<typeof agregarCatalogoSchema>;
 
-/** `PATCH /v1/equipo/catalogo/:id` («Editar», «Corregir y agregar»): también lo da por revisado. */
+/**
+ * `PATCH /v1/equipo/catalogo/:id` («Editar», «Corregir y agregar»): también lo da por revisado.
+ * `fotos` (docs/17 §2) reemplaza todas sus fotos, en orden: la primera es la principal (la
+ * portada). Cada una es una que ya tiene o una recién subida con `POST /v1/archivos`.
+ */
 export const editarCatalogoSchema = z.strictObject({
   categoria: z.string().trim().min(1).max(80).optional(),
   marca: z.string().trim().min(1).max(60).optional(),
@@ -293,6 +301,7 @@ export const editarCatalogoSchema = z.strictObject({
   version: textoCatalogo(40, 'La versión llega hasta 40 letras.').optional(),
   codigo_parte: textoCatalogo(60, 'El código llega hasta 60 letras.').optional(),
   sinonimos: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  fotos: z.array(z.string().trim().min(1).max(300)).max(8, 'Hasta 8 fotos.').optional(),
 });
 export type EditarCatalogoDatos = z.output<typeof editarCatalogoSchema>;
 
@@ -307,6 +316,46 @@ export interface FilaIncompleta {
   falta: string;
 }
 
+/** Un dato que cambia en un producto que ya está: «Modelo: RTX 5060 → RTX 5060 Ti». */
+export interface CambioDeDato {
+  campo:
+    | 'Categoría'
+    | 'Marca'
+    | 'Modelo'
+    | 'Versión'
+    | 'Código de parte'
+    | 'Sinónimos'
+    | 'Características';
+  antes: string;
+  despues: string;
+}
+
+/**
+ * Una fila del archivo que ya está en el catálogo (docs/17 §3): mismo código de parte o, si la
+ * fila no tiene código, el mismo nombre.
+ */
+export interface ProductoQueYaEsta {
+  fila: number;
+  id: string;
+  titulo: string;
+  codigo_parte: string | null;
+  foto_antes: string | null;
+  /** La foto del .zip para él; nula si el archivo no trae. */
+  foto_nueva: string | null;
+  /** Lo que cambia con «Reemplazar fotos y datos». Vacío si la fila trae datos incompletos. */
+  cambios: CambioDeDato[];
+  /** Publicaciones activas o pausadas que lo usan: también se actualizan. */
+  publicaciones: number;
+}
+
+/** Mismo nombre que uno del catálogo pero otro código: no se crea, para no duplicarlo. */
+export interface ParecidoImportacion {
+  fila: number;
+  producto: string;
+  codigo_parte: string;
+  con: { titulo: string; codigo_parte: string | null };
+}
+
 /** `POST /v1/equipo/catalogo/importar`: lo leído, para revisar antes de guardar. */
 export interface RevisionImportacion {
   id: string;
@@ -316,9 +365,50 @@ export interface RevisionImportacion {
   crear: number;
   existentes: number;
   incompletas: FilaIncompleta[];
+  /** Los `existentes`, con lo que cambiaría en cada uno. */
+  ya_estan: ProductoQueYaEsta[];
+  parecidos: ParecidoImportacion[];
 }
+
+/** Qué hacer con los productos que ya están (docs/17 §3). */
+export const MODOS_EXISTENTES = ['DEJAR', 'SOLO_FOTOS', 'FOTOS_Y_DATOS'] as const;
+export type ModoExistentes = (typeof MODOS_EXISTENTES)[number];
+
+/**
+ * `POST /v1/equipo/catalogo/importar/:id/crear`: crea los nuevos y, según `existentes`, actualiza
+ * los que ya están. `omitir` son las filas que se desmarcaron en «Lo que cambia».
+ */
+export const crearImportacionSchema = z.strictObject({
+  existentes: z.enum(MODOS_EXISTENTES).default('DEJAR'),
+  omitir: z.array(z.number().int().min(1)).max(2000).default([]),
+});
+export type CrearImportacionDatos = z.output<typeof crearImportacionSchema>;
 
 /** `POST /v1/equipo/catalogo/importar/:id/crear`. */
 export interface RespuestaImportacion {
   creados: number;
+  actualizados: number;
+}
+
+/**
+ * `GET /v1/equipo/catalogo/eliminar-todos` (docs/17 §4): cuántos se pueden borrar. Se quedan los
+ * que usa una publicación (de cualquier estado), un pedido en vivo o una unión.
+ */
+export interface ResumenEliminarCatalogo {
+  total: number;
+  se_eliminan: number;
+  se_quedan: number;
+}
+
+/** `POST /v1/equipo/catalogo/eliminar-todos`: borra una tanda; se llama hasta que `quedan` es 0. */
+export const eliminarCatalogoSchema = z.strictObject({
+  tanda: z.number().int().min(1).max(100).default(50),
+});
+export type EliminarCatalogoDatos = z.output<typeof eliminarCatalogoSchema>;
+
+export interface RespuestaEliminarCatalogo {
+  eliminados: number;
+  /** Los que todavía se pueden borrar. */
+  quedan: number;
+  se_quedan: number;
 }
