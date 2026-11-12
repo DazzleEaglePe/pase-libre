@@ -42,6 +42,10 @@ export interface ProductoDeTienda {
   stock: number;
   /** Nulo si está al interno (salvo para la propia tienda y el equipo). */
   precio: Precio | null;
+  /** El precio que ves es de socia (con descuento o de «Solo mis socios»): burbujita «Socio». */
+  precio_socio: boolean;
+  /** Pase que se puede conversar: burbujita «Negociable». */
+  negociable: boolean;
 }
 
 /**

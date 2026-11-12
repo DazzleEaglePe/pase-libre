@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  formatearPrecio,
   textoHorario,
   urlFoto,
   type AvisosSeguimiento,
@@ -33,7 +32,7 @@ import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { conPlural } from '@/shared/plural';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Hoja } from '@/shared/ui/hoja';
-import { Miniatura } from '@/shared/ui/miniatura';
+import { TarjetaProducto } from '@/shared/ui/tarjeta-producto';
 
 import { ListaOpiniones } from './opiniones';
 import { MenuPortada, Portada } from './portada';
@@ -453,30 +452,19 @@ export function PerfilDeTienda({
               <ul className="m-0 grid list-none grid-cols-2 items-start gap-3 p-0 md:grid-cols-3 md:gap-3.5">
                 {perfil.productos.map((producto) => (
                   <li key={producto.oferta_id} className="min-w-0">
-                    {/* Tarjeta con borde de 2 px (N04_Bordes); la de todo el sitio es del feed. */}
-                    <Link
+                    {/* La tarjeta de todo el sitio: borde de 2 px y precio con su burbujita (N04, N06). */}
+                    <TarjetaProducto
                       href={`/p/${producto.producto.slug}?oferta=${producto.oferta_id}`}
-                      className="flex min-w-0 flex-col gap-1.5 rounded-[18px] border-2 border-borde bg-white p-3 text-tinta no-underline hover:border-borde-control"
-                    >
-                      <Miniatura
-                        ruta={producto.producto.foto}
-                        categoria={producto.producto.categoria.slug}
-                        className="h-[120px] w-full rounded-xl sm:h-[150px]"
-                        glifo={72}
-                        grosor={2.4}
-                      />
-                      <b className="line-clamp-2 text-apoyo font-bold leading-5">
-                        {producto.producto.titulo}
-                      </b>
-                      <span className="truncate text-[12px] text-detalle">
-                        {[textoEstado(producto.condicion), perfil.galeria]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </span>
-                      <span className="self-start whitespace-nowrap rounded-full bg-tinta px-2.5 py-0.5 text-apoyo font-extrabold text-white">
-                        {producto.precio ? formatearPrecio(producto.precio) : 'Por chat'}
-                      </span>
-                    </Link>
+                      titulo={producto.producto.titulo}
+                      foto={producto.producto.foto}
+                      categoria={producto.producto.categoria.slug}
+                      precio={producto.precio}
+                      socio={producto.precio_socio}
+                      negociable={producto.negociable}
+                      linea={[textoEstado(producto.condicion), perfil.galeria]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    />
                   </li>
                 ))}
               </ul>

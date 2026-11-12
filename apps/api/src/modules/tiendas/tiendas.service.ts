@@ -139,6 +139,7 @@ export class TiendasService {
           soloSocios: true,
           moneda: true,
           precioVisible: true,
+          negociable: true,
           tiendaId: true,
           producto: {
             select: {
@@ -193,18 +194,24 @@ export class TiendasService {
       categorias_principales: categoriasPrincipales(
         ofertas.map((o) => o.producto.categoria.nombre),
       ),
-      productos: ofertas.map((oferta) => ({
-        oferta_id: oferta.id,
-        producto: {
-          slug: oferta.producto.slug,
-          titulo: oferta.producto.titulo,
-          foto: oferta.producto.fotos[0]?.ruta ?? null,
-          categoria: oferta.producto.categoria,
-        },
-        condicion: oferta.condicion,
-        stock: oferta.stock,
-        precio: preciosPara(oferta, mirada, socios).precio,
-      })),
+      productos: ofertas.map((oferta) => {
+        const precios = preciosPara(oferta, mirada, socios);
+        return {
+          oferta_id: oferta.id,
+          producto: {
+            slug: oferta.producto.slug,
+            titulo: oferta.producto.titulo,
+            foto: oferta.producto.fotos[0]?.ruta ?? null,
+            categoria: oferta.producto.categoria,
+          },
+          condicion: oferta.condicion,
+          stock: oferta.stock,
+          precio: precios.precio,
+          precio_socio: precios.socio,
+          // «Negociable» solo con un precio a la vista (igual que en el feed).
+          negociable: precios.precio !== null && oferta.negociable,
+        };
+      }),
     };
   }
 
