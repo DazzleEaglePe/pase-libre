@@ -181,7 +181,7 @@ function VanDeDoce({ publicaciones }: { publicaciones: number }) {
  *   pide, tiendas que ya están, el piloto y primeros pasos. Nunca una cuadrícula vacía.
  * - De 1 a 11: lo nuevo en lista con «Van 3 de 12»; el piloto se achica.
  * - Desde 12 (y ya no vuelve atrás): pedidos en vivo en el rectángulo negro, «Recién publicado»
- *   de 4 filas de 6 con la flechita que trae las siguientes 24, y las categorías.
+ *   en 4 filas de hasta 18, cada una con su flecha (docs/18 §5), y las categorías.
  * Al final, el banner para invitar a otra tienda, hasta que se cierre con la X.
  */
 export function InicioTienda({
@@ -200,7 +200,7 @@ export function InicioTienda({
       <div className="flex flex-col gap-8 max-sm:gap-6">
         <SaludoTienda sesion={sesion} />
         <PedidosEnVivo />
-        <RecienPublicado primeras={inicio.recien} total={inicio.publicaciones} />
+        <RecienPublicado tarjetas={inicio.recien} total={inicio.total} />
         <ExploraCategorias categorias={categorias} />
         {banner}
       </div>

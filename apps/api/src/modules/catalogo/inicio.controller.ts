@@ -34,7 +34,10 @@ import { InicioService } from './inicio.service';
 export class InicioController {
   constructor(@Inject(InicioService) private readonly inicio: InicioService) {}
 
-  /** «La flechita trae las siguientes 24, sin fin»: 60 por minuto, contra el scraping. */
+  /**
+   * «Recién publicado» de a 24, sin fin: 60 por minuto, contra el scraping. El inicio ya no la
+   * usa (trae sus 72 en `GET /v1/inicio`, docs/18 §5); queda para otros usos.
+   */
   @Get('inicio/recien')
   @Throttle({ [LIMITE_PERSONA]: { limit: 60, ttl: 60_000 } })
   @Header('Cache-Control', 'no-store')

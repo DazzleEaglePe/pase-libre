@@ -331,20 +331,35 @@ export interface RespuestaInicio {
   /** Publicaciones vigentes de otras tiendas (sin las bloqueadas): «Van 3 de 12». */
   publicaciones: number;
   /**
-   * Con `POCAS`, «Lo nuevo en la galería» (hasta 11); con `NORMAL`, las primeras 24 de «Recién
-   * publicado», mezcladas por tienda (nunca dos seguidas de la misma). Sin las tuyas.
+   * Con `POCAS`, «Lo nuevo en la galería» (hasta 11); con `NORMAL`, las primeras 72 de «Recién
+   * publicado» (4 filas de hasta 18), mezcladas por tienda (nunca dos seguidas de la misma). Sin
+   * las tuyas.
    */
   recien: TarjetaOfertaConVendedor[];
+  /**
+   * Cuántas hay en todo «Recién publicado» (las mismas que `publicaciones`). Con más de 72 salen
+   * «Ver todas las publicaciones (N)» y la tarjeta del final de cada fila llena.
+   */
+  total: number;
   /** Tocaste la X del banner «¿Conoces una tienda…?» (N07): ya no sale. */
   invitar_cerrado: boolean;
 }
 
 /** Desde cuántas publicaciones de otras tiendas el inicio es el normal (N16). */
 export const PUBLICACIONES_INICIO_NORMAL = 12;
-/** «Recién publicado» del inicio: 4 filas de 6, y la flechita trae las siguientes 24 (N15). */
+/** De a cuántas trae `GET /v1/inicio/recien` (N15). El inicio ya no la usa (docs/18 §5). */
 export const RECIEN_POR_PAGINA = 24;
+/** «Recién publicado» del inicio (docs/18 §5): 4 filas, cada una con su flecha. */
+export const RECIEN_FILAS = 4;
+/** Cada fila guarda hasta 18: las 6 que se ven y 2 clics más. */
+export const RECIEN_POR_FILA = 18;
+/** Cuántas manda `GET /v1/inicio` en la fase normal: 4 filas de 18. */
+export const RECIEN_INICIO = RECIEN_FILAS * RECIEN_POR_FILA;
 
-/** `GET /v1/inicio/recien?desde=24`: las siguientes 24 de «Recién publicado», sin fin. */
+/**
+ * `GET /v1/inicio/recien?desde=24`: las siguientes 24 de «Recién publicado», sin fin. Queda para
+ * otros usos: el inicio trae sus 72 de una vez.
+ */
 export interface RespuestaRecienInicio {
   tarjetas: TarjetaOfertaConVendedor[];
   desde: number;
