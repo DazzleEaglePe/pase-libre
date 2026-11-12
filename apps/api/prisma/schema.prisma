@@ -200,6 +200,9 @@ model Tienda {
   precioVisibleDefecto Boolean      @default(false) @map("precio_visible_defecto")
   /// Soles por defecto (guía del lienzo final); la tienda lo cambia en Configuración.
   monedaDefecto        Moneda       @default(PEN) @map("moneda_defecto")
+  /// Cuándo su inicio llegó a 12 publicaciones de otras tiendas (N16): desde ahí es el inicio
+  /// normal y ya no vuelve atrás, aunque después haya menos.
+  inicioNormalEn       DateTime?    @map("inicio_normal_en") @db.Timestamptz(6)
   /// Fase 2 (RF-41). Se crea ahora para no migrar después.
   perfilPrivado        Boolean      @default(false) @map("perfil_privado")
   estado               EstadoTienda @default(ACTIVA)
@@ -266,6 +269,11 @@ model Usuario {
   bienvenidaVistaEn DateTime?     @map("bienvenida_vista_en") @db.Timestamptz(6)
   /// «¿Quieres seguir a…?» sale solo la primera vez que sigue a una tienda (SG_WebConfirmar).
   seguirExplicadoEn DateTime?     @map("seguir_explicado_en") @db.Timestamptz(6)
+  /// Tocó la X de «¿Conoces una tienda que debería estar aquí?» (N07): el banner del inicio no
+  /// vuelve a salir en ningún dispositivo.
+  invitarCerradoEn  DateTime?     @map("invitar_cerrado_en") @db.Timestamptz(6)
+  /// La última vez que entró a «Recién llegados» (N07): el «+N nuevo» cuenta desde ahí.
+  recienVistoEn     DateTime?     @map("recien_visto_en") @db.Timestamptz(6)
   /// Última vez que tuvo el chat abierto (se conectó o se desconectó del tiempo real), para
   /// «Activo hace 2 h» (RF-47).
   ultimaConexionEn  DateTime?     @map("ultima_conexion_en") @db.Timestamptz(6)
@@ -483,6 +491,8 @@ model Oferta {
   soloSocios              Boolean        @default(false) @map("solo_socios")
   /// «Acepto ofertas en el chat».
   aceptaOfertas           Boolean        @default(true) @map("acepta_ofertas")
+  /// «Precio fijo ▾ / Negociable» del campo de precio (N06): la burbujita «Negociable».
+  negociable              Boolean        @default(false)
   estado                  EstadoOferta   @default(ACTIVA)
   /// El precio de pase antes de la última baja y cuándo bajó: «Bajó de precio · Antes US$ 465»
   /// (SEG_Web). Una subida lo borra.

@@ -65,6 +65,8 @@ export interface OfertaPropia {
   descuento_socio: Precio | null;
   quien_ve_precio: QuienVePrecio;
   acepta_ofertas: boolean;
+  /** «Precio fijo ▾ / Negociable» (N06). */
+  negociable: boolean;
   /** Contactos por chat o WhatsApp en los últimos 7 días (solo en Mis publicaciones). */
   chats_semana: number;
   /** Tiendas que la vieron en la ficha en los últimos 7 días, una vez por día (MP_Web). */

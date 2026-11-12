@@ -63,20 +63,58 @@ describe('Inicio de una tienda (sección 5)', () => {
     expect(new Set(tiendas.slice(0, distintas)).size).toBe(distintas);
   });
 
-  it('con muchas publicaciones es el inicio normal, con pocas o ninguna cambia', async () => {
-    expect((await inicio()).fase).toBe('NORMAL');
+  it('sin publicaciones de otras es el día 1; de 1 a 11, lo nuevo en lista; desde 12, el normal', async () => {
     const tiendaB = await prisma.tienda.findFirstOrThrow({ where: { nombre: 'Tienda B' } });
     const guardadas = await prisma.oferta.findMany({
       where: { tiendaId: { not: tiendaB.id }, stock: { gt: 0 } },
+      select: { id: true, stock: true },
+    });
+    expect(guardadas.length).toBeGreaterThanOrEqual(12);
+    await prisma.oferta.updateMany({
+      where: { id: { in: guardadas.map((o) => o.id) } },
+      data: { stock: 0 },
+    });
+    const dia1 = await inicio();
+    expect(dia1.fase).toBe('DIA_1');
+    expect(dia1.publicaciones).toBe(0);
+    expect(dia1.recien).toEqual([]);
+
+    for (const oferta of guardadas.slice(0, 3)) {
+      await prisma.oferta.update({ where: { id: oferta.id }, data: { stock: 1 } });
+    }
+    const pocas = await inicio();
+    expect(pocas.fase).toBe('POCAS');
+    expect(pocas.publicaciones).toBe(3);
+    expect(pocas.recien).toHaveLength(3);
+    expect(pocas.recien.every((t: { propia: boolean }) => !t.propia)).toBe(true);
+    // Todavía no llegó a 12: no hay hito.
+    expect(
+      (await prisma.tienda.findUniqueOrThrow({ where: { id: tiendaB.id } })).inicioNormalEn,
+    ).toBeNull();
+
+    for (const oferta of guardadas) {
+      await prisma.oferta.update({ where: { id: oferta.id }, data: { stock: oferta.stock } });
+    }
+    expect((await inicio()).fase).toBe('NORMAL');
+    expect(
+      (await prisma.tienda.findUniqueOrThrow({ where: { id: tiendaB.id } })).inicioNormalEn,
+    ).not.toBeNull();
+  });
+
+  it('el inicio normal no vuelve atrás aunque después haya menos de 12', async () => {
+    const guardadas = await prisma.oferta.findMany({
+      where: { stock: { gt: 0 } },
       select: { id: true, stock: true },
     });
     await prisma.oferta.updateMany({
       where: { id: { in: guardadas.map((o) => o.id) } },
       data: { stock: 0 },
     });
-    expect((await inicio()).fase).toBe('DIA_1');
-    await prisma.oferta.update({ where: { id: guardadas[0]?.id }, data: { stock: 1 } });
-    expect((await inicio()).fase).toBe('POCAS');
+    const datos = await inicio();
+    expect(datos.fase).toBe('NORMAL');
+    expect(datos.publicaciones).toBe(0);
+    // Otra tienda sin el hito sí ve su día 1: se decide por tienda.
+    expect((await inicio('tiendac')).fase).toBe('DIA_1');
     for (const oferta of guardadas) {
       await prisma.oferta.update({ where: { id: oferta.id }, data: { stock: oferta.stock } });
     }

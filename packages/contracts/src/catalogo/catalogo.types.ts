@@ -173,6 +173,8 @@ export interface OfertaConVendedor extends OfertaPublica {
   /** El precio solo lo ven sus socios: para las demás es «Precio por chat» (PS_Precio). */
   solo_socios: boolean;
   acepta_ofertas: boolean;
+  /** «Negociable» al lado del precio (N06). */
+  negociable: boolean;
   /**
    * Cuánto tarda la tienda, en minutos, en contestar el primer mensaje de un hilo (la mediana
    * de los últimos 60 días). Nulo con menos de 3 hilos contestados, o con la tienda reservada.
@@ -275,6 +277,13 @@ export interface TarjetaOfertaConVendedor extends TarjetaOferta {
   precio: Precio | null;
   precio_visible: boolean;
   propia: boolean;
+  /**
+   * La burbujita del precio (N06): el precio que ves es de socio (con descuento, o de «Solo mis
+   * socios»). Con precio y sin esto, «Pase»; sin precio, «Por chat».
+   */
+  precio_socio: boolean;
+  /** «Pase + Negociable» (N06): el precio se puede conversar. Falso sin precio a la vista. */
+  negociable: boolean;
 }
 
 interface BasePortada {
@@ -310,8 +319,43 @@ export interface RespuestaInicio {
     activas: number;
     meta: number;
   };
-  /** «Primeros pasos»: perfil con horario y descripción, cuántas publicaste y si pediste en vivo. */
+  /**
+   * «Primeros pasos»: perfil con portada, horario y descripción, cuántas publicaste y si pediste
+   * en vivo.
+   */
   pasos: { perfil: boolean; publicadas: number; en_vivo: boolean };
+  /** Publicaciones vigentes de otras tiendas (sin las bloqueadas): «Van 3 de 12». */
+  publicaciones: number;
+  /**
+   * Con `POCAS`, «Lo nuevo en la galería» (hasta 11); con `NORMAL`, las primeras 24 de «Recién
+   * publicado», mezcladas por tienda (nunca dos seguidas de la misma). Sin las tuyas.
+   */
+  recien: TarjetaOfertaConVendedor[];
+  /** El logo de tu tienda para el saludo (N16); nulo sin logo. */
+  logo: string | null;
+  /** Tocaste la X del banner «¿Conoces una tienda…?» (N07): ya no sale. */
+  invitar_cerrado: boolean;
+}
+
+/** Desde cuántas publicaciones de otras tiendas el inicio es el normal (N16). */
+export const PUBLICACIONES_INICIO_NORMAL = 12;
+/** «Recién publicado» del inicio: 4 filas de 6, y la flechita trae las siguientes 24 (N15). */
+export const RECIEN_POR_PAGINA = 24;
+
+/** `GET /v1/inicio/recien?desde=24`: las siguientes 24 de «Recién publicado», sin fin. */
+export interface RespuestaRecienInicio {
+  tarjetas: TarjetaOfertaConVendedor[];
+  desde: number;
+  /** Cuántas hay en todo «Recién publicado»: «25–48 de 50». */
+  total: number;
+}
+
+/**
+ * `GET /v1/recien-llegados`: el «+N nuevo» de «Recién llegados» (N07). Lo publicado desde tu
+ * última visita a esa página, sin lo de tu tienda y como máximo lo de las últimas 24 h.
+ */
+export interface RespuestaRecienLlegados {
+  nuevos: number;
 }
 
 export type RespuestaPortada =

@@ -24,7 +24,7 @@ import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
-import { conSesion, precioPara, preciosPara, tiendaPara } from './visibilidad';
+import { conSesion, preciosPara, tiendaPara } from './visibilidad';
 
 /** El día en Lima, «2026-11-10». */
 const DIA_LIMA = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' });
@@ -69,6 +69,7 @@ export const SELECT_OFERTA_CON_VENDEDOR = {
   modoVenta: true,
   soloSocios: true,
   aceptaOfertas: true,
+  negociable: true,
   moneda: true,
   precioVisible: true,
   tiendaVisible: true,
@@ -97,11 +98,21 @@ type TarjetaConVendedorFila = Prisma.OfertaGetPayload<{
   select: typeof SELECT_OFERTA_CON_VENDEDOR & { producto: typeof PRODUCTO_TARJETA };
 }>;
 
-/** Las tarjetas de la portada y de «De tiendas que sigues», con precio y tienda. */
+/**
+ * Las tarjetas de la portada, del inicio y de «De tiendas que sigues», con precio y tienda. Con
+ * `socios` (las tiendas que tienen a quien mira como socia), el precio sale como lo ve una socia
+ * y la burbujita dice «Socio» (N06).
+ */
 export function tarjetaConVendedor(
   o: TarjetaConVendedorFila,
   mirada: Mirada,
+  socios: ReadonlySet<string> = new Set(),
 ): TarjetaOfertaConVendedor {
+  const precios = preciosPara(o, mirada, socios);
+  // «Socio»: el precio que ves es el de socia (con descuento o de «Solo mis socios»).
+  const deSocio =
+    precios.precio !== null &&
+    (precios.socio || (o.soloSocios && !o.precioVisible && socios.has(o.tiendaId)));
   return {
     oferta_id: o.id,
     producto: {
@@ -116,9 +127,11 @@ export function tarjetaConVendedor(
     actualizada_en: o.actualizadaEn.toISOString(),
     tienda: (({ nombre, stand }) => ({ nombre, stand }))(tiendaPara(o, o.tienda, mirada)),
     tienda_visible: o.tiendaVisible,
-    precio: precioPara(o, mirada),
+    precio: precios.precio,
     precio_visible: o.precioVisible,
     propia: o.tiendaId === mirada.tiendaId,
+    precio_socio: deSocio,
+    negociable: o.negociable && precios.precio !== null,
   };
 }
 
@@ -218,6 +231,7 @@ function ofertaConVendedor(
     descuento_socio: precios.descuento,
     solo_socios: o.soloSocios,
     acepta_ofertas: o.aceptaOfertas,
+    negociable: o.negociable,
   };
 }
 
@@ -366,9 +380,10 @@ export class CatalogoService {
       };
     }
 
-    const [bloqueadas, destacadas] = await Promise.all([
+    const [bloqueadas, destacadas, socios] = await Promise.all([
       tiendasBloqueadasPor(this.prisma, mirada.usuarioId),
       destacadasAhora(this.prisma),
+      tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId),
     ]);
     const sinBloqueadas: Prisma.OfertaWhereInput =
       bloqueadas.length > 0 ? { AND: [where, { tiendaId: { notIn: bloqueadas } }] } : where;
@@ -412,7 +427,7 @@ export class CatalogoService {
     return {
       ...base,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
-      recien_publicado: mezcladas.map((o) => tarjetaConVendedor(o, mirada)),
+      recien_publicado: mezcladas.map((o) => tarjetaConVendedor(o, mirada, socios)),
     };
   }
 
@@ -438,9 +453,10 @@ export class CatalogoService {
       take: 4,
       select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
     });
+    const socios = await tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId);
     return {
       tiendas: [...new Set(filas.map((o) => o.tienda.nombre))],
-      ofertas: filas.map((o) => tarjetaConVendedor(o, mirada)),
+      ofertas: filas.map((o) => tarjetaConVendedor(o, mirada, socios)),
     };
   }
 
