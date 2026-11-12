@@ -3,6 +3,7 @@ import {
   condicionDeEstado,
   formatearPrecio,
   normalizarTexto,
+  PORTADA_AJENA,
   precioDe,
   slugDe,
   tituloDeProducto,
@@ -24,6 +25,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { FOTO_DEL_PRODUCTO } from '../../shared/portada';
 import { ArchivosService } from '../archivos/archivos.service';
 import { AvisosService } from '../mensajes/avisos.service';
 import { BusquedaService } from '../catalogo/busqueda.service';
@@ -78,7 +80,7 @@ const SELECT_PRODUCTO_RESUMEN = {
   categoria: { select: { slug: true, nombre: true } },
   marca: { select: { nombre: true } },
   etiquetas: { select: { etiqueta: { select: { nombre: true } } }, take: 4 },
-  fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+  ...FOTO_DEL_PRODUCTO,
 } satisfies Prisma.ProductoSelect;
 
 const SELECT_OFERTA_PROPIA = {
@@ -108,6 +110,7 @@ const SELECT_OFERTA_PROPIA = {
   estado: true,
   actualizadaEn: true,
   fotos: { select: { ruta: true, ancho: true, alto: true }, orderBy: { orden: 'asc' } },
+  portadaRuta: true,
   responsable: { select: { id: true, nombre: true } },
   producto: {
     select: { ...SELECT_PRODUCTO_RESUMEN, _count: { select: { fotos: true } } },
@@ -171,6 +174,18 @@ const noExiste = () =>
     'NO_ENCONTRADO',
     'Esa publicación no existe o ya se eliminó.',
   );
+
+/**
+ * La portada que se guarda (docs/17 §5): una de las fotos de la oferta, o nula para la de
+ * siempre. Cualquier otra ruta (del catálogo, de otra oferta, inventada) es un error.
+ */
+function portadaEntre(portada: string | null | undefined, fotos: readonly string[]): string | null {
+  if (portada == null) return null;
+  if (!fotos.includes(portada)) {
+    throw new ApiHttpException(HttpStatus.BAD_REQUEST, 'DATOS_INVALIDOS', PORTADA_AJENA);
+  }
+  return portada;
+}
 
 /**
  * Publicar y Mis publicaciones (RF-05 a RF-10, RF-51 a RF-53). Todo se hace sobre la
@@ -304,6 +319,7 @@ export class OfertasService {
           select: { id: true, estado: true },
         });
         if (repetida) throw this.ofertaRepetida(condicion, repetida);
+        const portadaRuta = portadaEntre(datos.portada, datos.fotos);
 
         const fotos = await this.archivos.reclamar(tx, datos.fotos, tienda.id);
         const oferta = await tx.oferta.create({
@@ -330,6 +346,7 @@ export class OfertasService {
             fotos: {
               create: datos.fotos.map((ruta, orden) => ({ ruta, orden, ...fotos.get(ruta) })),
             },
+            portadaRuta,
           },
           select: SELECT_OFERTA_PROPIA,
         });
@@ -685,6 +702,7 @@ export class OfertasService {
             precioCentimos: true,
             precioVisible: true,
             fotos: { select: { ruta: true, ancho: true, alto: true } },
+            portadaRuta: true,
           },
         });
         if (!actual) throw noExiste();
@@ -739,6 +757,15 @@ export class OfertasService {
           cambios.estado === 'PAUSADA' &&
           Object.keys(cambios).every((clave) => clave === 'estado' || clave === 'razon_pausa');
         if (!soloPausa) data.actualizadaEn = new Date();
+
+        // La portada es una de las fotos que quedan; si se quitó la que era portada, vuelve a la
+        // de siempre (docs/17 §5).
+        const quedan = cambios.fotos ?? actual.fotos.map((foto) => foto.ruta);
+        if (cambios.portada !== undefined) {
+          data.portadaRuta = portadaEntre(cambios.portada, quedan);
+        } else if (actual.portadaRuta && !quedan.includes(actual.portadaRuta)) {
+          data.portadaRuta = null;
+        }
 
         if (cambios.fotos) {
           const existentes = new Map(actual.fotos.map((f) => [f.ruta, f]));
@@ -873,6 +900,7 @@ export class OfertasService {
       razon_pausa: o.estado === 'PAUSADA' ? o.razonPausa : null,
       descripcion: o.descripcion,
       fotos: o.fotos,
+      portada: o.portadaRuta,
       estado: o.estado === 'PAUSADA' ? 'PAUSADA' : 'ACTIVA',
       actualizada_en: o.actualizadaEn.toISOString(),
       revisar: o.estado === 'ACTIVA' && o.actualizadaEn < limiteRevision(),

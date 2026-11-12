@@ -75,12 +75,28 @@ export interface OfertaPropia {
   razon_pausa: string | null;
   descripcion: string | null;
   fotos: Foto[];
+  /**
+   * La portada que eligió la tienda (docs/17 §5): la ruta de una de sus `fotos`, o nula si usa
+   * la de siempre. La que se ve en el feed sale de `portadaDeOferta`.
+   */
+  portada: string | null;
   estado: EstadoOfertaPropia;
   actualizada_en: string;
   /** Activa y sin cambios hace más de 7 días: «Revísala» (RF-10). */
   revisar: boolean;
   /** Quien recibe los mensajes de esta oferta (A-11). */
   responsable: { id: string; nombre: string };
+}
+
+/**
+ * La foto con la que sale una oferta en el feed, los resultados y el chat (docs/17 §5): la que
+ * eligió la tienda; si no eligió, la primera del producto, y si el producto no tiene fotos, la
+ * primera de la tienda. Nula sin ninguna (se dibuja la categoría). La API hace lo mismo.
+ */
+export function portadaDeOferta(
+  oferta: Pick<OfertaPropia, 'portada' | 'fotos'> & { producto: Pick<ProductoResumen, 'foto'> },
+): string | null {
+  return oferta.portada ?? oferta.producto.foto ?? oferta.fotos[0]?.ruta ?? null;
 }
 
 /**

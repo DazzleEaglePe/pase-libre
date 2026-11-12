@@ -6,7 +6,8 @@ import { centimosDeMonto, formatearPrecio, montoParaCampo, precioDe } from './co
 import { crearCuentaSchema, whatsappSchema } from './equipo/equipo.schemas';
 import { enviarMensajeSchema, historialSchema } from './mensajes/mensajes.schemas';
 import { conNombreDeTienda } from './mensajes/mensajes.types';
-import { editarOfertaSchema, publicarSchema } from './ofertas/ofertas.schemas';
+import { editarOfertaSchema, PORTADA_AJENA, publicarSchema } from './ofertas/ofertas.schemas';
+import { portadaDeOferta } from './ofertas/ofertas.types';
 import {
   crearSolicitudSchema,
   horarioATexto,
@@ -235,6 +236,56 @@ describe('publicarSchema', () => {
     expect(editarOfertaSchema.safeParse({}).success).toBe(false);
     expect(editarOfertaSchema.parse({ stock: 0 })).toEqual({ stock: 0 });
     expect(editarOfertaSchema.parse({ precio: '' })).toEqual({ precio: null });
+  });
+});
+
+describe('portada de la publicación (docs/17 §5)', () => {
+  const igual = {
+    producto_id: '6f1c2b8e-1d2a-4c3b-9e4f-5a6b7c8d9e0f',
+    condicion: 'USADO',
+    stock: 2,
+  };
+  const tuya = '2026/11/0b6c3d2e-8f7a-4b1c-9d0e-1f2a3b4c5d6e.webp';
+  const otra = '2026/11/1c7d4e3f-9a8b-4c2d-8e1f-2a3b4c5d6e7f.webp';
+
+  it('al publicar es una de tus fotos, nula (la del catálogo) o no llega', () => {
+    expect(publicarSchema.parse({ ...igual, fotos: [tuya], portada: tuya }).portada).toBe(tuya);
+    expect(publicarSchema.parse({ ...igual, fotos: [tuya], portada: null }).portada).toBeNull();
+    expect(publicarSchema.parse({ ...igual, fotos: [tuya] })).not.toHaveProperty('portada');
+  });
+
+  it('al publicar no acepta otra foto ni algo que no es una foto', () => {
+    for (const portada of [otra, '../../.env', '']) {
+      const resultado = publicarSchema.safeParse({ ...igual, fotos: [tuya], portada });
+      expect(resultado.error?.issues).toContainEqual(
+        expect.objectContaining({ path: ['portada'], message: PORTADA_AJENA }),
+      );
+    }
+    // Sin fotos propias no hay qué elegir.
+    expect(publicarSchema.safeParse({ ...igual, portada: tuya }).success).toBe(false);
+  });
+
+  it('al editar la elige entre las fotos que llegan; si no llegan, la revisa la API', () => {
+    expect(editarOfertaSchema.parse({ portada: null })).toEqual({ portada: null });
+    expect(editarOfertaSchema.parse({ portada: tuya })).toEqual({ portada: tuya });
+    expect(editarOfertaSchema.parse({ fotos: [otra, tuya], portada: tuya })).toEqual({
+      fotos: [otra, tuya],
+      portada: tuya,
+    });
+    const quitada = editarOfertaSchema.safeParse({ fotos: [otra], portada: tuya });
+    expect(quitada.error?.issues[0]).toMatchObject({ path: ['portada'], message: PORTADA_AJENA });
+  });
+
+  it('la que se ve: la elegida, la del catálogo o la primera de la tienda', () => {
+    const fotos = [{ ruta: otra, ancho: 1, alto: 1 }];
+    expect(portadaDeOferta({ portada: tuya, fotos, producto: { foto: 'catalogo.webp' } })).toBe(
+      tuya,
+    );
+    expect(portadaDeOferta({ portada: null, fotos, producto: { foto: 'catalogo.webp' } })).toBe(
+      'catalogo.webp',
+    );
+    expect(portadaDeOferta({ portada: null, fotos, producto: { foto: null } })).toBe(otra);
+    expect(portadaDeOferta({ portada: null, fotos: [], producto: { foto: null } })).toBeNull();
   });
 });
 

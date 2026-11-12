@@ -6,16 +6,26 @@ import { centimosDeMonto } from '../comun/dinero.js';
 export const MAX_FOTOS = 8;
 export const MAX_DESCRIPCION = 500;
 
+/** Así es la ruta de una foto que devolvió `POST /v1/archivos`: «2026/10/<uuid>.webp». */
+const RUTA_FOTO =
+  /^\d{4}\/\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
+
 /**
- * Ruta de una foto que devolvió `POST /v1/archivos` («2026/10/<uuid>.webp»). La API
- * comprueba además que la subió alguien de la misma tienda y que no se usó en otra parte.
+ * Ruta de una foto que devolvió `POST /v1/archivos`. La API comprueba además que la subió
+ * alguien de la misma tienda y que no se usó en otra parte.
  */
 export const rutaFotoSchema = z
   .string()
-  .regex(
-    /^\d{4}\/\d{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/,
-    'Una de las fotos no es válida; súbela de nuevo.',
-  );
+  .regex(RUTA_FOTO, 'Una de las fotos no es válida; súbela de nuevo.');
+
+/** La portada elegida no es una de las fotos de la publicación (docs/17 §5). */
+export const PORTADA_AJENA = 'La portada tiene que ser una de las fotos de tu publicación.';
+
+/**
+ * La foto de portada que elige la tienda (docs/17 §5): la ruta de una de las fotos de su
+ * publicación (`fotos`), o nulo para usar la del catálogo. Sin fotos propias no hay qué elegir.
+ */
+const portadaSchema = z.string().regex(RUTA_FOTO, PORTADA_AJENA).nullable();
 
 const fotosSchema = z
   .array(rutaFotoSchema)
@@ -160,6 +170,8 @@ export const publicarSchema = z
     tienda_visible: z.boolean().optional(),
     descripcion: descripcionSchema.default(null),
     fotos: fotosSchema.default([]),
+    /** Una de `fotos`, o nulo (o sin mandar) para la del catálogo. */
+    portada: portadaSchema.optional(),
   })
   .superRefine((oferta, contexto) => {
     if (!oferta.producto_id === !oferta.producto_nuevo) {
@@ -198,11 +210,15 @@ export const publicarSchema = z
         message: 'Lo que les bajas a tus socios tiene que ser menos que el precio.',
       });
     }
+    if (oferta.portada && !oferta.fotos.includes(oferta.portada)) {
+      contexto.addIssue({ code: 'custom', path: ['portada'], message: PORTADA_AJENA });
+    }
   });
 
 /**
  * `PATCH /v1/ofertas/:id` (RF-06, RF-08, RF-09): solo lo que cambia. `fotos` reemplaza
- * la lista completa, en el orden en que llega.
+ * la lista completa, en el orden en que llega. `portada` es una de las fotos que quedan (las que
+ * llegan o, si no llegan, las que ya tenía); si se quita la foto que era portada, vuelve a nulo.
  */
 export const editarOfertaSchema = z
   .strictObject({
@@ -220,11 +236,19 @@ export const editarOfertaSchema = z
     tienda_visible: z.boolean().optional(),
     descripcion: descripcionSchema.optional(),
     fotos: fotosSchema.optional(),
+    portada: portadaSchema.optional(),
     estado: z.enum(['ACTIVA', 'PAUSADA']).optional(),
     /** «¿Por qué la pausas?» (MP_Web): va con `estado: 'PAUSADA'`. */
     razon_pausa: z.string().trim().max(60, 'Escribe hasta 60 caracteres.').optional(),
   })
-  .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.');
+  .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.')
+  .refine(
+    (cambios) => !cambios.portada || !cambios.fotos || cambios.fotos.includes(cambios.portada),
+    {
+      path: ['portada'],
+      message: PORTADA_AJENA,
+    },
+  );
 
 /** Las razones que ofrece «¿Por qué la pausas?» (MP_Web). */
 export const RAZONES_PAUSA = [

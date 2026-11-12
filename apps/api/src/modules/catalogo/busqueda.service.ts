@@ -689,6 +689,21 @@ export class BusquedaService {
   }
 
   /**
+   * La foto de la tarjeta (`p` es el producto). Sin sesión, la del producto: la tarjeta es del
+   * producto y no pone ninguna oferta al frente. Con sesión, la portada de la oferta destacada
+   * (`d`), con la misma regla que `portadaDe` (docs/17 §5): la que eligió su tienda, la del
+   * producto o, si el producto no tiene, la primera de la tienda.
+   */
+  private fotoDeTarjeta(conPrecio: boolean): Prisma.Sql {
+    const delProducto = Prisma.sql`(SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1)`;
+    if (!conPrecio) return delProducto;
+    return Prisma.sql`COALESCE(
+               (SELECT od.portada_ruta FROM oferta od WHERE od.id = d.oferta_id),
+               ${delProducto},
+               (SELECT fo.ruta FROM oferta_foto fo WHERE fo.oferta_id = d.oferta_id ORDER BY fo.orden LIMIT 1))`;
+  }
+
+  /**
    * El precio que tendría la destacada de cada producto si tiene stock (`d_eq`): la de otra
    * tienda si la hay, y entre esas la más barata con stock. Con su mínimo sale «Más barato» de
    * todos los resultados sin armar la destacada de cada producto.
@@ -795,7 +810,7 @@ export class BusquedaService {
       SELECT g.producto_id, g.titulo, p.slug::text AS slug,
              c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
              m.nombre::text AS marca,
-             (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto,
+             ${this.fotoDeTarjeta(conPrecio)} AS foto,
              g.ofertas AS cantidad,
              ARRAY(
                SELECT DISTINCT coalesce(ga.nombre, ${INDEPENDIENTES.nombre})
@@ -871,7 +886,7 @@ export class BusquedaService {
       SELECT g.*, p.slug::text AS slug,
              c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
              m.nombre::text AS marca,
-             (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto
+             ${this.fotoDeTarjeta(conPrecio)} AS foto
              ${conPrecio ? Prisma.sql`, d.*` : Prisma.empty}
       FROM pagina g
       JOIN producto p ON p.id = g.producto_id

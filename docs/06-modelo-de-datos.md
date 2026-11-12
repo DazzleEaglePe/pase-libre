@@ -104,7 +104,7 @@ erDiagram
 | `producto_foto` | Fotos base del producto | `ruta`, `orden`, `ancho`, `alto` |
 | `etiqueta` | Etiquetas (RF-07) | `nombre` y `clave` normalizada única: «RTX3070», «rtx 3070» y «RTX-3070» dan la clave `rtx 3070` (RNF-26) |
 | `producto_etiqueta` | Etiquetas de cada producto | Clave (`producto_id`, `etiqueta_id`) |
-| `oferta` | Lo que publica cada tienda (ver el diagrama) | `responsable_id` es quien la publicó y quien recibe sus mensajes (A-11). Única por producto, tienda y condición mientras esté vigente. `tienda_visible` (verdadero por defecto): apagado, las demás tiendas la ven como «Tienda reservada» |
+| `oferta` | Lo que publica cada tienda (ver el diagrama) | `responsable_id` es quien la publicó y quien recibe sus mensajes (A-11). Única por producto, tienda y condición mientras esté vigente. `tienda_visible` (verdadero por defecto): apagado, las demás tiendas la ven como «Tienda reservada». `portada_ruta` (docs/17 §5): una de sus `oferta_foto`, o nula = la primera del producto y, si no tiene, la primera de la tienda |
 | `oferta_foto` | Fotos propias de la oferta, opcionales | Hasta 8 por oferta |
 | `termino` | Las palabras que existen en el catálogo, para corregir «3370» → «3070» | `palabra` (ya normalizada), `veces`. Índice trigram |
 | `archivo` | Fotos subidas que todavía no se usan | `usuario_id`, `tienda_id`, `ruta` única, `ancho`, `alto`, `bytes`, `usado_en`. Una foto la usa solo alguien de la misma tienda, y una sola vez |
