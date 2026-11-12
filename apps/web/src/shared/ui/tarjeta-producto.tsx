@@ -170,7 +170,11 @@ export function TarjetaProducto({
           prioridad={prioridad}
         />
         {etiqueta && (
-          <span className="absolute left-2 top-2 rounded-full border border-[#E2E7E4] bg-white px-2 py-0.5 text-[11px] font-extrabold leading-4 text-secundario">
+          // «Hace 5 min» puede cambiar entre el servidor y el navegador.
+          <span
+            suppressHydrationWarning
+            className="absolute left-2 top-2 rounded-full border border-[#E2E7E4] bg-white px-2 py-0.5 text-[11px] font-extrabold leading-4 text-secundario"
+          >
             {etiqueta}
           </span>
         )}
