@@ -249,7 +249,7 @@ Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`)
 
 ## 13. Catálogo: fotos, ZIP que actualiza y «Eliminar todos» ([docs/17](17-catalogo-fotos-y-zip.md))
 
-En `main` desde el 12/11/2026, **sin desplegar** (dos migraciones nuevas: 35 en total).
+**En producción desde el 12/11/2026, `0bb30bd6`** (dos migraciones nuevas: 35 en total; respaldo previo `paselibre-produccion-20261112T164908Z.dump`). Volver con `desplegar.sh produccion.env 16f8c2c7` (las migraciones no se deshacen).
 
 - [x] 1 · Fondo gris clarito `#F1F4F2` con la foto en `multiply` en todas las miniaturas; tarjetas cuadradas
 - [x] 2 · «Editar» en Catálogo cambia también las fotos y la principal, con «¿Estás seguro?» si hay publicaciones
@@ -257,5 +257,5 @@ En `main` desde el 12/11/2026, **sin desplegar** (dos migraciones nuevas: 35 en 
 - [x] 4 · «Eliminar todos» por tandas: nunca borra un producto con publicaciones, pedidos en vivo o uniones
 - [x] 5 · La tienda elige la portada de su publicación (al publicar y al editar); el visitante ve la elegida, que ya veía en la ficha
 - [x] 6 · nginx: ya estaba (41m en la ruta de importar desde la fase 0)
-- [ ] Antes del primer ZIP grande en producción: copia de `/var/lib/paselibre/produccion/media` (el respaldo de la base no guarda las fotos, y reemplazar borra las viejas)
-- [ ] Subir el catálogo de 302 productos con «Reemplazar fotos y datos» y revisar «Lo que cambia» antes de guardar
+- [x] Copia de las fotos antes de desplegar: `/var/backups/paselibre/fotos/media-antes-0bb30bd6-20261112T164057Z.tar.gz` (215 fotos; el respaldo de la base no guarda fotos y reemplazar borra las viejas)
+- [ ] Subir el catálogo nuevo (lo arma la sesión de diseño; ~800 productos): WebP transparente, varios ZIP por categoría de menos de 35 MB (límite 40 MB), con «Reemplazar fotos y datos»; probarlos antes en la copia local

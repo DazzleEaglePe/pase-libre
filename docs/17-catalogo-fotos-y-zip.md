@@ -1,6 +1,6 @@
 # 17 · Catálogo: fotos, ZIP que actualiza y «Eliminar todos»
 
-**Fecha:** jueves 12/11/2026 · **Estado:** aprobado por Bruno (diseño); hecho en `main` el 12/11/2026, sin desplegar (ver CHECKLIST §13) · **Para:** Bruno (desarrollo)
+**Fecha:** jueves 12/11/2026 · **Estado:** aprobado por Bruno (diseño); en producción desde el 12/11/2026, `0bb30bd6` (ver CHECKLIST §13) · **Para:** Bruno (desarrollo)
 
 Esto **se suma** a la ronda 11/11 + feed ([docs/14 §7](14-lienzo-final.md), en producción desde el 12/11); no cambia nada de lo que ya está ahí. Sale de una conversación sobre las fotos del catálogo. El catálogo nuevo (302 productos con fotos elegidas con una guía nueva) **está listo para subir apenas exista el punto 3**.
 
