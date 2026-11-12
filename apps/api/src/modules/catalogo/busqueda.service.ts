@@ -25,6 +25,7 @@ import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { destacadasAhora } from '../../shared/destacados';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { MemoriaPorClave } from '../../shared/memoria';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { INDEPENDIENTES } from './catalogo.service';
 import { conSesion, tiendaPara } from './visibilidad';
@@ -41,6 +42,35 @@ const PARECIDAS = 3;
 type ConsultaInterna = BuscarConsulta & { excluirTiendas?: string[] };
 /** Cuántos de lo más buscado se prueban contra una categoría antes de rendirse. */
 const CANDIDATOS_POR_CATEGORIA = 20;
+/**
+ * Lo que ve un visitante es igual para todos: resultados y sugerencias se guardan 30 s por
+ * consulta normalizada (docs/16 §4.4). Con sesión nunca: depende de la tienda, de sus bloqueos
+ * y de la audiencia.
+ */
+const MEMORIA_VISITANTE_MS = 30_000;
+
+/** La clave de una búsqueda de visitante: lo que cambia sus resultados, ya normalizado. */
+function claveDeVisitante(consulta: BuscarConsulta): string {
+  const lista = (valores: string[]) => [...new Set(valores)].sort();
+  // Al visitante se le ignoran el precio, el orden y la moneda: no van en la clave.
+  return JSON.stringify([
+    normalizarTexto(consulta.q),
+    consulta.categoria ?? '',
+    lista(consulta.galeria),
+    lista(consulta.marca),
+    lista(consulta.condicion),
+    consulta.stock,
+    consulta.pagina,
+    consulta.tal_cual,
+  ]);
+}
+
+/** Lo guardado con lo que escribió esta persona en «Buscaste …» (lo demás sale de lo normalizado). */
+function conLoEscrito<T extends { correccion: Correccion | null }>(respuesta: T, q: string): T {
+  return respuesta.correccion
+    ? { ...respuesta, correccion: { ...respuesta.correccion, buscaste: q } }
+    : respuesta;
+}
 
 interface FilaProducto {
   slug: string;
@@ -95,6 +125,20 @@ export class BusquedaService {
   /** Soles por dólar, solo para comparar (TIPO_CAMBIO). */
   private readonly tipoCambio: number;
 
+  private readonly buscadoPorVisitantes = new MemoriaPorClave<RespuestaBuscar>(
+    MEMORIA_VISITANTE_MS,
+    500,
+  );
+  private readonly sugeridoAVisitantes = new MemoriaPorClave<RespuestaSugerenciasBusqueda>(
+    MEMORIA_VISITANTE_MS,
+    1_000,
+  );
+  /** Las facetas del visitante no cambian de una página a otra: se guardan sin la página. */
+  private readonly facetasDeVisitantes = new MemoriaPorClave<RespuestaBuscar['facetas']>(
+    MEMORIA_VISITANTE_MS,
+    500,
+  );
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) config: ConfigService<Environment, true>,
@@ -103,6 +147,25 @@ export class BusquedaService {
   }
 
   async buscar(consulta: BuscarConsulta, mirada: Mirada): Promise<RespuestaBuscar> {
+    const respuesta = conSesion(mirada)
+      ? await this.resolver(consulta, mirada)
+      : conLoEscrito(
+          await this.buscadoPorVisitantes.recordar(claveDeVisitante(consulta), () =>
+            this.resolver(consulta, mirada),
+          ),
+          consulta.q,
+        );
+    // Cada búsqueda se registra, también la que sale de la memoria (RF-31, RF-32).
+    await this.registrar(
+      consulta.q,
+      respuesta.correccion?.mostramos ?? null,
+      respuesta.total_productos,
+      mirada,
+    );
+    return respuesta;
+  }
+
+  private async resolver(consulta: BuscarConsulta, mirada: Mirada): Promise<RespuestaBuscar> {
     const conPrecio = conSesion(mirada);
     // Al visitante se le ignoran el filtro y el orden por precio: si no, podría deducir
     // los precios probando rangos (docs/05 §5).
@@ -156,13 +219,12 @@ export class BusquedaService {
       }
     }
 
-    const facetas = await this.facetas(usadas, usada);
-    await this.registrar(
-      consulta.q,
-      correccion?.mostramos ?? null,
-      resultado.totalProductos,
-      mirada,
-    );
+    const facetas = conPrecio
+      ? await this.facetas(usadas, usada)
+      : await this.facetasDeVisitantes.recordar(
+          JSON.stringify([usadas, usada.categoria ?? '']),
+          () => this.facetas(usadas, usada),
+        );
 
     const base = {
       correccion,
@@ -194,6 +256,18 @@ export class BusquedaService {
    * siempre como para un visitante: el desplegable no muestra precios ni tiendas.
    */
   async sugerencias(
+    consulta: SugerenciasBusquedaConsulta,
+    mirada: Mirada,
+  ): Promise<RespuestaSugerenciasBusqueda> {
+    if (conSesion(mirada)) return this.sugerir(consulta, mirada);
+    const clave = JSON.stringify([normalizarTexto(consulta.q), consulta.categoria ?? '']);
+    return conLoEscrito(
+      await this.sugeridoAVisitantes.recordar(clave, () => this.sugerir(consulta, mirada)),
+      consulta.q,
+    );
+  }
+
+  private async sugerir(
     consulta: SugerenciasBusquedaConsulta,
     mirada: Mirada,
   ): Promise<RespuestaSugerenciasBusqueda> {
@@ -401,12 +475,61 @@ export class BusquedaService {
         Prisma.sql`t.id NOT IN (${Prisma.join(excluir.map((id) => Prisma.sql`${id}::uuid`))})`,
       );
     }
-    // Las palabras normalizadas solo tienen letras y números: no hay comodines que escapar.
-    for (const palabra of palabras) {
-      condiciones.push(Prisma.sql`(' ' || p.texto_busqueda) LIKE ${`% ${palabra}%`}`);
-    }
+    condiciones.push(...this.condicionesTexto(palabras));
     if (consulta.categoria) condiciones.push(Prisma.sql`c.slug = ${consulta.categoria}`);
     return condiciones;
+  }
+
+  /**
+   * Cada palabra es el comienzo de alguna palabra del producto (`p`). Con tres letras o más se
+   * repite como «la contiene»: no cambia el resultado, pero esa forma sí puede usar el índice de
+   * trigramas de `texto_busqueda`. Las palabras normalizadas solo tienen letras y números: no hay
+   * comodines que escapar.
+   */
+  private condicionesTexto(palabras: string[]): Prisma.Sql[] {
+    return palabras.flatMap((palabra) => [
+      Prisma.sql`(' ' || p.texto_busqueda) LIKE ${`% ${palabra}%`}`,
+      ...(palabra.length >= 3 ? [Prisma.sql`p.texto_busqueda LIKE ${`%${palabra}%`}`] : []),
+    ]);
+  }
+
+  /**
+   * Lo mismo sobre `producto_resumen r` (con `producto p` si hay palabras): el resumen ya solo
+   * tiene productos sin unir con ofertas vigentes. La marca es del producto, así que también va.
+   */
+  private condicionesResumen(
+    palabras: string[],
+    consulta: Pick<BuscarConsulta, 'categoria' | 'marca'>,
+  ): Prisma.Sql[] {
+    const condiciones = this.condicionesTexto(palabras);
+    if (consulta.categoria) {
+      condiciones.push(
+        Prisma.sql`r.categoria_id = (SELECT id FROM categoria WHERE slug = ${consulta.categoria})`,
+      );
+    }
+    if (consulta.marca.length > 0) {
+      condiciones.push(
+        Prisma.sql`r.marca_id IN (SELECT id FROM marca WHERE slug IN (${Prisma.join(consulta.marca)}))`,
+      );
+    }
+    return condiciones;
+  }
+
+  /**
+   * Si la búsqueda sale de `producto_resumen`: cuando no filtra por algo de la oferta (galería,
+   * condición, stock o precio) ni quien mira bloqueó tiendas. Si no, se agrupan las ofertas.
+   */
+  private usaResumen(consulta: BuscarConsulta, conPrecio: boolean): boolean {
+    const excluir = (consulta as ConsultaInterna).excluirTiendas ?? [];
+    const porPrecio =
+      conPrecio && (consulta.precio_min !== undefined || consulta.precio_max !== undefined);
+    return (
+      excluir.length === 0 &&
+      consulta.galeria.length === 0 &&
+      consulta.condicion.length === 0 &&
+      !consulta.stock &&
+      !porPrecio
+    );
   }
 
   /** Filtros que elige el usuario en el lateral (RF-16, RF-17). */
@@ -416,7 +539,7 @@ export class BusquedaService {
       const conGaleria = consulta.galeria.filter((g) => g !== INDEPENDIENTES.slug);
       const independientes = consulta.galeria.includes(INDEPENDIENTES.slug);
       const partes: Prisma.Sql[] = [];
-      if (conGaleria.length > 0) partes.push(Prisma.sql`g.slug IN (${Prisma.join(conGaleria)})`);
+      if (conGaleria.length > 0) partes.push(Prisma.sql`ga.slug IN (${Prisma.join(conGaleria)})`);
       if (independientes) partes.push(Prisma.sql`t.galeria_id IS NULL`);
       condiciones.push(Prisma.sql`(${Prisma.join(partes, ' OR ')})`);
     }
@@ -439,10 +562,17 @@ export class BusquedaService {
     return condiciones;
   }
 
-  private filtradas(palabras: string[], consulta: BuscarConsulta, conPrecio: boolean): Prisma.Sql {
+  /** Las ofertas que coinciden, una fila por oferta. `extra` agrega una condición (una ficha). */
+  private filtradas(
+    palabras: string[],
+    consulta: BuscarConsulta,
+    conPrecio: boolean,
+    extra: Prisma.Sql | null = null,
+  ): Prisma.Sql {
     const condiciones = [
       ...this.condicionesBase(palabras, consulta),
       ...this.condicionesFaceta(consulta, conPrecio),
+      ...(extra ? [extra] : []),
     ];
     // `precio_eq`: el precio visible en céntimos de dólar, solo para comparar (nunca se muestra).
     const columnasPrecio = conPrecio
@@ -456,11 +586,11 @@ export class BusquedaService {
       : Prisma.empty;
     return Prisma.sql`
       SELECT o.producto_id, o.condicion, o.stock, o.actualizada_en,
-             coalesce(g.nombre, ${INDEPENDIENTES.nombre}) AS galeria_nombre
+             coalesce(ga.nombre, ${INDEPENDIENTES.nombre}) AS galeria_nombre
              ${columnasPrecio}
       FROM oferta o
       JOIN tienda t ON t.id = o.tienda_id
-      LEFT JOIN galeria g ON g.id = t.galeria_id
+      LEFT JOIN galeria ga ON ga.id = t.galeria_id
       JOIN producto p ON p.id = o.producto_id
       JOIN categoria c ON c.id = p.categoria_id
       LEFT JOIN marca m ON m.id = p.marca_id
@@ -485,6 +615,10 @@ export class BusquedaService {
     return filas.map((fila) => fila.productoId);
   }
 
+  /**
+   * Una página de resultados y sus totales, en una sola consulta. Sale de `producto_resumen`
+   * cuando se puede (`usaResumen`) y, si no, de agrupar las ofertas que coinciden.
+   */
   private async ejecutar(
     palabras: string[],
     consulta: BuscarConsulta,
@@ -493,16 +627,6 @@ export class BusquedaService {
     /** La tienda de quien mira: su propia oferta solo se destaca si no hay otra. */
     miTiendaId: string | null = null,
   ): Promise<Resultado> {
-    const filtradas = this.filtradas(palabras, consulta, conPrecio);
-    const agregadosPrecio = conPrecio
-      ? Prisma.sql`,
-        min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'USD') AS desde_usd,
-        min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'PEN') AS desde_pen,
-        min(f.precio_eq) AS desde_eq,
-        count(*) FILTER (WHERE NOT f.precio_visible OR f.precio_centimos IS NULL)::int AS al_interno`
-      : Prisma.empty;
-    // Con sesión se compara en dólares (`precio_eq`): un precio en soles y uno en dólares
-    // quedan en la misma vara, y los productos sin precio visible van al final.
     // «Destacar en silencio» (COR16): más arriba en las búsquedas de su categoría.
     const impulsados =
       consulta.categoria && consulta.orden !== 'precio_asc' && consulta.orden !== 'precio_desc'
@@ -511,74 +635,267 @@ export class BusquedaService {
     const primero = impulsados.length
       ? Prisma.sql`(g.producto_id = ANY(${impulsados}::uuid[])) DESC, `
       : Prisma.empty;
+    // Con sesión se compara en dólares (`desde_eq`): un precio en soles y uno en dólares
+    // quedan en la misma vara, y los productos sin precio visible van al final.
     const orden =
       consulta.orden === 'precio_asc'
         ? Prisma.sql`g.desde_eq ASC NULLS LAST, g.actualizada_en DESC, g.titulo`
         : consulta.orden === 'precio_desc'
           ? Prisma.sql`g.desde_eq DESC NULLS LAST, g.actualizada_en DESC, g.titulo`
           : Prisma.sql`${primero}g.actualizada_en DESC, g.titulo`;
-    // La oferta destacada: la de otra tienda antes que la propia (la tarjeta es para escribirle
-    // a alguien), con stock, con precio visible y la más barata; entre iguales, la más reciente.
-    // «Más barata» es la de menor precio entre todos los resultados.
-    const destacada = conPrecio
-      ? Prisma.sql`,
-        d AS (
-          SELECT DISTINCT ON (f.producto_id)
-                 f.producto_id, f.oferta_id, f.tienda_id, f.tienda_nombre, f.tienda_stand,
-                 f.tienda_visible AS d_tienda_visible,
-                 f.condicion::text AS d_condicion, f.stock AS d_stock, f.galeria_nombre AS d_galeria,
-                 f.moneda::text AS d_moneda, f.precio_centimos AS d_precio,
-                 f.precio_visible AS d_visible, f.precio_eq AS d_eq
-          FROM f
-          ORDER BY f.producto_id, COALESCE(f.tienda_id = CAST(${miTiendaId} AS uuid), false) ASC,
-                   (f.stock > 0) DESC, (f.precio_eq IS NOT NULL) DESC,
-                   f.precio_eq ASC, f.actualizada_en DESC, f.oferta_id
-        )`
-      : Prisma.empty;
-    const columnasDestacada = conPrecio
-      ? Prisma.sql`, d.oferta_id, d.tienda_id, d.tienda_nombre, d.tienda_stand, d.d_tienda_visible,
-               d.d_condicion,
-               d.d_stock, d.d_galeria, d.d_moneda, d.d_precio, d.d_visible,
-               (d.d_stock > 0 AND d.d_eq IS NOT NULL
-                 AND d.d_eq = min(d.d_eq) FILTER (WHERE d.d_stock > 0) OVER ()) AS d_mas_barato`
-      : Prisma.empty;
-    const unirDestacada = conPrecio
-      ? Prisma.sql`JOIN d ON d.producto_id = g.producto_id`
-      : Prisma.empty;
+    const pagina = { limite, desde: (consulta.pagina - 1) * limite };
+    return this.usaResumen(consulta, conPrecio)
+      ? this.ejecutarConResumen(palabras, consulta, conPrecio, miTiendaId, orden, pagina)
+      : this.ejecutarConOfertas(palabras, consulta, conPrecio, miTiendaId, orden, pagina);
+  }
 
-    const [filas, totales] = await Promise.all([
-      this.prisma.$queryRaw<FilaProducto[]>`
-        WITH f AS (${filtradas}),
-        g AS (
-          SELECT p.id AS producto_id, p.slug::text AS slug, p.titulo,
-                 c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
-                 m.nombre::text AS marca,
-                 (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto,
-                 count(*)::int AS cantidad,
-                 array_agg(DISTINCT f.galeria_nombre) AS galerias,
-                 array_agg(DISTINCT f.condicion::text) AS condiciones,
-                 sum(f.stock)::int AS stock_total,
-                 max(f.actualizada_en) AS actualizada_en
-                 ${agregadosPrecio}
-          FROM f
-          JOIN producto p ON p.id = f.producto_id
-          JOIN categoria c ON c.id = p.categoria_id
-          LEFT JOIN marca m ON m.id = p.marca_id
-          GROUP BY p.id, c.slug, c.nombre, m.nombre
-        )${destacada}
-        SELECT g.*${columnasDestacada}
-        FROM g
-        ${unirDestacada}
+  /** `precio_eq` de un precio visible en céntimos: en dólares, para comparar (nunca se muestra). */
+  private enDolares(usd: Prisma.Sql, pen: Prisma.Sql): Prisma.Sql {
+    return Prisma.sql`LEAST(${usd}::numeric, ${pen}::numeric / CAST(${this.tipoCambio} AS numeric))`;
+  }
+
+  /**
+   * La oferta destacada de cada producto de la página (`g`): la de otra tienda antes que la
+   * propia (la tarjeta es para escribirle a alguien), con stock, con precio visible y la más
+   * barata; entre iguales, la más reciente. Lleva «Más barata» si su precio es `barata`, el menor
+   * entre las destacadas con stock de todos los resultados.
+   */
+  private destacada(
+    palabras: string[],
+    consulta: BuscarConsulta,
+    miTiendaId: string | null,
+    barata: Prisma.Sql,
+  ): Prisma.Sql {
+    const delProducto = this.filtradas(
+      palabras,
+      consulta,
+      true,
+      Prisma.sql`o.producto_id = g.producto_id`,
+    );
+    return Prisma.sql`
+      JOIN LATERAL (
+        SELECT f.oferta_id, f.tienda_id, f.tienda_nombre, f.tienda_stand,
+               f.tienda_visible AS d_tienda_visible,
+               f.condicion::text AS d_condicion, f.stock AS d_stock, f.galeria_nombre AS d_galeria,
+               f.moneda::text AS d_moneda, f.precio_centimos AS d_precio,
+               f.precio_visible AS d_visible,
+               (f.stock > 0 AND f.precio_eq IS NOT NULL AND f.precio_eq = ${barata}) AS d_mas_barato
+        FROM (${delProducto}) f
+        ORDER BY COALESCE(f.tienda_id = CAST(${miTiendaId} AS uuid), false) ASC,
+                 (f.stock > 0) DESC, (f.precio_eq IS NOT NULL) DESC,
+                 f.precio_eq ASC, f.actualizada_en DESC, f.oferta_id
+        LIMIT 1
+      ) d ON true`;
+  }
+
+  /**
+   * El precio que tendría la destacada de cada producto si tiene stock (`d_eq`): la de otra
+   * tienda si la hay, y entre esas la más barata con stock. Con su mínimo sale «Más barato» de
+   * todos los resultados sin armar la destacada de cada producto.
+   */
+  private precioDestacada(miTiendaId: string | null): Prisma.Sql {
+    const ajena = Prisma.sql`f.tienda_id IS DISTINCT FROM CAST(${miTiendaId} AS uuid)`;
+    return Prisma.sql`CASE WHEN bool_or(${ajena})
+             THEN min(f.precio_eq) FILTER (WHERE ${ajena} AND f.stock > 0)
+             ELSE min(f.precio_eq) FILTER (WHERE f.stock > 0)
+        END`;
+  }
+
+  /**
+   * Desde `producto_resumen`: la página sale del índice por fecha (o por categoría y fecha) sin
+   * recorrer las ofertas, y los totales de una pasada por el resumen. Con sesión, los precios
+   * «desde» y el orden por precio también salen del resumen (solo tiene precios visibles); la
+   * destacada se busca en las ofertas, y solo para la página. Para «Más barato», los productos
+   * donde quien mira tiene una oferta se calculan aparte desde las ofertas: ahí la destacada
+   * puede no ser la más barata (la propia va al final).
+   */
+  private async ejecutarConResumen(
+    palabras: string[],
+    consulta: BuscarConsulta,
+    conPrecio: boolean,
+    miTiendaId: string | null,
+    orden: Prisma.Sql,
+    pagina: { limite: number; desde: number },
+  ): Promise<Resultado> {
+    const condiciones = this.condicionesResumen(palabras, consulta);
+    const unirProducto = palabras.length
+      ? Prisma.sql`JOIN producto p ON p.id = r.producto_id`
+      : Prisma.empty;
+    // Al visitante ni siquiera se le piden las columnas de precio.
+    const columnasPrecio = conPrecio
+      ? Prisma.sql`, r.desde_usd, r.desde_pen, r.al_interno,
+          ${this.enDolares(Prisma.sql`r.desde_usd`, Prisma.sql`r.desde_pen`)} AS desde_eq,
+          ${this.enDolares(Prisma.sql`r.barata_usd`, Prisma.sql`r.barata_pen`)} AS barata_eq`
+      : Prisma.empty;
+    const conPropias = conPrecio && miTiendaId !== null;
+    const propias = conPropias
+      ? Prisma.sql`
+      propias AS (
+        SELECT DISTINCT o.producto_id
+        FROM oferta o
+        JOIN tienda t ON t.id = o.tienda_id AND t.estado = 'ACTIVA'
+        WHERE o.tienda_id = CAST(${miTiendaId} AS uuid) AND o.estado = 'ACTIVA'
+          AND o.producto_id IN (SELECT producto_id FROM coinciden)
+      ),
+      barata_propia AS (
+        SELECT min(x.d_eq) AS barata
+        FROM (
+          SELECT ${this.precioDestacada(miTiendaId)} AS d_eq
+          FROM (
+            -- Los productos ya coinciden: basta con las ofertas vigentes, sin volver a filtrar.
+            SELECT o.producto_id, o.tienda_id, o.stock,
+                   CASE WHEN o.precio_visible AND o.precio_centimos IS NOT NULL
+                        THEN o.precio_centimos::numeric
+                             / CASE WHEN o.moneda::text = 'PEN' THEN CAST(${this.tipoCambio} AS numeric) ELSE 1 END
+                   END AS precio_eq
+            FROM oferta o
+            JOIN tienda t ON t.id = o.tienda_id AND t.estado = 'ACTIVA'
+            WHERE o.estado = 'ACTIVA' AND o.producto_id IN (SELECT producto_id FROM propias)
+          ) f
+          GROUP BY f.producto_id
+        ) x
+      ),`
+      : Prisma.empty;
+    const barataTotales = !conPrecio
+      ? Prisma.empty
+      : conPropias
+        ? Prisma.sql`, min(g.barata_eq) FILTER (WHERE g.producto_id NOT IN (SELECT producto_id FROM propias)) AS barata`
+        : Prisma.sql`, min(g.barata_eq) AS barata`;
+    const barata = conPropias
+      ? Prisma.sql`LEAST(t.barata, (SELECT barata FROM barata_propia))`
+      : Prisma.sql`t.barata`;
+
+    const filas = await this.prisma.$queryRaw<
+      Array<
+        FilaProducto & {
+          producto_id: string | null;
+          total_productos: number;
+          total_ofertas: number;
+        }
+      >
+    >`
+      WITH coinciden AS NOT MATERIALIZED (
+        SELECT r.producto_id, r.titulo, r.ofertas, r.stock, r.nuevas, r.usadas, r.galerias,
+               r.actualizada_en ${columnasPrecio}
+        FROM producto_resumen r
+        ${unirProducto}
+        WHERE ${condiciones.length ? Prisma.join(condiciones, ' AND ') : Prisma.sql`true`}
+      ),
+      ${propias}
+      totales AS (
+        SELECT count(*)::int AS total_productos, coalesce(sum(g.ofertas), 0)::int AS total_ofertas
+               ${barataTotales}
+        FROM coinciden g
+      ),
+      pagina AS (
+        SELECT g.* FROM coinciden g
         ORDER BY ${orden}
-        LIMIT ${limite} OFFSET ${(consulta.pagina - 1) * limite}`,
-      this.prisma.$queryRaw<Array<{ productos: number; ofertas: number }>>`
-        WITH f AS (${filtradas})
-        SELECT count(DISTINCT producto_id)::int AS productos, count(*)::int AS ofertas FROM f`,
-    ]);
+        LIMIT ${pagina.limite} OFFSET ${pagina.desde}
+      )
+      SELECT g.producto_id, g.titulo, p.slug::text AS slug,
+             c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
+             m.nombre::text AS marca,
+             (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto,
+             g.ofertas AS cantidad,
+             ARRAY(
+               SELECT DISTINCT coalesce(ga.nombre, ${INDEPENDIENTES.nombre})
+               FROM jsonb_object_keys(g.galerias) k LEFT JOIN galeria ga ON ga.id::text = k
+             ) AS galerias,
+             array_remove(ARRAY[CASE WHEN g.nuevas > 0 THEN 'NUEVO' END,
+                                CASE WHEN g.usadas > 0 THEN 'USADO' END], NULL) AS condiciones,
+             g.stock AS stock_total, g.actualizada_en,
+             t.total_productos, t.total_ofertas
+             ${conPrecio ? Prisma.sql`, g.desde_usd, g.desde_pen, g.al_interno, d.*` : Prisma.empty}
+      FROM totales t
+      LEFT JOIN pagina g ON true
+      LEFT JOIN producto p ON p.id = g.producto_id
+      LEFT JOIN categoria c ON c.id = p.categoria_id
+      LEFT JOIN marca m ON m.id = p.marca_id
+      ${conPrecio ? Prisma.sql`LEFT ${this.destacada(palabras, consulta, miTiendaId, barata)}` : Prisma.empty}
+      ORDER BY ${orden}`;
+    return {
+      filas: filas.filter((fila) => fila.producto_id !== null),
+      totalProductos: filas[0]?.total_productos ?? 0,
+      totalOfertas: filas[0]?.total_ofertas ?? 0,
+    };
+  }
+
+  /**
+   * Agrupando las ofertas que coinciden (con filtros de la oferta o tiendas bloqueadas): se
+   * agrupa una vez, los totales salen de esa misma agrupación (`OVER ()`) y lo caro (la foto,
+   * la oferta destacada) se busca solo para los productos de la página.
+   */
+  private async ejecutarConOfertas(
+    palabras: string[],
+    consulta: BuscarConsulta,
+    conPrecio: boolean,
+    miTiendaId: string | null,
+    orden: Prisma.Sql,
+    pagina: { limite: number; desde: number },
+  ): Promise<Resultado> {
+    const filtradas = this.filtradas(palabras, consulta, conPrecio);
+    const agregadosPrecio = conPrecio
+      ? Prisma.sql`,
+        min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'USD') AS desde_usd,
+        min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'PEN') AS desde_pen,
+        min(f.precio_eq) AS desde_eq,
+        count(*) FILTER (WHERE NOT f.precio_visible OR f.precio_centimos IS NULL)::int AS al_interno,
+        ${this.precioDestacada(miTiendaId)} AS d_eq`
+      : Prisma.empty;
+    const barata = conPrecio ? Prisma.sql`, min(g.d_eq) OVER () AS barata` : Prisma.empty;
+
+    const filas = await this.prisma.$queryRaw<
+      Array<FilaProducto & { total_productos: number; total_ofertas: number }>
+    >`
+      WITH f AS (${filtradas}),
+      g AS (
+        SELECT f.producto_id,
+               count(*)::int AS cantidad,
+               array_agg(DISTINCT f.galeria_nombre) AS galerias,
+               array_agg(DISTINCT f.condicion::text) AS condiciones,
+               sum(f.stock)::int AS stock_total,
+               max(f.actualizada_en) AS actualizada_en
+               ${agregadosPrecio}
+        FROM f
+        GROUP BY f.producto_id
+      ),
+      pagina AS (
+        SELECT g.*,
+               count(*) OVER ()::int AS total_productos,
+               sum(g.cantidad) OVER ()::int AS total_ofertas
+               ${barata}
+        FROM (SELECT g.*, p.titulo FROM g JOIN producto p ON p.id = g.producto_id) g
+        ORDER BY ${orden}
+        LIMIT ${pagina.limite} OFFSET ${pagina.desde}
+      )
+      SELECT g.*, p.slug::text AS slug,
+             c.slug::text AS categoria_slug, c.nombre AS categoria_nombre,
+             m.nombre::text AS marca,
+             (SELECT pf.ruta FROM producto_foto pf WHERE pf.producto_id = p.id ORDER BY pf.orden LIMIT 1) AS foto
+             ${conPrecio ? Prisma.sql`, d.*` : Prisma.empty}
+      FROM pagina g
+      JOIN producto p ON p.id = g.producto_id
+      JOIN categoria c ON c.id = p.categoria_id
+      LEFT JOIN marca m ON m.id = p.marca_id
+      ${conPrecio ? this.destacada(palabras, consulta, miTiendaId, Prisma.sql`g.barata`) : Prisma.empty}
+      ORDER BY ${orden}`;
+    const [primera] = filas;
+    if (primera) {
+      return {
+        filas,
+        totalProductos: primera.total_productos,
+        totalOfertas: primera.total_ofertas,
+      };
+    }
+    // Una página después de la última: no trae filas, pero los totales siguen valiendo.
+    if (pagina.desde === 0) return { filas, totalProductos: 0, totalOfertas: 0 };
+    const [totales] = await this.prisma.$queryRaw<Array<{ productos: number; ofertas: number }>>`
+      WITH f AS (${filtradas})
+      SELECT count(DISTINCT producto_id)::int AS productos, count(*)::int AS ofertas FROM f`;
     return {
       filas,
-      totalProductos: totales[0]?.productos ?? 0,
-      totalOfertas: totales[0]?.ofertas ?? 0,
+      totalProductos: totales?.productos ?? 0,
+      totalOfertas: totales?.ofertas ?? 0,
     };
   }
 
@@ -628,6 +945,99 @@ export class BusquedaService {
     palabras: string[],
     consulta: BuscarConsulta,
   ): Promise<RespuestaBuscar['facetas']> {
+    const [filas, porCategoria] = await (((consulta as ConsultaInterna).excluirTiendas ?? [])
+      .length === 0
+      ? this.facetasConResumen(palabras, consulta)
+      : this.facetasConOfertas(palabras, consulta));
+
+    const de = (dimension: string): Faceta[] =>
+      filas
+        .filter((f) => f.dimension === dimension)
+        .map(({ slug, nombre, cantidad }) => ({ slug, nombre, cantidad }))
+        .sort((a, b) => b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, 'es'));
+    return {
+      galerias: de('galeria'),
+      marcas: de('marca'),
+      condiciones: de('condicion'),
+      con_stock: filas.find((f) => f.dimension === 'stock')?.cantidad ?? 0,
+      categorias: porCategoria,
+    };
+  }
+
+  /**
+   * Las facetas desde `producto_resumen` (sin tiendas bloqueadas): productos por categoría y
+   * ofertas por galería, marca, condición y con stock, sin recorrer las ofertas.
+   */
+  private facetasConResumen(
+    palabras: string[],
+    consulta: BuscarConsulta,
+  ): Promise<[Array<Faceta & { dimension: string }>, Faceta[]]> {
+    const unirProducto = palabras.length
+      ? Prisma.sql`JOIN producto p ON p.id = r.producto_id`
+      : Prisma.empty;
+    const donde = (condiciones: Prisma.Sql[]) =>
+      condiciones.length ? Prisma.join(condiciones, ' AND ') : Prisma.sql`true`;
+    const conCategoria = this.condicionesResumen(palabras, {
+      categoria: consulta.categoria,
+      marca: [],
+    });
+    const sinCategoria = this.condicionesResumen(palabras, { categoria: undefined, marca: [] });
+    // Se agrupa por id y después se buscan los nombres: agrupar por el slug (citext) es más lento.
+    const categorias = this.prisma.$queryRaw<Faceta[]>`
+      SELECT c.slug::text AS slug, c.nombre, x.cantidad
+      FROM (
+        SELECT r.categoria_id, count(*)::int AS cantidad
+        FROM producto_resumen r
+        ${unirProducto}
+        WHERE ${donde(sinCategoria)}
+        GROUP BY r.categoria_id
+      ) x
+      JOIN categoria c ON c.id = x.categoria_id
+      ORDER BY 3 DESC, c.orden, c.nombre`;
+    const lateral = this.prisma.$queryRaw<Array<Faceta & { dimension: string }>>`
+      WITH base AS NOT MATERIALIZED (
+        SELECT r.marca_id, r.ofertas, r.nuevas, r.usadas, r.con_stock, r.galerias
+        FROM producto_resumen r
+        ${unirProducto}
+        WHERE ${donde(conCategoria)}
+      )
+      SELECT 'galeria' AS dimension, coalesce(ga.slug::text, ${INDEPENDIENTES.slug}) AS slug,
+             coalesce(ga.nombre, ${INDEPENDIENTES.nombre}) AS nombre, sum(x.ofertas)::int AS cantidad
+      FROM (
+        SELECT e.key AS galeria, sum(e.value::int) AS ofertas
+        FROM base b CROSS JOIN LATERAL jsonb_each_text(b.galerias) e
+        GROUP BY e.key
+      ) x
+      LEFT JOIN galeria ga ON ga.id::text = x.galeria
+      GROUP BY 2, 3
+      UNION ALL
+      SELECT 'marca', m.slug::text, m.nombre::text, x.ofertas
+      FROM (
+        SELECT b.marca_id, sum(b.ofertas)::int AS ofertas FROM base b
+        WHERE b.marca_id IS NOT NULL
+        GROUP BY b.marca_id
+      ) x
+      JOIN marca m ON m.id = x.marca_id
+      UNION ALL
+      SELECT v.dimension, v.slug, v.nombre, v.cantidad
+      FROM (
+        SELECT coalesce(sum(b.nuevas), 0)::int AS nuevas, coalesce(sum(b.usadas), 0)::int AS usadas,
+               coalesce(sum(b.con_stock), 0)::int AS con_stock
+        FROM base b
+      ) s
+      CROSS JOIN LATERAL (VALUES ('condicion', 'nuevo', 'Nuevo', s.nuevas),
+                                 ('condicion', 'usado', 'Usado', s.usadas),
+                                 ('stock', 'con-stock', 'Con stock', s.con_stock))
+        AS v(dimension, slug, nombre, cantidad)
+      WHERE v.dimension = 'stock' OR v.cantidad > 0`;
+    return Promise.all([lateral, categorias]);
+  }
+
+  /** Las facetas agrupando las ofertas (quien mira bloqueó tiendas). */
+  private facetasConOfertas(
+    palabras: string[],
+    consulta: BuscarConsulta,
+  ): Promise<[Array<Faceta & { dimension: string }>, Faceta[]]> {
     const condiciones = this.condicionesBase(palabras, consulta);
     const sinCategoria = this.condicionesBase(palabras, { ...consulta, categoria: undefined });
     const categorias = this.prisma.$queryRaw<Faceta[]>`
@@ -660,20 +1070,7 @@ export class BusquedaService {
       SELECT 'condicion', lower(condicion::text), initcap(lower(condicion::text)), count(*)::int FROM base GROUP BY 2, 3
       UNION ALL
       SELECT 'stock', 'con-stock', 'Con stock', count(*)::int FROM base WHERE stock > 0`;
-    const [filas, porCategoria] = await Promise.all([lateral, categorias]);
-
-    const de = (dimension: string): Faceta[] =>
-      filas
-        .filter((f) => f.dimension === dimension)
-        .map(({ slug, nombre, cantidad }) => ({ slug, nombre, cantidad }))
-        .sort((a, b) => b.cantidad - a.cantidad || a.nombre.localeCompare(b.nombre, 'es'));
-    return {
-      galerias: de('galeria'),
-      marcas: de('marca'),
-      condiciones: de('condicion'),
-      con_stock: filas.find((f) => f.dimension === 'stock')?.cantidad ?? 0,
-      categorias: porCategoria,
-    };
+    return Promise.all([lateral, categorias]);
   }
 
   /** RF-31 y RF-32: guarda la búsqueda, también las que no encontraron nada. */

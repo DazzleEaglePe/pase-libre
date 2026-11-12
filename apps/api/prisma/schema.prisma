@@ -1500,3 +1500,34 @@ model AjusteEquipo {
 
   @@map("ajuste_equipo")
 }
+
+/// Resumen de las ofertas vigentes de cada producto (docs/16 §4.4): buscar sin texto o por
+/// categoría ya no recorre todas las ofertas. Una fila por producto con al menos una oferta que ve
+/// un visitante. Lo mantienen triggers de la base (migración `20261112150000_resumen_de_productos`):
+/// la API solo lo lee. Los precios son solo los visibles, y el visitante nunca los pide.
+model ProductoResumen {
+  productoId    String   @id @map("producto_id") @db.Uuid
+  categoriaId   String   @map("categoria_id") @db.Uuid
+  marcaId       String?  @map("marca_id") @db.Uuid
+  titulo        String   @db.VarChar(200)
+  ofertas       Int
+  stock         Int
+  nuevas        Int
+  usadas        Int
+  /// Ofertas con stock.
+  conStock      Int      @map("con_stock")
+  /// Ofertas por galería: `{ "<galeria_id>": 2, "independientes": 1 }`.
+  galerias      Json
+  actualizadaEn DateTime @map("actualizada_en") @db.Timestamptz(6)
+  /// El menor precio visible en cada moneda, en céntimos; `barata_*`, solo entre las que tienen stock.
+  desdeUsd      BigInt?  @map("desde_usd")
+  desdePen      BigInt?  @map("desde_pen")
+  barataUsd     BigInt?  @map("barata_usd")
+  barataPen     BigInt?  @map("barata_pen")
+  /// Ofertas sin precio visible.
+  alInterno     Int      @map("al_interno")
+
+  @@index([actualizadaEn(sort: Desc), titulo])
+  @@index([categoriaId, actualizadaEn(sort: Desc), titulo])
+  @@map("producto_resumen")
+}

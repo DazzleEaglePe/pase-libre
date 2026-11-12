@@ -22,6 +22,8 @@
  *                            Sin pausa cada usuario pide sin parar y choca con el límite por persona.
  *           --ip-por-pedido  una IP nueva en cada pedido: mide el techo del servidor sin los límites
  *                            por IP ni por persona (solo para visitantes; con sesión manda la cookie).
+ *           --variar         búsquedas en una página al azar (1 a 40) y sugerencias con letras al azar:
+ *                            casi ninguna sale de la memoria de 30 s de la API (lo peor para la base).
  *           --p95-max=<ms> --errores-max=<0..1>   (si se pasan, sale con código 1 al no cumplir)
  */
 const args = Object.fromEntries(
@@ -38,6 +40,7 @@ const PREFIJO = args.prefijo ?? 'carga';
 const CLAVE = process.env.CARGA_CLAVE;
 const PAUSA = Number(args.pausa ?? 0);
 const IP_POR_PEDIDO = args['ip-por-pedido'] === 'true';
+const VARIAR = args.variar === 'true';
 let contadorIp = 1_000;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -94,6 +97,28 @@ const BUSQUEDAS = [
 ];
 const SUGERENCIAS = ['rt', 'rtx 40', 'kingst', 'ryz', 'gigab'];
 const azar = (lista) => lista[Math.floor(Math.random() * lista.length)];
+/** Con --variar: otra página cada vez, para que la búsqueda no salga de la memoria. */
+const pagina = () => (VARIAR ? `&pagina=${1 + Math.floor(Math.random() * 40)}` : '');
+/** Con --variar: el comienzo de una palabra al azar («gef», «corsa»…). */
+const PALABRAS = [
+  'ryzen',
+  'geforce',
+  'radeon',
+  'kingston',
+  'corsair',
+  'samsung',
+  'gigabyte',
+  'monitor',
+  'teclado',
+  'vengeance',
+  'predator',
+  'inalambrico',
+];
+const sugerencia = () => {
+  if (!VARIAR) return azar(SUGERENCIAS);
+  const palabra = azar(PALABRAS);
+  return palabra.slice(0, 2 + Math.floor(Math.random() * (palabra.length - 1)));
+};
 
 async function preparar() {
   const ip = ipDe(999_999);
@@ -121,13 +146,13 @@ function pasosDeVisitante({ slugs, categorias }) {
   return [
     [3, () => ['GET /portada', '/portada']],
     [1, () => ['GET /categorias', '/categorias']],
-    [4, () => ['GET /buscar?q', `/buscar?q=${encodeURIComponent(azar(BUSQUEDAS))}`]],
-    [2, () => ['GET /buscar?categoria', `/buscar?categoria=${azar(categorias)}`]],
+    [4, () => ['GET /buscar?q', `/buscar?q=${encodeURIComponent(azar(BUSQUEDAS))}${pagina()}`]],
+    [2, () => ['GET /buscar?categoria', `/buscar?categoria=${azar(categorias)}${pagina()}`]],
     [
       2,
       () => [
         'GET /buscar/sugerencias',
-        `/buscar/sugerencias?q=${encodeURIComponent(azar(SUGERENCIAS))}`,
+        `/buscar/sugerencias?q=${encodeURIComponent(sugerencia())}`,
       ],
     ],
     [4, () => ['GET /productos/:slug', `/productos/${azar(slugs)}`]],
@@ -237,7 +262,7 @@ for (const [etiqueta, { tiempos, estados }] of [...medidas].sort()) {
   });
 }
 console.log(
-  `\nEscenario «${ESCENARIO}» · ${USUARIOS} usuarios · pausa ${PAUSA} ms${IP_POR_PEDIDO ? ' · IP por pedido' : ''} · ${duracion.toFixed(1)} s · ${API}`,
+  `\nEscenario «${ESCENARIO}» · ${USUARIOS} usuarios · pausa ${PAUSA} ms${IP_POR_PEDIDO ? ' · IP por pedido' : ''}${VARIAR ? ' · variado' : ''} · ${duracion.toFixed(1)} s · ${API}`,
 );
 console.table(filas);
 console.log(
