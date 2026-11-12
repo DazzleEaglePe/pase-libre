@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { VersionDelPie } from './novedades';
+
 const ENLACES = [
   { href: '/ayuda', texto: 'Ayuda' },
   { href: '/terminos', texto: 'Términos' },
@@ -27,7 +29,10 @@ export function PieCompacto() {
           ))}
           <span>Libro de Reclamaciones</span>
         </nav>
-        <span>Español (Perú)</span>
+        <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span>Español (Perú)</span>
+          <VersionDelPie />
+        </span>
       </div>
     </footer>
   );

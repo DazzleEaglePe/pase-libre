@@ -1,5 +1,6 @@
-import type { RespuestaInicioEquipo } from '@paselibre/contracts';
+import { VERSION, type RespuestaInicioEquipo } from '@paselibre/contracts';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
@@ -49,9 +50,14 @@ export default async function LayoutEquipo({ children }: { children: ReactNode }
           </span>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-16 pt-7 sm:px-8">
+      <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-10 pt-7 sm:px-8">
         {children}
       </main>
+      <footer className="mx-auto flex w-full max-w-[1440px] justify-end px-4 pb-6 text-nota text-secundario sm:px-8">
+        <Link href="/equipo/versiones" className="hover:text-tinta hover:underline">
+          Versión {VERSION} · <span className="underline underline-offset-2">Ver cambios</span>
+        </Link>
+      </footer>
     </div>
   );
 }

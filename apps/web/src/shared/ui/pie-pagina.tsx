@@ -5,6 +5,7 @@ import { CONTACTO, REDES, VISITANOS } from '@/shared/contacto';
 
 import { SiHayPasesDelDia } from './beneficio-pases';
 import { InvitacionPie } from './invitacion-pie';
+import { VersionDelPie } from './novedades';
 
 const ENLACES: Array<{ href: string; texto: string }> = [
   { href: '/ayuda', texto: 'Preguntas frecuentes' },
@@ -89,10 +90,13 @@ export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
           </nav>
         </div>
 
-        <p className="text-nota text-white/60">
-          © 2026 PaseLibre. El trato es entre vendedores: PaseLibre no interviene en las ventas.
-          {legal && !legal.falta && <> · {legal.texto}</>}
-        </p>
+        <div className="flex flex-col gap-2 text-nota text-white/60 md:flex-row md:items-center md:justify-between">
+          <p>
+            © 2026 PaseLibre. El trato es entre vendedores: PaseLibre no interviene en las ventas.
+            {legal && !legal.falta && <> · {legal.texto}</>}
+          </p>
+          {conSesion && <VersionDelPie oscuro />}
+        </div>
       </div>
     </footer>
   );

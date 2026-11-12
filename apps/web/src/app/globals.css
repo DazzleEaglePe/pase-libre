@@ -65,6 +65,7 @@
 .panel-oscuro main {
   color: #f1f4f2;
 }
+.panel-oscuro > footer.text-secundario,
 .panel-oscuro main .text-secundario,
 .panel-oscuro main .text-detalle {
   color: #b5c0ba;
