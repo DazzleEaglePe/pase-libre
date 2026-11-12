@@ -13,6 +13,7 @@ import type {
   RespuestaMapaDelSitio,
   RespuestaPortada,
   RespuestaRedireccion,
+  TarjetaOferta,
   TarjetaOfertaConVendedor,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
@@ -262,6 +263,13 @@ export class CatalogoService {
   private readonly totalesEnMemoria = recordarPor(60_000, () => this.cargarTotales());
   private readonly recienHoyEnMemoria = recordarPor(60_000, () => this.cargarRecienHoy());
   private readonly respondeEnMemoria = new MemoriaPorClave<number | null>(15 * 60_000);
+  /**
+   * «Recién publicado» del visitante, 30 s por galería (docs/16 §4.4), como la búsqueda: es lo
+   * mismo para todos los visitantes y, con miles de ofertas de la misma hora, ordenarlas en cada
+   * pedido llenaba el pool. Una sola consulta en curso por galería. Con sesión nunca se guarda:
+   * depende de quién mira (bloqueos, destacadas, socios).
+   */
+  private readonly recienDeVisitantes = new MemoriaPorClave<TarjetaOferta[]>(30_000, 100);
 
   categorias(): Promise<CategoriaResumen[]> {
     return this.categoriasEnMemoria();
@@ -354,30 +362,10 @@ export class CatalogoService {
     const base = { categorias, galerias, totales };
 
     if (!conSesion(mirada)) {
-      const candidatas = await this.prisma.oferta.findMany({
-        where,
-        orderBy,
-        take: PORTADA_RECIENTES * 3,
-        select: { ...SELECT_OFERTA_PUBLICA, tiendaId: true, producto: PRODUCTO_TARJETA },
-      });
-      const ofertas = mezclarPorTienda(candidatas, PORTADA_RECIENTES);
-      return {
-        ...base,
-        audiencia: 'visitante',
-        recien_publicado: ofertas.map((o) => ({
-          oferta_id: o.id,
-          producto: {
-            slug: o.producto.slug,
-            titulo: o.producto.titulo,
-            categoria: o.producto.categoria,
-            foto: o.producto.fotos[0]?.ruta ?? null,
-          },
-          condicion: o.condicion,
-          stock: o.stock,
-          galeria: o.tienda.galeria?.nombre ?? null,
-          actualizada_en: o.actualizadaEn.toISOString(),
-        })),
-      };
+      const recienPublicado = await this.recienDeVisitantes.recordar(consulta.galeria ?? '', () =>
+        this.recienParaVisitantes(where, orderBy),
+      );
+      return { ...base, audiencia: 'visitante', recien_publicado: recienPublicado };
     }
 
     const [bloqueadas, destacadas, socios] = await Promise.all([
@@ -429,6 +417,33 @@ export class CatalogoService {
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
       recien_publicado: mezcladas.map((o) => tarjetaConVendedor(o, mirada, socios)),
     };
+  }
+
+  /** Las 16 recién publicadas que ve un visitante: sin precio ni tienda, mezcladas por tienda. */
+  private async recienParaVisitantes(
+    where: Prisma.OfertaWhereInput,
+    orderBy: Prisma.OfertaOrderByWithRelationInput[],
+  ): Promise<TarjetaOferta[]> {
+    const candidatas = await this.prisma.oferta.findMany({
+      where,
+      orderBy,
+      take: PORTADA_RECIENTES * 3,
+      select: { ...SELECT_OFERTA_PUBLICA, tiendaId: true, producto: PRODUCTO_TARJETA },
+    });
+    const ofertas = mezclarPorTienda(candidatas, PORTADA_RECIENTES);
+    return ofertas.map((o) => ({
+      oferta_id: o.id,
+      producto: {
+        slug: o.producto.slug,
+        titulo: o.producto.titulo,
+        categoria: o.producto.categoria,
+        foto: o.producto.fotos[0]?.ruta ?? null,
+      },
+      condicion: o.condicion,
+      stock: o.stock,
+      galeria: o.tienda.galeria?.nombre ?? null,
+      actualizada_en: o.actualizadaEn.toISOString(),
+    }));
   }
 
   /** «De tiendas que sigues» (SG_WebFeed): lo último con stock de las tiendas que sigues. */
