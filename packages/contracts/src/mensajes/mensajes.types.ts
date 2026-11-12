@@ -16,7 +16,25 @@ export interface PersonaChat {
   };
 }
 
-export type TipoMensaje = 'TEXTO' | 'FOTO' | 'SISTEMA';
+/**
+ * `PEDIDO_WHATSAPP`: «X te pidió tu WhatsApp» (Aceptar / Ahora no). `WHATSAPP`: «WhatsApp de X ·
+ * +51 … · Abrir», el número de la tienda que se compartió a propósito (N01).
+ */
+export type TipoMensaje = 'TEXTO' | 'FOTO' | 'SISTEMA' | 'PEDIDO_WHATSAPP' | 'WHATSAPP';
+
+export type EstadoPedidoWhatsapp = 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO';
+
+/** Editar y «Eliminar para todos» se pueden hasta 15 minutos después de enviar (N01). */
+export const MINUTOS_PARA_CAMBIAR_MENSAJE = 15;
+
+/** El mensaje que otro cita con «Responder»: lo justo para la franjita de arriba. */
+export interface MensajeCitado {
+  id: string;
+  texto: string | null;
+  foto: string | null;
+  mio: boolean;
+  eliminado: boolean;
+}
 
 export interface MensajeChat {
   id: string;
@@ -27,6 +45,23 @@ export interface MensajeChat {
   /** Lo escribió quien recibe esta respuesta. Los mensajes del sistema nunca son «míos». */
   mio: boolean;
   creado_en: string;
+  /** «editado ·» (N01). */
+  editado: boolean;
+  /** Eliminado para todos: sin texto ni foto («Eliminaste este mensaje» / «Se eliminó este mensaje»). */
+  eliminado: boolean;
+  /**
+   * Hasta cuándo quien lo escribió puede editarlo o eliminarlo para todos («quedan 11 min»).
+   * Nulo si no es tuyo, ya pasó el plazo o es de una venta cerrada.
+   */
+  cambiable_hasta: string | null;
+  /** «17:20 · Luis»: quién lo escribió, cuando su tienda tiene asesores (N12). */
+  autor: string | null;
+  /** «Responder»: el mensaje que cita. */
+  responde_a: MensajeCitado | null;
+  /** En qué quedó el pedido de WhatsApp. Solo en `PEDIDO_WHATSAPP`. */
+  pedido: EstadoPedidoWhatsapp | null;
+  /** El WhatsApp de la tienda que lo compartió (9 dígitos). Solo en `WHATSAPP`. */
+  whatsapp: string | null;
 }
 
 export interface OfertaDeConversacion {
@@ -45,7 +80,8 @@ export interface ConversacionEnLista {
   id: string;
   /** `vendedor` si la oferta es de quien mira, `comprador` si preguntó por ella. */
   rol: 'comprador' | 'vendedor';
-  otro: PersonaChat;
+  /** `en_linea`: el puntito verde (N01): alguien de esa tienda tiene PaseLibre abierto ahora. */
+  otro: PersonaChat & { en_linea: boolean };
   oferta: OfertaDeConversacion;
   ultimo_mensaje: MensajeChat | null;
   no_leidos: number;
@@ -68,8 +104,9 @@ export interface RespuestaConversaciones {
 /** `GET /v1/conversaciones/:id`: lo de la lista más el producto fijo arriba y el estado del hilo. */
 export interface DetalleConversacion extends Omit<ConversacionEnLista, 'otro' | 'oferta'> {
   otro: PersonaChat & {
+    /** Alguien de su tienda está conectado ahora («● Activo ahora», N01). */
     en_linea: boolean;
-    /** Última vez que estuvo conectado, para «Activo hace 2 h». */
+    /** La última vez que alguien de su tienda estuvo conectado, para «Activo hace 2 min». */
     ultima_conexion: string | null;
   };
   oferta: OfertaDeConversacion & {
@@ -107,7 +144,23 @@ export interface DetalleConversacion extends Omit<ConversacionEnLista, 'otro' | 
     calificaste: boolean;
     /** «¿No fue así? Avísanos (48 h)»: hasta cuándo quien compró puede reclamar. */
     reclamo_hasta: string;
+    /**
+     * «Deshacer» junto a «Vendido» (N02): quien vendió, hasta 48 h y mientras quien compró no
+     * haya calificado.
+     */
+    puede_deshacer: boolean;
   } | null;
+  /** «Pedir WhatsApp» y «Compartir mi WhatsApp» (N01). Nadie ve un número que no se aceptó. */
+  whatsapp: {
+    /** El número que la otra tienda te compartió en este chat, o nulo. */
+    suyo: string | null;
+    /** Ya le pediste el suyo y todavía no responde. */
+    pedido_pendiente: boolean;
+    /** Puedes pedirle el suyo (no a una tienda reservada, ni si ya te lo dio). */
+    puedes_pedir: boolean;
+    /** Puedes compartir el tuyo (nunca desde una publicación reservada tuya). */
+    puedes_compartir: boolean;
+  };
   /** «Cómo llegar» y la reputación de la otra tienda; nulo con la tienda reservada. */
   sobre_tienda: {
     galeria: string | null;
@@ -126,6 +179,8 @@ export interface RespuestaMensajes {
   hay_mas: boolean;
   /** Hasta cuándo leyó el otro, si los dos tienen el «Visto» activado (RF-57). */
   visto_hasta: string | null;
+  /** Hasta cuándo le llegaron los mensajes al otro (dos checks grises, N01). */
+  recibido_hasta: string | null;
 }
 
 export type RespuestaContacto =
@@ -142,6 +197,13 @@ export interface RespuestaVendido {
   stock_antes: number;
   stock_despues: number;
   mensaje: MensajeChat;
+}
+
+/** `POST /v1/conversaciones/:id/whatsapp/pedido/:mensajeId`: Aceptar o «Ahora no». */
+export interface RespuestaPedidoWhatsapp {
+  pedido: MensajeChat;
+  /** «WhatsApp de X»: solo si aceptó. */
+  compartido: MensajeChat | null;
 }
 
 export type TipoAviso =
@@ -210,10 +272,53 @@ export interface Contadores {
   avisos: number;
 }
 
+/**
+ * El papel de una respuesta rápida (N11), igual que el `rol` de la conversación: `vendedor` es
+ * «Cuando te escriben» y `comprador`, «Cuando tú preguntas». En cada chat salen las de su rol.
+ */
+export type PapelRespuesta = 'vendedor' | 'comprador';
+
 export interface RespuestaRapida {
   id: string;
+  /** Con `{tienda}` donde va el nombre de la otra tienda («Nombre de la tienda»). */
   texto: string;
+  papel: PapelRespuesta;
 }
+
+/** La ficha «Nombre de la tienda» dentro de una respuesta rápida. */
+export const FICHA_TIENDA = '{tienda}';
+
+/**
+ * Una respuesta rápida lista para la caja del chat: «Hola, {tienda}, ¿qué tal?» → «Hola,
+ * Pegasus5000, ¿qué tal?». Sin nombre (tienda reservada), la ficha se va con su coma.
+ */
+export function conNombreDeTienda(texto: string, tienda: string | null): string {
+  if (tienda) return texto.split(FICHA_TIENDA).join(tienda);
+  return texto
+    .split(FICHA_TIENDA)
+    .join('')
+    .replace(/\s*,\s*,/g, ',')
+    .replace(/,\s*([.!?])/g, '$1')
+    .replace(/\s+([.,!?])/g, '$1')
+    .replace(/^[,\s]+|[,\s]+$/g, '')
+    .replace(/\s{2,}/g, ' ');
+}
+
+/** «SUGERENCIAS · TOCA PARA AGREGAR» (N11), por papel. */
+export const SUGERENCIAS_RESPUESTAS: Record<PapelRespuesta, readonly string[]> = {
+  vendedor: [
+    'Un momento, {tienda}, lo verifico y te aviso.',
+    '¿Para cuándo lo necesitas?',
+    '¿Pasas por el stand o te lo envío?',
+    'Gracias, {tienda}, cualquier cosa me escribes.',
+  ],
+  comprador: [
+    'Hola, {tienda}, ¿lo tienes disponible?',
+    '¿Tienes más de una unidad?',
+    '¿Hasta qué hora estás en el stand?',
+    'Gracias, {tienda}.',
+  ],
+};
 
 /**
  * Tiempo real (docs/05 §6.3). El socket va en `/tiempo-real` con la cookie de sesión y
@@ -234,6 +339,12 @@ export const EVENTOS = {
   contadores: 'contadores:cambio',
   /** Hay un busco o una oferta flash nueva, cambió o se cerró (a todos los sockets, D-53). */
   enVivoCambio: 'en-vivo:cambio',
+  /** Se editó o se eliminó un mensaje, o cambió un pedido de WhatsApp (N01). */
+  mensajeCambio: 'mensaje:cambio',
+  /** Le llegaron los mensajes al otro: dos checks grises (N01). */
+  mensajeRecibido: 'mensaje:recibido',
+  /** Una tienda con la que hablas se conectó o se desconectó (el puntito verde, N01). */
+  presencia: 'presencia:cambio',
 } as const;
 
 export interface EventoMensajeNuevo {
@@ -244,6 +355,28 @@ export interface EventoMensajeNuevo {
 export interface EventoMensajeVisto {
   conversacion_id: string;
   visto_hasta: string;
+}
+
+/** `mensaje:cambio`: el mensaje como queda; nulo si quien escucha lo eliminó para sí. */
+export interface EventoMensajeCambio {
+  conversacion_id: string;
+  mensaje_id: string;
+  mensaje: MensajeChat | null;
+}
+
+export interface EventoMensajeRecibido {
+  conversacion_id: string;
+  recibido_hasta: string;
+}
+
+/**
+ * `presencia:cambio`: solo a las tiendas que hablan con ella y la conocen (nunca por una
+ * publicación reservada). Al desconectarse se esperan 30 s por si solo recargó la página.
+ */
+export interface EventoPresencia {
+  tienda_id: string;
+  en_linea: boolean;
+  ultima_conexion: string | null;
 }
 
 export interface EventoOfertaStock {

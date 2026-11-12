@@ -5,6 +5,7 @@ import { claveEtiqueta, normalizarTexto, slugDe, tituloDeProducto } from './cata
 import { centimosDeMonto, formatearPrecio, montoParaCampo, precioDe } from './comun/dinero';
 import { crearCuentaSchema, whatsappSchema } from './equipo/equipo.schemas';
 import { enviarMensajeSchema, historialSchema } from './mensajes/mensajes.schemas';
+import { conNombreDeTienda } from './mensajes/mensajes.types';
 import { editarOfertaSchema, publicarSchema } from './ofertas/ofertas.schemas';
 import {
   crearSolicitudSchema,
@@ -350,5 +351,29 @@ describe('crearSolicitudSchema', () => {
     );
     expect(ok({ ...conDni, acepta_terminos: false })).toBe(false);
     expect(ok({ ...conDni, categorias: [] })).toBe(false);
+  });
+});
+
+describe('conNombreDeTienda (respuestas rápidas, N11)', () => {
+  it('pone el nombre de la otra tienda donde va la ficha', () => {
+    expect(conNombreDeTienda('Hola, {tienda}, ¿qué tal? 👋', 'Pegasus5000')).toBe(
+      'Hola, Pegasus5000, ¿qué tal? 👋',
+    );
+    expect(conNombreDeTienda('Te lo separo', 'Pegasus5000')).toBe('Te lo separo');
+  });
+
+  it('sin nombre (tienda reservada) quita la ficha y su coma', () => {
+    expect(conNombreDeTienda('Hola, {tienda}, ¿qué tal? 👋', null)).toBe('Hola, ¿qué tal? 👋');
+    expect(conNombreDeTienda('Gracias, {tienda}.', null)).toBe('Gracias.');
+    expect(conNombreDeTienda('En breve te confirmo, {tienda}', null)).toBe('En breve te confirmo');
+  });
+
+  it('«Responder» viaja con el id del mensaje citado', () => {
+    const id = '0b6c3d2e-8f7a-4b1c-9d0e-1f2a3b4c5d6e';
+    expect(enviarMensajeSchema.parse({ texto: 'Sí', responde_a: id })).toEqual({
+      texto: 'Sí',
+      foto: undefined,
+      responde_a: id,
+    });
   });
 });

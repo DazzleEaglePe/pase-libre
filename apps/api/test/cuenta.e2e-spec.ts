@@ -236,27 +236,53 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
       });
     });
 
-    it('las respuestas rápidas se guardan en orden, sin repetir y hasta 8', async () => {
-      const textos = ['Lo tengo, ¿para cuándo?', '¿Mejor precio por 2?', 'Te lo separo'];
+    it('las respuestas rápidas se guardan por papel, en orden, sin repetir y hasta 6 (N11)', async () => {
+      const textos = ['Lo tengo, ¿para cuándo?', 'Hola, {tienda}, ¿qué tal?', 'Te lo separo'];
       const guardadas = await como('tiendab')
-        .send('put', '/v1/cuenta/respuestas-rapidas', { textos })
+        .send('put', '/v1/cuenta/respuestas-rapidas', { papel: 'vendedor', textos })
         .expect(200);
-      expect(guardadas.body.map((r: { texto: string }) => r.texto)).toEqual(textos);
+      const deVender = (lista: Array<{ texto: string; papel: string }>) =>
+        lista.filter((r) => r.papel === 'vendedor').map((r) => r.texto);
+      const deComprar = (lista: Array<{ texto: string; papel: string }>) =>
+        lista.filter((r) => r.papel === 'comprador').map((r) => r.texto);
+      expect(deVender(guardadas.body)).toEqual(textos);
+      // Las de «Cuando tú preguntas» quedan como estaban.
+      expect(deComprar(guardadas.body)).toEqual([
+        '¿Sigue disponible?',
+        '¿Me lo separas?',
+        'Paso a recoger',
+        '¿Cuál es tu mejor precio?',
+      ]);
       const leidas = await como('tiendab').get('/v1/cuenta/respuestas-rapidas').expect(200);
-      expect(leidas.body.map((r: { texto: string }) => r.texto)).toEqual(textos);
+      expect(deVender(leidas.body)).toEqual(textos);
+
+      await como('tiendab')
+        .send('put', '/v1/cuenta/respuestas-rapidas', { papel: 'comprador', textos: ['¿Hay?'] })
+        .expect(200);
+      const despues = await como('tiendab').get('/v1/cuenta/respuestas-rapidas').expect(200);
+      expect(deComprar(despues.body)).toEqual(['¿Hay?']);
+      expect(deVender(despues.body)).toEqual(textos);
 
       const repetida = await como('tiendab')
-        .send('put', '/v1/cuenta/respuestas-rapidas', { textos: ['Hola', 'hola'] })
+        .send('put', '/v1/cuenta/respuestas-rapidas', {
+          papel: 'vendedor',
+          textos: ['Hola', 'hola'],
+        })
         .expect(400);
       expect(repetida.body.error.mensaje).toBe('Esa respuesta rápida ya está en la lista.');
       await como('tiendab')
         .send('put', '/v1/cuenta/respuestas-rapidas', {
-          textos: Array.from({ length: 9 }, (_, i) => `Respuesta ${i}`),
+          papel: 'vendedor',
+          textos: Array.from({ length: 7 }, (_, i) => `Respuesta ${i}`),
         })
         .expect(400);
-      // Las de otra persona no cambiaron.
+      // Sin papel no se sabe cuál lista cambiar.
+      await como('tiendab')
+        .send('put', '/v1/cuenta/respuestas-rapidas', { textos: ['Hola'] })
+        .expect(400);
+      // Las de otra persona no cambiaron: cuatro de cada papel.
       const deLuis = await como('tiendaa').get('/v1/cuenta/respuestas-rapidas').expect(200);
-      expect(deLuis.body).toHaveLength(4);
+      expect(deLuis.body).toHaveLength(8);
     });
   });
 

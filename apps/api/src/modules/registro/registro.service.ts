@@ -485,7 +485,7 @@ export class RegistroService {
         // La contraseña la eligió ella misma: no hay clave temporal que cambiar.
         debeCambiarClave: false,
         respuestasRapidas: {
-          create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
+          create: [...RESPUESTAS_RAPIDAS_INICIALES],
         },
       },
     });

@@ -122,13 +122,15 @@ export class CuentaController {
     return this.cuentas.respuestasRapidas(usuario.id);
   }
 
+  /** La lista de un papel: «Cuando te escriben» o «Cuando tú preguntas» (N11). */
   @Put('respuestas-rapidas')
   @Header('Cache-Control', 'no-store')
   guardarRespuestasRapidas(
-    @Body(new ZodValidationPipe(respuestasRapidasSchema)) { textos }: RespuestasRapidasDatos,
+    @Body(new ZodValidationPipe(respuestasRapidasSchema))
+    { papel, textos }: RespuestasRapidasDatos,
     @SesionActual() { usuario }: SesionActiva,
   ): Promise<RespuestaRapida[]> {
-    return this.cuentas.guardarRespuestasRapidas(usuario.id, textos);
+    return this.cuentas.guardarRespuestasRapidas(usuario.id, papel, textos);
   }
 
   @Get('sesiones')

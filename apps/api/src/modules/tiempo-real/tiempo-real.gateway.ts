@@ -68,7 +68,7 @@ export class TiempoRealGateway implements OnGatewayInit, OnGatewayConnection, On
       salaDeSesion(sesion.sesionId),
       ...(usuario.tiendaId ? [salaDeTienda(usuario.tiendaId)] : []),
     ]);
-    this.tiempoReal.conecto(usuario.id);
+    this.tiempoReal.conecto(usuario.id, usuario.tiendaId);
     socket.emit(EVENTOS.listo);
     await this.marcarConexion(usuario.id);
   }

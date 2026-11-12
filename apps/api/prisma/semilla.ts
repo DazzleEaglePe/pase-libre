@@ -384,7 +384,7 @@ export async function sembrarDemo(prisma: PrismaClient): Promise<void> {
           debeCambiarClave: Boolean(u.sinPrimerIngreso),
           primerIngresoEn: u.sinPrimerIngreso ? null : new Date(ahora - 5 * DIA),
           respuestasRapidas: {
-            create: RESPUESTAS_RAPIDAS_INICIALES.map((texto, orden) => ({ texto, orden })),
+            create: [...RESPUESTAS_RAPIDAS_INICIALES],
           },
         },
       });

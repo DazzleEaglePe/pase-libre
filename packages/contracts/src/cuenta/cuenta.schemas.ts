@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { whatsappSchema } from '../equipo/equipo.schemas.js';
 import { rutaFotoSchema } from '../ofertas/ofertas.schemas.js';
 
-export const MAX_RESPUESTAS_RAPIDAS = 8;
+/** Por papel: «4 de 6» en «Cuando te escriben» y en «Cuando tú preguntas» (N11). */
+export const MAX_RESPUESTAS_RAPIDAS = 6;
 
 /** Vacío es «no tengo»: se guarda nulo. */
 const opcional = <T extends z.ZodType>(esquema: T) =>
@@ -103,8 +104,12 @@ export const avisosCuentaSchema = z.strictObject({
     .nullable(),
 });
 
-/** `PUT /v1/cuenta/respuestas-rapidas` (RF-56): la lista completa, en orden. */
+/**
+ * `PUT /v1/cuenta/respuestas-rapidas` (RF-56, N11): la lista completa de un papel, en orden.
+ * `{tienda}` es la ficha «Nombre de la tienda».
+ */
 export const respuestasRapidasSchema = z.strictObject({
+  papel: z.enum(['vendedor', 'comprador'], 'Elige cuándo sale la respuesta rápida.'),
   textos: z
     .array(
       z

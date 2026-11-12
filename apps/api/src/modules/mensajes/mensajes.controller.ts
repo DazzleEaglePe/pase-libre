@@ -21,10 +21,13 @@ import {
   contactarSchema,
   avisosConsultaSchema,
   denunciaSchema,
+  editarMensajeSchema,
+  eliminarMensajeSchema,
   enviarMensajeSchema,
   filtroConversacionesSchema,
   historialSchema,
   leerAvisosSchema,
+  responderPedidoWhatsappSchema,
   vendidoSchema,
   type CambiarConversacion,
   type ConsultaHistorial,
@@ -34,7 +37,10 @@ import {
   type DenunciaDatos,
   type RespuestaDenuncia,
   type DetalleConversacion,
+  type EditarMensaje,
+  type EliminarMensaje,
   type EnviarMensajeDatos,
+  type EventoMensajeCambio,
   type FiltroConversaciones,
   type InteresadoOferta,
   type LeerAvisos,
@@ -43,6 +49,8 @@ import {
   type RespuestaContacto,
   type RespuestaConversaciones,
   type RespuestaMensajes,
+  type RespuestaPedidoWhatsapp,
+  type ResponderPedidoWhatsapp,
   type RespuestaVendido,
   type Vendido,
 } from '@paselibre/contracts';
@@ -86,6 +94,8 @@ export class LimiteDeMensajesGuard implements CanActivate {
 
 const idDeConversacion = new ZodValidationPipe(z.uuid('Esta conversación no existe.'));
 const idDeOferta = new ZodValidationPipe(z.uuid('Esta publicación no existe.'));
+const idDeMensaje = new ZodValidationPipe(z.uuid('Este mensaje ya no está.'));
+const idDeVenta = new ZodValidationPipe(z.uuid('Esta venta no existe.'));
 
 /**
  * Mensajes, campanita y «Vendido» (docs/05 §6.2 y §8). Solo dueños y asesores: el equipo
@@ -155,6 +165,73 @@ export class MensajesController {
     return this.mensajes.enviar(id, datos, sesion.usuario);
   }
 
+  /** Editar dentro de los 15 minutos (N01). Lo de antes queda para el Equipo. */
+  @Patch('conversaciones/:id/mensajes/:mensajeId')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 60, ttl: 60_000 } })
+  @Header('Cache-Control', 'no-store')
+  editarMensaje(
+    @Param('id', idDeConversacion) id: string,
+    @Param('mensajeId', idDeMensaje) mensajeId: string,
+    @Body(new ZodValidationPipe(editarMensajeSchema)) { texto }: EditarMensaje,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<MensajeChat> {
+    return this.mensajes.editar(id, mensajeId, texto, sesion.usuario);
+  }
+
+  /**
+   * «Eliminar para todos» (dentro de los 15 minutos) o «Eliminar para mí» (N01). Responde el
+   * mensaje como queda, o nulo si ya no lo ves.
+   */
+  @Delete('conversaciones/:id/mensajes/:mensajeId')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 60, ttl: 60_000 } })
+  @Header('Cache-Control', 'no-store')
+  async eliminarMensaje(
+    @Param('id', idDeConversacion) id: string,
+    @Param('mensajeId', idDeMensaje) mensajeId: string,
+    @Query(new ZodValidationPipe(eliminarMensajeSchema)) { para }: EliminarMensaje,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<EventoMensajeCambio> {
+    const mensaje = await this.mensajes.eliminar(id, mensajeId, para, sesion.usuario);
+    return { conversacion_id: id, mensaje_id: mensajeId, mensaje };
+  }
+
+  /** «Pedir WhatsApp» (N01): a la otra tienda le llega «Aceptar / Ahora no». */
+  @Post('conversaciones/:id/whatsapp/pedido')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 20, ttl: 60 * 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  pedirWhatsapp(
+    @Param('id', idDeConversacion) id: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<MensajeChat> {
+    return this.mensajes.pedirWhatsapp(id, sesion.usuario);
+  }
+
+  @Post('conversaciones/:id/whatsapp/pedido/:mensajeId')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  responderPedidoWhatsapp(
+    @Param('id', idDeConversacion) id: string,
+    @Param('mensajeId', idDeMensaje) mensajeId: string,
+    @Body(new ZodValidationPipe(responderPedidoWhatsappSchema))
+    { aceptar }: ResponderPedidoWhatsapp,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaPedidoWhatsapp> {
+    return this.mensajes.responderPedidoWhatsapp(id, mensajeId, aceptar, sesion.usuario);
+  }
+
+  /** «Compartir mi WhatsApp» desde ⋯ (N01): el número de la tienda queda en el chat. */
+  @Post('conversaciones/:id/whatsapp')
+  @Throttle({ [LIMITE_PERSONA]: { limit: 30, ttl: 60 * 60_000 } })
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  compartirWhatsapp(
+    @Param('id', idDeConversacion) id: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<MensajeChat> {
+    return this.mensajes.compartirWhatsapp(id, sesion.usuario);
+  }
+
   /** Leída o no leída, silenciar y archivar (RF-57). */
   @Patch('conversaciones/:id')
   @Header('Cache-Control', 'no-store')
@@ -211,6 +288,17 @@ export class MensajesController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<RespuestaVendido> {
     return this.mensajes.vendido(id, conversacion_id, sesion.usuario);
+  }
+
+  /** «Deshacer» junto a «Vendido» (N02). */
+  @Post('ventas/:id/deshacer')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  deshacerVenta(
+    @Param('id', idDeVenta) id: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaVendido> {
+    return this.mensajes.deshacerVenta(id, sesion.usuario);
   }
 
   // ── Campanita (RF-40) ─────────────────────────────────────────────────────

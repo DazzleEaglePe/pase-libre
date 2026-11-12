@@ -1,7 +1,9 @@
-import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import {
   EVENTOS,
+  MINUTOS_PARA_CAMBIAR_MENSAJE,
   normalizarTexto,
+  type AvisoCampanita,
   type CambiarConversacion,
   type ConsultaHistorial,
   type ConversacionEnLista,
@@ -10,7 +12,10 @@ import {
   type DetalleConversacion,
   type EnVivoEnChat,
   type EnviarMensajeDatos,
+  type EventoMensajeCambio,
   type EventoMensajeNuevo,
+  type EventoMensajeRecibido,
+  type EventoPresencia,
   type FiltroConversaciones,
   type InteresadoOferta,
   type MensajeChat,
@@ -18,6 +23,7 @@ import {
   type RespuestaContacto,
   type RespuestaConversaciones,
   type RespuestaMensajes,
+  type RespuestaPedidoWhatsapp,
   type RespuestaVendido,
   precioDe,
   TIENDA_RESERVADA,
@@ -58,7 +64,20 @@ const SELECT_MENSAJE = {
   foto: true,
   autorId: true,
   creadoEn: true,
+  editadoEn: true,
+  eliminadoEn: true,
+  pedidoEstado: true,
+  whatsapp: true,
+  autor: { select: { nombre: true, tiendaId: true } },
+  respondeA: {
+    select: { id: true, texto: true, foto: true, autorId: true, eliminadoEn: true },
+  },
 } satisfies Prisma.MensajeSelect;
+
+/** Editar y «Eliminar para todos»: hasta 15 minutos después de enviar (N01). */
+const PLAZO_CAMBIAR_MS = MINUTOS_PARA_CAMBIAR_MENSAJE * 60_000;
+/** «Deshacer» la venta (N02): el mismo plazo que tiene quien compró para reclamar. */
+const PLAZO_DESHACER_VENTA_MS = 48 * 3_600_000;
 
 const SELECT_CONVERSACION = {
   id: true,
@@ -136,14 +155,64 @@ function persona(u: PersonaFila, reservada = false): PersonaChat {
   };
 }
 
-export function mensajeChat(m: MensajeFila, usuarioId: string): MensajeChat {
+/** Lo que hace falta saber del hilo para armar cada mensaje como lo ve una persona. */
+export interface ContextoMensajes {
+  /** La venta más reciente del hilo: lo escrito hasta ahí ya no se edita ni se elimina. */
+  cerradaEn?: Date | null;
+  /** Tiendas con asesores: sus mensajes dicen quién los escribió («17:20 · Luis»). */
+  conAsesores?: ReadonlySet<string>;
+  /** Quien mira habla con una tienda reservada: no se nombra a nadie de ella. */
+  sinNombres?: boolean;
+  ahora?: Date;
+}
+
+/** «Luis Quispe» → «Luis». */
+const primerNombre = (nombre: string) => nombre.trim().split(/\s+/)[0] ?? nombre;
+
+export function mensajeChat(
+  m: MensajeFila,
+  usuarioId: string,
+  contexto: ContextoMensajes = {},
+): MensajeChat {
+  const mio = m.autorId === usuarioId;
+  const eliminado = m.eliminadoEn !== null;
+  const ahora = contexto.ahora ?? new Date();
+  const hasta = new Date(m.creadoEn.getTime() + PLAZO_CAMBIAR_MS);
+  const cambiable =
+    mio &&
+    !eliminado &&
+    (m.tipo === 'TEXTO' || m.tipo === 'FOTO') &&
+    hasta > ahora &&
+    !(contexto.cerradaEn && m.creadoEn <= contexto.cerradaEn);
+  const tiendaDelAutor = m.autor?.tiendaId;
+  const cita = m.respondeA;
   return {
     id: m.id,
     tipo: m.tipo,
-    texto: m.texto,
-    foto: m.foto,
-    mio: m.autorId === usuarioId,
+    texto: eliminado ? null : m.texto,
+    foto: eliminado ? null : m.foto,
+    mio,
     creado_en: m.creadoEn.toISOString(),
+    editado: m.editadoEn !== null && !eliminado,
+    eliminado,
+    cambiable_hasta: cambiable ? hasta.toISOString() : null,
+    autor:
+      !mio && m.autor && tiendaDelAutor && !contexto.sinNombres
+        ? contexto.conAsesores?.has(tiendaDelAutor)
+          ? primerNombre(m.autor.nombre)
+          : null
+        : null,
+    responde_a: cita
+      ? {
+          id: cita.id,
+          texto: cita.eliminadoEn ? null : cita.texto,
+          foto: cita.eliminadoEn ? null : cita.foto,
+          mio: cita.autorId === usuarioId,
+          eliminado: cita.eliminadoEn !== null,
+        }
+      : null,
+    pedido: m.tipo === 'PEDIDO_WHATSAPP' ? (m.pedidoEstado ?? 'PENDIENTE') : null,
+    whatsapp: m.tipo === 'WHATSAPP' && !eliminado ? m.whatsapp : null,
   };
 }
 
@@ -157,13 +226,98 @@ const noExiste = () =>
  * conversación ajena responde 404.
  */
 @Injectable()
-export class MensajesService {
+export class MensajesService implements OnModuleInit {
+  private readonly logger = new Logger(MensajesService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ArchivosService) private readonly archivos: ArchivosService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
     @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
   ) {}
+
+  onModuleInit(): void {
+    this.tiempoReal.alCambiarPresencia((tiendaId, enLinea) => {
+      this.difundirPresencia(tiendaId, enLinea).catch((error: unknown) =>
+        this.logger.warn(`No se pudo avisar la presencia: ${String(error)}`),
+      );
+    });
+    this.tiempoReal.alConectar((usuarioId) => {
+      this.marcarRecibidos(usuarioId).catch((error: unknown) =>
+        this.logger.warn(`No se pudieron marcar los mensajes recibidos: ${String(error)}`),
+      );
+    });
+  }
+
+  // ── En línea y «le llegó» (N01) ───────────────────────────────────────────
+
+  /**
+   * El puntito verde y «Activo hace 2 min» de una tienda, solo a las tiendas que hablan con
+   * ella y la conocen: quien le pregunta por una publicación reservada nunca recibe su id.
+   */
+  private async difundirPresencia(tiendaId: string, enLinea: boolean): Promise<void> {
+    const [comoVendedora, comoCompradora, ultima] = await Promise.all([
+      this.prisma.conversacion.findMany({
+        where: { tiendaVendedoraId: tiendaId, oferta: { tiendaVisible: true } },
+        distinct: ['tiendaCompradoraId'],
+        select: { tiendaCompradoraId: true },
+      }),
+      this.prisma.conversacion.findMany({
+        where: { tiendaCompradoraId: tiendaId },
+        distinct: ['tiendaVendedoraId'],
+        select: { tiendaVendedoraId: true },
+      }),
+      enLinea ? null : this.ultimaConexion(tiendaId),
+    ]);
+    const destinos = new Set([
+      ...comoVendedora.map((c) => c.tiendaCompradoraId),
+      ...comoCompradora.map((c) => c.tiendaVendedoraId),
+    ]);
+    destinos.delete(tiendaId);
+    const evento: EventoPresencia = {
+      tienda_id: tiendaId,
+      en_linea: enLinea,
+      ultima_conexion: ultima?.toISOString() ?? null,
+    };
+    for (const destino of destinos) {
+      this.tiempoReal.emitirATienda(destino, EVENTOS.presencia, evento);
+    }
+  }
+
+  /** La última vez que alguien de la tienda tuvo PaseLibre abierto. */
+  private async ultimaConexion(tiendaId: string): Promise<Date | null> {
+    const fila = await this.prisma.usuario.aggregate({
+      where: { tiendaId },
+      _max: { ultimaConexionEn: true },
+    });
+    return fila._max.ultimaConexionEn;
+  }
+
+  /**
+   * Al conectarse, todo lo que le habían escrito ya le llegó: dos checks grises para quien lo
+   * envió, al momento.
+   */
+  private async marcarRecibidos(usuarioId: string): Promise<void> {
+    const filas = await this.prisma.$queryRaw<
+      Array<{ conversacion_id: string; otro_id: string; recibido_hasta: Date }>
+    >`
+      UPDATE participacion p SET recibido_hasta = now()
+      FROM conversacion c
+      WHERE p.usuario_id = ${usuarioId}::uuid
+        AND c.id = p.conversacion_id
+        AND c.ultimo_mensaje_en > coalesce(p.recibido_hasta, '-infinity'::timestamptz)
+      RETURNING p.conversacion_id::text AS conversacion_id,
+        (CASE WHEN c.comprador_id = p.usuario_id THEN c.vendedor_id ELSE c.comprador_id END)::text
+          AS otro_id,
+        p.recibido_hasta`;
+    for (const fila of filas) {
+      const evento: EventoMensajeRecibido = {
+        conversacion_id: fila.conversacion_id,
+        recibido_hasta: fila.recibido_hasta.toISOString(),
+      };
+      this.tiempoReal.emitirAUsuario(fila.otro_id, EVENTOS.mensajeRecibido, evento);
+    }
+  }
 
   // ── Contactar desde la ficha (RF-21, RF-23) ────────────────────────────────
 
@@ -286,7 +440,10 @@ export class MensajesService {
       }),
       noLeidosPorConversacion(this.prisma, usuarioId),
     ]);
-    const ultimos = await this.ultimos(participaciones.map((p) => p.conversacion.id));
+    const ultimos = await this.ultimos(
+      participaciones.map((p) => p.conversacion.id),
+      usuarioId,
+    );
     const todas = participaciones.map((p) =>
       this.enLista(
         p,
@@ -322,7 +479,7 @@ export class MensajesService {
   async detalle(id: string, usuario: UsuarioConTienda): Promise<DetalleConversacion> {
     const participacion = await this.participacion(id, usuario.id);
     const noLeidos = await noLeidosPorConversacion(this.prisma, usuario.id, id);
-    const ultimos = await this.ultimos([id]);
+    const ultimos = await this.ultimos([id], usuario.id);
     const base = this.enLista(participacion, usuario.id, noLeidos.get(id) ?? 0, ultimos.get(id));
     const { conversacion } = participacion;
     const otro = base.rol === 'vendedor' ? conversacion.comprador : conversacion.vendedor;
@@ -342,17 +499,23 @@ export class MensajesService {
     // «En línea» y «Activo hace 2 h» también servirían para adivinar quién es.
     const reservada = base.rol === 'comprador' && !oferta.tiendaVisible;
     const otraTiendaId = reservada ? null : (otro.tienda?.id ?? null);
-    const [hablanDe, venta, sobreTienda] = await Promise.all([
+    const [hablanDe, venta, sobreTienda, ultimaConexion, whatsapp] = await Promise.all([
       this.hablanDe(id, usuario, otraTiendaId),
       this.ventaDelHilo(id, usuario),
       otraTiendaId ? this.sobreTienda(otraTiendaId) : null,
+      // N01: la tienda está activa si alguna de sus personas lo está.
+      otraTiendaId ? this.ultimaConexion(otraTiendaId) : null,
+      this.whatsappDelHilo(id, usuario.id, otro.id, {
+        reservadaElOtro: reservada,
+        reservadaYo: base.rol === 'vendedor' && !oferta.tiendaVisible,
+      }),
     ]);
     return {
       ...base,
       otro: {
         ...base.otro,
-        en_linea: reservada ? false : this.tiempoReal.enLinea(otro.id),
-        ultima_conexion: reservada ? null : (otro.ultimaConexionEn?.toISOString() ?? null),
+        en_linea: otraTiendaId ? this.tiempoReal.tiendaEnLinea(otraTiendaId) : false,
+        ultima_conexion: ultimaConexion?.toISOString() ?? null,
       },
       oferta: {
         ...base.oferta,
@@ -373,6 +536,38 @@ export class MensajesService {
       hablan_de: hablanDe,
       venta,
       sobre_tienda: sobreTienda,
+      whatsapp,
+    };
+  }
+
+  /** «Pedir WhatsApp» / «Compartir mi WhatsApp» (N01): qué se puede hacer en este hilo. */
+  private async whatsappDelHilo(
+    id: string,
+    usuarioId: string,
+    otroId: string,
+    reservas: { reservadaElOtro: boolean; reservadaYo: boolean },
+  ): Promise<DetalleConversacion['whatsapp']> {
+    const [suyo, pendientes] = await Promise.all([
+      this.prisma.mensaje.findFirst({
+        where: { conversacionId: id, tipo: 'WHATSAPP', autorId: otroId, eliminadoEn: null },
+        orderBy: { creadoEn: 'desc' },
+        select: { whatsapp: true },
+      }),
+      this.prisma.mensaje.count({
+        where: {
+          conversacionId: id,
+          tipo: 'PEDIDO_WHATSAPP',
+          autorId: usuarioId,
+          pedidoEstado: 'PENDIENTE',
+        },
+      }),
+    ]);
+    const numero = suyo?.whatsapp ?? null;
+    return {
+      suyo: numero,
+      pedido_pendiente: pendientes > 0,
+      puedes_pedir: !reservas.reservadaElOtro && !numero,
+      puedes_compartir: !reservas.reservadaYo,
     };
   }
 
@@ -457,10 +652,12 @@ export class MensajesService {
         precioCentimos: true,
         moneda: true,
         tiendaCompradoraId: true,
-        opiniones: { where: { autorTiendaId: usuario.tiendaId ?? '' }, select: { id: true } },
+        conversacion: { select: { vendedorId: true } },
+        opiniones: { select: { autorTiendaId: true, lado: true } },
       },
     });
     if (!venta) return null;
+    const miLado = venta.tiendaCompradoraId === usuario.tiendaId ? 'comprador' : 'vendedor';
     return {
       id: venta.id,
       precio:
@@ -468,9 +665,14 @@ export class MensajesService {
           ? null
           : precioDe(Number(venta.precioCentimos), venta.moneda),
       fecha: venta.creadaEn.toISOString(),
-      mi_lado: venta.tiendaCompradoraId === usuario.tiendaId ? 'comprador' : 'vendedor',
-      calificaste: venta.opiniones.length > 0,
+      mi_lado: miLado,
+      calificaste: venta.opiniones.some((o) => o.autorTiendaId === usuario.tiendaId),
       reclamo_hasta: new Date(venta.creadaEn.getTime() + 48 * 3_600_000).toISOString(),
+      puede_deshacer:
+        miLado === 'vendedor' &&
+        venta.conversacion?.vendedorId === usuario.id &&
+        Date.now() - venta.creadaEn.getTime() < PLAZO_DESHACER_VENTA_MS &&
+        !venta.opiniones.some((o) => o.lado === 'COMPRADOR'),
     };
   }
 
@@ -549,13 +751,17 @@ export class MensajesService {
     return participacion;
   }
 
-  /** El último mensaje de cada hilo: una consulta por el índice (conversacion_id, creado_en). */
-  private async ultimos(ids: string[]): Promise<Map<string, MensajeFila>> {
+  /**
+   * El último mensaje de cada hilo que la persona todavía ve («Eliminar para mí» lo saca): una
+   * consulta por el índice (conversacion_id, creado_en).
+   */
+  private async ultimos(ids: string[], usuarioId: string): Promise<Map<string, MensajeFila>> {
     if (ids.length === 0) return new Map();
     const filas = await this.prisma.$queryRaw<Array<{ id: string }>>`
       SELECT DISTINCT ON (conversacion_id) id::text AS id
       FROM mensaje
       WHERE conversacion_id IN (${Prisma.join(ids.map((id) => Prisma.sql`${id}::uuid`))})
+        AND NOT (${usuarioId}::uuid = ANY(coalesce(oculto_para, '{}')))
       ORDER BY conversacion_id, creado_en DESC, id DESC`;
     if (filas.length === 0) return new Map();
     const mensajes = await this.prisma.mensaje.findMany({
@@ -573,11 +779,17 @@ export class MensajesService {
   ): ConversacionEnLista {
     const c = p.conversacion;
     const rol = c.vendedorId === usuarioId ? 'vendedor' : 'comprador';
+    const reservada = rol === 'comprador' && !c.oferta.tiendaVisible;
+    const otro = rol === 'vendedor' ? c.comprador : c.vendedor;
     return {
       id: c.id,
       rol,
-      otro:
-        rol === 'vendedor' ? persona(c.comprador) : persona(c.vendedor, !c.oferta.tiendaVisible),
+      otro: {
+        ...persona(otro, reservada),
+        // El puntito verde también serviría para adivinar quién es la reservada.
+        en_linea:
+          !reservada && Boolean(otro.tienda && this.tiempoReal.tiendaEnLinea(otro.tienda.id)),
+      },
       oferta: {
         id: c.oferta.id,
         condicion: c.oferta.condicion,
@@ -600,6 +812,40 @@ export class MensajesService {
 
   // ── Historial y envío (RF-39) ─────────────────────────────────────────────
 
+  /**
+   * Cómo ve una persona los mensajes de este hilo (N01, N12): desde cuándo ya no se cambian
+   * (la última venta) y si los de la otra tienda dicen quién los escribió.
+   */
+  private async contexto(
+    conversacion: ParticipacionFila['conversacion'],
+    usuarioId: string,
+  ): Promise<ContextoMensajes> {
+    const soyComprador = conversacion.compradorId === usuarioId;
+    const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
+    const sinNombres = soyComprador && !conversacion.oferta.tiendaVisible;
+    const [venta, conAsesores] = await Promise.all([
+      this.prisma.venta.findFirst({
+        where: { conversacionId: conversacion.id },
+        orderBy: { creadaEn: 'desc' },
+        select: { creadaEn: true },
+      }),
+      sinNombres || !otro.tienda ? new Set<string>() : this.tiendasConAsesores([otro.tienda.id]),
+    ]);
+    return { cerradaEn: venta?.creadaEn ?? null, conAsesores, sinNombres };
+  }
+
+  /** «Cada mensaje dice quién lo escribió» (N12): en las tiendas con más de una persona. */
+  private async tiendasConAsesores(tiendaIds: string[]): Promise<Set<string>> {
+    const filas = await this.prisma.usuario.groupBy({
+      by: ['tiendaId'],
+      where: { tiendaId: { in: tiendaIds } },
+      _count: { _all: true },
+    });
+    return new Set(
+      filas.filter((f) => f.tiendaId && f._count._all > 1).map((f) => f.tiendaId as string),
+    );
+  }
+
   async mensajes(
     id: string,
     consulta: ConsultaHistorial,
@@ -608,10 +854,11 @@ export class MensajesService {
     const { conversacion } = await this.participacion(id, usuarioId);
     const otroId =
       conversacion.compradorId === usuarioId ? conversacion.vendedorId : conversacion.compradorId;
-    const [filas, yo, delOtro] = await Promise.all([
+    const [filas, yo, delOtro, contexto] = await Promise.all([
       this.prisma.mensaje.findMany({
         where: {
           conversacionId: id,
+          NOT: { ocultoPara: { has: usuarioId } },
           ...(consulta.antes ? { creadoEn: { lt: new Date(consulta.antes) } } : {}),
         },
         orderBy: [{ creadoEn: 'desc' }, { id: 'desc' }],
@@ -624,42 +871,47 @@ export class MensajesService {
       }),
       this.prisma.participacion.findUnique({
         where: { conversacionId_usuarioId: { conversacionId: id, usuarioId: otroId } },
-        select: { leidoHasta: true, usuario: { select: { mostrarVisto: true } } },
+        select: {
+          leidoHasta: true,
+          recibidoHasta: true,
+          usuario: { select: { mostrarVisto: true } },
+        },
       }),
+      this.contexto(conversacion, usuarioId),
     ]);
     const hayMas = filas.length > consulta.limite;
     const pagina = filas.slice(0, consulta.limite).reverse();
     // El «Visto» se ve solo si los dos lo tienen activado (RF-57).
     const visto =
       yo.mostrarVisto && delOtro?.usuario.mostrarVisto ? (delOtro.leidoHasta ?? null) : null;
+    // Leer es haber recibido: con el «Visto» apagado, sus checks quedan en dos grises (N01).
+    const recibido = [delOtro?.recibidoHasta, delOtro?.leidoHasta]
+      .filter((fecha): fecha is Date => fecha instanceof Date)
+      .sort((a, b) => b.getTime() - a.getTime())[0];
     return {
-      mensajes: pagina.map((m) => mensajeChat(m, usuarioId)),
+      mensajes: pagina.map((m) => mensajeChat(m, usuarioId, contexto)),
       hay_mas: hayMas,
       visto_hasta: visto?.toISOString() ?? null,
+      recibido_hasta: recibido?.toISOString() ?? null,
     };
   }
 
-  async enviar(
-    id: string,
-    datos: EnviarMensajeDatos,
+  /** Bloqueos de los dos lados (docs/05 §8): el bloqueado recibe el error; al otro no se le avisa nada. */
+  private async revisarBloqueos(
+    conversacion: ParticipacionFila['conversacion'],
     usuario: UsuarioConTienda,
-  ): Promise<MensajeChat> {
-    const { conversacion } = await this.participacion(id, usuario.id);
-    const soyComprador = conversacion.compradorId === usuario.id;
-    const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
-    const miTiendaId = usuario.tiendaId ?? '';
-    const otraTiendaId = otro.tienda?.id ?? '';
-
+  ): Promise<void> {
+    const otro =
+      conversacion.compradorId === usuario.id ? conversacion.vendedor : conversacion.comprador;
     const bloqueos = await this.prisma.bloqueo.findMany({
       where: {
         OR: [
-          { usuarioId: otro.id, tiendaBloqueadaId: miTiendaId },
-          { usuarioId: usuario.id, tiendaBloqueadaId: otraTiendaId },
+          { usuarioId: otro.id, tiendaBloqueadaId: usuario.tiendaId ?? '' },
+          { usuarioId: usuario.id, tiendaBloqueadaId: otro.tienda?.id ?? '' },
         ],
       },
       select: { usuarioId: true },
     });
-    // El bloqueado recibe el error; al otro no se le avisa nada (docs/05 §8).
     if (bloqueos.some((b) => b.usuarioId === otro.id)) {
       throw new ApiHttpException(
         HttpStatus.FORBIDDEN,
@@ -674,12 +926,50 @@ export class MensajesService {
         'Bloqueaste a esta tienda. Desbloquéala para escribirle.',
       );
     }
+  }
 
-    // Si escribe quien vende una oferta con la tienda reservada, el aviso no dice quién es.
-    const remitente =
-      !soyComprador && !conversacion.oferta.tiendaVisible
-        ? TIENDA_RESERVADA
-        : (usuario.tienda?.nombre ?? usuario.nombre);
+  /** Si escribe quien vende una oferta con la tienda reservada, el aviso no dice quién es. */
+  private remitente(
+    conversacion: ParticipacionFila['conversacion'],
+    usuario: UsuarioConTienda,
+  ): string {
+    return conversacion.vendedorId === usuario.id && !conversacion.oferta.tiendaVisible
+      ? TIENDA_RESERVADA
+      : (usuario.tienda?.nombre ?? usuario.nombre);
+  }
+
+  async enviar(
+    id: string,
+    datos: EnviarMensajeDatos,
+    usuario: UsuarioConTienda,
+  ): Promise<MensajeChat> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    const soyComprador = conversacion.compradorId === usuario.id;
+    const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
+    const miTiendaId = usuario.tiendaId ?? '';
+    await this.revisarBloqueos(conversacion, usuario);
+
+    // «Responder» (N01): a un mensaje de este mismo hilo que todavía se ve.
+    if (datos.responde_a) {
+      const citado = await this.prisma.mensaje.count({
+        where: {
+          id: datos.responde_a,
+          conversacionId: id,
+          eliminadoEn: null,
+          NOT: { ocultoPara: { has: usuario.id } },
+        },
+      });
+      if (!citado) {
+        throw new ApiHttpException(
+          HttpStatus.CONFLICT,
+          'CONFLICTO',
+          'Ese mensaje ya no está. Escribe sin responderlo.',
+        );
+      }
+    }
+
+    const remitente = this.remitente(conversacion, usuario);
+    const leLlega = this.tiempoReal.tieneSocket(otro.id);
     const { mensaje, aviso } = await this.prisma.$transaction(async (tx) => {
       if (datos.foto) await this.archivos.reclamar(tx, [datos.foto], miTiendaId);
       const mensaje = await tx.mensaje.create({
@@ -689,46 +979,465 @@ export class MensajesService {
           tipo: datos.foto ? 'FOTO' : 'TEXTO',
           texto: datos.texto ?? null,
           foto: datos.foto ?? null,
+          respondeAId: datos.responde_a ?? null,
         },
         select: SELECT_MENSAJE,
       });
-      await tx.conversacion.update({
-        where: { id },
-        data: { ultimoMensajeEn: mensaje.creadoEn },
-      });
-      // Quien escribe ya leyó todo; a quien recibe, el hilo le vuelve a la bandeja.
-      await tx.participacion.update({
-        where: { conversacionId_usuarioId: { conversacionId: id, usuarioId: usuario.id } },
-        data: { leidoHasta: mensaje.creadoEn, noLeidaManual: false, archivada: false },
-      });
-      await tx.participacion.update({
-        where: { conversacionId_usuarioId: { conversacionId: id, usuarioId: otro.id } },
-        data: { archivada: false },
-      });
-      const aviso = await this.avisos.porMensaje(tx, {
-        destinatarioId: otro.id,
+      const aviso = await this.registrarEnvio(tx, {
         conversacionId: id,
+        mensaje,
+        usuarioId: usuario.id,
+        otroId: otro.id,
+        leLlega,
         remitente,
         extracto: datos.texto ? `«${datos.texto}»` : 'Te envió una foto.',
       });
       return { mensaje, aviso };
     });
 
-    this.difundir(id, mensaje, usuario.id, otro.id);
+    await this.difundir(conversacion, mensaje, usuario, otro.id, leLlega);
     if (aviso) this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.avisoNuevo, aviso);
     return mensajeChat(mensaje, usuario.id);
   }
 
-  /** `mensaje:nuevo` a las dos personas, cada una con su «mío». */
-  private difundir(conversacionId: string, mensaje: MensajeFila, ...personas: string[]): void {
-    for (const usuarioId of personas) {
-      const evento: EventoMensajeNuevo = {
-        conversacion_id: conversacionId,
-        mensaje: mensajeChat(mensaje, usuarioId),
+  /**
+   * Lo que pasa con cada mensaje nuevo de una persona, dentro de su transacción: el hilo sube,
+   * quien escribe ya leyó todo, a quien recibe el hilo le vuelve a la bandeja (y le llegó si
+   * tiene PaseLibre abierto), y su aviso en la campanita.
+   */
+  private async registrarEnvio(
+    tx: Prisma.TransactionClient,
+    datos: {
+      conversacionId: string;
+      mensaje: MensajeFila;
+      usuarioId: string;
+      otroId: string;
+      leLlega: boolean;
+      remitente: string;
+      extracto: string;
+    },
+  ): Promise<AvisoCampanita | null> {
+    const { conversacionId, mensaje } = datos;
+    await tx.conversacion.update({
+      where: { id: conversacionId },
+      data: { ultimoMensajeEn: mensaje.creadoEn },
+    });
+    await tx.participacion.update({
+      where: { conversacionId_usuarioId: { conversacionId, usuarioId: datos.usuarioId } },
+      data: { leidoHasta: mensaje.creadoEn, noLeidaManual: false, archivada: false },
+    });
+    await tx.participacion.update({
+      where: { conversacionId_usuarioId: { conversacionId, usuarioId: datos.otroId } },
+      data: { archivada: false, ...(datos.leLlega ? { recibidoHasta: mensaje.creadoEn } : {}) },
+    });
+    return this.avisos.porMensaje(tx, {
+      destinatarioId: datos.otroId,
+      conversacionId,
+      remitente: datos.remitente,
+      extracto: datos.extracto,
+    });
+  }
+
+  /**
+   * `mensaje:nuevo` a las dos personas, cada una con su «mío» (y quien lo recibe, con el nombre
+   * de quien lo escribió si su tienda tiene asesores). Si ya le llegó, dos checks grises.
+   */
+  private async difundir(
+    conversacion: ParticipacionFila['conversacion'],
+    mensaje: MensajeFila,
+    usuario: UsuarioConTienda,
+    otroId: string,
+    leLlega: boolean,
+  ): Promise<void> {
+    const conAsesores = usuario.tiendaId
+      ? await this.tiendasConAsesores([usuario.tiendaId])
+      : new Set<string>();
+    const sinNombres = conversacion.vendedorId === usuario.id && !conversacion.oferta.tiendaVisible;
+    this.emitirNuevo(conversacion.id, mensaje, usuario.id);
+    this.emitirNuevo(conversacion.id, mensaje, otroId, { conAsesores, sinNombres });
+    if (leLlega) {
+      const evento: EventoMensajeRecibido = {
+        conversacion_id: conversacion.id,
+        recibido_hasta: mensaje.creadoEn.toISOString(),
       };
-      this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.mensajeNuevo, evento);
-      this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.contadores);
+      this.tiempoReal.emitirAUsuario(usuario.id, EVENTOS.mensajeRecibido, evento);
     }
+  }
+
+  private emitirNuevo(
+    conversacionId: string,
+    mensaje: MensajeFila,
+    usuarioId: string,
+    contexto: ContextoMensajes = {},
+  ): void {
+    const evento: EventoMensajeNuevo = {
+      conversacion_id: conversacionId,
+      mensaje: mensajeChat(mensaje, usuarioId, contexto),
+    };
+    this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.mensajeNuevo, evento);
+    this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.contadores);
+  }
+
+  /** `mensaje:cambio` a las dos personas (o solo a una, con «Eliminar para mí»). */
+  private emitirCambio(
+    conversacion: ParticipacionFila['conversacion'],
+    mensaje: MensajeFila,
+    personas: string[],
+  ): void {
+    for (const usuarioId of personas) {
+      const sinNombres =
+        conversacion.compradorId === usuarioId && !conversacion.oferta.tiendaVisible;
+      const evento: EventoMensajeCambio = {
+        conversacion_id: conversacion.id,
+        mensaje_id: mensaje.id,
+        // Los asesores no cambian al editar: el nombre lo vuelve a poner el historial.
+        mensaje: mensajeChat(mensaje, usuarioId, { sinNombres }),
+      };
+      this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.mensajeCambio, evento);
+    }
+  }
+
+  // ── Editar y eliminar (N01) ───────────────────────────────────────────────
+
+  /** Un mensaje del hilo que la persona todavía ve. */
+  private async mensajeDelHilo(
+    conversacionId: string,
+    mensajeId: string,
+    usuarioId: string,
+  ): Promise<MensajeFila> {
+    const mensaje = await this.prisma.mensaje.findFirst({
+      where: { id: mensajeId, conversacionId, NOT: { ocultoPara: { has: usuarioId } } },
+      select: SELECT_MENSAJE,
+    });
+    if (!mensaje) {
+      throw new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Este mensaje ya no está.');
+    }
+    return mensaje;
+  }
+
+  /**
+   * Editar y «Eliminar para todos» (N01): solo lo propio, dentro de los 15 minutos, y nunca lo
+   * que ya es de una venta cerrada.
+   */
+  private async revisarQueSeCambia(
+    conversacion: ParticipacionFila['conversacion'],
+    mensaje: MensajeFila,
+    usuarioId: string,
+  ): Promise<void> {
+    if (mensaje.autorId !== usuarioId || (mensaje.tipo !== 'TEXTO' && mensaje.tipo !== 'FOTO')) {
+      throw new ApiHttpException(
+        HttpStatus.FORBIDDEN,
+        'PROHIBIDO',
+        'Solo puedes cambiar los mensajes que escribiste.',
+      );
+    }
+    if (mensaje.eliminadoEn) {
+      throw new ApiHttpException(HttpStatus.CONFLICT, 'CONFLICTO', 'Ya eliminaste este mensaje.');
+    }
+    const venta = await this.prisma.venta.findFirst({
+      where: { conversacionId: conversacion.id, creadaEn: { gte: mensaje.creadoEn } },
+      select: { id: true },
+    });
+    if (venta) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Es parte de una venta cerrada: ya no se puede cambiar.',
+      );
+    }
+    if (Date.now() - mensaje.creadoEn.getTime() > PLAZO_CAMBIAR_MS) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        `Pasaron más de ${MINUTOS_PARA_CAMBIAR_MENSAJE} minutos: ya no se puede cambiar.`,
+      );
+    }
+  }
+
+  /** Lo de antes queda en `mensaje_version` para el Equipo; el chat muestra «editado ·». */
+  async editar(
+    id: string,
+    mensajeId: string,
+    texto: string,
+    usuario: UsuarioConTienda,
+  ): Promise<MensajeChat> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    const anterior = await this.mensajeDelHilo(id, mensajeId, usuario.id);
+    await this.revisarQueSeCambia(conversacion, anterior, usuario.id);
+    if (anterior.tipo !== 'TEXTO') {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Una foto no se edita: elimínala y envía otra.',
+      );
+    }
+    if (anterior.texto === texto) return mensajeChat(anterior, usuario.id);
+    const otroId =
+      conversacion.compradorId === usuario.id ? conversacion.vendedorId : conversacion.compradorId;
+    const mensaje = await this.prisma.$transaction(async (tx) => {
+      await tx.mensajeVersion.create({
+        data: { mensajeId, cambio: 'EDITADO', texto: anterior.texto, foto: anterior.foto },
+      });
+      // El aviso que todavía muestra el texto de antes, con el nuevo.
+      if (anterior.texto) {
+        await tx.aviso.updateMany({
+          where: { usuarioId: otroId, conversacionId: id, extracto: `«${anterior.texto}»` },
+          data: { extracto: `«${texto}»`.slice(0, 240) },
+        });
+      }
+      return tx.mensaje.update({
+        where: { id: mensajeId },
+        data: { texto, editadoEn: new Date() },
+        select: SELECT_MENSAJE,
+      });
+    });
+    this.emitirCambio(conversacion, mensaje, [usuario.id, otroId]);
+    return mensajeChat(mensaje, usuario.id);
+  }
+
+  /**
+   * «Eliminar para todos» (dentro de los 15 minutos): queda «Eliminaste este mensaje» y, para
+   * el otro, «Se eliminó este mensaje»; lo de antes queda para el Equipo. «Eliminar para mí»
+   * (cuando sea, también lo del otro): deja de verlo solo quien lo pide.
+   */
+  async eliminar(
+    id: string,
+    mensajeId: string,
+    para: 'todos' | 'mi',
+    usuario: UsuarioConTienda,
+  ): Promise<MensajeChat | null> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    const anterior = await this.mensajeDelHilo(id, mensajeId, usuario.id);
+    if (para === 'mi') {
+      if (anterior.tipo === 'SISTEMA') {
+        throw new ApiHttpException(
+          HttpStatus.CONFLICT,
+          'CONFLICTO',
+          'Los avisos de PaseLibre en el chat no se eliminan.',
+        );
+      }
+      const mensaje = await this.prisma.mensaje.update({
+        where: { id: mensajeId },
+        data: { ocultoPara: { push: usuario.id } },
+        select: SELECT_MENSAJE,
+      });
+      // Sus otras pestañas también lo sacan.
+      const evento: EventoMensajeCambio = {
+        conversacion_id: id,
+        mensaje_id: mensaje.id,
+        mensaje: null,
+      };
+      this.tiempoReal.emitirAUsuario(usuario.id, EVENTOS.mensajeCambio, evento);
+      return null;
+    }
+
+    await this.revisarQueSeCambia(conversacion, anterior, usuario.id);
+    const otroId =
+      conversacion.compradorId === usuario.id ? conversacion.vendedorId : conversacion.compradorId;
+    const mensaje = await this.prisma.$transaction(async (tx) => {
+      await tx.mensajeVersion.create({
+        data: { mensajeId, cambio: 'ELIMINADO', texto: anterior.texto, foto: anterior.foto },
+      });
+      if (anterior.texto) {
+        await tx.aviso.updateMany({
+          where: { usuarioId: otroId, conversacionId: id, extracto: `«${anterior.texto}»` },
+          data: { extracto: 'Se eliminó este mensaje.' },
+        });
+      }
+      return tx.mensaje.update({
+        where: { id: mensajeId },
+        data: { texto: null, foto: null, eliminadoEn: new Date() },
+        select: SELECT_MENSAJE,
+      });
+    });
+    this.emitirCambio(conversacion, mensaje, [usuario.id, otroId]);
+    return mensajeChat(mensaje, usuario.id);
+  }
+
+  // ── Pedir y compartir el WhatsApp (N01) ───────────────────────────────────
+
+  /**
+   * «Pedir WhatsApp»: a la otra tienda le llega la tarjeta «Aceptar / Ahora no». Nadie ve un
+   * número que no se aceptó. A una tienda reservada no se le pide: el número la delataría.
+   */
+  async pedirWhatsapp(id: string, usuario: UsuarioConTienda): Promise<MensajeChat> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    const soyComprador = conversacion.compradorId === usuario.id;
+    const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
+    if (soyComprador && !conversacion.oferta.tiendaVisible) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Esta tienda atiende solo por el chat de PaseLibre.',
+      );
+    }
+    await this.revisarBloqueos(conversacion, usuario);
+    const [yaLoTienes, pendiente] = await Promise.all([
+      this.prisma.mensaje.count({
+        where: { conversacionId: id, tipo: 'WHATSAPP', autorId: otro.id, eliminadoEn: null },
+      }),
+      this.prisma.mensaje.findFirst({
+        where: {
+          conversacionId: id,
+          tipo: 'PEDIDO_WHATSAPP',
+          autorId: usuario.id,
+          pedidoEstado: 'PENDIENTE',
+        },
+        select: SELECT_MENSAJE,
+      }),
+    ]);
+    if (yaLoTienes) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Ya te compartió su WhatsApp: está en este chat.',
+      );
+    }
+    // Dos toques seguidos no le mandan dos tarjetas.
+    if (pendiente) return mensajeChat(pendiente, usuario.id);
+
+    const leLlega = this.tiempoReal.tieneSocket(otro.id);
+    const { mensaje, aviso } = await this.prisma.$transaction(async (tx) => {
+      const mensaje = await tx.mensaje.create({
+        data: {
+          conversacionId: id,
+          autorId: usuario.id,
+          tipo: 'PEDIDO_WHATSAPP',
+          pedidoEstado: 'PENDIENTE',
+        },
+        select: SELECT_MENSAJE,
+      });
+      const aviso = await this.registrarEnvio(tx, {
+        conversacionId: id,
+        mensaje,
+        usuarioId: usuario.id,
+        otroId: otro.id,
+        leLlega,
+        remitente: this.remitente(conversacion, usuario),
+        extracto: 'Te pidió tu WhatsApp.',
+      });
+      return { mensaje, aviso };
+    });
+    await this.difundir(conversacion, mensaje, usuario, otro.id, leLlega);
+    if (aviso) this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.avisoNuevo, aviso);
+    return mensajeChat(mensaje, usuario.id);
+  }
+
+  /** «Aceptar» comparte el WhatsApp de la tienda; «Ahora no» solo cierra el pedido. */
+  async responderPedidoWhatsapp(
+    id: string,
+    mensajeId: string,
+    aceptar: boolean,
+    usuario: UsuarioConTienda,
+  ): Promise<RespuestaPedidoWhatsapp> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    const pedido = await this.mensajeDelHilo(id, mensajeId, usuario.id);
+    if (pedido.tipo !== 'PEDIDO_WHATSAPP' || !pedido.autorId || pedido.autorId === usuario.id) {
+      throw new ApiHttpException(
+        HttpStatus.NOT_FOUND,
+        'NO_ENCONTRADO',
+        'Este pedido de WhatsApp no es para ti.',
+      );
+    }
+    if (pedido.pedidoEstado !== 'PENDIENTE') {
+      throw new ApiHttpException(HttpStatus.CONFLICT, 'CONFLICTO', 'Ya respondiste este pedido.');
+    }
+    if (aceptar) {
+      const compartido = await this.compartirWhatsapp(id, usuario);
+      const respondido = await this.mensajeDelHilo(id, mensajeId, usuario.id);
+      return { pedido: mensajeChat(respondido, usuario.id), compartido };
+    }
+    const { count } = await this.prisma.mensaje.updateMany({
+      where: { id: mensajeId, pedidoEstado: 'PENDIENTE' },
+      data: { pedidoEstado: 'RECHAZADO' },
+    });
+    if (count === 0) {
+      throw new ApiHttpException(HttpStatus.CONFLICT, 'CONFLICTO', 'Ya respondiste este pedido.');
+    }
+    const respondido = await this.mensajeDelHilo(id, mensajeId, usuario.id);
+    this.emitirCambio(conversacion, respondido, [usuario.id, pedido.autorId]);
+    return { pedido: mensajeChat(respondido, usuario.id), compartido: null };
+  }
+
+  /**
+   * «Compartir mi WhatsApp» (desde ⋯ arriba del chat, o al aceptar un pedido): queda en el chat
+   * «WhatsApp de X · +51 … · Abrir». Es el número de la tienda. Quien vende algo con la tienda
+   * reservada no lo comparte: se sabría quién es.
+   */
+  async compartirWhatsapp(id: string, usuario: UsuarioConTienda): Promise<MensajeChat> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    const soyVendedor = conversacion.vendedorId === usuario.id;
+    const otro = soyVendedor ? conversacion.comprador : conversacion.vendedor;
+    if (soyVendedor && !conversacion.oferta.tiendaVisible) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Publicaste esto con la tienda reservada: tu WhatsApp diría quién eres.',
+      );
+    }
+    const numero = usuario.tienda?.whatsapp;
+    if (!numero) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Tu tienda todavía no tiene WhatsApp. Agrégalo en Configuración.',
+      );
+    }
+    await this.revisarBloqueos(conversacion, usuario);
+
+    const leLlega = this.tiempoReal.tieneSocket(otro.id);
+    const { mensaje, nuevo, aviso, aceptados } = await this.prisma.$transaction(async (tx) => {
+      // Los pedidos que tenía de la otra tienda quedan aceptados.
+      const pendientes = await tx.mensaje.findMany({
+        where: {
+          conversacionId: id,
+          tipo: 'PEDIDO_WHATSAPP',
+          autorId: otro.id,
+          pedidoEstado: 'PENDIENTE',
+        },
+        select: { id: true },
+      });
+      await tx.mensaje.updateMany({
+        where: { id: { in: pendientes.map((p) => p.id) } },
+        data: { pedidoEstado: 'ACEPTADO' },
+      });
+      const aceptados = await tx.mensaje.findMany({
+        where: { id: { in: pendientes.map((p) => p.id) } },
+        select: SELECT_MENSAJE,
+      });
+      // Si ya está en el chat con el mismo número, no se repite la tarjeta.
+      const yaEsta = await tx.mensaje.findFirst({
+        where: {
+          conversacionId: id,
+          tipo: 'WHATSAPP',
+          autorId: usuario.id,
+          whatsapp: numero,
+          eliminadoEn: null,
+        },
+        select: SELECT_MENSAJE,
+      });
+      if (yaEsta) return { mensaje: yaEsta, nuevo: false, aviso: null, aceptados };
+      const mensaje = await tx.mensaje.create({
+        data: { conversacionId: id, autorId: usuario.id, tipo: 'WHATSAPP', whatsapp: numero },
+        select: SELECT_MENSAJE,
+      });
+      const aviso = await this.registrarEnvio(tx, {
+        conversacionId: id,
+        mensaje,
+        usuarioId: usuario.id,
+        otroId: otro.id,
+        leLlega,
+        remitente: this.remitente(conversacion, usuario),
+        extracto: 'Te compartió su WhatsApp.',
+      });
+      return { mensaje, nuevo: true, aviso, aceptados };
+    });
+    for (const aceptado of aceptados) {
+      this.emitirCambio(conversacion, aceptado, [usuario.id, otro.id]);
+    }
+    if (nuevo) await this.difundir(conversacion, mensaje, usuario, otro.id, leLlega);
+    if (aviso) this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.avisoNuevo, aviso);
+    return mensajeChat(mensaje, usuario.id);
   }
 
   // ── Acciones de la conversación (RF-57) ───────────────────────────────────
@@ -744,7 +1453,10 @@ export class MensajesService {
       silenciada: cambios.silenciada,
       archivada: cambios.archivada,
     };
-    if (cambios.leida === true) Object.assign(data, { leidoHasta: ahora, noLeidaManual: false });
+    // Leer es también haberlo recibido (N01).
+    if (cambios.leida === true) {
+      Object.assign(data, { leidoHasta: ahora, recibidoHasta: ahora, noLeidaManual: false });
+    }
     if (cambios.leida === false) data.noLeidaManual = true;
     await this.prisma.participacion.update({
       where: { conversacionId_usuarioId: { conversacionId: id, usuarioId: usuario.id } },
@@ -755,6 +1467,11 @@ export class MensajesService {
       await this.avisos.leerDeConversacion(usuario.id, id);
       const otro =
         conversacion.compradorId === usuario.id ? conversacion.vendedor : conversacion.comprador;
+      const recibido: EventoMensajeRecibido = {
+        conversacion_id: id,
+        recibido_hasta: ahora.toISOString(),
+      };
+      this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.mensajeRecibido, recibido);
       if (usuario.mostrarVisto && otro.mostrarVisto) {
         this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.mensajeVisto, {
           conversacion_id: id,
@@ -1026,9 +1743,146 @@ export class MensajesService {
       };
     });
 
-    this.difundir(conversacionId, resultado.mensaje, usuario.id, resultado.compradorId);
+    this.emitirNuevo(conversacionId, resultado.mensaje, usuario.id);
+    this.emitirNuevo(conversacionId, resultado.mensaje, resultado.compradorId);
     this.tiempoReal.emitirATienda(tiendaId, EVENTOS.ofertaStock, {
       oferta_id: ofertaId,
+      stock: resultado.despues,
+    });
+    if (resultado.flashId) {
+      this.tiempoReal.emitirATodos(EVENTOS.enVivoCambio, { id: resultado.flashId });
+    }
+    return {
+      stock_antes: resultado.antes,
+      stock_despues: resultado.despues,
+      mensaje: mensajeChat(resultado.mensaje, usuario.id),
+    };
+  }
+  /**
+   * «Deshacer» junto a «Vendido» (N02): quien vendió, hasta 48 h y mientras quien compró no lo
+   * haya calificado. El stock vuelve (y la unidad de la oferta flash, si el hilo nació de una),
+   * la venta se borra y queda el aviso en el chat. Queda anotado en la auditoría.
+   */
+  async deshacerVenta(ventaId: string, usuario: UsuarioConTienda): Promise<RespuestaVendido> {
+    const tiendaId = usuario.tiendaId ?? '';
+    const noExisteVenta = () =>
+      new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Esta venta no existe.');
+    const resultado = await this.prisma.$transaction(async (tx) => {
+      const venta = await tx.venta.findFirst({
+        where: { id: ventaId, conversacion: { vendedorId: usuario.id } },
+        select: {
+          ofertaId: true,
+          creadaEn: true,
+          conversacionId: true,
+          compradorId: true,
+          opiniones: { select: { lado: true } },
+          conversacion: { select: { enVivoId: true } },
+        },
+      });
+      if (!venta || !venta.conversacionId) throw noExisteVenta();
+      if (Date.now() - venta.creadaEn.getTime() > PLAZO_DESHACER_VENTA_MS) {
+        throw new ApiHttpException(
+          HttpStatus.CONFLICT,
+          'CONFLICTO',
+          'Pasaron más de 48 horas: esta venta ya no se puede deshacer.',
+        );
+      }
+      if (venta.opiniones.some((o) => o.lado === 'COMPRADOR')) {
+        throw new ApiHttpException(
+          HttpStatus.CONFLICT,
+          'CONFLICTO',
+          'Ya te calificó por esta venta: no se puede deshacer.',
+        );
+      }
+      const [fila] = await tx.$queryRaw<Array<{ stock: number; tienda_id: string }>>`
+        SELECT stock, tienda_id::text AS tienda_id
+        FROM oferta WHERE id = ${venta.ofertaId}::uuid FOR UPDATE`;
+      if (!fila || fila.tienda_id !== tiendaId) throw noExisteVenta();
+
+      const antes = fila.stock;
+      const despues = antes + 1;
+      const ahora = new Date();
+      await tx.oferta.update({
+        where: { id: venta.ofertaId },
+        data: { stock: despues, actualizadaEn: ahora },
+      });
+      // La oferta flash de la que nació el hilo recupera su unidad (y vuelve si aún no vence).
+      const flash = venta.conversacion?.enVivoId
+        ? await tx.enVivo.findFirst({
+            where: {
+              id: venta.conversacion.enVivoId,
+              ofertaId: venta.ofertaId,
+              tipo: 'FLASH',
+              vendidas: { gt: 0 },
+            },
+            select: { id: true, estado: true, venceEn: true },
+          })
+        : null;
+      if (flash) {
+        const vuelve = flash.estado === 'VENDIDO' && flash.venceEn > ahora;
+        await tx.enVivo.update({
+          where: { id: flash.id },
+          data: {
+            cantidad: { increment: 1 },
+            vendidas: { decrement: 1 },
+            ...(vuelve ? { estado: 'VIVO' as const, cerradoEn: null } : {}),
+          },
+        });
+      }
+      await tx.venta.delete({ where: { id: ventaId } });
+      await tx.auditoria.create({
+        data: {
+          actorId: usuario.id,
+          accion: 'VENTA_DESHECHA',
+          objeto: 'venta',
+          objetoId: ventaId,
+          datos: {
+            oferta_id: venta.ofertaId,
+            conversacion_id: venta.conversacionId,
+            stock_antes: antes,
+            stock_despues: despues,
+          },
+        },
+      });
+      const mensaje = await tx.mensaje.create({
+        data: {
+          conversacionId: venta.conversacionId,
+          autorId: null,
+          tipo: 'SISTEMA',
+          texto: `Se deshizo la venta · stock ${antes} → ${despues}`,
+        },
+        select: SELECT_MENSAJE,
+      });
+      await tx.conversacion.update({
+        where: { id: venta.conversacionId },
+        data: { ultimoMensajeEn: mensaje.creadoEn },
+      });
+      await tx.participacion.update({
+        where: {
+          conversacionId_usuarioId: {
+            conversacionId: venta.conversacionId,
+            usuarioId: usuario.id,
+          },
+        },
+        data: { leidoHasta: mensaje.creadoEn },
+      });
+      return {
+        antes,
+        despues,
+        mensaje,
+        ofertaId: venta.ofertaId,
+        conversacionId: venta.conversacionId,
+        compradorId: venta.compradorId,
+        flashId: flash?.id ?? null,
+      };
+    });
+
+    this.emitirNuevo(resultado.conversacionId, resultado.mensaje, usuario.id);
+    if (resultado.compradorId) {
+      this.emitirNuevo(resultado.conversacionId, resultado.mensaje, resultado.compradorId);
+    }
+    this.tiempoReal.emitirATienda(tiendaId, EVENTOS.ofertaStock, {
+      oferta_id: resultado.ofertaId,
       stock: resultado.despues,
     });
     if (resultado.flashId) {
