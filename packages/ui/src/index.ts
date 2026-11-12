@@ -38,6 +38,11 @@ export const color = {
   /** El fondo de todas las páginas (guía del lienzo final); las tarjetas van en blanco encima. */
   fondo: '#EEF2F0',
   superficie: '#F6F8F7',
+  /**
+   * Detrás de cada foto de producto (docs/17 §1): la foto va encima con `mix-blend-multiply`,
+   * así su blanco se vuelve este gris y todas parecen del mismo estudio. Igual en oscuro.
+   */
+  'foto-fondo': '#F1F4F2',
   /** Bordes de tarjetas y separadores, de 1,5 px (la guía los pidió más gruesos). */
   linea: '#D5DCD8',
   borde: '#C6CEC9',

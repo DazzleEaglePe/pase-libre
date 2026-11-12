@@ -164,7 +164,7 @@ export function TarjetaProducto({
         <Miniatura
           ruta={foto}
           categoria={categoria}
-          className="h-[120px] w-full rounded-xl"
+          className="aspect-square w-full rounded-xl"
           glifo={84}
           grosor={2}
           prioridad={prioridad}

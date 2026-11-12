@@ -37,7 +37,7 @@ export function TarjetaOfertaPortada({
       <Miniatura
         ruta={tarjeta.producto.foto}
         categoria={tarjeta.producto.categoria.slug}
-        className="aspect-[4/3] w-full rounded-xl"
+        className="aspect-square w-full rounded-xl"
         glifo={96}
         grosor={2}
       />

@@ -329,7 +329,7 @@ export function FichaProducto({
                   aria-selected={indice === foto}
                   aria-label={`Foto ${indice + 1} de ${fotos.length}`}
                   onClick={() => setFoto(indice)}
-                  className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-superficie p-0 ${
+                  className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foto-fondo p-0 ${
                     indice === foto ? 'border-2 border-tinta' : 'border border-linea'
                   }`}
                 >
@@ -337,7 +337,7 @@ export function FichaProducto({
                   <img
                     src={urlFoto(miniatura.ruta)}
                     alt=""
-                    className="h-full w-full object-cover"
+                    className="h-[86%] w-[86%] object-contain mix-blend-multiply"
                   />
                 </button>
               ))}
