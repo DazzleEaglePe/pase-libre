@@ -25,14 +25,16 @@ import {
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { PuntoQueLate } from '@/shared/ui/brasa';
 import { Contador } from '@/shared/ui/contador';
 import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
 import { Interruptor } from '@/shared/ui/interruptor';
+import { BurbujaSocio } from '@/shared/ui/tarjeta-producto';
 
+import { alternarEnTexto, DETALLES_EN_TEXTO, tieneEnTexto } from './detalles';
 import { BuscadorProducto, ProductoElegido } from './producto-catalogo';
 import { PRODUCTO_NUEVO_VACIO, ProductoNuevo, type DatosProductoNuevo } from './producto-nuevo';
 import { SelectorFotos } from './selector-fotos';
@@ -171,6 +173,7 @@ function CampoMonto({
   alCambiar,
   ayuda,
   alCambiarMoneda,
+  derecha,
 }: {
   id: string;
   etiqueta: string;
@@ -179,20 +182,28 @@ function CampoMonto({
   alCambiar: (valor: string) => void;
   ayuda?: string;
   alCambiarMoneda?: () => void;
+  /** Dentro del campo, a la derecha: «Precio fijo ▾» (N06). */
+  derecha?: ReactNode;
 }) {
   const invalido = valor.trim() !== '' && centimosDeMonto(valor) === null;
   return (
-    <label htmlFor={id} className={etiqueta}>
-      <span className="font-bold">{texto}</span>
-      <span className="flex h-[52px] items-center gap-1 overflow-hidden rounded-xl border border-borde bg-white pl-1.5 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-tinta">
+    <div className={etiqueta}>
+      <label htmlFor={id} className="font-bold">
+        {texto}
+      </label>
+      <span
+        className={`flex h-[54px] items-center gap-1 rounded-[14px] border-[1.5px] border-borde bg-white pl-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-tinta ${
+          derecha ? 'pr-2' : ''
+        }`}
+      >
         {alCambiarMoneda ? (
           <button
             type="button"
             onClick={alCambiarMoneda}
             aria-label={`Moneda: ${moneda === 'PEN' ? 'soles' : 'dólares'}. Cambiar a ${moneda === 'PEN' ? 'dólares' : 'soles'}`}
-            className="flex h-10 shrink-0 items-center gap-1 rounded-[10px] border border-[#A7E3C3] bg-pase-suave px-2.5 text-cuerpo font-extrabold text-marca"
+            className="flex h-[38px] shrink-0 items-center gap-1 rounded-[10px] border-[1.5px] border-[#A7E3C3] bg-pase-suave px-3 text-cuerpo font-extrabold text-marca"
           >
-            {SIMBOLO[moneda]} <span className="text-[11px]">▼</span>
+            {SIMBOLO[moneda]} <span className="text-[11px]">▾</span>
           </button>
         ) : (
           <span className="pl-2 pr-1 font-medium text-secundario">{SIMBOLO[moneda]}</span>
@@ -206,6 +217,7 @@ function CampoMonto({
           placeholder="0.00"
           className="h-full min-w-0 flex-1 bg-transparent pl-1.5 pr-3.5 text-[18px] font-bold placeholder:font-semibold placeholder:text-detalle focus-visible:outline-none"
         />
+        {derecha}
       </span>
       {invalido ? (
         <span className="text-nota font-normal text-error">
@@ -214,7 +226,86 @@ function CampoMonto({
       ) : (
         ayuda && <span className="text-nota font-normal text-secundario">{ayuda}</span>
       )}
-    </label>
+    </div>
+  );
+}
+
+/**
+ * «Precio fijo ▾» dentro del campo de precio, a la derecha (N06, elegido B): abre «✓ Precio
+ * fijo / Negociable». Negociable suma la burbujita «Negociable» al precio.
+ */
+function PrecioFijo({
+  negociable,
+  alCambiar,
+}: {
+  negociable: boolean;
+  alCambiar: (negociable: boolean) => void;
+}) {
+  const id = useId();
+  const [abierto, setAbierto] = useState(false);
+  const caja = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!abierto) return;
+    const afuera = (evento: MouseEvent) => {
+      if (!caja.current?.contains(evento.target as Node)) setAbierto(false);
+    };
+    const escape = (evento: KeyboardEvent) => {
+      if (evento.key === 'Escape') setAbierto(false);
+    };
+    document.addEventListener('mousedown', afuera);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('mousedown', afuera);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [abierto]);
+
+  const opciones: Array<[boolean, string]> = [
+    [false, 'Precio fijo'],
+    [true, 'Negociable'],
+  ];
+  return (
+    <span ref={caja} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={abierto}
+        aria-controls={`${id}-opciones`}
+        aria-label={`Tipo de precio: ${negociable ? 'negociable' : 'precio fijo'}`}
+        onClick={() => setAbierto(!abierto)}
+        className="flex h-[38px] items-center gap-1 whitespace-nowrap rounded-[10px] border-[1.5px] border-borde bg-white px-3 text-nota font-bold text-tinta hover:border-borde-control"
+      >
+        {negociable ? 'Negociable' : 'Precio fijo'} <span className="text-[11px]">▾</span>
+      </button>
+      {abierto && (
+        <ul
+          id={`${id}-opciones`}
+          role="listbox"
+          aria-label="Tipo de precio"
+          className="absolute right-0 top-[46px] z-20 m-0 flex w-[180px] list-none flex-col rounded-[14px] border-[1.5px] border-borde bg-white p-1.5 shadow-[0_8px_24px_rgba(15,20,18,0.12)]"
+        >
+          {opciones.map(([valor, texto]) => (
+            <li key={texto} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={negociable === valor}
+                onClick={() => {
+                  alCambiar(valor);
+                  setAbierto(false);
+                }}
+                className={`flex w-full rounded-lg px-2.5 py-2 text-left text-apoyo ${
+                  negociable === valor ? 'bg-pase-suave font-bold' : 'hover:bg-superficie'
+                }`}
+              >
+                {negociable === valor ? `✓ ${texto}` : texto}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </span>
   );
 }
 
@@ -277,6 +368,7 @@ export function FormularioPublicar({
     tienda.precio_visible_defecto ? 'TODOS' : 'NADIE',
   );
   const [aceptaOfertas, setAceptaOfertas] = useState(true);
+  const [negociable, setNegociable] = useState(false);
   const [socios, setSocios] = useState<RespuestaSocios | null>(null);
   const [tiendaVisible, setTiendaVisible] = useState(true);
   const [descripcion, setDescripcion] = useState('');
@@ -350,6 +442,7 @@ export function FormularioPublicar({
           }
           setQuienVe(oferta.quien_ve_precio);
           setAceptaOfertas(oferta.acepta_ofertas);
+          setNegociable(oferta.negociable);
           setTiendaVisible(oferta.tienda_visible);
           setDescripcion(oferta.descripcion ?? '');
           setFotos(
@@ -408,6 +501,7 @@ export function FormularioPublicar({
     setMonto('');
     setMontoFacturado('');
     setConSocio(false);
+    setNegociable(false);
     setQuienVe(tienda.precio_visible_defecto ? 'TODOS' : 'NADIE');
     setTiendaVisible(true);
     setMoneda(tienda.moneda_defecto);
@@ -446,6 +540,8 @@ export function FormularioPublicar({
       descuento_socio: conSocio && conPase ? descuento : '',
       quien_ve_precio: quienVe,
       acepta_ofertas: aceptaOfertas,
+      // «Negociable» solo tiene sentido con un precio a la vista.
+      negociable: quienVe !== 'NADIE' && negociable,
       tienda_visible: tiendaVisible,
       descripcion,
       fotos: fotos.map((f) => f.ruta),
@@ -547,15 +643,31 @@ export function FormularioPublicar({
     [productoListo, 'Producto elegido'],
     [true, 'Estado'],
     [stock >= (editando ? 0 : 1), 'Cantidad'],
-    [precioListo, alInterno ? 'Precio al interno' : 'Precio puesto'],
+    [
+      precioListo,
+      alInterno
+        ? 'Precio: al interno · por chat'
+        : precioTexto
+          ? `Precio: ${precioTexto}`
+          : 'Precio',
+    ],
   ];
   const listos = checks.filter(([hecho]) => hecho).length;
 
-  /** «+ Con caja», «+ Probada», «+ Con factura» marcan el detalle; «+ Incluye cables» lo escribe. */
+  /**
+   * Los detalles de N06. «Con caja», «Probada» y «Con comprobante» marcan la oferta (el
+   * comprobante, boleta o factura, va en `con_factura` sin decirlo directo); «Accesorios
+   * completos» y «Entrega inmediata» se escriben en el texto.
+   */
   const marcas: Array<[string, boolean, (valor: boolean) => void]> = [
     ['Con caja', conCaja, setConCaja],
     ['Probada', probado, setProbado],
-    ['Con factura', conFactura, setConFactura],
+    ['Con comprobante', conFactura, setConFactura],
+    ...DETALLES_EN_TEXTO.map((frase): [string, boolean, (valor: boolean) => void] => [
+      frase,
+      tieneEnTexto(descripcion, frase),
+      () => setDescripcion((actual) => alternarEnTexto(actual, frase)),
+    ]),
   ];
 
   function cambiarMoneda() {
@@ -909,6 +1021,7 @@ export function FormularioPublicar({
                     alCambiar={setMonto}
                     alCambiarMoneda={cambiarMoneda}
                     ayuda={`Toca ${SIMBOLO[moneda]} para cambiar a ${moneda === 'PEN' ? 'dólares' : 'soles'}`}
+                    derecha={<PrecioFijo negociable={negociable} alCambiar={setNegociable} />}
                   />
                 )}
                 {conFacturado && (
@@ -920,6 +1033,11 @@ export function FormularioPublicar({
                     alCambiar={setMontoFacturado}
                     alCambiarMoneda={conPase ? undefined : cambiarMoneda}
                     ayuda="Con factura e IGV incluido."
+                    derecha={
+                      conPase ? undefined : (
+                        <PrecioFijo negociable={negociable} alCambiar={setNegociable} />
+                      )
+                    }
                   />
                 )}
 
@@ -928,9 +1046,7 @@ export function FormularioPublicar({
                     <div className="flex items-center justify-between gap-4">
                       <span className="flex flex-wrap items-center gap-2">
                         <b className="text-apoyo font-bold">Precio socio</b>
-                        <span className="rounded-full bg-marca px-2 text-[11px] font-bold leading-5 text-white">
-                          Socio
-                        </span>
+                        <BurbujaSocio />
                         <span className="text-nota text-secundario">(opcional)</span>
                       </span>
                       {cuantosSocios > 0 && (
@@ -1038,7 +1154,7 @@ export function FormularioPublicar({
                 maxLength={MAX_DESCRIPCION}
                 value={descripcion}
                 onChange={(evento) => setDescripcion(evento.target.value)}
-                placeholder="Ej. incluye cables, sin minería, probada en el stand"
+                placeholder="Ej.: viene con su caja, probada en el stand…"
                 className={`${campo} h-auto resize-y py-3`}
               />
               <span className="self-end text-nota font-normal text-detalle">
@@ -1052,7 +1168,7 @@ export function FormularioPublicar({
                   type="button"
                   aria-pressed={marcada}
                   onClick={() => alCambiar(!marcada)}
-                  className={`h-8 rounded-full border px-3 text-nota font-semibold ${
+                  className={`h-[34px] rounded-full border-[1.5px] px-3.5 text-nota font-semibold ${
                     marcada
                       ? 'border-tinta bg-tinta text-white'
                       : 'border-borde bg-white text-tinta'
@@ -1061,20 +1177,6 @@ export function FormularioPublicar({
                   {marcada ? '✓' : '+'} {texto}
                 </button>
               ))}
-              <button
-                type="button"
-                onClick={() =>
-                  setDescripcion((actual) =>
-                    `${actual.trim()}${actual.trim() ? '. ' : ''}Incluye cables.`.slice(
-                      0,
-                      MAX_DESCRIPCION,
-                    ),
-                  )
-                }
-                className="h-8 rounded-full border border-borde bg-white px-3 text-nota font-semibold text-tinta"
-              >
-                + Incluye cables
-              </button>
             </div>
             <div className="flex items-center justify-between gap-4 border-t border-linea pt-4">
               <span className="flex flex-col gap-0.5">
@@ -1152,8 +1254,10 @@ export function FormularioPublicar({
           categoria={categoriaPrevia}
           estado={[estadoVista, garantiaVista].filter(Boolean).join(' · ')}
           stock={stock}
-          precio={precioTexto}
+          precio={principal ? precioDe(principal, moneda) : null}
           visible={quienVe !== 'NADIE'}
+          soloSocios={quienVe === 'SOCIOS'}
+          negociable={negociable}
           tiendaVisible={tiendaVisible}
           tienda={tienda}
           socio={quienVe !== 'NADIE' ? precioSocioTexto : null}

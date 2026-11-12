@@ -1,13 +1,15 @@
 'use client';
 
-import { TIENDA_RESERVADA, type TiendaDeSesion } from '@paselibre/contracts';
+import { TIENDA_RESERVADA, type Precio, type TiendaDeSesion } from '@paselibre/contracts';
 import { useState, type ReactNode } from 'react';
 
 import { Miniatura } from '@/shared/ui/miniatura';
+import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 /**
- * «Así lo verán» (F_Publicar): la tarjeta como la ve otro vendedor con sesión y como la
- * ve un visitante, que nunca ve precio, tienda ni stand (RF-44).
+ * «Así lo verán» (F_Publicar, N06): la tarjeta como la ve otra tienda con sesión, con la
+ * burbujita del precio («Pase», «Negociable», «Socio» o «Por chat»), y como la ve un
+ * visitante, que nunca ve precio, tienda ni stand (RF-44).
  */
 export function VistaPrevia({
   titulo,
@@ -21,6 +23,8 @@ export function VistaPrevia({
   tienda,
   socio = null,
   enAlmacen = false,
+  soloSocios = false,
+  negociable = false,
   children,
 }: {
   titulo: string;
@@ -29,9 +33,12 @@ export function VistaPrevia({
   /** «Nuevo sellado», «Open box»… */
   estado: string;
   stock: number;
-  /** Ya formateado, o nulo si no hay monto. */
-  precio: string | null;
+  /** Nulo si no hay monto. */
+  precio: Precio | null;
   visible: boolean;
+  /** «Solo mis socios»: las demás lo ven «Por chat»; tus socios, con «Socio». */
+  soloSocios?: boolean;
+  negociable?: boolean;
   /** «Mostrar el nombre de mi tienda»: apagado, las tiendas ven «Tienda reservada». */
   tiendaVisible?: boolean;
   tienda: TiendaDeSesion;
@@ -103,25 +110,15 @@ export function VistaPrevia({
         />
         <span className="font-bold">{titulo}</span>
         <span className="text-nota text-secundario">{estado}</span>
-        {conSesion && visible && precio ? (
+        {conSesion ? (
           <span className="flex flex-col gap-1.5">
-            <span className="flex items-center gap-2">
-              <span className="text-etiqueta uppercase text-detalle">Pase</span>
-              <span className="rounded-full bg-tinta px-2.5 text-apoyo font-bold leading-7 text-white">
-                {precio}
-              </span>
-            </span>
-            {socio && (
-              <span className="flex items-center gap-2 text-nota text-secundario">
-                <span className="rounded-full bg-marca px-2 text-[11px] font-bold leading-5 text-white">
-                  Socio
-                </span>
-                {socio}
-              </span>
-            )}
+            <PrecioBurbuja
+              precio={visible ? precio : null}
+              socio={soloSocios}
+              negociable={negociable}
+            />
+            {socio && !soloSocios && <span className="text-nota text-secundario">{socio}</span>}
           </span>
-        ) : conSesion ? (
-          <span className="font-medium leading-6">Al interno · consultar</span>
         ) : (
           <span className="flex items-center gap-1.5 text-apoyo font-medium leading-6 text-secundario">
             <svg
