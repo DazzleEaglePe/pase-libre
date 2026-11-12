@@ -11,6 +11,8 @@ import {
   type EditarCatalogoDatos,
   type FilaIncompleta,
   type ModoExistentes,
+  type MotivoFila,
+  type MotivosImportacion,
   type ParecidoImportacion,
   type ProductoDelCatalogo,
   type ProductoQueYaEsta,
@@ -29,15 +31,26 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { armarListaDeErrores, armarPlantilla, esHojaDeAyuda } from './plantilla-catalogo';
 
 const POR_PAGINA = 50;
 /** Un archivo no trae más de 2000 productos: más, en varios. */
 const MAX_FILAS = 2000;
 const EXTENSIONES_FOTO = /\.(jpe?g|png|webp)$/i;
 
+/** Un problema de una fila (docs/18 §8): el motivo, el texto de «Qué pasa» y la foto buscada. */
+interface ErrorDeFila {
+  motivo: MotivoFila;
+  texto: string;
+  foto?: string;
+}
+
 /** Una fila del archivo, ya limpia. */
 interface FilaLeida {
+  /** Única en el archivo: en un Excel de varias pestañas es un correlativo, no la fila de la hoja. */
   fila: number;
+  /** «Tarjetas de video · fila 5» en un Excel de varias pestañas; si no, no está. */
+  lugar?: string | null;
   categoria: string;
   marca: string;
   modelo: string;
@@ -46,7 +59,10 @@ interface FilaLeida {
   sinonimos: string[];
   caracteristicas: Record<string, string>;
   foto: string;
+  /** Los textos de `errores`: con alguno, la fila no se crea. */
   falta: string[];
+  /** Las revisiones de antes de docs/18 no lo guardaban. */
+  errores?: ErrorDeFila[];
   existe: boolean;
   /** Le faltan categoría, marca o modelo: de uno que ya está, solo se cambia la foto. */
   datosIncompletos?: boolean;
@@ -179,6 +195,8 @@ const COLUMNAS: Record<
   modelo: 'modelo',
   modelo_familia: 'modelo',
   version: 'version',
+  serie_version: 'version',
+  serie: 'version',
   codigo_parte: 'codigo_parte',
   codigo_de_parte: 'codigo_parte',
   codigo: 'codigo_parte',
@@ -193,11 +211,16 @@ const CARACTERISTICAS: Record<string, string> = {
   memoria: 'Memoria',
   tipo_memoria: 'Tipo de memoria',
   tipo_de_memoria: 'Tipo de memoria',
+  memoria_ddr_4_ddr_5: 'Memoria',
 };
 function nombreCaracteristica(cabecera: string): string {
   const conocida = CARACTERISTICAS[clave(cabecera)];
   if (conocida) return conocida;
-  const limpia = cabecera.trim().replace(/_/g, ' ');
+  // «VRAM (GB) *» → «VRAM (GB)»: el asterisco de la plantilla solo marca las obligatorias.
+  const limpia = cabecera
+    .replace(/\s*\*+\s*$/, '')
+    .trim()
+    .replace(/_/g, ' ');
   return limpia.charAt(0).toUpperCase() + limpia.slice(1);
 }
 
@@ -238,20 +261,101 @@ function leerCsv(texto: string): string[][] {
   return filas.filter((f) => f.some((c) => c.trim() !== ''));
 }
 
-async function leerXlsx(contenido: Buffer): Promise<string[][]> {
+/** Una hoja leída: la cabecera y las filas con su número en la hoja. */
+interface Tabla {
+  /** El nombre de la pestaña; nulo en un .csv. */
+  hoja: string | null;
+  cabecera: string[] | undefined;
+  filas: Array<{ numero: number; valores: string[] }>;
+}
+
+function tablaDeCsv(texto: string): Tabla {
+  const [cabecera, ...cuerpo] = leerCsv(texto);
+  return { hoja: null, cabecera, filas: cuerpo.map((valores, i) => ({ numero: i + 2, valores })) };
+}
+
+/**
+ * Las hojas de un .xlsx con productos: todas menos «Cómo llenar» y las escondidas (la de las
+ * listas desplegables de la plantilla). `varias` dice si el libro es de varias pestañas: así la
+ * categoría sale del nombre de cada una (docs/18 §2).
+ */
+async function leerXlsx(contenido: Buffer): Promise<{ tablas: Tabla[]; varias: boolean }> {
   const libro = new ExcelJS.Workbook();
   await libro.xlsx.load(contenido as unknown as ArrayBuffer);
-  const hoja = libro.worksheets[0];
-  if (!hoja) return [];
-  const filas: string[][] = [];
-  hoja.eachRow({ includeEmpty: false }, (fila) => {
-    const valores: string[] = [];
-    fila.eachCell({ includeEmpty: true }, (celda, columna) => {
-      valores[columna - 1] = celda.text?.trim() ?? '';
+  const visibles = libro.worksheets.filter((hoja) => hoja.state === 'visible' || !hoja.state);
+  const conDatos = visibles.filter((hoja) => !esHojaDeAyuda(hoja.name));
+  const varias = conDatos.length > 1 || conDatos.length < visibles.length;
+  const tablas = conDatos.map((hoja) => {
+    const filas: Array<{ numero: number; valores: string[] }> = [];
+    hoja.eachRow({ includeEmpty: false }, (fila, numero) => {
+      const valores: string[] = [];
+      fila.eachCell({ includeEmpty: true }, (celda, columna) => {
+        valores[columna - 1] = celda.text?.trim() ?? '';
+      });
+      const limpios = Array.from(valores, (valor) => valor ?? '');
+      if (limpios.some((valor) => valor !== '')) filas.push({ numero, valores: limpios });
     });
-    filas.push(Array.from(valores, (valor) => valor ?? ''));
+    const [cabecera, ...cuerpo] = filas;
+    return { hoja: hoja.name, cabecera: cabecera?.valores, filas: cuerpo };
   });
-  return filas;
+  return { tablas, varias };
+}
+
+/** El texto de «Qué pasa» de cada motivo (docs/18 §8). */
+const TEXTO_MOTIVO: Record<Exclude<MotivoFila, 'REPETIDA'>, string> = {
+  SIN_FOTO: 'Falta la foto',
+  FOTO_NO_ESTA: 'No está la foto en la carpeta',
+  FOTO_DANADA: 'La foto está dañada o no es una imagen',
+  SIN_CATEGORIA: 'Categoría vacía o mal escrita',
+  SIN_MARCA: 'Falta la marca',
+  SIN_MODELO: 'Falta el modelo',
+};
+
+function anotarError(fila: FilaLeida, error: ErrorDeFila) {
+  fila.falta.push(error.foto ? `${error.texto}: ${error.foto}` : error.texto);
+  (fila.errores ??= []).push(error);
+}
+
+/** Dónde está una fila, para los textos: «Tarjetas de video · fila 5» o «la fila 5». */
+function dondeEsta(fila: Pick<FilaLeida, 'fila' | 'lugar'>): string {
+  return fila.lugar ?? `la fila ${fila.fila}`;
+}
+
+/** Lo que se muestra de una fila que no se crea; las revisiones de antes solo tenían `falta`. */
+function errorPrincipal(fila: FilaLeida): ErrorDeFila {
+  const primero = fila.errores?.[0];
+  if (primero) return primero;
+  const texto = fila.falta.join(', ');
+  const motivo: MotivoFila = /^repetida/i.test(texto)
+    ? 'REPETIDA'
+    : /^categor/i.test(texto)
+      ? 'SIN_CATEGORIA'
+      : /^marca/i.test(texto)
+        ? 'SIN_MARCA'
+        : /^modelo/i.test(texto)
+          ? 'SIN_MODELO'
+          : 'SIN_FOTO';
+  return { motivo, texto };
+}
+
+/** Cuántas por motivo; las tres de foto cuentan juntas. */
+function contarMotivos(motivos: MotivoFila[]): MotivosImportacion {
+  const cuenta: MotivosImportacion = {
+    sin_foto: 0,
+    sin_categoria: 0,
+    sin_marca: 0,
+    sin_modelo: 0,
+    repetida: 0,
+  };
+  for (const motivo of motivos) {
+    if (motivo === 'SIN_FOTO' || motivo === 'FOTO_NO_ESTA' || motivo === 'FOTO_DANADA')
+      cuenta.sin_foto++;
+    else if (motivo === 'SIN_CATEGORIA') cuenta.sin_categoria++;
+    else if (motivo === 'SIN_MARCA') cuenta.sin_marca++;
+    else if (motivo === 'SIN_MODELO') cuenta.sin_modelo++;
+    else cuenta.repetida++;
+  }
+  return cuenta;
 }
 
 /**
@@ -777,6 +881,55 @@ export class CatalogoEquipoService {
 
   // ── Subir archivo ────────────────────────────────────────────────────────
 
+  /**
+   * «Descargar la plantilla» (docs/18 §2): el Excel con «Cómo llenar» y una pestaña por
+   * categoría, armado con las categorías y marcas de la base para que no se desactualice.
+   */
+  async plantilla(): Promise<Buffer> {
+    const [categorias, marcas] = await Promise.all([
+      this.prisma.categoria.findMany({
+        orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
+        select: { nombre: true, slug: true },
+      }),
+      this.prisma.marca.findMany({ orderBy: { nombre: 'asc' }, select: { nombre: true } }),
+    ]);
+    return armarPlantilla(
+      categorias,
+      marcas.map((m) => m.nombre),
+    );
+  }
+
+  /** «Descargar la lista en Excel» (docs/18 §8): las filas de una revisión que no se crean. */
+  async listaDeErrores(id: string, sesion: SesionActiva): Promise<Buffer> {
+    const importacion = await this.prisma.importacionCatalogo.findFirst({
+      where: { id, usuarioId: sesion.usuario.id },
+      select: { filas: true },
+    });
+    if (!importacion) {
+      throw new ApiHttpException(
+        HttpStatus.NOT_FOUND,
+        'NO_ENCONTRADO',
+        'Sube el archivo de nuevo.',
+      );
+    }
+    const filas = (importacion.filas as unknown as FilaLeida[]).filter(
+      (f) => !f.parecido && f.falta.length > 0,
+    );
+    return armarListaDeErrores(
+      filas.map((f) => {
+        const principal = errorPrincipal(f);
+        const textos = f.errores?.length
+          ? f.errores.map((e) => (e.foto ? `${e.texto}: ${e.foto}` : e.texto))
+          : [principal.texto];
+        return {
+          fila: f.lugar ?? String(f.fila),
+          producto: [f.marca, f.modelo, f.version].filter(Boolean).join(' ') || '(sin nombre)',
+          texto: textos.join(' · '),
+        };
+      }),
+    );
+  }
+
   /** Lee el archivo y guarda la revisión. Nada entra al catálogo hasta `crearImportacion`. */
   async importar(
     archivo: { buffer: Buffer; originalname: string },
@@ -784,7 +937,8 @@ export class CatalogoEquipoService {
   ): Promise<RevisionImportacion> {
     const nombre = archivo.originalname.slice(0, 200) || 'catalogo';
     const extension = nombre.toLowerCase().split('.').pop() ?? '';
-    let tabla: string[][];
+    let tablas: Tabla[];
+    let varias = false;
     const fotosEnZip = new Map<string, JSZip.JSZipObject>();
     // También por el nombre normalizado: «Antec CX300 ARGB.jpg» = «antec-cx300-argb.jpg».
     const fotosPorNombre = new Map<string, JSZip.JSZipObject>();
@@ -795,9 +949,11 @@ export class CatalogoEquipoService {
           (f) => !f.dir && /\.(xlsx|csv)$/i.test(f.name) && !f.name.startsWith('__MACOSX'),
         );
         if (!planilla) throw invalido('El .zip no trae un Excel (.xlsx) ni un .csv.');
-        tabla = planilla.name.toLowerCase().endsWith('.csv')
-          ? leerCsv(await planilla.async('string'))
-          : await leerXlsx(await planilla.async('nodebuffer'));
+        if (planilla.name.toLowerCase().endsWith('.csv')) {
+          tablas = [tablaDeCsv(await planilla.async('string'))];
+        } else {
+          ({ tablas, varias } = await leerXlsx(await planilla.async('nodebuffer')));
+        }
         for (const f of Object.values(zip.files)) {
           const partes = f.name.split('/');
           const base = partes[partes.length - 1] ?? '';
@@ -813,9 +969,9 @@ export class CatalogoEquipoService {
           }
         }
       } else if (extension === 'xlsx') {
-        tabla = await leerXlsx(archivo.buffer);
+        ({ tablas, varias } = await leerXlsx(archivo.buffer));
       } else if (extension === 'csv') {
-        tabla = leerCsv(archivo.buffer.toString('utf8'));
+        tablas = [tablaDeCsv(archivo.buffer.toString('utf8'))];
       } else {
         throw invalido('Sube un archivo .xlsx, .csv o .zip.');
       }
@@ -826,12 +982,20 @@ export class CatalogoEquipoService {
       );
     }
 
-    const [cabecera, ...cuerpo] = tabla;
-    if (!cabecera) throw invalido('El archivo está vacío.');
-    if (cuerpo.length > MAX_FILAS) throw invalido(`Sube hasta ${MAX_FILAS} productos por archivo.`);
-    const columnas = cabecera.map((texto) => clave(texto));
-    if (!columnas.includes('modelo') && !columnas.includes('modelo_familia')) {
-      throw invalido('Falta la columna «modelo». Usa la plantilla.');
+    // Las pestañas vacías (solo los títulos, o nada) se saltan sin aviso (docs/18 §2).
+    const conFilas = varias ? tablas.filter((t) => t.cabecera && t.filas.length > 0) : tablas;
+    if (conFilas.every((t) => !t.cabecera)) throw invalido('El archivo está vacío.');
+    const total = conFilas.reduce((suma, t) => suma + t.filas.length, 0);
+    if (total > MAX_FILAS) throw invalido(`Sube hasta ${MAX_FILAS} productos por archivo.`);
+    for (const tabla of conFilas) {
+      const columnas = (tabla.cabecera ?? []).map((texto) => clave(texto));
+      if (!columnas.includes('modelo') && !columnas.includes('modelo_familia')) {
+        throw invalido(
+          varias && tabla.hoja
+            ? `A la pestaña «${tabla.hoja}» le falta la columna «Modelo». Usa la plantilla.`
+            : 'Falta la columna «modelo». Usa la plantilla.',
+        );
+      }
     }
 
     const categorias = await this.prisma.categoria.findMany({
@@ -844,45 +1008,60 @@ export class CatalogoEquipoService {
           c.slug === slugDe(texto) ||
           normalizarTexto(c.nombre) === normalizarTexto(texto),
       );
-    const filas: FilaLeida[] = cuerpo.map((valores, i) => {
-      const fila: FilaLeida = {
-        fila: i + 2,
-        categoria: '',
-        marca: '',
-        modelo: '',
-        version: '',
-        codigo_parte: '',
-        sinonimos: [],
-        caracteristicas: {},
-        foto: '',
-        falta: [],
-        existe: false,
-      };
-      columnas.forEach((columna, j) => {
-        const valor = (valores[j] ?? '').trim();
-        if (!valor) return;
-        const campo = COLUMNAS[columna];
-        if (campo === 'sinonimos')
-          fila.sinonimos = valor
-            .split(/[;,]/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-        else if (campo) fila[campo] = valor;
-        else if (columna) fila.caracteristicas[nombreCaracteristica(cabecera[j]!)] = valor;
-      });
-      // «por confirmar» no es un código: esa fila se empareja por el nombre (docs/17 §3).
-      fila.codigo_parte = codigoReal(fila.codigo_parte) ?? '';
-      if (!fila.categoria || !categoriaValida(fila.categoria)) fila.falta.push('Categoría');
-      if (!fila.marca) fila.falta.push('Marca');
-      if (!fila.modelo) fila.falta.push('Modelo');
-      fila.datosIncompletos = fila.falta.length > 0;
-      if (!fila.datosIncompletos) {
-        fila.slug = slugDe(
-          tituloDeProducto(fila.marca, [fila.modelo, fila.version].filter(Boolean).join(' ')),
-        );
+    const filas: FilaLeida[] = [];
+    for (const tabla of conFilas) {
+      const cabecera = tabla.cabecera ?? [];
+      const columnas = cabecera.map((texto) => clave(texto));
+      // En un Excel de varias pestañas, la categoría es el nombre de la pestaña; una columna
+      // «categoría» llena manda (los archivos de antes la traen).
+      const deLaHoja = tabla.hoja && categoriaValida(tabla.hoja) ? tabla.hoja : '';
+      for (const { numero, valores } of tabla.filas) {
+        const fila: FilaLeida = {
+          fila: varias ? filas.length + 1 : numero,
+          lugar: varias && tabla.hoja ? `${tabla.hoja} · fila ${numero}` : null,
+          categoria: '',
+          marca: '',
+          modelo: '',
+          version: '',
+          codigo_parte: '',
+          sinonimos: [],
+          caracteristicas: {},
+          foto: '',
+          falta: [],
+          errores: [],
+          existe: false,
+        };
+        columnas.forEach((columna, j) => {
+          const valor = (valores[j] ?? '').trim();
+          if (!valor) return;
+          const campo = COLUMNAS[columna];
+          if (campo === 'sinonimos')
+            fila.sinonimos = valor
+              .split(/[;,]/)
+              .map((s) => s.trim())
+              .filter(Boolean);
+          else if (campo) fila[campo] = valor;
+          else if (columna) fila.caracteristicas[nombreCaracteristica(cabecera[j]!)] = valor;
+        });
+        if (!fila.categoria) fila.categoria = deLaHoja;
+        // «por confirmar» no es un código: esa fila se empareja por el nombre (docs/17 §3).
+        fila.codigo_parte = codigoReal(fila.codigo_parte) ?? '';
+        if (!fila.categoria || !categoriaValida(fila.categoria)) {
+          anotarError(fila, { motivo: 'SIN_CATEGORIA', texto: TEXTO_MOTIVO.SIN_CATEGORIA });
+        }
+        if (!fila.marca) anotarError(fila, { motivo: 'SIN_MARCA', texto: TEXTO_MOTIVO.SIN_MARCA });
+        if (!fila.modelo) {
+          anotarError(fila, { motivo: 'SIN_MODELO', texto: TEXTO_MOTIVO.SIN_MODELO });
+        }
+        fila.datosIncompletos = fila.falta.length > 0;
+        if (!fila.datosIncompletos) {
+          fila.slug = slugDe(
+            tituloDeProducto(fila.marca, [fila.modelo, fila.version].filter(Boolean).join(' ')),
+          );
+        }
+        filas.push(fila);
       }
-      return fila;
-    });
+    }
 
     // ¿Ya está? Mismo código de parte; si la fila no tiene código, el mismo nombre.
     const yaEstan = await this.emparejar(filas);
@@ -914,7 +1093,14 @@ export class CatalogoEquipoService {
         }
         fila.fotoClave = clave && fotos[clave] ? clave : null;
         if (nueva && fila.falta.length === 0 && !fila.fotoClave) {
-          fila.falta.push(clave ? 'Foto (no se pudo leer)' : 'Foto (no está en fotos/)');
+          anotarError(
+            fila,
+            clave
+              ? { motivo: 'FOTO_DANADA', texto: TEXTO_MOTIVO.FOTO_DANADA }
+              : fila.foto
+                ? { motivo: 'FOTO_NO_ESTA', texto: TEXTO_MOTIVO.FOTO_NO_ESTA, foto: fila.foto }
+                : { motivo: 'SIN_FOTO', texto: TEXTO_MOTIVO.SIN_FOTO },
+          );
         }
       }
     }
@@ -936,6 +1122,7 @@ export class CatalogoEquipoService {
       fila.cambia = cambios.length > 0;
       ya_estan.push({
         fila: fila.fila,
+        lugar: fila.lugar ?? null,
         id: producto.id,
         titulo: producto.titulo,
         codigo_parte: producto.codigoParte,
@@ -959,12 +1146,23 @@ export class CatalogoEquipoService {
       [f.marca, f.modelo, f.version].filter(Boolean).join(' ') || '(sin nombre)';
     const incompletas: FilaIncompleta[] = filas
       .filter((f) => !f.parecido && f.falta.length > 0)
-      .map((f) => ({ fila: f.fila, producto: nombreDe(f), falta: f.falta.join(', ') }));
+      .map((f) => {
+        const [primero, ...otros] = f.errores ?? [];
+        return {
+          fila: f.fila,
+          lugar: f.lugar ?? null,
+          producto: nombreDe(f),
+          motivo: primero!.motivo,
+          texto: [primero!.texto, ...otros.map((e) => e.texto)].join(' · '),
+          foto_buscada: primero!.foto ?? null,
+        };
+      });
     const parecidos: ParecidoImportacion[] = filas.flatMap((f) =>
       f.parecido
         ? [
             {
               fila: f.fila,
+              lugar: f.lugar ?? null,
               producto: nombreDe(f),
               codigo_parte: f.codigo_parte,
               con: f.parecido,
@@ -980,6 +1178,7 @@ export class CatalogoEquipoService {
       crear: filas.filter((f) => !f.productoId && !f.parecido && f.falta.length === 0).length,
       existentes: ya_estan.length,
       incompletas,
+      motivos: contarMotivos(incompletas.map((f) => f.motivo)),
       ya_estan,
       parecidos,
     };
@@ -1026,7 +1225,7 @@ export class CatalogoEquipoService {
     }
 
     const yaEstan = new Map<string, ProductoYaEsta>();
-    const vistas = new Map<string, number>();
+    const vistas = new Map<string, FilaLeida>();
     for (const fila of filas) {
       const mismoCodigo = fila.codigo_parte
         ? porCodigo.get(fila.codigo_parte.toLowerCase())
@@ -1053,13 +1252,16 @@ export class CatalogoEquipoService {
             `s:${fila.slug}`,
             ...(fila.codigo_parte ? [`c:${fila.codigo_parte.toLowerCase()}`] : []),
           ];
-      const antes = claves.map((k) => vistas.get(k)).find((n) => n !== undefined);
+      const antes = claves.map((k) => vistas.get(k)).find((f) => f !== undefined);
       if (antes !== undefined) {
         fila.repetida = true;
-        fila.falta.push(`Repetida (es la fila ${antes})`);
+        anotarError(fila, {
+          motivo: 'REPETIDA',
+          texto: `${fila.codigo_parte ? 'Código repetido' : 'Repetida'}: ya está en ${dondeEsta(antes)}`,
+        });
         continue;
       }
-      for (const k of claves) vistas.set(k, fila.fila);
+      for (const k of claves) vistas.set(k, fila);
       if (producto) {
         fila.productoId = producto.id;
         yaEstan.set(producto.id, producto);

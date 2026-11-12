@@ -29,12 +29,14 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
-import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
+import { ErrorApi, llamarApi, subirConAvance, subirFoto } from '@/shared/api/cliente';
 import { haceRato } from '@/shared/fechas';
 import { conPlural } from '@/shared/plural';
 import { campo, etiqueta } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { Ventana } from '@/shared/ui/ventana';
+
+import { avisoDePeso, faltanUnos, lineasDeMotivos, peso, porcentaje } from './subida-catalogo';
 
 type Pestana = 'productos' | 'revisar' | 'excel' | 'agregar';
 
@@ -796,10 +798,130 @@ function FilaQueCambia({
   );
 }
 
-function SubirArchivo({ alCrear }: { alCrear: () => void }) {
+/** Cómo va la subida del archivo (docs/18 §7). */
+type Subida =
+  | { fase: 'subiendo'; nombre: string; bytes: number; porcentaje: number; faltan: string | null }
+  | { fase: 'revisando'; nombre: string; bytes: number }
+  | { fase: 'cortada'; nombre: string; bytes: number; porcentaje: number };
+
+/** La barra de 10 px: con `porcentaje`, el avance real; sin él, va y viene. */
+function Barra({ porcentaje, color = '#22C47D' }: { porcentaje?: number; color?: string }) {
+  const sabido = porcentaje !== undefined;
+  return (
+    <div
+      role="progressbar"
+      aria-label={sabido ? 'Avance de la subida' : 'Revisando el archivo'}
+      aria-valuemin={sabido ? 0 : undefined}
+      aria-valuemax={sabido ? 100 : undefined}
+      aria-valuenow={sabido ? porcentaje : undefined}
+      className="h-2.5 w-full overflow-hidden rounded-full bg-[#26302C]"
+    >
+      <div
+        className={`h-full rounded-full ${sabido ? 'transition-[width] duration-200' : 'w-[35%] animate-ir-y-venir'}`}
+        style={{ backgroundColor: color, ...(sabido ? { width: `${porcentaje}%` } : {}) }}
+      />
+    </div>
+  );
+}
+
+/** «1 Subir · 2 Revisar filas»: el que va en naranja, el hecho con ✓. */
+function PasosDeSubida({ fase }: { fase: 'subiendo' | 'revisando' }) {
+  const circulo = (estado: 'activo' | 'hecho' | 'pendiente', numero: number) => (
+    <span
+      aria-hidden="true"
+      className={`flex h-[18px] w-[18px] items-center justify-center rounded-full text-[11px] font-extrabold ${
+        estado === 'activo'
+          ? 'bg-[#F0A24A] text-[#1A1209]'
+          : estado === 'hecho'
+            ? 'bg-[#22C47D] text-[#08130E]'
+            : 'bg-superficie text-detalle'
+      }`}
+    >
+      {estado === 'hecho' ? '✓' : numero}
+    </span>
+  );
+  return (
+    <ol className="m-0 flex list-none items-center justify-center gap-2 p-0 text-nota">
+      <li className="flex items-center gap-1.5">
+        {circulo(fase === 'subiendo' ? 'activo' : 'hecho', 1)}
+        Subir
+      </li>
+      <li
+        className="flex items-center gap-1.5"
+        aria-current={fase === 'revisando' ? 'step' : undefined}
+      >
+        {circulo(fase === 'revisando' ? 'activo' : 'pendiente', 2)}
+        Revisar filas
+      </li>
+    </ol>
+  );
+}
+
+/** Lo que se ve dentro del recuadro mientras sube, mientras se revisa y si se corta. */
+function AvanceDeSubida({
+  subida,
+  alCancelar,
+  alReintentar,
+}: {
+  subida: Subida;
+  alCancelar: () => void;
+  alReintentar: () => void;
+}) {
+  if (subida.fase === 'cortada') {
+    return (
+      <div className="flex w-full flex-col items-center gap-3">
+        <b className="text-apoyo">{subida.nombre}</b>
+        <Barra porcentaje={subida.porcentaje} color="#F0A24A" />
+        <span role="alert" className="text-apoyo font-semibold text-aviso">
+          Se cortó la subida. No se creó nada.
+        </span>
+        <button type="button" onClick={alReintentar} className={botonVerde}>
+          Volver a intentar
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="flex w-full flex-col items-center gap-3" aria-live="polite">
+      <b className="text-apoyo">
+        {subida.nombre} · {peso(subida.bytes)}
+      </b>
+      {subida.fase === 'subiendo' ? (
+        <>
+          <Barra porcentaje={subida.porcentaje} />
+          <span className="text-apoyo">
+            Subiendo… <b>{subida.porcentaje}%</b>
+            {subida.faltan ? ` · ${subida.faltan}` : ''}
+          </span>
+          <PasosDeSubida fase="subiendo" />
+          <button
+            type="button"
+            onClick={alCancelar}
+            className="text-nota text-secundario underline"
+          >
+            Cancelar
+          </button>
+        </>
+      ) : (
+        <>
+          <Barra />
+          <span className="text-apoyo">Revisando filas y fotos…</span>
+          <PasosDeSubida fase="revisando" />
+          <span className="text-nota text-secundario">No cierres esta página</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Cuántas filas se muestran en «Qué pasa»; las demás, en el Excel. */
+const FILAS_A_LA_VISTA = 10;
+
+export function SubirArchivo({ alCrear }: { alCrear: () => void }) {
   const entrada = useRef<HTMLInputElement>(null);
   const [revision, setRevision] = useState<RevisionImportacion | null>(null);
-  const [leyendo, setLeyendo] = useState(false);
+  const [subida, setSubida] = useState<Subida | null>(null);
+  const [avisoPeso, setAvisoPeso] = useState<string | null>(null);
   const [creando, setCreando] = useState(false);
   const [encima, setEncima] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -807,28 +929,70 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
   const [modo, setModo] = useState<ModoExistentes>('FOTOS_Y_DATOS');
   const [omitir, setOmitir] = useState<Set<number>>(new Set());
   const [verTodos, setVerTodos] = useState(false);
+  /** El último archivo elegido: «Volver a intentar» lo sube de nuevo. */
+  const ultimo = useRef<File | null>(null);
+  const cancelarSubida = useRef<(() => void) | null>(null);
+  // Mientras sube o se revisa, no se elige otro archivo ni se guarda nada.
+  const ocupado = subida?.fase === 'subiendo' || subida?.fase === 'revisando';
+
+  // Si se va de la página a media subida, se corta.
+  useEffect(() => () => cancelarSubida.current?.(), []);
 
   async function leer(archivo: File) {
-    setLeyendo(true);
+    if (ocupado) return;
     setError(null);
     setListo(null);
+    // Antes de subir: más de 40 MB no pasa (docs/18 §7).
+    const aviso = avisoDePeso(archivo.name, archivo.size);
+    setAvisoPeso(aviso);
+    if (aviso) {
+      setSubida(null);
+      return;
+    }
+    ultimo.current = archivo;
     setRevision(null);
     setModo('FOTOS_Y_DATOS');
     setOmitir(new Set());
     setVerTodos(false);
+    const { name: nombre, size: bytes } = archivo;
+    const inicio = Date.now();
+    let alcanzado = 0;
+    setSubida({ fase: 'subiendo', nombre, bytes, porcentaje: 0, faltan: null });
+    const formulario = new FormData();
+    formulario.append('archivo', archivo);
+    const { promesa, cancelar } = subirConAvance<RevisionImportacion>(
+      '/equipo/catalogo/importar',
+      formulario,
+      {
+        alAvanzar: (cargado, total) => {
+          alcanzado = porcentaje(cargado, total);
+          const faltan = faltanUnos(cargado, total, Date.now() - inicio);
+          setSubida((antes) =>
+            antes?.fase === 'subiendo' ? { ...antes, porcentaje: alcanzado, faltan } : antes,
+          );
+        },
+        alTerminarSubida: () => {
+          alcanzado = 100;
+          setSubida({ fase: 'revisando', nombre, bytes });
+        },
+      },
+    );
+    cancelarSubida.current = cancelar;
     try {
-      const formulario = new FormData();
-      formulario.append('archivo', archivo);
-      setRevision(
-        await llamarApi<RevisionImportacion>('/equipo/catalogo/importar', {
-          metodo: 'POST',
-          formulario,
-        }),
-      );
+      const leida = await promesa;
+      setSubida(null);
+      setRevision(leida);
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No pudimos leer el archivo.');
+      if (e instanceof ErrorApi && e.codigo === 'CANCELADA') {
+        setSubida(null);
+      } else if (e instanceof ErrorApi && e.codigo === 'SIN_CONEXION') {
+        setSubida({ fase: 'cortada', nombre, bytes, porcentaje: alcanzado });
+      } else {
+        setSubida(null);
+        setError(e instanceof ErrorApi ? e.message : 'No pudimos leer el archivo.');
+      }
     } finally {
-      setLeyendo(false);
+      cancelarSubida.current = null;
     }
   }
 
@@ -836,6 +1000,7 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
   const seActualizan = cambian.filter((p) => !omitir.has(p.fila));
   const conPublicaciones = seActualizan.filter((p) => p.publicaciones > 0).length;
   const visibles = verTodos ? cambian : cambian.slice(0, 3);
+  const noSeCrean = revision?.incompletas.length ?? 0;
 
   async function crear() {
     if (!revision) return;
@@ -869,40 +1034,64 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
       <div
         onDragOver={(e) => {
           e.preventDefault();
-          setEncima(true);
+          if (!ocupado) setEncima(true);
         }}
         onDragLeave={() => setEncima(false)}
         onDrop={(e) => {
           e.preventDefault();
           setEncima(false);
           const archivo = e.dataTransfer.files[0];
-          if (archivo) void leer(archivo);
+          if (archivo && !ocupado) void leer(archivo);
         }}
+        aria-busy={ocupado}
         className={`flex flex-col items-center gap-2.5 rounded-[20px] border-2 border-dashed px-5 py-6 text-center ${
-          encima ? 'border-pase bg-pase-suave' : 'border-borde bg-white'
+          subida?.fase === 'cortada'
+            ? 'border-aviso bg-aviso-fondo'
+            : encima
+              ? 'border-pase bg-pase-suave'
+              : 'border-borde bg-white'
         }`}
       >
-        <IconUpload size={30} stroke={1.8} aria-hidden="true" className="text-pase" />
-        <b className="text-cuerpo">
-          {leyendo ? 'Leyendo el archivo…' : 'Arrastra tu archivo aquí'}
-        </b>
-        <span className="text-apoyo text-secundario">
-          o{' '}
-          <button type="button" onClick={() => entrada.current?.click()} className="underline">
-            elige un archivo
-          </button>
-        </span>
         <input
           ref={entrada}
           type="file"
           accept=".xlsx,.csv,.zip,application/zip,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="hidden"
+          disabled={ocupado}
           onChange={(e) => {
             const archivo = e.target.files?.[0];
             e.target.value = '';
             if (archivo) void leer(archivo);
           }}
         />
+        {subida ? (
+          <AvanceDeSubida
+            subida={subida}
+            alCancelar={() => cancelarSubida.current?.()}
+            alReintentar={() => {
+              if (ultimo.current) void leer(ultimo.current);
+            }}
+          />
+        ) : (
+          <>
+            <IconUpload size={30} stroke={1.8} aria-hidden="true" className="text-pase" />
+            <b className="text-cuerpo">Arrastra tu archivo aquí</b>
+            <span className="text-apoyo text-secundario">
+              o{' '}
+              <button type="button" onClick={() => entrada.current?.click()} className="underline">
+                elige un archivo
+              </button>
+            </span>
+            {avisoPeso && (
+              <span
+                role="alert"
+                className="rounded-xl bg-aviso-fondo px-3 py-2 text-apoyo font-semibold text-aviso"
+              >
+                {avisoPeso}
+              </span>
+            )}
+          </>
+        )}
         <span className="flex gap-1.5">
           {['.xlsx', '.csv', '.zip'].map((tipo) => (
             <span
@@ -915,13 +1104,14 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
         </span>
         <span className="text-nota text-secundario">
           <b className="text-tinta">.zip</b> = tu Excel + una carpeta{' '}
-          <b className="text-tinta">fotos/</b>. Cada foto se llama como el código de parte (ej.
-          TUF-RTX5070-O12G-GAMING.jpg); sin código, como el producto (Antec CX300 ARGB.jpg). Puedes
-          subir siempre el archivo completo: lo que ya está se actualiza.
+          <b className="text-tinta">fotos/</b>. Cada foto se llama como dice la columna «Foto»; si
+          está vacía, como el código de parte (ej. TUF-RTX5070-O12G-GAMING.jpg) o el producto (Antec
+          CX300 ARGB.jpg). Puedes subir siempre el archivo completo: lo que ya está se actualiza.
+          Hasta 40 MB.
         </span>
         <a
-          href="/plantilla-catalogo.csv"
-          download
+          href="/v1/equipo/catalogo/plantilla"
+          download="plantilla_catalogo_paselibre.xlsx"
           className="inline-flex h-10 items-center gap-2 rounded-full border border-tinta px-4 text-nota font-bold text-tinta no-underline"
         >
           <IconFileSpreadsheet size={16} stroke={1.8} aria-hidden="true" />
@@ -951,20 +1141,42 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                   : ''}
               </span>
             </span>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {(
-                [
-                  [revision.crear, 'nuevos: se crean', 'bg-pase-suave text-marca'],
-                  [revision.existentes, 'ya existen', 'bg-superficie text-tinta'],
-                  [revision.incompletas.length, 'con errores', 'bg-aviso-fondo text-aviso'],
-                ] as const
-              ).map(([numero, texto, clase]) => (
-                <span key={texto} className={`flex flex-col rounded-xl px-3.5 py-2.5 ${clase}`}>
-                  <b className="text-[24px] leading-8">{numero}</b>
-                  <span className="text-nota">{texto}</span>
+            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1.3fr]">
+              <span className="flex flex-col rounded-xl bg-pase-suave px-3.5 py-2.5 text-marca">
+                <b className="text-[24px] leading-8">{revision.crear}</b>
+                <span className="text-nota">{revision.crear === 1 ? 'se crea' : 'se crean'}</span>
+              </span>
+              <span className="flex flex-col rounded-xl bg-superficie px-3.5 py-2.5 text-tinta">
+                <b className="text-[24px] leading-8">{revision.existentes}</b>
+                <span className="text-nota">
+                  {revision.existentes === 1 ? 'ya existe' : 'ya existen'}
                 </span>
-              ))}
+              </span>
+              <span
+                data-testid="no-se-crean"
+                className="flex flex-col rounded-xl bg-aviso-fondo px-3.5 py-2.5 text-aviso"
+              >
+                <b className="text-[24px] leading-8">{noSeCrean}</b>
+                <span className="text-nota">{noSeCrean === 1 ? 'no se crea' : 'no se crean'}</span>
+                {lineasDeMotivos(revision.motivos).length > 0 && (
+                  <ul className="m-0 mt-1 flex list-none flex-col p-0 text-nota leading-[1.55]">
+                    {lineasDeMotivos(revision.motivos).map((linea) => (
+                      <li key={linea}>{linea}</li>
+                    ))}
+                  </ul>
+                )}
+              </span>
             </div>
+            {noSeCrean > 0 && (
+              <p className="m-0 rounded-xl bg-aviso-fondo px-3.5 py-2.5 text-apoyo text-aviso">
+                {noSeCrean === 1
+                  ? 'Esta fila no se va a crear. Corrígela'
+                  : `Estas ${noSeCrean} filas no se van a crear. Corrígelas`}{' '}
+                en tu Excel y vuelve a subir{' '}
+                {/\.zip$/i.test(revision.nombre) ? 'el ZIP' : 'el archivo'}: las que ya se crearon
+                no se duplican.
+              </p>
+            )}
 
             {revision.existentes > 0 && (
               <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
@@ -988,6 +1200,7 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                       type="radio"
                       name="existentes"
                       checked={modo === opcion.modo}
+                      disabled={ocupado || creando}
                       onChange={() => setModo(opcion.modo)}
                       className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-pase"
                     />
@@ -1066,7 +1279,7 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                 <ul className="m-0 flex list-none flex-col gap-1 p-0 text-nota">
                   {revision.parecidos.slice(0, 20).map((p) => (
                     <li key={p.fila}>
-                      Fila {p.fila}: <b>{p.producto}</b>{' '}
+                      {p.lugar ?? `Fila ${p.fila}`}: <b>{p.producto}</b>{' '}
                       <span className="font-mono">{p.codigo_parte}</span> · en el catálogo:{' '}
                       <span className="font-mono">{p.con.codigo_parte ?? 'sin código'}</span>
                     </li>
@@ -1075,24 +1288,49 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
               </div>
             )}
 
-            {revision.incompletas.length > 0 && (
+            {noSeCrean > 0 && (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[480px] border-collapse text-left text-apoyo">
                   <thead>
                     <tr className="text-[11px] font-bold uppercase tracking-[0.06em] text-secundario">
                       <th className="px-2 py-2">Fila</th>
                       <th className="px-2 py-2">Producto</th>
-                      <th className="px-2 py-2">Qué falta</th>
+                      <th className="px-2 py-2">Qué pasa</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {revision.incompletas.slice(0, 50).map((fila) => (
+                    {revision.incompletas.slice(0, FILAS_A_LA_VISTA).map((fila) => (
                       <tr key={fila.fila} className="border-t border-linea">
-                        <td className="px-2 py-2">{fila.fila}</td>
+                        <td className="px-2 py-2">{fila.lugar ?? fila.fila}</td>
                         <td className="px-2 py-2 font-bold">{fila.producto}</td>
-                        <td className="px-2 py-2 font-semibold text-aviso">{fila.falta}</td>
+                        <td className="px-2 py-2 font-semibold text-aviso">
+                          {fila.texto}
+                          {fila.motivo === 'FOTO_NO_ESTA' && fila.foto_buscada && (
+                            <span className="ml-1.5 inline-block rounded-full bg-aviso-fondo px-2 py-0.5 font-mono text-[11.5px] font-bold">
+                              {fila.foto_buscada}
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))}
+                    {noSeCrean > FILAS_A_LA_VISTA && (
+                      <tr className="border-t border-linea">
+                        <td className="px-2 py-2 text-detalle">…</td>
+                        <td className="px-2 py-2 text-detalle">
+                          {conPlural(noSeCrean - FILAS_A_LA_VISTA, 'fila más', 'filas más')}
+                        </td>
+                        <td className="px-2 py-2">
+                          <a
+                            href={`/v1/equipo/catalogo/importar/${revision.id}/errores`}
+                            download="filas_que_no_se_crean.xlsx"
+                            className="inline-flex items-center gap-1.5 font-bold text-pase-texto"
+                          >
+                            <IconFileSpreadsheet size={16} stroke={1.8} aria-hidden="true" />
+                            Descargar la lista en Excel
+                          </a>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -1105,6 +1343,7 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
                 <button
                   type="button"
                   onClick={() => entrada.current?.click()}
+                  disabled={ocupado}
                   className={botonBorde}
                 >
                   Corregir{' '}
@@ -1116,7 +1355,7 @@ function SubirArchivo({ alCrear }: { alCrear: () => void }) {
               )}
               <button
                 type="button"
-                disabled={creando || (revision.crear === 0 && seActualizan.length === 0)}
+                disabled={ocupado || creando || (revision.crear === 0 && seActualizan.length === 0)}
                 onClick={() => void crear()}
                 className={botonVerde}
               >
