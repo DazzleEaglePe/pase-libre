@@ -259,3 +259,19 @@ Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`)
 - [x] 6 · nginx: ya estaba (41m en la ruta de importar desde la fase 0)
 - [x] Copia de las fotos antes de desplegar: `/var/backups/paselibre/fotos/media-antes-0bb30bd6-20261112T164057Z.tar.gz` (215 fotos; el respaldo de la base no guarda fotos y reemplazar borra las viejas)
 - [ ] Subir el catálogo nuevo (lo arma la sesión de diseño; ~800 productos): WebP transparente, varios ZIP por categoría de menos de 35 MB (límite 40 MB), con «Reemplazar fotos y datos»; probarlos antes en la copia local
+
+## 14. Versión 1.9.0 ([docs/18](18-version-1-9-0.md))
+
+Hecha en `main` el 12/11/2026, con los 9 puntos; las pruebas pasan (API 507, web 106, contratos 68).
+
+- [x] 6 · Logo de la tienda (prioridad): circulito de la cabecera, tarjeta del menú de la cuenta y saludo del inicio, en web y celular; además ficha (fila de la tienda y cada fila de «Las tiendas que lo tienen»), bandeja, chat, seguidas, Tu cuenta, piloto, «Tiendas que ya están» y panel del Equipo. `AvatarTienda` con `tamano`; la API suma `logo` donde faltaba (una tienda reservada no lo muestra a otras).
+- [x] 3 · Las 7 galerías (migración `20261112180000_galerias_de_wilson`, no toca las 2 que ya tienen tiendas) y Equipo › Galerías: ordenar, agregar, editar, ocultar y avisos de «Otra galería». Arreglado de paso: con RUC activo y «Otra galería» el registro daba 500; ahora espera a que el Equipo agregue la galería.
+- [x] 1 · Rayo de línea verde en «Publicación rápida»; círculos con color fijo.
+- [x] 4 · Ficha con más contraste (propuesta 3).
+- [x] 7 · Barra de avance al subir el ZIP, «Cancelar», aviso de más de 40 MB y «Volver a intentar».
+- [x] 8 · Filas con motivo y conteo por tipo, «Qué pasa» y «Descargar la lista en Excel».
+- [x] 5 · Recién publicado en 4 filas con flecha por fila, hasta 18 por fila, «Ver todas»; «hace X» debajo de la tarjeta.
+- [x] 2 · Plantilla `.xlsx` armada por la API con una pestaña por categoría; el importador lee todas las pestañas (el .csv y el .xlsx de una hoja siguen funcionando).
+- [x] 9 · `packages/contracts/src/version.ts` (`VERSION`, `NOVEDADES`): «PaseLibre 1.9 · Novedades» en el pie de las tiendas y «Versión 1.9.0 · Ver cambios» → `/equipo/versiones`.
+
+En cada tanda nueva: subir `VERSION` y agregar su entrada arriba en `NOVEDADES` (primer número si cambia cómo se usa, segundo si hay algo nuevo, tercero si solo son arreglos).

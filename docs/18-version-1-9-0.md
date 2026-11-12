@@ -1,6 +1,6 @@
 # 18 · Versión 1.9.0: correcciones del 12/11
 
-**Fecha:** jueves 12/11/2026 · **Estado:** aprobado por Bruno (diseño), sin código · **Para:** Bruno (desarrollo) · **Versión:** pasa de 1.8.7 a **1.9.0**
+**Fecha:** jueves 12/11/2026 · **Estado:** hecho en `main` (ver CHECKLIST §14) · **Para:** Bruno (desarrollo) · **Versión:** pasa de 1.8.7 a **1.9.0**
 
 Esto **se suma** a los documentos 16 y 17 y no cambia nada de lo que ya está en ellos. Lo revisé contra `main` en `f977acf`.
 
@@ -240,12 +240,12 @@ La versión de antes de esta tanda es la **1.8.7**.
 
 ## Cuándo está terminado
 
-- [ ] El rayo de «Publicación rápida» es de línea verde sobre verde clarito, y «A mano» va sobre negro, con cualquiera de las dos pestañas elegida.
-- [ ] «Descargar la plantilla» baja un .xlsx. Al abrirlo en Excel en español, cada dato sale en su columna, y se puede llenar dos pestañas, meterlo en un ZIP con `fotos/` y subirlo.
-- [ ] Crear cuenta, Configuración y Wilson en vivo muestran las 7 galerías en el orden de Equipo › Galerías.
-- [ ] La ficha se ve como el tablero 4, en web y en celular.
-- [ ] El inicio normal muestra 4 filas: la flecha se ve transparente y se pone negra con el cursor, cada fila se desliza sola, y el final de la fila y el botón «Ver todas» aparecen en los casos descritos.
-- [ ] **Una tienda con logo lo ve en el circulito de la cabecera, en la tarjeta del menú de la cuenta y en el saludo del inicio** (en web y en celular), y además en el resto de los lugares del punto 6.
-- [ ] Un ZIP de 35 MB muestra el porcentaje y después «Revisando…».
-- [ ] Un ZIP con filas malas muestra los motivos y los textos nuevos.
-- [ ] El pie dice «PaseLibre 1.9 · Novedades», y `/equipo/versiones` muestra la 1.9.0 con el detalle.
+- [x] El rayo de «Publicación rápida» es de línea verde sobre verde clarito, y «A mano» va sobre negro, con cualquiera de las dos pestañas elegida.
+- [x] «Descargar la plantilla» baja un .xlsx. Al abrirlo en Excel en español, cada dato sale en su columna, y se puede llenar dos pestañas, meterlo en un ZIP con `fotos/` y subirlo.
+- [x] Crear cuenta, Configuración y Wilson en vivo muestran las 7 galerías en el orden de Equipo › Galerías.
+- [x] La ficha se ve como el tablero 4, en web y en celular.
+- [x] El inicio normal muestra 4 filas: la flecha se ve transparente y se pone negra con el cursor, cada fila se desliza sola, y el final de la fila y el botón «Ver todas» aparecen en los casos descritos.
+- [x] **Una tienda con logo lo ve en el circulito de la cabecera, en la tarjeta del menú de la cuenta y en el saludo del inicio** (en web y en celular), y además en el resto de los lugares del punto 6.
+- [x] Un ZIP de 35 MB muestra el porcentaje y después «Revisando…».
+- [x] Un ZIP con filas malas muestra los motivos y los textos nuevos.
+- [x] El pie dice «PaseLibre 1.9 · Novedades», y `/equipo/versiones` muestra la 1.9.0 con el detalle.
