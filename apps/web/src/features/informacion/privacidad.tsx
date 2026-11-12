@@ -91,12 +91,16 @@ export function Privacidad() {
             tus publicaciones.
           </li>
           <li>
-            Tus mensajes los ven solo tú y la otra persona de la conversación. El equipo de
-            PaseLibre no los lee.
+            Tus mensajes los ven tú y la otra tienda de la conversación. Para resolver reclamos y
+            cuidar a todas las tiendas, sobre todo cuando hay un reporte, el Equipo PaseLibre puede
+            abrir una conversación solo para leerla: no puede escribir en ella y queda registrado
+            quién la abrió y cuándo.
           </li>
           <li>
-            El equipo ve los datos de las cuentas para crearlas y ayudarte, y no tiene forma de
-            entrar a los mensajes.
+            El equipo ve los datos de las cuentas para crearlas y ayudarte. Si lo pides, o con aviso
+            a tu tienda, puede entrar como tu tienda durante una hora para acomodar algo (por
+            ejemplo, tu portada): cada cambio queda registrado y te llega un aviso, y en ese modo no
+            puede chatear ni cerrar ventas.
           </li>
         </ul>
       </Seccion>

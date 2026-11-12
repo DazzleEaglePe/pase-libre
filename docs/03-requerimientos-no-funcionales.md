@@ -65,7 +65,7 @@ Los requerimientos no funcionales (RNF) describen **cómo** debe comportarse el 
 | RNF-22 | Se publica una **política de privacidad** y unos **términos de uso** simples. El cumplimiento con la ley peruana de protección de datos personales (Ley 29733) se revisa antes del lanzamiento | Propuesto |
 | RNF-23 | Los términos aclaran que PaseLibre **no interviene en las ventas**: el trato es entre vendedores y compradores | Chat |
 | RNF-24 | Un vendedor puede **pedir que se eliminen** sus datos y publicaciones | Propuesto |
-| RNF-44 | Los **mensajes entre usuarios son privados**: el equipo no los lee. Las notificaciones solo muestran un extracto al destinatario | Chat 24/10 |
+| RNF-44 | Los **mensajes entre usuarios son privados** entre las dos tiendas. El equipo solo puede abrirlos para leer (registrado: quién y cuándo), sobre todo ante un reporte (cambio del 11/11, lienzo N14). Las notificaciones solo muestran un extracto al destinatario | Chat 24/10 · cambiado 11/11 |
 | RNF-45 | El **perfil privado** oculta de inmediato nombre, dirección y stand de la tienda, sin afectar sus publicaciones. Se puede revertir cuando el vendedor quiera | Chat 24/10 |
 | RNF-46 | El **precio preferencial** de un partner o socio solo lo ve quien tiene ese rol y no se filtra en listados ni respuestas públicas | Chat 24/10, Propuesto |
 | RNF-53 | Bloquear y denunciar quedan **registrados para moderación**. Un usuario bloqueado no puede escribir ni pedir pases a quien lo bloqueó | Lienzo C, Propuesto |

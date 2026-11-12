@@ -108,7 +108,9 @@ Cada contador es **por ruta**: `@nestjs/throttler` arma su clave con el nombre d
 - Cada ruta de vendedor comprueba que la oferta, el hilo o la tienda sean de la tienda de la sesión (RNF-17). Si no, la API la rechaza.
 - Las rutas del equipo exigen `rol = EQUIPO`.
 - Las acciones del equipo (crear cuenta, nueva clave, suspender, traspasar) quedan en la tabla `auditoria`.
-- **Mensajes privados (RNF-44):** el panel del equipo no tiene ninguna ruta para leer conversaciones. Una denuncia guarda el motivo y el identificador del hilo; si el equipo necesita ver mensajes, se los pide a quien denunció.
+- **Mensajes (RNF-44, cambiado el 11/11 con el lienzo N14):** los mensajes son de las dos tiendas de la conversación. El panel del equipo puede abrir los últimos 10 chats de una tienda **solo para leer** (con lo editado y lo borrado), sin preguntar motivo: queda anotado en silencio en `registro_equipo` y en `auditoria` (`leer_chat`), sale en «Historial de cambios» de la ficha y no marca nada como leído. Así lo anuncian la bienvenida («podemos revisar conversaciones y actividad… sobre todo cuando hay un reporte»), la Ayuda y la política de privacidad §4.
+- **Modo soporte (N14):** «Ayudar como la tienda» deja al equipo ver PaseLibre como el dueño durante 1 hora. Lo pide la tienda o lo activa el equipo, y la tienda recibe aviso en los dos casos. En ese modo solo se puede cambiar lo marcado con `@PermitirEnSoporte` (datos, portada, fotos); los chats no se leen (`@NoEnSoporte`), no hay tiempo real y no se tocan contraseña, sesiones ni asesores. Cada cambio queda registrado y avisado.
+- **Asesores (N12):** cada asesor tiene sus permisos (`@Permiso(...)` en `SesionGuard`); agregar asesores y la seguridad son solo del dueño. La cuenta principal tiene un máximo de dispositivos (2 por defecto, el equipo lo cambia por tienda); la lista de sesiones solo se muestra después de la contraseña correcta.
 - **Bloqueo (RF-57):** quien bloquea, bloquea a la tienda entera. Antes de guardar un mensaje o de contactar, la API revisa la tabla `bloqueo`; el bloqueado recibe `BLOQUEADO` y al otro no se le avisa.
 
 ## 7. Cabeceras y red
