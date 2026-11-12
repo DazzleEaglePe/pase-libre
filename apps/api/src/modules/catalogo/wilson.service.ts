@@ -2,7 +2,6 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   precioDe,
   type GaleriaEnVivo,
-  type PisoDeGaleria,
   type PrecioDeModelo,
   type PreciosCategoriaConsulta,
   type RespuestaPreciosCategoria,
@@ -25,6 +24,7 @@ import {
   SELECT_OFERTA_PUBLICA,
   tarjetaConVendedor,
 } from './catalogo.service';
+import { galeriasEnOrden, nivelesPorTercios } from './galerias-en-orden';
 import { conSesion } from './visibilidad';
 
 /** Una persona camina unos 75 m por minuto por la avenida. */
@@ -37,8 +37,9 @@ const noEncontrada = () =>
   new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Esta categoría no existe.');
 
 /**
- * «Wilson en vivo» (CAT_Web3) y la página de una categoría con los precios de pase por modelo
- * (CAT_Web4), sección 8 del lienzo final.
+ * «Wilson en vivo» (CAT_Web3, N08) y la página de una categoría con los precios de pase por
+ * modelo (CAT_Web4), sección 8 del lienzo final. El directorio de tiendas (la pestaña
+ * «Tiendas», N13) está en `DirectorioService`.
  */
 @Injectable()
 export class WilsonService {
@@ -63,7 +64,7 @@ export class WilsonService {
       ],
     };
 
-    const [top, galerias, porGaleria, tiendasPorGaleria, mia] = await Promise.all([
+    const [top, galerias, porGaleria, mia] = await Promise.all([
       this.prisma.$queryRaw<Array<{ slug: string; nombre: string }>>`
         SELECT c.slug, c.nombre FROM oferta o
         JOIN producto p ON p.id = o.producto_id
@@ -71,19 +72,16 @@ export class WilsonService {
         JOIN tienda t ON t.id = o.tienda_id
         WHERE o.estado = 'ACTIVA' AND o.stock > 0 AND t.estado = 'ACTIVA' AND p.fusionado_en_id IS NULL
         GROUP BY c.slug, c.nombre ORDER BY count(*) DESC, c.nombre LIMIT 3`,
-      this.prisma.galeria.findMany({
-        where: { activa: true },
-        orderBy: [{ orden: 'asc' }, { nombre: 'asc' }],
-        select: { id: true, slug: true, nombre: true, metros: true },
-      }),
+      this.prisma.galeria
+        .findMany({
+          where: { activa: true },
+          select: { id: true, slug: true, nombre: true, metros: true, orden: true },
+        })
+        .then(galeriasEnOrden),
+      // Solo cuentan los productos con stock (N08).
       this.prisma.oferta.groupBy({
         by: ['tiendaId'],
         where: conStock,
-        _count: { _all: true },
-      }),
-      this.prisma.tienda.groupBy({
-        by: ['galeriaId'],
-        where: { estado: 'ACTIVA', galeriaId: { not: null } },
         _count: { _all: true },
       }),
       mirada.tiendaId
@@ -101,18 +99,25 @@ export class WilsonService {
     });
     const galeriaDe = new Map(tiendas.map((tienda) => [tienda.id, tienda.galeriaId]));
     const productos = new Map<string, number>();
+    // «N productos · N tiendas»: las tiendas que tienen esos productos.
+    const tiendasEn = new Map<string, number>();
     for (const fila of porGaleria) {
       const galeriaId = galeriaDe.get(fila.tiendaId);
-      if (galeriaId) productos.set(galeriaId, (productos.get(galeriaId) ?? 0) + fila._count._all);
+      if (!galeriaId) continue;
+      productos.set(galeriaId, (productos.get(galeriaId) ?? 0) + fila._count._all);
+      tiendasEn.set(galeriaId, (tiendasEn.get(galeriaId) ?? 0) + 1);
     }
-    const tiendasEn = new Map(tiendasPorGaleria.map((fila) => [fila.galeriaId, fila._count._all]));
     const mias = galerias.find((galeria) => galeria.id === mia?.galeriaId);
-    const lista: Array<GaleriaEnVivo & { id: string }> = galerias.map((galeria) => ({
+    // Todas las galerías, la tuya primero (N08).
+    const enOrden = mias ? [mias, ...galerias.filter((g) => g.id !== mias.id)] : galerias;
+    const niveles = nivelesPorTercios(enOrden.map((galeria) => productos.get(galeria.id) ?? 0));
+    const lista: Array<GaleriaEnVivo & { id: string }> = enOrden.map((galeria, indice) => ({
       id: galeria.id,
       slug: galeria.slug,
       nombre: galeria.nombre,
       productos: productos.get(galeria.id) ?? 0,
       tiendas: tiendasEn.get(galeria.id) ?? 0,
+      nivel: niveles[indice] ?? 'SIN',
       mia: galeria.id === mias?.id,
       minutos:
         galeria.id === mias?.id
@@ -133,6 +138,9 @@ export class WilsonService {
       categoria: categoria ? { slug: categoria.slug, nombre: categoria.nombre } : null,
       galerias: lista.map(sinId),
       galeria: elegida ? sinId(elegida) : null,
+      // «Tiendas por piso» lo reemplaza la pestaña «Tiendas» (N13), que no muestra las
+      // reservadas: ver `DirectorioService`.
+      pisos: [],
     };
 
     const deLaGaleria: Prisma.OfertaWhereInput = {
@@ -154,7 +162,6 @@ export class WilsonService {
       return {
         ...base,
         // Sin sesión no se nombran las tiendas (docs/05 §5).
-        pisos: [],
         audiencia: 'visitante',
         ofertas: filas.map((o) => ({
           oferta_id: o.id,
@@ -173,65 +180,19 @@ export class WilsonService {
       };
     }
 
-    const [filas, pisos] = await Promise.all([
-      elegida
-        ? this.prisma.oferta.findMany({
-            where: deLaGaleria,
-            orderBy: [...orderBy],
-            take: OFERTAS_DE_GALERIA,
-            select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
-          })
-        : [],
-      elegida ? this.pisos(elegida.id, mirada, bloqueadas) : [],
-    ]);
+    const filas = elegida
+      ? await this.prisma.oferta.findMany({
+          where: deLaGaleria,
+          orderBy: [...orderBy],
+          take: OFERTAS_DE_GALERIA,
+          select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
+        })
+      : [];
     return {
       ...base,
-      pisos,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
       ofertas: filas.map((o) => ({ ...tarjetaConVendedor(o, mirada), detalle: detalleDe(o) })),
     };
-  }
-
-  /** «Tiendas por piso»: las activas de la galería, con lo que tienen publicado a su nombre. */
-  private async pisos(
-    galeriaId: string,
-    mirada: Mirada,
-    bloqueadas: string[],
-  ): Promise<PisoDeGaleria[]> {
-    const tiendas = await this.prisma.tienda.findMany({
-      where: { galeriaId, estado: 'ACTIVA', id: { notIn: bloqueadas } },
-      orderBy: [{ piso: 'asc' }, { stand: 'asc' }, { nombre: 'asc' }],
-      select: {
-        id: true,
-        nombre: true,
-        stand: true,
-        piso: true,
-        _count: {
-          select: {
-            ofertas: { where: { estado: 'ACTIVA', stock: { gt: 0 }, tiendaVisible: true } },
-          },
-        },
-      },
-    });
-    const porPiso = new Map<string, PisoDeGaleria['tiendas']>();
-    for (const tienda of tiendas) {
-      const piso = tienda.piso
-        ? /^\d+$/.test(tienda.piso)
-          ? `Piso ${tienda.piso}`
-          : tienda.piso
-        : 'Sin piso';
-      porPiso.set(piso, [
-        ...(porPiso.get(piso) ?? []),
-        {
-          id: tienda.id,
-          nombre: tienda.nombre,
-          stand: tienda.stand,
-          mia: tienda.id === mirada.tiendaId,
-          productos: tienda._count.ofertas,
-        },
-      ]);
-    }
-    return [...porPiso.entries()].map(([piso, lista]) => ({ piso, tiendas: lista }));
   }
 
   // ── La página de una categoría (CAT_Web4) ────────────────────────────────

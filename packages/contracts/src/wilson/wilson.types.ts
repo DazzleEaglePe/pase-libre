@@ -1,22 +1,38 @@
-import type { TarjetaOferta, TarjetaOfertaConVendedor } from '../catalogo/catalogo.types.js';
+import type {
+  RespuestaSugerenciasBusqueda,
+  TarjetaOferta,
+  TarjetaOfertaConVendedor,
+} from '../catalogo/catalogo.types.js';
 import type { Precio } from '../comun/dinero.js';
 import type { EnVivoConVendedor } from '../en-vivo/en-vivo.types.js';
 import type { DetalleOferta } from '../ofertas/ofertas.types.js';
 
-/** Una galería de la avenida en «Wilson en vivo» (CAT_Web3). */
+/**
+ * Qué tan verde sale una galería (N08): «Sin productos», y entre las que tienen, el tercio con
+ * menos («Pocos»), el del medio («Varios») y el de más («Muchos»). Con menos de 20 productos en
+ * todo Wilson, todas las que tienen salen «Pocos» (verde suave).
+ */
+export type NivelGaleria = 'SIN' | 'POCOS' | 'VARIOS' | 'MUCHOS';
+
+/** Una galería de la avenida en «Wilson en vivo» (CAT_Web3, N08). */
 export interface GaleriaEnVivo {
   slug: string;
   nombre: string;
   /** Publicaciones con stock (de la categoría elegida, si hay una). */
   productos: number;
+  /** Las tiendas que tienen esas publicaciones. */
   tiendas: number;
+  nivel: NivelGaleria;
   /** Es la galería de tu tienda: «Estás aquí». */
   mia: boolean;
   /** «a 3 min caminando» desde tu galería; nulo sin la posición de alguna de las dos. */
   minutos: number | null;
 }
 
-/** «Tiendas por piso» de la galería elegida. Sin sesión no se nombran. */
+/**
+ * «Tiendas por piso» de la galería elegida. Ya no se llena (llega vacío): lo reemplaza el
+ * directorio de la pestaña «Tiendas» (`GET /v1/wilson/tiendas`), que no muestra las reservadas.
+ */
 export interface PisoDeGaleria {
   piso: string;
   tiendas: Array<{
@@ -129,3 +145,66 @@ export interface RespuestaNovedades {
     por: string;
   }>;
 }
+
+/**
+ * La reputación corta de una tienda en el directorio y en el buscador (N13): «4,9 ★ · 31
+ * opiniones» o «Nueva». La calcula una sola función del servidor (`reputacionCorta`).
+ */
+export interface ReputacionCorta {
+  /** El promedio, con un decimal; nulo si es nueva. */
+  estrellas: number | null;
+  opiniones: number;
+  nueva: boolean;
+}
+
+/** Una tienda del directorio (N13, pestaña «Tiendas» de Wilson en vivo). */
+export interface TiendaDelDirectorio {
+  id: string;
+  nombre: string;
+  /** La ruta del logo (`urlFoto`); sin él, las iniciales. */
+  logo: string | null;
+  /** Nulo para las independientes. */
+  galeria: string | null;
+  stand: string | null;
+  piso: string | null;
+  /** Sus categorías con más publicaciones a la vista, hasta 2: «Tarjetas de video · Monitores». */
+  vende: string[];
+  reputacion: ReputacionCorta;
+  /** Alguien de la tienda tiene PaseLibre abierto ahora: el puntito verde. */
+  en_linea: boolean;
+  /** Es la tienda de quien mira. */
+  propia: boolean;
+}
+
+/** `GET /v1/wilson/tiendas` (N13): solo con sesión. Sin las reservadas ni las que bloqueaste. */
+export interface RespuestaDirectorioTiendas {
+  tiendas: TiendaDelDirectorio[];
+  total: number;
+  pagina: number;
+  hay_mas: boolean;
+  /** Las opciones de «Todas las galerías ▾», «Piso ▾» y «Vende: … ▾». */
+  filtros: {
+    galerias: Array<{ slug: string; nombre: string }>;
+    pisos: string[];
+    categorias: Array<{ slug: string; nombre: string }>;
+  };
+}
+
+/** Una tienda en la sección «TIENDAS» del buscador de arriba (N13). */
+export interface TiendaEnBuscador {
+  id: string;
+  nombre: string;
+  logo: string | null;
+  galeria: string | null;
+  stand: string | null;
+  reputacion: ReputacionCorta;
+  en_linea: boolean;
+}
+
+/**
+ * `GET /v1/buscar/sugerencias` con las tiendas que coinciden con lo escrito (N13). Sin sesión
+ * `tiendas` llega vacío: un visitante no ve tiendas.
+ */
+export type RespuestaSugerenciasConTiendas = RespuestaSugerenciasBusqueda & {
+  tiendas: TiendaEnBuscador[];
+};

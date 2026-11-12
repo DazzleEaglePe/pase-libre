@@ -400,7 +400,12 @@ describe('Catálogo (RF-12 a RF-19, RF-44, RF-52)', () => {
       expect(enOtraCategoria.body.total_productos).toBe(0);
 
       const vacia = await http().get('/v1/buscar/sugerencias?q=').expect(200);
-      expect(vacia.body).toEqual({ correccion: null, total_productos: 0, productos: [] });
+      expect(vacia.body).toEqual({
+        correccion: null,
+        total_productos: 0,
+        productos: [],
+        tiendas: [],
+      });
       expect(await prisma.busqueda.count()).toBe(antes);
     });
 
