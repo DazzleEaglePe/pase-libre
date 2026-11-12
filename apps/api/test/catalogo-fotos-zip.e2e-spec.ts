@@ -143,11 +143,26 @@ describe('Catálogo: fotos, ZIP que actualiza y «Eliminar todos» (docs/17)', (
       );
       expect(revision).toMatchObject({ crear: 1, existentes: 2 });
       expect(revision.incompletas).toEqual([
-        { fila: 6, producto: 'AMD Ryzen 5 5500 Box', falta: 'Repetida (es la fila 4)' },
+        {
+          fila: 6,
+          lugar: null,
+          producto: 'AMD Ryzen 5 5500 Box',
+          motivo: 'REPETIDA',
+          texto: 'Código repetido: ya está en la fila 4',
+          foto_buscada: null,
+        },
       ]);
+      expect(revision.motivos).toEqual({
+        sin_foto: 0,
+        sin_categoria: 0,
+        sin_marca: 0,
+        sin_modelo: 0,
+        repetida: 1,
+      });
       expect(revision.parecidos).toEqual([
         {
           fila: 5,
+          lugar: null,
           producto: 'MSI RTX 5060 8G Gaming Trio OC',
           codigo_parte: 'ZP-5060-B',
           con: { titulo: 'MSI RTX 5060 8G Gaming Trio OC', codigo_parte: 'ZP-5060-A' },

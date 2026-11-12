@@ -309,11 +309,45 @@ export type EditarCatalogoDatos = z.output<typeof editarCatalogoSchema>;
 export const unirCatalogoSchema = z.strictObject({ con: z.uuid('Elige el producto.') });
 export type UnirCatalogoDatos = z.output<typeof unirCatalogoSchema>;
 
+/** Por qué una fila del archivo no se crea (docs/18 §8). */
+export const MOTIVOS_FILA = [
+  'SIN_FOTO',
+  'FOTO_NO_ESTA',
+  'FOTO_DANADA',
+  'SIN_CATEGORIA',
+  'SIN_MARCA',
+  'SIN_MODELO',
+  'REPETIDA',
+] as const;
+export type MotivoFila = (typeof MOTIVOS_FILA)[number];
+
 /** Una fila del archivo que no se puede crear todavía. */
 export interface FilaIncompleta {
   fila: number;
+  /**
+   * Dónde está en un Excel de varias pestañas: «Tarjetas de video · fila 5». Nulo en un .csv o
+   * un Excel de una sola hoja, donde basta `fila`.
+   */
+  lugar: string | null;
   producto: string;
-  falta: string;
+  /** El primer problema de la fila: el que se cuenta en `motivos`. */
+  motivo: MotivoFila;
+  /** «Qué pasa»: «Falta la foto», «Código repetido: ya está en la fila 22»… */
+  texto: string;
+  /** Con `FOTO_NO_ESTA`, el nombre que se buscó en `fotos/` (corsair-4000d.webp). */
+  foto_buscada: string | null;
+}
+
+/**
+ * Cuántas filas no se crean por cada motivo. `sin_foto` junta `SIN_FOTO`, `FOTO_NO_ESTA` y
+ * `FOTO_DANADA`.
+ */
+export interface MotivosImportacion {
+  sin_foto: number;
+  sin_categoria: number;
+  sin_marca: number;
+  sin_modelo: number;
+  repetida: number;
 }
 
 /** Un dato que cambia en un producto que ya está: «Modelo: RTX 5060 → RTX 5060 Ti». */
@@ -336,6 +370,8 @@ export interface CambioDeDato {
  */
 export interface ProductoQueYaEsta {
   fila: number;
+  /** Como en `FilaIncompleta`: «Tarjetas de video · fila 5» o nulo. */
+  lugar: string | null;
   id: string;
   titulo: string;
   codigo_parte: string | null;
@@ -351,6 +387,7 @@ export interface ProductoQueYaEsta {
 /** Mismo nombre que uno del catálogo pero otro código: no se crea, para no duplicarlo. */
 export interface ParecidoImportacion {
   fila: number;
+  lugar: string | null;
   producto: string;
   codigo_parte: string;
   con: { titulo: string; codigo_parte: string | null };
@@ -364,7 +401,9 @@ export interface RevisionImportacion {
   fotos_encontradas: number;
   crear: number;
   existentes: number;
+  /** Las que no se crean, con su motivo y su texto. */
   incompletas: FilaIncompleta[];
+  motivos: MotivosImportacion;
   /** Los `existentes`, con lo que cambiaría en cada uno. */
   ya_estan: ProductoQueYaEsta[];
   parecidos: ParecidoImportacion[];

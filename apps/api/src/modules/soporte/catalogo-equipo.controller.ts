@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -35,6 +36,7 @@ import {
   type RevisionImportacion,
   type UnirCatalogoDatos,
 } from '@paselibre/contracts';
+import type { Response } from 'express';
 import { z } from 'zod';
 
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
@@ -44,8 +46,17 @@ import type { SesionActiva } from '../sesion/sesion.types';
 import { CatalogoEquipoService } from './catalogo-equipo.service';
 
 const id = new ZodValidationPipe(z.uuid('Ese producto no existe.'));
+const idImportacion = new ZodValidationPipe(z.uuid('Sube el archivo de nuevo.'));
 /** Un .zip con el Excel y las fotos: hasta 40 MB. */
 const MAX_BYTES_ARCHIVO = 40 * 1024 * 1024;
+const TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+function enviarExcel(respuesta: Response, nombre: string, archivo: Buffer) {
+  respuesta.setHeader('Content-Type', TIPO_XLSX);
+  respuesta.setHeader('Content-Disposition', `attachment; filename="${nombre}"`);
+  respuesta.send(archivo);
+}
+
 /** Sin cuerpo vale lo de siempre (las páginas de antes no mandaban nada). */
 const opcional = <T>(esquema: z.ZodType<T>) =>
   new ZodValidationPipe(z.preprocess((valor) => valor ?? {}, esquema));
@@ -80,6 +91,13 @@ export class CatalogoEquipoController {
     return this.catalogo.agregar(datos, sesion);
   }
 
+  /** «Descargar la plantilla» (docs/18 §2): una pestaña por categoría de la base. */
+  @Get('plantilla')
+  @Header('Cache-Control', 'no-store')
+  async plantilla(@Res() respuesta: Response): Promise<void> {
+    enviarExcel(respuesta, 'plantilla_catalogo_paselibre.xlsx', await this.catalogo.plantilla());
+  }
+
   @Post('importar')
   @Header('Cache-Control', 'no-store')
   @UseInterceptors(
@@ -97,6 +115,21 @@ export class CatalogoEquipoController {
       );
     }
     return this.catalogo.importar(archivo, sesion);
+  }
+
+  /** «Descargar la lista en Excel» (docs/18 §8): las filas que no se crean, con qué pasa. */
+  @Get('importar/:id/errores')
+  @Header('Cache-Control', 'no-store')
+  async listaDeErrores(
+    @Param('id', idImportacion) importacion: string,
+    @SesionActual() sesion: SesionActiva,
+    @Res() respuesta: Response,
+  ): Promise<void> {
+    enviarExcel(
+      respuesta,
+      'filas_que_no_se_crean.xlsx',
+      await this.catalogo.listaDeErrores(importacion, sesion),
+    );
   }
 
   @Post('importar/:id/crear')

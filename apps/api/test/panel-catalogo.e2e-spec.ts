@@ -260,7 +260,14 @@ describe('Panel: modo oscuro, Catálogo y Destacar (COR15 a COR18)', () => {
         .expect(201);
       expect(revision.body).toMatchObject({ fotos_encontradas: 1, crear: 1 });
       expect(revision.body.incompletas).toEqual([
-        { fila: 3, producto: 'AMD Ryzen 5 7600', falta: 'Foto (no está en fotos/)' },
+        {
+          fila: 3,
+          lugar: null,
+          producto: 'AMD Ryzen 5 7600',
+          motivo: 'SIN_FOTO',
+          texto: 'Falta la foto',
+          foto_buscada: null,
+        },
       ]);
       await http()
         .post(`/v1/equipo/catalogo/importar/${revision.body.id}/crear`)
