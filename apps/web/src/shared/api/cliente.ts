@@ -9,7 +9,7 @@ import {
 export class ErrorApi extends Error {
   constructor(
     readonly estado: number,
-    readonly codigo: CodigoError | 'SIN_CONEXION',
+    readonly codigo: CodigoError | 'SIN_CONEXION' | 'CANCELADA',
     mensaje: string,
     readonly detalles?: Record<string, unknown>,
   ) {
@@ -63,6 +63,68 @@ export async function llamarApi<T>(
     );
   }
   return datos as T;
+}
+
+/**
+ * Sube un archivo con `XMLHttpRequest` para saber cuánto va (docs/18 §7): `fetch` no avisa del
+ * avance de lo que se manda. Mismas cabeceras y cookie que `llamarApi`. `cancelar` corta la
+ * subida y la promesa termina con un `ErrorApi` de código `CANCELADA`.
+ */
+export function subirConAvance<T>(
+  ruta: string,
+  formulario: FormData,
+  avisos: {
+    /** Lo que ya se subió, en bytes. */
+    alAvanzar?: (cargado: number, total: number) => void;
+    /** Ya se subió todo: ahora la API lo revisa. */
+    alTerminarSubida?: () => void;
+  } = {},
+): { promesa: Promise<T>; cancelar: () => void } {
+  const xhr = new XMLHttpRequest();
+  const promesa = new Promise<T>((resolver, rechazar) => {
+    xhr.open('POST', `/v1${ruta}`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader(CABECERA_PASELIBRE, '1');
+    xhr.upload.onprogress = (evento) => {
+      if (evento.lengthComputable) avisos.alAvanzar?.(evento.loaded, evento.total);
+    };
+    xhr.upload.onload = () => avisos.alTerminarSubida?.();
+    xhr.onerror = () =>
+      rechazar(
+        new ErrorApi(
+          0,
+          'SIN_CONEXION',
+          'No hay conexión. Revisa tu internet y vuelve a intentarlo.',
+        ),
+      );
+    xhr.onabort = () => rechazar(new ErrorApi(0, 'CANCELADA', 'Cancelaste la subida.'));
+    xhr.onload = () => {
+      let datos: unknown = null;
+      try {
+        datos = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        datos = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolver(datos as T);
+        return;
+      }
+      const error = (datos as RespuestaError | null)?.error;
+      rechazar(
+        new ErrorApi(
+          xhr.status,
+          error?.codigo ?? 'ERROR_INTERNO',
+          // nginx corta lo que pasa de 40 MB sin el formato de la API.
+          xhr.status === 413
+            ? 'El archivo pesa más de 40 MB. Pártelo en dos.'
+            : (error?.mensaje ?? 'Algo falló de nuestro lado. Vuelve a intentarlo.'),
+          error?.detalles,
+        ),
+      );
+    };
+    xhr.send(formulario);
+  });
+  return { promesa, cancelar: () => xhr.abort() };
 }
 
 /** Sube una foto (`POST /v1/archivos`). La API la revisa, le quita el EXIF y la pasa a WebP. */

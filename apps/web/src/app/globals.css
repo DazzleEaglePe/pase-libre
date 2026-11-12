@@ -140,3 +140,25 @@
     animation: none;
   }
 }
+
+/* La barra de «Revisando filas y fotos…» (docs/18 §7): no se sabe cuánto falta, así que va y
+   viene; quieta en el medio con «reducir movimiento». */
+@keyframes ir-y-venir {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+.animate-ir-y-venir {
+  animation: ir-y-venir 1.3s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-ir-y-venir {
+    animation: none;
+    transform: translateX(95%);
+  }
+}
