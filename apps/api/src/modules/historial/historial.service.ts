@@ -12,6 +12,7 @@ import ExcelJS from 'exceljs';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
 
@@ -61,12 +62,13 @@ const SELECT_VENTA = {
       modoVenta: true,
       tiendaVisible: true,
       tienda: { select: { id: true, nombre: true } },
+      ...PORTADA_DE_OFERTA,
       producto: {
         select: {
           titulo: true,
           slug: true,
           categoria: { select: { slug: true, nombre: true } },
-          fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+          ...FOTO_DEL_PRODUCTO,
         },
       },
     },
@@ -193,7 +195,7 @@ export class HistorialService {
       producto: {
         titulo: oferta.producto.titulo,
         slug: oferta.producto.slug,
-        foto: oferta.producto.fotos[0]?.ruta ?? null,
+        foto: portadaDe(oferta),
         categoria: oferta.producto.categoria,
       },
       otra_tienda: otra,

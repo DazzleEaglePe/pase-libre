@@ -22,6 +22,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { destacadasAhora, mezclarDestacadas } from '../../shared/destacados';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
+import { portadaDe } from '../../shared/portada';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
@@ -42,7 +43,10 @@ const FOTOS = {
   orderBy: { orden: 'asc' },
 } as const;
 
-/** Lo único que se pide de una oferta para un visitante: sin precio ni tienda. */
+/**
+ * Lo único que se pide de una oferta para un visitante: sin precio ni tienda. Sus fotos (y la
+ * portada, que es una de ellas) ya se veían en la ficha pública: no dicen el precio ni la tienda.
+ */
 export const SELECT_OFERTA_PUBLICA = {
   id: true,
   condicion: true,
@@ -58,6 +62,7 @@ export const SELECT_OFERTA_PUBLICA = {
   descripcion: true,
   actualizadaEn: true,
   fotos: FOTOS,
+  portadaRuta: true,
   tienda: { select: { tipo: true, galeria: { select: { nombre: true } } } },
 } satisfies Prisma.OfertaSelect;
 
@@ -120,7 +125,7 @@ export function tarjetaConVendedor(
       slug: o.producto.slug,
       titulo: o.producto.titulo,
       categoria: o.producto.categoria,
-      foto: o.producto.fotos[0]?.ruta ?? null,
+      foto: portadaDe(o),
     },
     condicion: o.condicion,
     stock: o.stock,
@@ -419,7 +424,10 @@ export class CatalogoService {
     };
   }
 
-  /** Las 16 recién publicadas que ve un visitante: sin precio ni tienda, mezcladas por tienda. */
+  /**
+   * Las 16 recién publicadas que ve un visitante: sin precio ni tienda, mezcladas por tienda, con
+   * la portada de cada oferta (docs/17 §5; sus fotos ya se ven en la ficha pública).
+   */
   private async recienParaVisitantes(
     where: Prisma.OfertaWhereInput,
     orderBy: Prisma.OfertaOrderByWithRelationInput[],
@@ -437,7 +445,7 @@ export class CatalogoService {
         slug: o.producto.slug,
         titulo: o.producto.titulo,
         categoria: o.producto.categoria,
-        foto: o.producto.fotos[0]?.ruta ?? null,
+        foto: portadaDe(o),
       },
       condicion: o.condicion,
       stock: o.stock,

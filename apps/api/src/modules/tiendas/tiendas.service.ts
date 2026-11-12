@@ -25,6 +25,7 @@ import type { LadoOpinion, Prisma } from '@prisma/client';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { audienciaDe, type Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { preciosPara } from '../catalogo/visibilidad';
 import { AvisosService } from '../mensajes/avisos.service';
@@ -141,12 +142,13 @@ export class TiendasService {
           precioVisible: true,
           negociable: true,
           tiendaId: true,
+          ...PORTADA_DE_OFERTA,
           producto: {
             select: {
               slug: true,
               titulo: true,
               categoria: { select: { slug: true, nombre: true } },
-              fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+              ...FOTO_DEL_PRODUCTO,
             },
           },
         },
@@ -201,7 +203,7 @@ export class TiendasService {
           producto: {
             slug: oferta.producto.slug,
             titulo: oferta.producto.titulo,
-            foto: oferta.producto.fotos[0]?.ruta ?? null,
+            foto: portadaDe(oferta),
             categoria: oferta.producto.categoria,
           },
           condicion: oferta.condicion,

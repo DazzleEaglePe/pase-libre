@@ -27,6 +27,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { conSesion, precioPara } from '../catalogo/visibilidad';
 import { avisoCampanita, AvisosService } from '../mensajes/avisos.service';
 import { MensajesService } from '../mensajes/mensajes.service';
@@ -55,12 +56,9 @@ const SELECT_PUBLICO = {
   creadoEn: true,
   categoria: { select: { slug: true, nombre: true } },
   galeria: { select: { nombre: true } },
-  producto: {
-    select: {
-      slug: true,
-      fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
-    },
-  },
+  producto: { select: { slug: true, ...FOTO_DEL_PRODUCTO } },
+  /** La oferta flash sale con la portada de su publicación (docs/17 §5). */
+  oferta: { select: PORTADA_DE_OFERTA },
 } satisfies Prisma.EnVivoSelect;
 
 /** Lo de arriba más tienda, precio y nota: solo para consultas con sesión (A-06). */
@@ -501,12 +499,8 @@ export class EnVivoService {
         precioCentimos: true,
         moneda: true,
         precioVisible: true,
-        producto: {
-          select: {
-            titulo: true,
-            fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
-          },
-        },
+        ...PORTADA_DE_OFERTA,
+        producto: { select: { titulo: true, ...FOTO_DEL_PRODUCTO } },
       },
     });
     const porId = new Map(ofertas.map((o) => [o.id, o]));
@@ -523,7 +517,7 @@ export class EnVivoService {
             stock: o.stock,
             precio: precioPara(o, mirada),
             precio_visible: o.precioVisible,
-            foto: o.producto.fotos[0]?.ruta ?? null,
+            foto: portadaDe(o),
           },
         ];
       }),
@@ -958,7 +952,12 @@ export class EnVivoService {
       titulo: f.titulo,
       categoria: f.categoria,
       producto: f.producto
-        ? { slug: f.producto.slug, foto: f.producto.fotos[0]?.ruta ?? null }
+        ? {
+            slug: f.producto.slug,
+            foto: f.oferta
+              ? portadaDe({ ...f.oferta, producto: f.producto })
+              : (f.producto.fotos[0]?.ruta ?? null),
+          }
         : null,
       cantidad: f.cantidad,
       condicion: f.condicion,

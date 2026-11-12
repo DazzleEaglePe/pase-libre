@@ -35,9 +35,9 @@ import { Interruptor } from '@/shared/ui/interruptor';
 import { BurbujaSocio } from '@/shared/ui/tarjeta-producto';
 
 import { alternarEnTexto, DETALLES_EN_TEXTO, tieneEnTexto } from './detalles';
+import { FotosPublicacion, portadaElegida, portadaQueSeVe } from './fotos-publicacion';
 import { BuscadorProducto, ProductoElegido } from './producto-catalogo';
 import { PRODUCTO_NUEVO_VACIO, ProductoNuevo, type DatosProductoNuevo } from './producto-nuevo';
-import { SelectorFotos } from './selector-fotos';
 import { VistaPrevia } from './vista-previa';
 
 type Modo = 'buscar' | 'igual' | 'nuevo';
@@ -353,8 +353,6 @@ export function FormularioPublicar({
   const [garantia, setGarantia] = useState<Garantia | null>(null);
   const [estadoOtro, setEstadoOtro] = useState('');
   const [garantiaOtra, setGarantiaOtra] = useState('');
-  /** En la publicación rápida las fotos son las del catálogo; las tuyas, si quieres. */
-  const [conFotosPropias, setConFotosPropias] = useState(false);
   const [stock, setStock] = useState(1);
   const [enAlmacen, setEnAlmacen] = useState(false);
   const [modoVenta, setModoVenta] = useState<ModoVenta>('PASE');
@@ -372,7 +370,10 @@ export function FormularioPublicar({
   const [socios, setSocios] = useState<RespuestaSocios | null>(null);
   const [tiendaVisible, setTiendaVisible] = useState(true);
   const [descripcion, setDescripcion] = useState('');
+  /** Las fotos de la tienda (las del producto son del catálogo). */
   const [fotos, setFotos] = useState<ArchivoSubido[]>([]);
+  /** Una de `fotos`, o nula: la del catálogo o, sin catálogo, la primera tuya (docs/17 §5). */
+  const [portada, setPortada] = useState<string | null>(null);
   const [subiendoProducto, setSubiendoProducto] = useState(false);
   const [subiendoPropias, setSubiendoPropias] = useState(false);
   const [error, setError] = useState<ErrorPublicar | null>(null);
@@ -448,7 +449,7 @@ export function FormularioPublicar({
           setFotos(
             oferta.fotos.map((f) => ({ ruta: f.ruta, ancho: f.ancho ?? 0, alto: f.alto ?? 0 })),
           );
-          setConFotosPropias(oferta.fotos.length > 0);
+          setPortada(oferta.portada);
         })
         .catch((e: unknown) =>
           setError({
@@ -480,8 +481,9 @@ export function FormularioPublicar({
     modo === 'nuevo'
       ? tituloDeProducto(nuevo.marca, nuevo.modelo) || 'Producto nuevo'
       : (producto?.titulo ?? 'Elige el producto');
-  const fotoPrevia =
-    fotos[0]?.ruta ?? (modo === 'nuevo' ? fotosProducto[0]?.ruta : producto?.foto) ?? null;
+  // A mano, la primera foto del producto nuevo queda como la del catálogo.
+  const fotoCatalogo = (modo === 'nuevo' ? fotosProducto[0]?.ruta : producto?.foto) ?? null;
+  const fotoPrevia = portadaQueSeVe(portada, fotoCatalogo, fotos);
   const categoriaPrevia =
     (modo === 'nuevo' ? nuevo.categoria : producto?.categoria.slug) || 'graficas';
   const listo = Boolean(editando) || modo !== 'buscar';
@@ -496,7 +498,6 @@ export function FormularioPublicar({
     setFotosProducto([]);
     setEstadoOtro('');
     setGarantiaOtra('');
-    setConFotosPropias(false);
     setStock(1);
     setMonto('');
     setMontoFacturado('');
@@ -507,6 +508,7 @@ export function FormularioPublicar({
     setMoneda(tienda.moneda_defecto);
     setDescripcion('');
     setFotos([]);
+    setPortada(null);
     setError(null);
     window.scrollTo({ top: 0 });
   }
@@ -545,6 +547,7 @@ export function FormularioPublicar({
       tienda_visible: tiendaVisible,
       descripcion,
       fotos: fotos.map((f) => f.ruta),
+      portada: portadaElegida(portada, fotos),
     };
     try {
       if (editando) {
@@ -795,87 +798,71 @@ export function FormularioPublicar({
               />
             </Seccion>
           ) : (
-            <>
-              <Seccion numero={1} titulo="Producto">
-                {cargando ? (
-                  <p className="text-secundario">Cargando…</p>
-                ) : editando ? (
-                  <ProductoElegido producto={editando.producto} condicion={condicionPrevia} />
-                ) : modo === 'igual' && elegido ? (
-                  <ProductoElegido
-                    producto={elegido}
-                    propias={elegido.propias}
-                    condicion={condicionPrevia}
-                    alCambiar={() => setModo('buscar')}
+            <Seccion numero={1} titulo="Producto">
+              {cargando ? (
+                <p className="text-secundario">Cargando…</p>
+              ) : editando ? (
+                <ProductoElegido producto={editando.producto} condicion={condicionPrevia} />
+              ) : modo === 'igual' && elegido ? (
+                <ProductoElegido
+                  producto={elegido}
+                  propias={elegido.propias}
+                  condicion={condicionPrevia}
+                  alCambiar={() => setModo('buscar')}
+                />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  <BuscadorProducto
+                    q={q}
+                    alEscribir={setQ}
+                    alElegir={(p) => {
+                      setElegido(p);
+                      setModo('igual');
+                      setError(null);
+                    }}
+                    alCrearNuevo={() => {
+                      setModo('nuevo');
+                      setError(null);
+                    }}
                   />
-                ) : (
-                  <div className="flex flex-col gap-3">
-                    <BuscadorProducto
-                      q={q}
-                      alEscribir={setQ}
-                      alElegir={(p) => {
-                        setElegido(p);
-                        setModo('igual');
-                        setError(null);
-                      }}
-                      alCrearNuevo={() => {
-                        setModo('nuevo');
-                        setError(null);
-                      }}
-                    />
-                    {q.trim() === '' && (
-                      <span className="flex flex-wrap items-center gap-2 text-nota text-secundario">
-                        Prueba con:
-                        {['gigabyte 30 60', '5070 tuf', 'ryzen 7800'].map((ejemplo) => (
-                          <button
-                            key={ejemplo}
-                            type="button"
-                            onClick={() => setQ(ejemplo)}
-                            className="h-8 rounded-full border border-borde bg-white px-3 font-semibold text-tinta"
-                          >
-                            {ejemplo}
-                          </button>
-                        ))}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </Seccion>
-              {!cargando &&
-                (conFotosPropias ? (
-                  <Seccion
-                    numero={2}
-                    titulo="Tus fotos"
-                    bajada="Del producto real. La primera es la portada."
-                  >
-                    <SelectorFotos
-                      variante="mosaico"
-                      titulo="Fotos tuyas"
-                      ayuda="Recomendado si es usado u open box: el producto real y la caja."
-                      fotos={fotos}
-                      alCambiar={setFotos}
-                      alCargar={setSubiendoPropias}
-                    />
-                  </Seccion>
-                ) : (
-                  <p className="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl border border-dashed border-borde bg-white px-4 py-3 text-nota text-secundario">
-                    <span aria-hidden="true" className="font-bold text-pase">
-                      ✓
+                  {q.trim() === '' && (
+                    <span className="flex flex-wrap items-center gap-2 text-nota text-secundario">
+                      Prueba con:
+                      {['gigabyte 30 60', '5070 tuf', 'ryzen 7800'].map((ejemplo) => (
+                        <button
+                          key={ejemplo}
+                          type="button"
+                          onClick={() => setQ(ejemplo)}
+                          className="h-8 rounded-full border border-borde bg-white px-3 font-semibold text-tinta"
+                        >
+                          {ejemplo}
+                        </button>
+                      ))}
                     </span>
-                    Fotos: vienen del catálogo. Puedes sumar las tuyas, si quieres.
-                    <button
-                      type="button"
-                      onClick={() => setConFotosPropias(true)}
-                      className="font-bold text-pase-texto underline"
-                    >
-                      Sumar mis fotos
-                    </button>
-                  </p>
-                ))}
-            </>
+                  )}
+                </div>
+              )}
+            </Seccion>
+          )}
+          {!cargando && (
+            <Seccion
+              numero={2}
+              titulo="Fotos de tu publicación"
+              bajada="Toca una para usarla de portada."
+            >
+              <FotosPublicacion
+                catalogo={fotoCatalogo}
+                categoria={categoriaPrevia}
+                fotos={fotos}
+                alCambiar={setFotos}
+                alCargar={setSubiendoPropias}
+                portada={portada}
+                alElegirPortada={setPortada}
+              />
+            </Seccion>
           )}
 
-          <Seccion numero={2} titulo="Estado y garantía">
+          <Seccion numero={3} titulo="Estado y garantía">
             <div className="flex flex-col gap-2">
               <span className="text-apoyo font-bold">Estado</span>
               <Chips
@@ -927,14 +914,14 @@ export function FormularioPublicar({
             </div>
           </Seccion>
 
-          <Seccion numero={3} titulo="Cantidad">
+          <Seccion numero={4} titulo="Cantidad">
             <div className="flex flex-col items-start gap-2">
               <span className="text-apoyo font-bold">Cantidad disponible</span>
               <Contador valor={stock} minimo={editando ? 0 : 1} alCambiar={setStock} />
             </div>
           </Seccion>
 
-          <Seccion numero={4} titulo="Precio">
+          <Seccion numero={5} titulo="Precio">
             <div className="flex flex-col gap-3 rounded-2xl border-2 border-tinta p-4">
               <span className="flex items-center gap-2">
                 <b className="text-cuerpo font-bold">¿Quién ve tu precio?</b>
@@ -1145,7 +1132,7 @@ export function FormularioPublicar({
             )}
           </Seccion>
 
-          <Seccion numero={5} titulo="Detalles (opcional)">
+          <Seccion numero={6} titulo="Detalles (opcional)">
             <label htmlFor={`${id}-descripcion`} className="flex flex-col gap-1">
               <span className="sr-only">Algo que deban saber</span>
               <textarea

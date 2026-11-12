@@ -32,6 +32,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { ArchivosService } from '../archivos/archivos.service';
 import { precioPara } from '../catalogo/visibilidad';
 import { estadoEfectivo } from '../en-vivo/horario';
@@ -98,12 +99,13 @@ const SELECT_CONVERSACION = {
       moneda: true,
       precioVisible: true,
       tiendaVisible: true,
+      ...PORTADA_DE_OFERTA,
       producto: {
         select: {
           slug: true,
           titulo: true,
           categoria: { select: { slug: true, nombre: true } },
-          fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+          ...FOTO_DEL_PRODUCTO,
         },
       },
     },
@@ -608,11 +610,12 @@ export class MensajesService implements OnModuleInit {
             precioCentimos: true,
             moneda: true,
             precioVisible: true,
+            ...PORTADA_DE_OFERTA,
             producto: {
               select: {
                 titulo: true,
                 categoria: { select: { slug: true } },
-                fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+                ...FOTO_DEL_PRODUCTO,
               },
             },
           },
@@ -627,7 +630,7 @@ export class MensajesService implements OnModuleInit {
     const lista = filas.map((fila) => ({
       conversacion_id: fila.id,
       titulo: fila.oferta.producto.titulo,
-      foto: fila.oferta.producto.fotos[0]?.ruta ?? null,
+      foto: portadaDe(fila.oferta),
       categoria: fila.oferta.producto.categoria.slug,
       precio: precioPara(fila.oferta, mirada),
       actualizada_en: fila.ultimoMensajeEn.toISOString(),
@@ -796,7 +799,7 @@ export class MensajesService implements OnModuleInit {
         producto: {
           slug: c.oferta.producto.slug,
           titulo: c.oferta.producto.titulo,
-          foto: c.oferta.producto.fotos[0]?.ruta ?? null,
+          foto: portadaDe(c.oferta),
           categoria: c.oferta.producto.categoria,
         },
       },

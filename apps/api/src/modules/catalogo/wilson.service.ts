@@ -15,6 +15,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { portadaDe } from '../../shared/portada';
 import { inicioDelDiaEnLima } from '../en-vivo/horario';
 import {
   detalleDe,
@@ -169,7 +170,7 @@ export class WilsonService {
             slug: o.producto.slug,
             titulo: o.producto.titulo,
             categoria: o.producto.categoria,
-            foto: o.producto.fotos[0]?.ruta ?? null,
+            foto: portadaDe(o),
           },
           condicion: o.condicion,
           stock: o.stock,

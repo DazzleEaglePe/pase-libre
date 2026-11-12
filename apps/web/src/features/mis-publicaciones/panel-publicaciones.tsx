@@ -4,6 +4,7 @@ import {
   centimosDeMonto,
   EVENTOS,
   formatearPrecio,
+  portadaDeOferta,
   RAZONES_PAUSA,
   TEXTO_MODO_VENTA,
   type EditarOfertaEntrada,
@@ -201,7 +202,7 @@ function Fila({
 
       <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-4 gap-y-3 lg:grid-cols-[64px_minmax(0,1fr)_200px_220px_104px] lg:items-center lg:gap-x-6">
         <Miniatura
-          ruta={oferta.fotos[0]?.ruta ?? oferta.producto.foto}
+          ruta={portadaDeOferta(oferta)}
           categoria={oferta.producto.categoria.slug}
           className="h-[72px] w-[72px] rounded-xl lg:h-16 lg:w-16"
           glifo={44}
@@ -378,7 +379,7 @@ function FilaPausada({
   return (
     <li className="flex flex-wrap items-center gap-4 rounded-2xl border border-linea bg-white p-4 lg:rounded-none lg:border-0 lg:border-b lg:px-5 lg:last:border-b-0">
       <Miniatura
-        ruta={oferta.fotos[0]?.ruta ?? oferta.producto.foto}
+        ruta={portadaDeOferta(oferta)}
         categoria={oferta.producto.categoria.slug}
         className="h-16 w-16 rounded-xl opacity-70"
         glifo={40}

@@ -112,10 +112,10 @@ Cuando corrige, la respuesta trae `{ "correccion": { "buscaste": "rtx 3370", "mo
 | `GET /catalogo/sugerencias?q=` | Vendedor | «Ya está en PaseLibre»: productos parecidos, con la misma búsqueda tolerante | 53 |
 | `GET /catalogo/sugerencias?producto=` | Vendedor | Un producto, para «Publicar uno igual» desde la ficha | 53 |
 | `POST /archivos` | Vendedor | Subir una foto (multipart, campo `foto`). Devuelve la ruta para usarla en una oferta, un producto o el chat | 05, 39 |
-| `POST /ofertas` | Vendedor | Publicar: «uno igual» con `producto_id`, o con `producto_nuevo`. Producto y oferta se crean en una sola transacción | 05, 06, 38 |
+| `POST /ofertas` | Vendedor | Publicar: «uno igual» con `producto_id`, o con `producto_nuevo`. Producto y oferta se crean en una sola transacción. `portada` (docs/17 §5): una de sus `fotos`, o nula para la del catálogo | 05, 06, 38 |
 | `GET /mis-ofertas?estado=&q=` | Vendedor | Las de su tienda: activas, sin stock o pausadas, con buscador | 08 |
 | `GET /ofertas/:id` | Vendedor | Una oferta propia, para editarla | 08 |
-| `PATCH /ofertas/:id` | Vendedor | Condición, stock, precio, moneda, visibilidad del precio, `tienda_visible` («Tienda reservada»), descripción y fotos; pausar o reactivar | 06, 08, 09 |
+| `PATCH /ofertas/:id` | Vendedor | Condición, stock, precio, moneda, visibilidad del precio, `tienda_visible` («Tienda reservada»), descripción, fotos y `portada` (si se quita la foto que era portada, vuelve a nula); pausar o reactivar | 06, 08, 09 |
 | `DELETE /ofertas/:id` | Vendedor | Eliminar (queda `ELIMINADA`) | 08 |
 | `POST /ofertas/confirmar` | Vendedor | «Siguen igual» para las de más de 7 días | 10 |
 

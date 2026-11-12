@@ -10,6 +10,7 @@ import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { detalleDe } from '../catalogo/catalogo.service';
 import { preciosPara } from '../catalogo/visibilidad';
@@ -44,12 +45,13 @@ const SELECT_OFERTA = {
   precioVisible: true,
   soloSocios: true,
   creadaEn: true,
+  ...PORTADA_DE_OFERTA,
   producto: {
     select: {
       slug: true,
       titulo: true,
       categoria: { select: { slug: true } },
-      fotos: { select: { ruta: true }, orderBy: { orden: 'asc' }, take: 1 },
+      ...FOTO_DEL_PRODUCTO,
     },
   },
 } satisfies Prisma.OfertaSelect;
@@ -165,7 +167,7 @@ export class NovedadesService {
         producto: {
           slug: o.producto.slug,
           titulo: o.producto.titulo,
-          foto: o.producto.fotos[0]?.ruta ?? null,
+          foto: portadaDe(o),
           categoria: o.producto.categoria,
         },
         detalle: detalleDe(o),

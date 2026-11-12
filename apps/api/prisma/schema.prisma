@@ -542,6 +542,9 @@ model Oferta {
   /// nombre, stand ni WhatsApp, y se escribe solo por chat. La dueña y el equipo la ven igual.
   tiendaVisible           Boolean        @default(true) @map("tienda_visible")
   descripcion             String?        @db.VarChar(500)
+  /// La foto de portada que eligió la tienda (docs/17 §5): la ruta de una de sus `fotos`. Nula =
+  /// la de siempre: la primera del producto o, si no tiene, la primera de la tienda.
+  portadaRuta             String?        @map("portada_ruta") @db.VarChar(300)
   /// «Nuevo sellado», «Open box», «Usado» o «Reacondicionado» (PUB_WebProducto). `condicion`
   /// sigue siendo nuevo o usado, para los filtros.
   estadoDetalle           EstadoDetalle? @map("estado_detalle")
