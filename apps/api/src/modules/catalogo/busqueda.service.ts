@@ -133,6 +133,11 @@ export class BusquedaService {
     MEMORIA_VISITANTE_MS,
     1_000,
   );
+  /** Las facetas del visitante no cambian de una página a otra: se guardan sin la página. */
+  private readonly facetasDeVisitantes = new MemoriaPorClave<RespuestaBuscar['facetas']>(
+    MEMORIA_VISITANTE_MS,
+    500,
+  );
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -214,7 +219,12 @@ export class BusquedaService {
       }
     }
 
-    const facetas = await this.facetas(usadas, usada);
+    const facetas = conPrecio
+      ? await this.facetas(usadas, usada)
+      : await this.facetasDeVisitantes.recordar(
+          JSON.stringify([usadas, usada.categoria ?? '']),
+          () => this.facetas(usadas, usada),
+        );
 
     const base = {
       correccion,
@@ -731,7 +741,17 @@ export class BusquedaService {
         SELECT min(x.d_eq) AS barata
         FROM (
           SELECT ${this.precioDestacada(miTiendaId)} AS d_eq
-          FROM (${this.filtradas(palabras, consulta, true, Prisma.sql`o.producto_id IN (SELECT producto_id FROM propias)`)}) f
+          FROM (
+            -- Los productos ya coinciden: basta con las ofertas vigentes, sin volver a filtrar.
+            SELECT o.producto_id, o.tienda_id, o.stock,
+                   CASE WHEN o.precio_visible AND o.precio_centimos IS NOT NULL
+                        THEN o.precio_centimos::numeric
+                             / CASE WHEN o.moneda::text = 'PEN' THEN CAST(${this.tipoCambio} AS numeric) ELSE 1 END
+                   END AS precio_eq
+            FROM oferta o
+            JOIN tienda t ON t.id = o.tienda_id AND t.estado = 'ACTIVA'
+            WHERE o.estado = 'ACTIVA' AND o.producto_id IN (SELECT producto_id FROM propias)
+          ) f
           GROUP BY f.producto_id
         ) x
       ),`
