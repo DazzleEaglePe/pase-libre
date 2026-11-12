@@ -18,8 +18,8 @@ export interface OfertaVista {
   fotos: Foto[];
   actualizadaEn: string;
   /** Solo con sesión. */
-  /** `id` vacío con la tienda reservada (no se puede abrir su perfil). */
-  tienda: { id: string; nombre: string; stand: string | null } | null;
+  /** `id` vacío y sin logo con la tienda reservada (no se puede abrir su perfil). */
+  tienda: { id: string; nombre: string; stand: string | null; logo: string | null } | null;
   precio: Precio | null;
   precioVisible: boolean;
   modoVenta: ModoVenta;
@@ -74,7 +74,12 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
     descripcion: oferta.descripcion,
     fotos: oferta.fotos,
     actualizadaEn: oferta.actualizada_en,
-    tienda: { id: oferta.tienda.id, nombre: oferta.tienda.nombre, stand: oferta.tienda.stand },
+    tienda: {
+      id: oferta.tienda.id,
+      nombre: oferta.tienda.nombre,
+      stand: oferta.tienda.stand,
+      logo: oferta.tienda.logo ?? null,
+    },
     precio: oferta.precio,
     precioVisible: oferta.precio_visible,
     modoVenta: oferta.modo_venta,

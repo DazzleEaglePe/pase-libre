@@ -43,8 +43,8 @@ import { EnVivoEnElChat } from '@/features/en-vivo/en-chat';
 import { VentanaBloquear, VentanaReporte } from '@/features/reportes/ventanas';
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
 import { cuandoFue, diaDelChat, haceRato } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
 import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { Miniatura } from '@/shared/ui/miniatura';
 
 import { Burbuja, type AccionMensaje } from './burbuja';
@@ -186,12 +186,14 @@ function PanelTienda({
       className="hidden w-[280px] shrink-0 flex-col gap-4 overflow-y-auto border-l border-linea p-5 xl:flex"
     >
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <span
-          aria-hidden="true"
-          className="flex h-16 w-16 items-center justify-center rounded-full bg-tinta text-[20px] font-bold text-white"
-        >
-          {iniciales(otro.tienda.nombre)}
-        </span>
+        <AvatarTienda
+          nombre={otro.tienda.nombre}
+          logo={otro.tienda.logo}
+          tamano={64}
+          letra={20}
+          fondo="bg-tinta font-bold text-white"
+          oculto
+        />
         <b className="text-[18px] font-bold">{otro.tienda.nombre}</b>
         <span className="text-apoyo text-secundario">
           {[sobre.galeria ?? 'Independiente', sobre.stand && `Stand ${sobre.stand}`]
@@ -816,15 +818,15 @@ export function Conversacion({
               <path d="M15 6l-6 6 6 6" />
             </svg>
           </Link>
-          <span
-            aria-hidden="true"
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-tinta font-semibold text-white"
-          >
-            {iniciales(otro.tienda.nombre)}
-            {otro.en_linea && (
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-[2.5px] border-white bg-[#22C55E]" />
-            )}
-          </span>
+          <AvatarTienda
+            nombre={otro.tienda.nombre}
+            logo={otro.tienda.logo}
+            tamano={44}
+            letra={15}
+            fondo="bg-tinta font-semibold text-white"
+            enLinea={otro.en_linea}
+            oculto
+          />
           <span className="flex min-w-0 flex-1 flex-col">
             <b className="truncate text-tarjeta">{otro.tienda.nombre}</b>
             <span className="truncate text-nota text-secundario">

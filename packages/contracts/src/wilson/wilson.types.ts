@@ -96,6 +96,8 @@ export interface RespuestaPreciosCategoria {
 interface TiendaDeNovedad {
   id: string;
   nombre: string;
+  /** La ruta del logo (`urlFoto`); sin él, las iniciales. */
+  logo: string | null;
   /** «Cyberplaza · Stand 214». */
   lugar: string;
 }
@@ -132,12 +134,13 @@ export type NovedadSeguida =
 /** `GET /v1/seguidas/novedades` (SEG_Web, SEG_Cel). */
 export interface RespuestaNovedades {
   /** Los círculos de arriba, con el punto si publicó hoy. */
-  seguidas: Array<{ id: string; nombre: string; nuevo_hoy: boolean }>;
+  seguidas: Array<{ id: string; nombre: string; logo: string | null; nuevo_hoy: boolean }>;
   novedades: NovedadSeguida[];
   /** «Te pueden interesar»: activas que no sigues, con el porqué. */
   sugeridas: Array<{
     id: string;
     nombre: string;
+    logo: string | null;
     lugar: string;
     vende: string | null;
     /** El promedio de sus estrellas; nulo sin opiniones. */

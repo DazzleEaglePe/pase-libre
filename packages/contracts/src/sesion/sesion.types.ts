@@ -46,6 +46,8 @@ export interface TiendaDeSesion {
   tipo: TipoTienda;
   galeria: string | null;
   stand: string | null;
+  /** La ruta del logo (`urlFoto`); sin él, las iniciales (cabecera, menú, saludo, Tu cuenta). */
+  logo: string | null;
   /** Valores por defecto al publicar (D-37, RF-48): por ahora, precio oculto y en US$. */
   precio_visible_defecto: boolean;
   moneda_defecto: Moneda;

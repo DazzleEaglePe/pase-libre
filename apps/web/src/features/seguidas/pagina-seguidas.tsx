@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { BotonResponder } from '@/features/en-vivo/responder';
 import { datoPrecio, lineaCantidad } from '@/features/en-vivo/textos';
 import { diaCorto, haceCuanto, haceRato, hora } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
@@ -42,14 +42,25 @@ function colorDe(nombre: string): string {
   return COLORES[suma % COLORES.length] ?? COLORES[0] ?? '';
 }
 
-function Avatar({ nombre, tamano = 'h-10 w-10' }: { nombre: string; tamano?: string }) {
+/** El logo de la tienda, o sus iniciales en su color (punto 6). */
+function Avatar({
+  nombre,
+  logo,
+  tamano = 40,
+}: {
+  nombre: string;
+  logo: string | null;
+  tamano?: number;
+}) {
   return (
-    <span
-      aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full text-apoyo font-bold ${tamano} ${colorDe(nombre)}`}
-    >
-      {iniciales(nombre)}
-    </span>
+    <AvatarTienda
+      nombre={nombre}
+      logo={logo}
+      tamano={tamano}
+      letra={14}
+      fondo={`font-bold ${colorDe(nombre)}`}
+      oculto
+    />
   );
 }
 
@@ -134,7 +145,7 @@ function Novedad({ novedad }: { novedad: NovedadSeguida }) {
       }`}
     >
       <div className="flex items-start gap-3">
-        <Avatar nombre={tienda.nombre} />
+        <Avatar nombre={tienda.nombre} logo={tienda.logo} />
         <span className="flex min-w-0 flex-1 flex-col">
           <Link
             href={`/tiendas/${tienda.id}`}
@@ -261,7 +272,7 @@ export function PaginaSeguidas({
                   className="flex flex-col gap-3 rounded-[20px] border border-linea bg-white p-4"
                 >
                   <span className="flex items-center gap-3">
-                    <Avatar nombre={sugerida.nombre} tamano="h-12 w-12" />
+                    <Avatar nombre={sugerida.nombre} logo={sugerida.logo} tamano={48} />
                     <span className="flex min-w-0 flex-col">
                       <Link
                         href={`/tiendas/${sugerida.id}`}
@@ -346,13 +357,15 @@ export function PaginaSeguidas({
                 className="flex w-16 shrink-0 flex-col items-center gap-1.5 text-tinta no-underline"
               >
                 <span className="relative">
-                  <span
-                    className={`flex h-14 w-14 items-center justify-center rounded-full text-[18px] font-bold ${colorDe(seguida.nombre)} ${
-                      tienda === seguida.id ? 'ring-2 ring-pase ring-offset-2' : ''
-                    }`}
-                  >
-                    {iniciales(seguida.nombre)}
-                  </span>
+                  <AvatarTienda
+                    nombre={seguida.nombre}
+                    logo={seguida.logo}
+                    tamano={56}
+                    letra={18}
+                    fondo={`font-bold ${colorDe(seguida.nombre)}`}
+                    oculto
+                    className={tienda === seguida.id ? 'ring-2 ring-pase ring-offset-2' : ''}
+                  />
                   {seguida.nuevo_hoy && (
                     <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-white bg-pase">
                       <span className="sr-only">Publicó hoy</span>
@@ -431,7 +444,7 @@ export function PaginaSeguidas({
                     key={sugerida.id}
                     className="flex items-center gap-3 border-t border-linea px-4 py-3"
                   >
-                    <Avatar nombre={sugerida.nombre} />
+                    <Avatar nombre={sugerida.nombre} logo={sugerida.logo} />
                     <span className="flex min-w-0 flex-1 flex-col">
                       <Link
                         href={`/tiendas/${sugerida.id}`}

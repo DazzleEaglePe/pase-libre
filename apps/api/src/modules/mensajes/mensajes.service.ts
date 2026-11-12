@@ -53,6 +53,7 @@ const SELECT_PERSONA = {
       nombre: true,
       tipo: true,
       stand: true,
+      logo: true,
       galeria: { select: { nombre: true } },
     },
   },
@@ -141,6 +142,8 @@ function persona(u: PersonaFila, reservada = false): PersonaChat {
         tipo: u.tienda?.tipo ?? 'INDEPENDIENTE',
         galeria: u.tienda?.galeria?.nombre ?? null,
         stand: null,
+        // Ni el logo: es la tienda a la vista.
+        logo: null,
       },
     };
   }
@@ -153,6 +156,7 @@ function persona(u: PersonaFila, reservada = false): PersonaChat {
       tipo: u.tienda?.tipo ?? 'INDEPENDIENTE',
       galeria: u.tienda?.galeria?.nombre ?? null,
       stand: u.tienda?.stand ?? null,
+      logo: u.tienda?.logo ?? null,
     },
   };
 }

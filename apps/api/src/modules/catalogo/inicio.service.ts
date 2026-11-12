@@ -323,13 +323,14 @@ export class InicioService {
       Array<{
         id: string;
         nombre: string;
+        logo: string | null;
         galeria: string | null;
         ofertas: number;
         visibles: number;
         categoria: string | null;
       }>
     >`
-      SELECT t.id, t.nombre, g.nombre AS galeria,
+      SELECT t.id, t.nombre, t.logo, g.nombre AS galeria,
              count(o.id)::int AS ofertas,
              count(o.id) FILTER (WHERE o.tienda_visible)::int AS visibles,
              (SELECT c.nombre FROM oferta o2
@@ -352,6 +353,7 @@ export class InicioService {
         .map((fila) => ({
           id: fila.id,
           nombre: fila.nombre,
+          logo: fila.logo,
           detalle: [fila.categoria, fila.galeria ?? 'Independiente'].filter(Boolean).join(' · '),
         })),
       reservadas: otras.filter(reservada).length,

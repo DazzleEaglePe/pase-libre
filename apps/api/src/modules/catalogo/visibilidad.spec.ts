@@ -24,7 +24,7 @@ const oferta = (
   tiendaId: DUENA,
   ...cambios,
 });
-const tienda = { id: DUENA, nombre: 'Tienda B', stand: '101' };
+const tienda = { id: DUENA, nombre: 'Tienda B', stand: '101', logo: 'tiendas/b.webp' };
 
 describe('precioPara («Quién ve qué», docs/05 §5)', () => {
   it('un visitante nunca ve un precio', () => {
@@ -52,12 +52,18 @@ describe('tiendaPara (tienda reservada)', () => {
     expect(tiendaPara(oferta(), tienda, otraTienda)).toEqual(tienda);
   });
 
-  it('reservada, otra tienda no recibe ni el id ni el stand', () => {
+  it('reservada, otra tienda no recibe ni el id, ni el stand, ni el logo', () => {
     expect(tiendaPara(oferta({ tiendaVisible: false }), tienda, otraTienda)).toEqual({
       id: '',
       nombre: TIENDA_RESERVADA,
       stand: null,
+      logo: null,
     });
+  });
+
+  it('sin logo, nulo: salen las iniciales', () => {
+    const sinLogo = { id: DUENA, nombre: 'Tienda B', stand: '101' };
+    expect(tiendaPara(oferta(), sinLogo, otraTienda)).toEqual({ ...sinLogo, logo: null });
   });
 
   it('reservada, la dueña y el equipo la siguen viendo', () => {

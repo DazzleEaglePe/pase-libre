@@ -5,7 +5,7 @@ import { IconBrandWhatsapp, IconCheck, IconChevronRight } from '@tabler/icons-re
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { iniciales } from '@/shared/iniciales';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { CLAVE_INVITO, invitarPorWhatsApp } from '@/shared/ui/invitacion-pie';
 
 /**
@@ -29,8 +29,8 @@ function useInvito(): boolean {
 
 /**
  * «Piloto en la galería · Eres de las primeras tiendas de PaseLibre» (N16): cuántas entraron de
- * la meta, sus iniciales y el botón para invitar. Con `compacto` (primera semana) se achica:
- * sin el título ni la frase.
+ * la meta, sus logos (o sus iniciales) y el botón para invitar. Con `compacto` (primera semana)
+ * se achica: sin el título ni la frase.
  */
 export function PilotoGaleria({
   tiendas,
@@ -38,11 +38,11 @@ export function PilotoGaleria({
   compacto = false,
 }: {
   tiendas: RespuestaInicio['tiendas'];
-  miTienda: string;
+  miTienda: { nombre: string; logo: string | null } | null;
   compacto?: boolean;
 }) {
-  const circulos = [miTienda, ...tiendas.visibles.map((tienda) => tienda.nombre)]
-    .filter(Boolean)
+  const circulos = [miTienda, ...tiendas.visibles]
+    .filter((tienda): tienda is { nombre: string; logo: string | null } => Boolean(tienda?.nombre))
     .slice(0, 5);
   const avance = Math.min(100, Math.round((tiendas.activas / tiendas.meta) * 100));
   return (
@@ -60,14 +60,17 @@ export function PilotoGaleria({
       )}
       <div className="flex items-center gap-2.5">
         <span className="flex shrink-0 pl-2">
-          {circulos.map((nombre, n) => (
-            <span
-              key={`${nombre}-${n}`}
-              aria-hidden="true"
-              className="-ml-2 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-pase bg-pase-medio text-[11px] font-extrabold text-marca"
-            >
-              {iniciales(nombre)}
-            </span>
+          {circulos.map((tienda, n) => (
+            <AvatarTienda
+              key={`${tienda.nombre}-${n}`}
+              nombre={tienda.nombre}
+              logo={tienda.logo}
+              tamano={30}
+              letra={11}
+              fondo="bg-pase-medio font-extrabold text-marca"
+              oculto
+              className="-ml-2 border-2 border-pase"
+            />
           ))}
         </span>
         <span className="text-apoyo font-medium">

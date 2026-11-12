@@ -18,8 +18,8 @@ import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue, hora } from '@/shared/fechas';
-import { iniciales } from '@/shared/iniciales';
 import { conPlural } from '@/shared/plural';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { Ventana } from '@/shared/ui/ventana';
 
 import { Historial, PestanaAcceso } from './acceso';
@@ -119,21 +119,14 @@ export function FichaDeTienda({
         aria-label={`Ficha de ${ficha.nombre}`}
         className="flex flex-wrap items-center gap-4 rounded-[22px] border-[1.5px] border-linea bg-white p-4 sm:p-5"
       >
-        {ficha.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element -- fotos de /media, ya en WebP
-          <img
-            src={urlFoto(ficha.logo)}
-            alt=""
-            className="h-16 w-16 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <span
-            aria-hidden="true"
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-marca text-[20px] font-extrabold text-white"
-          >
-            {iniciales(ficha.nombre)}
-          </span>
-        )}
+        <AvatarTienda
+          nombre={ficha.nombre}
+          logo={ficha.logo}
+          tamano={64}
+          letra={20}
+          fondo="bg-marca font-extrabold text-white"
+          oculto
+        />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex flex-wrap items-center gap-2">
             <h1 className="text-[24px] font-bold leading-7">{ficha.nombre}</h1>

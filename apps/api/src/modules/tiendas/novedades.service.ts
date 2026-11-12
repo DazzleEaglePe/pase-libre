@@ -83,6 +83,7 @@ export class NovedadesService {
             select: {
               id: true,
               nombre: true,
+              logo: true,
               stand: true,
               galeria: { select: { nombre: true } },
             },
@@ -150,6 +151,7 @@ export class NovedadesService {
         {
           id: tienda.id,
           nombre: tienda.nombre,
+          logo: tienda.logo,
           lugar: [
             tienda.galeria?.nombre ?? 'Independiente',
             tienda.stand && `Stand ${tienda.stand}`,
@@ -234,6 +236,7 @@ export class NovedadesService {
       seguidas: seguidas.map((tienda) => ({
         id: tienda.id,
         nombre: tienda.nombre,
+        logo: tienda.logo,
         nuevo_hoy: conHoy.has(tienda.id),
       })),
       novedades: novedades
@@ -257,6 +260,7 @@ export class NovedadesService {
       select: {
         id: true,
         nombre: true,
+        logo: true,
         stand: true,
         creadaEn: true,
         galeria: { select: { nombre: true } },
@@ -318,6 +322,7 @@ export class NovedadesService {
         return {
           id: tienda.id,
           nombre: tienda.nombre,
+          logo: tienda.logo,
           lugar: [
             tienda.galeria?.nombre ?? 'Independiente',
             tienda.stand && `Stand ${tienda.stand}`,

@@ -129,6 +129,8 @@ export interface DetalleReporte extends ReporteEnCola {
 export interface TiendaEnPanel {
   id: string;
   nombre: string;
+  /** La ruta del logo (`urlFoto`); sin él, las iniciales. */
+  logo: string | null;
   galeria: string | null;
   stand: string | null;
   suspendida: boolean;

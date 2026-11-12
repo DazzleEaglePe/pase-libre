@@ -15,8 +15,8 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
-import { iniciales } from '@/shared/iniciales';
 import { conPlural } from '@/shared/plural';
+import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { Interruptor } from '@/shared/ui/interruptor';
 
 const MES = new Intl.DateTimeFormat('es-PE', {
@@ -131,12 +131,14 @@ export function TuCuenta({ tienda }: { tienda: TiendaDeSesion }) {
           className="flex flex-col gap-4 rounded-[24px] border border-linea bg-white p-5 sm:p-6"
         >
           <div className="flex items-center gap-4">
-            <span
-              aria-hidden="true"
-              className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-marca text-[26px] font-bold text-white"
-            >
-              {iniciales(tienda.nombre)}
-            </span>
+            <AvatarTienda
+              nombre={tienda.nombre}
+              logo={tienda.logo}
+              tamano={72}
+              letra={26}
+              fondo="bg-marca font-bold text-white"
+              oculto
+            />
             <span className="flex min-w-0 flex-col gap-1">
               <b className="truncate text-[22px] font-bold">{tienda.nombre}</b>
               <span className="text-apoyo text-secundario">{lugar}</span>

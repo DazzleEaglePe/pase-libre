@@ -164,8 +164,11 @@ export interface OfertaPublica {
 }
 
 export interface OfertaConVendedor extends OfertaPublica {
-  /** Con la tienda reservada: `id` vacío, «Tienda reservada» y sin stand (salvo para la dueña y el equipo). */
-  tienda: { id: string; nombre: string; stand: string | null };
+  /**
+   * Con la tienda reservada: `id` vacío, «Tienda reservada», sin stand ni logo (salvo para la
+   * dueña y el equipo). `logo` es la ruta (`urlFoto`); sin él, las iniciales.
+   */
+  tienda: { id: string; nombre: string; stand: string | null; logo: string | null };
   tienda_visible: boolean;
   modo_venta: ModoVenta;
   /** El precio con factura e IGV, con las mismas reglas que el precio de pase. */
@@ -318,7 +321,8 @@ export interface RespuestaInicio {
    * entraron». Una tienda con todo en reservado cuenta, pero no se muestra.
    */
   tiendas: {
-    visibles: Array<{ id: string; nombre: string; detalle: string }>;
+    /** `logo`: la ruta (`urlFoto`); sin él, las iniciales. */
+    visibles: Array<{ id: string; nombre: string; logo: string | null; detalle: string }>;
     reservadas: number;
     activas: number;
     meta: number;
