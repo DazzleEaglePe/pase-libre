@@ -1,5 +1,23 @@
 import type { Moneda } from '../comun/dinero.js';
 import type { Rol, TipoTienda } from '../sesion/sesion.types.js';
+import type { TramoHorario } from '../tiendas/horario.js';
+
+/** Galería, piso y stand de una tienda. */
+export interface LugarTienda {
+  galeria_id: string | null;
+  /** El nombre de la galería: «Cyberplaza». */
+  galeria: string | null;
+  piso: string | null;
+  stand: string | null;
+}
+
+/**
+ * Un cambio de galería, piso o stand que espera al Equipo (N09: «Pendiente de aprobación»).
+ * Hasta que lo confirman, el perfil sigue mostrando el lugar de antes.
+ */
+export interface LugarPendiente extends LugarTienda {
+  pedido_en: string;
+}
 
 /** `GET /v1/cuenta` y `PATCH /v1/cuenta`: Configuración · Datos, Privacidad y Preferencias. */
 export interface RespuestaCuenta {
@@ -17,8 +35,16 @@ export interface RespuestaCuenta {
     tipo: TipoTienda;
     galeria: string | null;
     stand: string | null;
+    galeria_id: string | null;
+    piso: string | null;
+    /** El cambio de lugar que espera al Equipo, o nulo. */
+    lugar_pendiente: LugarPendiente | null;
     whatsapp: string;
     horario: string | null;
+    /** El horario por días (o leído del `horario` escrito a mano); nulo si no se entiende. */
+    horario_tramos: TramoHorario[] | null;
+    /** Ruta de la portada subida, para «Perfil al N %». */
+    portada: string | null;
     /** «Cómo llegar»: cómo se sube hasta el stand. */
     indicaciones: string | null;
     descripcion: string | null;
@@ -90,4 +116,25 @@ export interface ResumenCuenta {
   chats_abiertos: number;
   /** El WhatsApp de la tienda, con lo del medio tapado: «+51 9•• ••• 482». */
   whatsapp: string | null;
+  /** «Tu mes» (N04): ventas marcadas este mes, en hora de Lima. */
+  ventas_mes: number;
+  /** «1 chat sin responder»: chats de los últimos 30 días cuyo último mensaje es de la otra tienda. */
+  sin_responder: number;
+}
+
+/** Una galería para elegir en Configuración · Datos de la tienda. */
+export interface GaleriaParaElegir {
+  id: string;
+  nombre: string;
+}
+
+/** `GET /v1/equipo/cambios-de-lugar`: lo que el Equipo tiene que confirmar. */
+export interface CambioDeLugar {
+  id: string;
+  tienda: { id: string; nombre: string };
+  antes: LugarTienda;
+  despues: LugarTienda;
+  /** Quién lo pidió: «Luis P.». */
+  pedido_por: string;
+  pedido_en: string;
 }

@@ -58,6 +58,22 @@ export const responderOpinionSchema = z
   .strict();
 export type ResponderOpinionDatos = z.infer<typeof responderOpinionSchema>;
 
+/**
+ * `POST /v1/opiniones/:id/revision` (N03): la tienda calificada le pide al Equipo que revise una
+ * opinión. Se guarda como un reporte; «Cuéntanos qué pasó» es opcional.
+ */
+export const pedirRevisionSchema = z
+  .object({
+    motivo: z
+      .string()
+      .trim()
+      .max(500, 'Escribe hasta 500 caracteres.')
+      .optional()
+      .transform((texto) => texto || undefined),
+  })
+  .strict();
+export type PedirRevisionDatos = z.infer<typeof pedirRevisionSchema>;
+
 /** `GET /v1/tiendas/:id/opiniones?filtro=` (SG_WebOpiniones). */
 export const filtroOpinionesSchema = z.object({
   filtro: z.enum(['todas', 'con_respuesta', 'cinco', 'bajas']).default('todas'),

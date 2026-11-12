@@ -11,7 +11,10 @@ import type {
   TiendaBloqueada,
 } from '@paselibre/contracts';
 import {
+  horarioTiendaSchema,
+  leerHorarioEscrito,
   normalizarTexto,
+  textoHorario,
   TIENDA_RESERVADA,
   type PortadaDatos,
   type PortadaTienda,
@@ -25,7 +28,20 @@ import { INTERRUPTOR_EN_VIVO, type InterruptorEnVivo } from '../en-vivo/interrup
 import type { SesionActiva } from '../sesion/sesion.types';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
-const INCLUIR_TIENDA = { tienda: { include: { galeria: true } } } as const;
+const INCLUIR_TIENDA = {
+  tienda: {
+    include: {
+      galeria: true,
+      // N09: el cambio de galería, piso o stand que espera al Equipo.
+      cambiosLugar: {
+        where: { estado: 'PENDIENTE' },
+        include: { galeria: true },
+        orderBy: { creadoEn: 'desc' },
+        take: 1,
+      },
+    },
+  },
+} as const;
 type UsuarioConTienda = Prisma.UsuarioGetPayload<{ include: typeof INCLUIR_TIENDA }>;
 
 /** Los tipos de aviso que se pueden apagar en «Configurar avisos» (AV_Web). */
@@ -74,8 +90,10 @@ function aHora(minutos: number): string {
   return `${String(Math.floor(minutos / 60)).padStart(2, '0')}:${String(minutos % 60).padStart(2, '0')}`;
 }
 
-function respuestaCuenta(usuario: UsuarioConTienda): RespuestaCuenta {
+export function respuestaCuenta(usuario: UsuarioConTienda): RespuestaCuenta {
   const { tienda } = usuario;
+  const pendiente = tienda?.cambiosLugar[0];
+  const tramos = horarioTiendaSchema.safeParse(tienda?.horarioDatos);
   return {
     usuario: {
       usuario: usuario.usuario,
@@ -91,8 +109,21 @@ function respuestaCuenta(usuario: UsuarioConTienda): RespuestaCuenta {
           tipo: tienda.tipo,
           galeria: tienda.galeria?.nombre ?? null,
           stand: tienda.stand,
+          galeria_id: tienda.galeriaId,
+          piso: tienda.piso,
+          lugar_pendiente: pendiente
+            ? {
+                galeria_id: pendiente.galeriaId,
+                galeria: pendiente.galeria.nombre,
+                piso: pendiente.piso,
+                stand: pendiente.stand,
+                pedido_en: pendiente.creadoEn.toISOString(),
+              }
+            : null,
           whatsapp: tienda.whatsapp,
           horario: tienda.horario,
+          horario_tramos: tramos.success ? tramos.data : leerHorarioEscrito(tienda.horario),
+          portada: tienda.portadaRuta,
           indicaciones: tienda.indicaciones,
           descripcion: tienda.descripcion,
           logo: tienda.logo,
@@ -201,12 +232,23 @@ export class CuentaService {
           if (tienda.logo && tienda.logo !== actual.tienda?.logo) {
             await this.archivos.reclamar(tx, [tienda.logo], actual.tiendaId);
           }
+          // Con el horario por días (N09), el texto se escribe solo.
+          const horario =
+            tienda.horario_tramos === undefined || tienda.horario_tramos === null
+              ? tienda.horario
+              : textoHorario(tienda.horario_tramos, 'largo').slice(0, 120);
           await tx.tienda.update({
             where: { id: actual.tiendaId },
             data: {
               nombre: tienda.nombre,
               whatsapp: tienda.whatsapp,
-              horario: tienda.horario,
+              horario,
+              horarioDatos:
+                tienda.horario_tramos === undefined
+                  ? undefined
+                  : tienda.horario_tramos === null
+                    ? Prisma.DbNull
+                    : tienda.horario_tramos,
               indicaciones: tienda.indicaciones,
               descripcion: tienda.descripcion,
               logo: tienda.logo,

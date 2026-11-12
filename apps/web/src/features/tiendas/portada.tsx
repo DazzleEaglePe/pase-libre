@@ -31,8 +31,19 @@ function paletaDe(nombre: string): [string, string, string] {
   return PALETAS[suma % PALETAS.length] ?? PALETAS[0]!;
 }
 
-/** Sin ninguna foto: la portada con el nombre y lo que más vende (COR1, «automática»). */
-function PortadaAutomatica({ nombre, categorias }: { nombre: string; categorias: string[] }) {
+/**
+ * Sin ninguna foto: la portada con el nombre y lo que más vende (COR1, «automática»). `sinTexto`
+ * es para la cabecera A (N04), que ya escribe el nombre y lo que vende debajo del logo.
+ */
+function PortadaAutomatica({
+  nombre,
+  categorias,
+  sinTexto = false,
+}: {
+  nombre: string;
+  categorias: string[];
+  sinTexto?: boolean;
+}) {
   const [fondo, acento, chico] = paletaDe(nombre);
   const inicial = (nombre.trim()[0] ?? 'P').toUpperCase();
   return (
@@ -57,18 +68,20 @@ function PortadaAutomatica({ nombre, categorias }: { nombre: string; categorias:
       >
         {inicial}
       </text>
-      <text
-        x="70"
-        y="118"
-        fill={acento}
-        fontFamily="Montserrat, sans-serif"
-        fontSize="58"
-        fontWeight="800"
-        letterSpacing="2"
-      >
-        {nombre.toUpperCase().slice(0, 24)}
-      </text>
-      {categorias.length > 0 && (
+      {!sinTexto && (
+        <text
+          x="70"
+          y="118"
+          fill={acento}
+          fontFamily="Montserrat, sans-serif"
+          fontSize="58"
+          fontWeight="800"
+          letterSpacing="2"
+        >
+          {nombre.toUpperCase().slice(0, 24)}
+        </text>
+      )}
+      {!sinTexto && categorias.length > 0 && (
         <text
           x="72"
           y="160"
@@ -81,7 +94,7 @@ function PortadaAutomatica({ nombre, categorias }: { nombre: string; categorias:
           {categorias.join(' · ')}
         </text>
       )}
-      <rect x="72" y="182" width="120" height="5" rx="2" fill={acento} />
+      {!sinTexto && <rect x="72" y="182" width="120" height="5" rx="2" fill={acento} />}
     </svg>
   );
 }
@@ -156,37 +169,50 @@ function Opcion({
   );
 }
 
-/**
- * La portada del perfil de una tienda (COR1 del lienzo final). Si la tienda subió una foto se
- * ve esa (a lo largo y recortada donde ella eligió, o vertical con los costados difuminados);
- * si no, la automática. En tu perfil, «Cambiar portada» abre: subir una foto, acomodarla,
- * usar la foto del stand, volver a la automática o quitarla.
- */
-export function Portada({
-  perfil,
-  editable = false,
-  esquina,
-  children,
-}: {
-  perfil: Pick<PerfilTienda, 'nombre' | 'portada' | 'categorias_principales'>;
-  /** Tu perfil: con «Cambiar portada». */
-  editable?: boolean;
-  /** Lo de abajo a la derecha: «Así te ven». */
-  esquina?: ReactNode;
-  /** Lo de arriba a la izquierda: «Volver» en el celular. */
-  children?: ReactNode;
-}) {
+type DatosPortada = Pick<PerfilTienda, 'nombre' | 'portada' | 'categorias_principales'>;
+
+/** Lo que se hace con la portada: guarda y vuelve a pedir la página. */
+function useAccionPortada() {
   const router = useRouter();
-  const [abierto, setAbierto] = useState(false);
-  const [acomodando, setAcomodando] = useState(false);
-  const [posicion, setPosicion] = useState(perfil.portada?.posicion ?? 50);
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function hacer(accion: () => Promise<unknown>) {
+    setTrabajando(true);
+    setError(null);
+    try {
+      await accion();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos cambiar la portada.');
+    } finally {
+      setTrabajando(false);
+    }
+  }
+
+  return { trabajando, error, hacer };
+}
+
+/**
+ * «Cambiar portada» (COR1): subir una foto, acomodarla, usar la foto del stand, volver a la
+ * automática o quitarla. `sobreFoto` es el botón blanco encima de la portada; si no, el botón con
+ * borde de la fila de botones del perfil (N04_PerfilB_Web).
+ */
+export function MenuPortada({
+  perfil,
+  alAcomodar,
+  sobreFoto = false,
+  className = '',
+}: {
+  perfil: DatosPortada;
+  alAcomodar: () => void;
+  sobreFoto?: boolean;
+  className?: string;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const { trabajando, error, hacer } = useAccionPortada();
   const archivo = useRef<HTMLInputElement>(null);
   const caja = useRef<HTMLDivElement>(null);
-  const arrastre = useRef<{ y: number; desde: number } | null>(null);
-
-  useEffect(() => setPosicion(perfil.portada?.posicion ?? 50), [perfil.portada?.posicion]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -202,19 +228,6 @@ export function Portada({
     };
   }, [abierto]);
 
-  async function hacer(accion: () => Promise<unknown>) {
-    setTrabajando(true);
-    setError(null);
-    try {
-      await accion();
-      router.refresh();
-    } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No pudimos cambiar la portada.');
-    } finally {
-      setTrabajando(false);
-    }
-  }
-
   async function subir(foto: File) {
     await hacer(async () => {
       const subida = await subirFoto(foto);
@@ -225,11 +238,167 @@ export function Portada({
   const vertical = perfil.portada && (perfil.portada.alto ?? 0) > (perfil.portada.ancho ?? 1) * 0.9;
 
   return (
-    <div className="relative h-[140px] sm:h-[240px]">
+    <div ref={caja} className={`relative ${className}`}>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={abierto}
+        aria-label={sobreFoto ? 'Cambiar portada' : undefined}
+        onClick={() => setAbierto(!abierto)}
+        className={
+          sobreFoto
+            ? 'flex h-10 items-center gap-2 rounded-full bg-white px-3 text-apoyo font-bold text-tinta shadow-[0_4px_12px_rgba(0,0,0,0.2)] sm:px-4'
+            : 'flex h-[46px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full border-[1.5px] border-borde bg-white px-3 text-[13px] font-bold text-tinta hover:border-borde-control sm:px-4 sm:text-apoyo'
+        }
+      >
+        <IconCamera size={18} stroke={1.8} aria-hidden="true" />
+        <span className={sobreFoto ? 'max-sm:hidden' : ''}>
+          {trabajando ? 'Guardando…' : 'Cambiar portada'}
+        </span>
+      </button>
+      <input
+        ref={archivo}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+        className="hidden"
+        onChange={(evento) => {
+          const foto = evento.target.files?.[0];
+          evento.target.value = '';
+          if (foto) void subir(foto);
+        }}
+      />
+      {abierto && (
+        <div
+          role="menu"
+          aria-label="Portada de tu tienda"
+          className={`absolute right-0 z-30 flex w-[280px] flex-col rounded-2xl border border-linea bg-white p-1.5 shadow-[0_18px_40px_rgba(20,22,26,0.18)] ${
+            sobreFoto ? 'top-12' : 'top-14'
+          }`}
+        >
+          <Opcion
+            icono={IconPhoto}
+            titulo="Subir una foto"
+            detalle="Mejor horizontal · 1600 × 400 · JPG, PNG o iPhone"
+            alElegir={() => {
+              setAbierto(false);
+              archivo.current?.click();
+            }}
+          />
+          <Opcion
+            icono={IconArrowsMove}
+            titulo="Acomodar"
+            detalle={
+              perfil.portada && !vertical
+                ? 'Arrastra para elegir qué parte se ve'
+                : 'Con una foto horizontal subida'
+            }
+            deshabilitada={!perfil.portada || Boolean(vertical)}
+            alElegir={() => {
+              setAbierto(false);
+              alAcomodar();
+            }}
+          />
+          <Opcion
+            icono={IconBuildingStore}
+            titulo="Usar la foto de mi stand"
+            detalle="Cuando el registro guarde la foto de tu stand"
+            deshabilitada
+            alElegir={() => undefined}
+          />
+          <Opcion
+            icono={IconBolt}
+            titulo="Portada automática"
+            detalle="Con tu nombre y lo que más vendes"
+            deshabilitada={!perfil.portada}
+            alElegir={() => {
+              setAbierto(false);
+              void hacer(() => llamarApi('/cuenta/portada', { metodo: 'DELETE' }));
+            }}
+          />
+          {perfil.portada && (
+            <Opcion
+              icono={IconTrash}
+              titulo="Quitar portada"
+              detalle="Queda la automática"
+              peligro
+              alElegir={() => {
+                setAbierto(false);
+                void hacer(() => llamarApi('/cuenta/portada', { metodo: 'DELETE' }));
+              }}
+            />
+          )}
+        </div>
+      )}
+      {error && (
+        <p
+          role="alert"
+          className="absolute right-0 top-full z-30 m-0 mt-2 w-[260px] rounded-xl bg-error-fondo px-3 py-2 text-nota text-error"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * La portada del perfil de una tienda (COR1 del lienzo final). Si la tienda subió una foto se
+ * ve esa (a lo largo y recortada donde ella eligió, o vertical con los costados difuminados);
+ * si no, la automática. `pinterest` es la cabecera A de N04_PerfilA_Web: más alta y que se
+ * desvanece hacia abajo en la tarjeta blanca. En tu perfil, «Cambiar portada» (`editable` lo
+ * pone encima de la foto; si no, `MenuPortada` va donde se quiera y abre «Acomodar» con
+ * `acomodando`).
+ */
+export function Portada({
+  perfil,
+  editable = false,
+  pinterest = false,
+  acomodando: acomodandoDesdeFuera,
+  alTerminarAcomodo,
+  esquina,
+  children,
+}: {
+  perfil: DatosPortada;
+  /** Tu perfil: con «Cambiar portada» encima de la foto. */
+  editable?: boolean;
+  /** La cabecera A (N04): alta y desvanecida hacia abajo. */
+  pinterest?: boolean;
+  /** «Acomodar» abierto desde un `MenuPortada` de afuera. */
+  acomodando?: boolean;
+  alTerminarAcomodo?: () => void;
+  /** Lo de abajo a la derecha. */
+  esquina?: ReactNode;
+  /** Lo de arriba a la izquierda: «Volver» en el celular. */
+  children?: ReactNode;
+}) {
+  const [acomodandoAqui, setAcomodandoAqui] = useState(false);
+  const acomodando = acomodandoDesdeFuera ?? acomodandoAqui;
+  const [posicion, setPosicion] = useState(perfil.portada?.posicion ?? 50);
+  const { trabajando, error, hacer } = useAccionPortada();
+  const arrastre = useRef<{ y: number; desde: number } | null>(null);
+
+  useEffect(() => setPosicion(perfil.portada?.posicion ?? 50), [perfil.portada?.posicion]);
+
+  function terminar() {
+    setAcomodandoAqui(false);
+    alTerminarAcomodo?.();
+  }
+
+  // La cabecera A se desvanece en el blanco de la tarjeta (N04_PerfilA_Web).
+  const desvanecer = pinterest
+    ? {
+        maskImage: 'linear-gradient(180deg, #000 35%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(180deg, #000 35%, transparent 100%)',
+      }
+    : undefined;
+
+  return (
+    <div className={`relative ${pinterest ? 'h-[200px] sm:h-[300px]' : 'h-[140px] sm:h-[240px]'}`}>
       <div
-        className={`absolute inset-0 overflow-hidden bg-tinta sm:rounded-[22px] ${
+        className={`absolute inset-0 overflow-hidden bg-tinta ${pinterest ? 'rounded-t-[22px]' : 'sm:rounded-[22px]'} ${
           acomodando ? 'cursor-grab touch-none active:cursor-grabbing' : ''
         }`}
+        style={desvanecer}
         onPointerDown={(evento) => {
           if (!acomodando) return;
           arrastre.current = { y: evento.clientY, desde: posicion };
@@ -248,12 +417,20 @@ export function Portada({
         {perfil.portada ? (
           <PortadaFoto portada={perfil.portada} posicion={posicion} />
         ) : (
-          <PortadaAutomatica nombre={perfil.nombre} categorias={perfil.categorias_principales} />
+          <PortadaAutomatica
+            nombre={perfil.nombre}
+            categorias={perfil.categorias_principales}
+            sinTexto={pinterest}
+          />
         )}
       </div>
       {children}
       {acomodando && (
-        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-2 bg-tinta/70 px-4 py-2.5 text-white">
+        <div
+          className={`absolute inset-x-0 z-20 flex flex-wrap items-center justify-between gap-2 bg-tinta/70 px-4 py-2.5 text-white ${
+            pinterest ? 'top-0' : 'bottom-0'
+          }`}
+        >
           <span className="flex items-center gap-2 text-apoyo">
             <IconArrowsMove size={18} stroke={1.8} aria-hidden="true" />
             Arrastra arriba o abajo para elegir qué parte se ve
@@ -263,7 +440,7 @@ export function Portada({
               type="button"
               onClick={() => {
                 setPosicion(perfil.portada?.posicion ?? 50);
-                setAcomodando(false);
+                terminar();
               }}
               className="h-9 rounded-full border border-white/60 px-4 text-apoyo font-bold"
             >
@@ -275,7 +452,7 @@ export function Portada({
               onClick={() =>
                 void hacer(() =>
                   llamarApi('/cuenta/portada', { metodo: 'PUT', cuerpo: { posicion } }),
-                ).then(() => setAcomodando(false))
+                ).then(terminar)
               }
               className="h-9 rounded-full bg-white px-4 text-apoyo font-bold text-tinta"
             >
@@ -285,90 +462,12 @@ export function Portada({
         </div>
       )}
       {editable && !acomodando && (
-        <div ref={caja} className="absolute right-3 top-3 sm:right-5 sm:top-4">
-          <button
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={abierto}
-            aria-label="Cambiar portada"
-            onClick={() => setAbierto(!abierto)}
-            className="flex h-10 items-center gap-2 rounded-full bg-white px-3 text-apoyo font-bold text-tinta shadow-[0_4px_12px_rgba(0,0,0,0.2)] sm:px-4"
-          >
-            <IconCamera size={18} stroke={1.8} aria-hidden="true" />
-            <span className="max-sm:hidden">{trabajando ? 'Guardando…' : 'Cambiar portada'}</span>
-          </button>
-          <input
-            ref={archivo}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-            className="hidden"
-            onChange={(evento) => {
-              const foto = evento.target.files?.[0];
-              evento.target.value = '';
-              if (foto) void subir(foto);
-            }}
-          />
-          {abierto && (
-            <div
-              role="menu"
-              aria-label="Portada de tu tienda"
-              className="absolute right-0 top-12 z-30 flex w-[280px] flex-col rounded-2xl border border-linea bg-white p-1.5 shadow-[0_18px_40px_rgba(20,22,26,0.18)]"
-            >
-              <Opcion
-                icono={IconPhoto}
-                titulo="Subir una foto"
-                detalle="Mejor horizontal · 1600 × 400 · JPG, PNG o iPhone"
-                alElegir={() => {
-                  setAbierto(false);
-                  archivo.current?.click();
-                }}
-              />
-              <Opcion
-                icono={IconArrowsMove}
-                titulo="Acomodar"
-                detalle={
-                  perfil.portada && !vertical
-                    ? 'Arrastra para elegir qué parte se ve'
-                    : 'Con una foto horizontal subida'
-                }
-                deshabilitada={!perfil.portada || Boolean(vertical)}
-                alElegir={() => {
-                  setAbierto(false);
-                  setAcomodando(true);
-                }}
-              />
-              <Opcion
-                icono={IconBuildingStore}
-                titulo="Usar la foto de mi stand"
-                detalle="Cuando el registro guarde la foto de tu stand"
-                deshabilitada
-                alElegir={() => undefined}
-              />
-              <Opcion
-                icono={IconBolt}
-                titulo="Portada automática"
-                detalle="Con tu nombre y lo que más vendes"
-                deshabilitada={!perfil.portada}
-                alElegir={() => {
-                  setAbierto(false);
-                  void hacer(() => llamarApi('/cuenta/portada', { metodo: 'DELETE' }));
-                }}
-              />
-              {perfil.portada && (
-                <Opcion
-                  icono={IconTrash}
-                  titulo="Quitar portada"
-                  detalle="Queda la automática"
-                  peligro
-                  alElegir={() => {
-                    setAbierto(false);
-                    void hacer(() => llamarApi('/cuenta/portada', { metodo: 'DELETE' }));
-                  }}
-                />
-              )}
-            </div>
-          )}
-        </div>
+        <MenuPortada
+          perfil={perfil}
+          sobreFoto
+          alAcomodar={() => setAcomodandoAqui(true)}
+          className="absolute right-3 top-3 sm:right-5 sm:top-4"
+        />
       )}
       {!acomodando && esquina && (
         <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-5">{esquina}</div>

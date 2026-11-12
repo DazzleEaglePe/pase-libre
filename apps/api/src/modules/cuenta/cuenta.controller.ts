@@ -17,12 +17,15 @@ import {
   actualizarCuentaSchema,
   alertaBusquedaSchema,
   avisosCuentaSchema,
+  cambioLugarSchema,
   portadaTiendaSchema,
   respuestasRapidasSchema,
   type ActualizarCuentaDatos,
   type AlertaBusqueda,
   type AlertaBusquedaDatos,
   type AvisosCuentaDatos,
+  type CambioLugarDatos,
+  type GaleriaParaElegir,
   type MiReporte,
   type PortadaDatos,
   type PortadaTienda,
@@ -40,6 +43,7 @@ import { Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.gua
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { CuentaService } from './cuenta.service';
+import { LugarService } from './lugar.service';
 import { ResumenService } from './resumen.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
@@ -54,6 +58,7 @@ export class CuentaController {
   constructor(
     @Inject(CuentaService) private readonly cuentas: CuentaService,
     @Inject(ResumenService) private readonly resumenes: ResumenService,
+    @Inject(LugarService) private readonly lugares: LugarService,
   ) {}
 
   /** «Tu cuenta» y tu perfil (D_Cuenta, P_WebCuentaD2): cómo vende y responde tu tienda. */
@@ -98,6 +103,36 @@ export class CuentaController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async quitarPortada(@SesionActual() { usuario }: SesionActiva): Promise<void> {
     await this.cuentas.quitarPortada(usuario.id);
+  }
+
+  /** Para «Galería ▾» en Datos de la tienda (N09). */
+  @Get('galerias')
+  @Roles('DUENO', 'ASESOR')
+  @Header('Cache-Control', 'no-store')
+  galerias(): Promise<GaleriaParaElegir[]> {
+    return this.lugares.galerias();
+  }
+
+  /**
+   * Galería, piso y stand nuevos (N09): quedan «Pendiente de aprobación» hasta que el Equipo los
+   * confirma. Pedir otro cambio reemplaza al pendiente.
+   */
+  @Put('lugar')
+  @Roles('DUENO', 'ASESOR')
+  @Header('Cache-Control', 'no-store')
+  pedirLugar(
+    @Body(new ZodValidationPipe(cambioLugarSchema)) datos: CambioLugarDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaCuenta> {
+    return this.lugares.pedir(datos, sesion);
+  }
+
+  /** «Dejar como estaba»: retira el cambio pendiente. */
+  @Delete('lugar')
+  @Roles('DUENO', 'ASESOR')
+  @Header('Cache-Control', 'no-store')
+  retirarLugar(@SesionActual() sesion: SesionActiva): Promise<RespuestaCuenta> {
+    return this.lugares.retirar(sesion);
   }
 
   @Get('avisos')

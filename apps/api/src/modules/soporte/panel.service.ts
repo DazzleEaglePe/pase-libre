@@ -291,6 +291,18 @@ export class PanelService {
       return `Pedido en vivo · ${enVivo?.titulo ?? 'ya no existe'}`;
     }
     if (objeto === 'CONVERSACION') return 'Un chat';
+    if (objeto === 'OPINION') {
+      // «Pedir revisión al Equipo» (N03): la pide la tienda calificada; la reportada es la autora.
+      const opinion = await this.prisma.opinion.findUnique({
+        where: { id: objetoId },
+        select: { estrellas: true, texto: true, tienda: { select: { nombre: true } } },
+      });
+      if (!opinion) return 'Opinión · ya no existe';
+      const estrellas = opinion.estrellas === 1 ? '1 estrella' : `${opinion.estrellas} estrellas`;
+      return `Opinión de ${estrellas} sobre ${opinion.tienda.nombre}${
+        opinion.texto ? ` · «${opinion.texto}»` : ''
+      }`;
+    }
     return 'La tienda';
   }
 

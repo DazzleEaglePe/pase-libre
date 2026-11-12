@@ -3,6 +3,9 @@ import {
   ASPECTOS_DEL_COMPRADOR,
   precioDe,
   ASPECTOS_DEL_VENDEDOR,
+  horarioTiendaSchema,
+  leerHorarioEscrito,
+  opinionBaja,
   type AspectoOpinado,
   type FiltroOpinionesConsulta,
   type OpinarDatos,
@@ -26,6 +29,7 @@ import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { preciosPara } from '../catalogo/visibilidad';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { ReputacionService } from './reputacion.service';
 
 /** Productos que se muestran en el perfil (SG_Web); el resto, en la búsqueda. */
 const PRODUCTOS_EN_PERFIL = 48;
@@ -90,6 +94,7 @@ export class TiendasService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
+    @Inject(ReputacionService) private readonly reputaciones: ReputacionService,
   ) {}
 
   // ── Perfil ────────────────────────────────────────────────────────────────
@@ -153,8 +158,9 @@ export class TiendasService {
             select: { avisos: true },
           })
         : null,
-      this.reputacion(id),
+      this.reputaciones.de(id),
     ]);
+    const tramos = horarioTiendaSchema.safeParse(tienda.horarioDatos);
 
     return {
       id: tienda.id,
@@ -164,6 +170,10 @@ export class TiendasService {
       stand: tienda.stand,
       horario: tienda.horario,
       descripcion: tienda.descripcion,
+      horario_tramos: tramos.success ? tramos.data : leerHorarioEscrito(tienda.horario),
+      indicaciones: tienda.indicaciones,
+      logo: tienda.logo,
+      desde: tienda.creadaEn.toISOString(),
       reputacion,
       seguidores,
       siguiendo: siguiendo ? { avisos: siguiendo.avisos } : null,
@@ -532,6 +542,7 @@ export class TiendasService {
           texto: true,
           respuesta: true,
           creadaEn: true,
+          autorTiendaId: true,
           autorTienda: { select: { nombre: true, galeria: { select: { nombre: true } } } },
           venta: {
             select: {
@@ -555,9 +566,18 @@ export class TiendasService {
             ),
           }));
 
+    // N03: el comentario de una opinión baja solo lo ven la tienda calificada, quien lo escribió
+    // y el Equipo. Las estrellas sí cuentan para todos.
+    const miTienda = sesion.usuario.tiendaId;
+    const esLaCalificada = miTienda === tiendaId;
+    const veTodo = esLaCalificada || sesion.usuario.rol === 'EQUIPO';
+    const revisiones = esLaCalificada ? await this.revisionesDe(filas.map((f) => f.id)) : null;
+
     const opiniones: OpinionPublica[] = filas.map((fila) => {
       // Una venta de una publicación reservada no dice qué producto fue: la delataría.
       const producto = fila.venta.oferta.tiendaVisible ? fila.venta.oferta.producto.titulo : null;
+      const privada = opinionBaja(fila.estrellas);
+      const visible = !privada || veTodo || fila.autorTiendaId === miTienda;
       return {
         id: fila.id,
         autor: {
@@ -568,9 +588,11 @@ export class TiendasService {
         estrellas: fila.estrellas,
         aspectos: fila.aspectos,
         producto,
-        texto: fila.texto,
-        respuesta: fila.respuesta,
+        texto: visible ? fila.texto : null,
+        respuesta: visible ? fila.respuesta : null,
         creada_en: fila.creadaEn.toISOString(),
+        privada,
+        revision: revisiones?.get(fila.id) ?? null,
       };
     });
 
@@ -670,6 +692,67 @@ export class TiendasService {
       }
       throw error;
     }
+  }
+
+  /** Las revisiones que la tienda calificada pidió al Equipo, por opinión (la más reciente). */
+  private async revisionesDe(
+    opinionIds: string[],
+  ): Promise<Map<string, { codigo: string; resuelta: boolean }>> {
+    if (opinionIds.length === 0) return new Map();
+    const filas = await this.prisma.denuncia.findMany({
+      where: { objeto: 'OPINION', objetoId: { in: opinionIds } },
+      orderBy: { creadaEn: 'asc' },
+      select: { objetoId: true, codigo: true, estado: true },
+    });
+    return new Map(
+      filas.map((fila) => [
+        fila.objetoId,
+        {
+          codigo: `R-${fila.codigo}`,
+          resuelta: fila.estado === 'REVISADA' || fila.estado === 'DESCARTADA',
+        },
+      ]),
+    );
+  }
+
+  /**
+   * «Pedir revisión al Equipo» (N03): la tienda calificada cree que una opinión no es justa. Se
+   * guarda como un reporte sobre la tienda que la escribió, para la misma cola del Equipo. Si ya
+   * hay una revisión abierta de esa opinión, se devuelve esa en vez de crear otra.
+   */
+  async pedirRevision(
+    opinionId: string,
+    motivo: string | undefined,
+    sesion: SesionActiva,
+  ): Promise<{ codigo: string; resuelta: boolean }> {
+    const miTienda = sesion.usuario.tiendaId;
+    const opinion = await this.prisma.opinion.findUnique({
+      where: { id: opinionId },
+      select: { id: true, tiendaId: true, autorTiendaId: true },
+    });
+    if (!opinion || !miTienda || opinion.tiendaId !== miTienda) {
+      throw new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Esta opinión no existe.');
+    }
+    const abierta = await this.prisma.denuncia.findFirst({
+      where: {
+        objeto: 'OPINION',
+        objetoId: opinion.id,
+        estado: { in: ['ABIERTA', 'EN_REVISION'] },
+      },
+      select: { codigo: true },
+    });
+    if (abierta) return { codigo: `R-${abierta.codigo}`, resuelta: false };
+    const creada = await this.prisma.denuncia.create({
+      data: {
+        denuncianteId: sesion.usuario.id,
+        objeto: 'OPINION',
+        objetoId: opinion.id,
+        tiendaDenunciadaId: opinion.autorTiendaId,
+        motivo: motivo ?? 'La tienda calificada pide revisar esta opinión.',
+      },
+      select: { codigo: true },
+    });
+    return { codigo: `R-${creada.codigo}`, resuelta: false };
   }
 
   /** La tienda opinada responde una vez (SG_WebOpiniones, «Respuesta de…»). */
