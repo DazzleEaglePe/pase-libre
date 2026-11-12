@@ -1,122 +1,82 @@
-import { formatearPrecio, type TarjetaOfertaConVendedor } from '@paselibre/contracts';
-import { IconCheck } from '@tabler/icons-react';
+import type { TarjetaOfertaConVendedor } from '@paselibre/contracts';
 import Link from 'next/link';
 
 import { textoEstado } from '@/features/catalogo/textos';
 import { haceRato } from '@/shared/fechas';
 import { Miniatura } from '@/shared/ui/miniatura';
+import { PrecioBurbuja, TarjetaProducto } from '@/shared/ui/tarjeta-producto';
 
-/** «US$ 285» en la píldora negra, o «Al interno» si no lo muestran. */
-function Precio({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor }) {
-  return tarjeta.precio ? (
-    <span className="inline-flex h-7 items-center self-start rounded-full bg-tinta px-2.5 text-apoyo font-bold text-white">
-      {formatearPrecio(tarjeta.precio)}
-    </span>
-  ) : (
-    <span className="text-apoyo font-semibold text-secundario">Al interno · consultar</span>
-  );
-}
+const enlace = (tarjeta: TarjetaOfertaConVendedor) =>
+  `/p/${tarjeta.producto.slug}?oferta=${tarjeta.oferta_id}`;
+
+/** «Nuevo · Pegasus5000»: el estado y quién lo publica. */
+const lineaDe = (tarjeta: TarjetaOfertaConVendedor) =>
+  `${textoEstado(tarjeta.condicion)} · ${tarjeta.tienda.nombre}`;
 
 /**
- * Una tarjeta de «Recién publicado» (FI_WebNormal) o de «De tiendas que sigues» (SG_WebFeed):
- * la foto con «Hace 5 min» o «Sigues» encima, el producto, el precio y quién.
+ * Una tarjeta de «Recién publicado» (N15): la de todo el sitio, con «Hace 5 min» sobre la foto
+ * y el precio con su burbujita.
  */
 export function TarjetaInicio({
   tarjeta,
-  seguida = false,
+  prioridad = false,
 }: {
   tarjeta: TarjetaOfertaConVendedor;
-  seguida?: boolean;
+  prioridad?: boolean;
 }) {
   return (
-    <Link
-      href={`/p/${tarjeta.producto.slug}?oferta=${tarjeta.oferta_id}`}
-      className="flex min-w-0 flex-col gap-2 text-tinta no-underline"
-    >
-      <span className="relative block">
-        <Miniatura
-          ruta={tarjeta.producto.foto}
-          categoria={tarjeta.producto.categoria.slug}
-          className="aspect-[4/3] w-full rounded-2xl"
-          glifo={84}
-          grosor={2}
-        />
-        {seguida ? (
-          <span className="absolute left-2 top-2 flex h-6 items-center gap-1 rounded-full bg-pase px-2 text-[12px] font-bold text-white">
-            <IconCheck size={12} stroke={3} aria-hidden="true" />
-            Sigues
-          </span>
-        ) : (
-          <span className="absolute left-2 top-2 flex h-6 items-center rounded-full bg-white px-2 text-[12px] font-medium text-tinta">
-            {haceRato(tarjeta.actualizada_en)}
-          </span>
-        )}
-      </span>
-      <span className="line-clamp-2 text-apoyo font-bold leading-5 hover:underline">
-        {tarjeta.producto.titulo}
-      </span>
-      <Precio tarjeta={tarjeta} />
-      <span className="truncate text-nota text-secundario">
-        {seguida
-          ? `${tarjeta.tienda.nombre} · ${haceRato(tarjeta.actualizada_en).toLowerCase()}`
-          : `${textoEstado(tarjeta.condicion)} · ${tarjeta.tienda.nombre}`}
-      </span>
-    </Link>
-  );
-}
-
-/** «Lo nuevo · 3 publicaciones» (FI_WebPocas): la tarjeta a lo ancho, con el precio al costado. */
-export function TarjetaNueva({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor }) {
-  return (
-    <Link
-      href={`/p/${tarjeta.producto.slug}?oferta=${tarjeta.oferta_id}`}
-      className="flex min-w-0 items-center gap-3 rounded-2xl border border-linea bg-white p-3 text-tinta no-underline hover:border-borde"
-    >
-      <Miniatura
-        ruta={tarjeta.producto.foto}
-        categoria={tarjeta.producto.categoria.slug}
-        className="h-14 w-16 rounded-xl"
-        glifo={40}
-        grosor={4}
-      />
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <b className="line-clamp-2 text-apoyo font-bold leading-5">{tarjeta.producto.titulo}</b>
-        <span className="truncate text-nota text-secundario">
-          {textoEstado(tarjeta.condicion)} · {tarjeta.tienda.nombre}
-        </span>
-        <span className="text-nota text-detalle">{haceRato(tarjeta.actualizada_en)}</span>
-      </span>
-      <b className="shrink-0 text-cuerpo font-bold">
-        {tarjeta.precio ? formatearPrecio(tarjeta.precio) : 'Al interno'}
-      </b>
-    </Link>
+    <TarjetaProducto
+      href={enlace(tarjeta)}
+      titulo={tarjeta.producto.titulo}
+      foto={tarjeta.producto.foto}
+      categoria={tarjeta.producto.categoria.slug}
+      precio={tarjeta.precio}
+      socio={tarjeta.precio_socio}
+      negociable={tarjeta.negociable}
+      etiqueta={haceRato(tarjeta.actualizada_en)}
+      linea={lineaDe(tarjeta)}
+      prioridad={prioridad}
+    />
   );
 }
 
 /**
- * Una tarjeta de «RECIÉN LLEGADOS» (COR25): blanca, con la foto sobre gris, el producto, la
- * tienda y el precio en la píldora negra.
+ * «Lo nuevo en la galería» (N16, primera semana): en lista y no en cuadrícula, para que 3
+ * productos no se vean como huecos. La foto, el producto, el precio con su burbujita, «Nuevo ·
+ * Pegasus5000 · hace 5 min» y «Ver».
  */
-export function TarjetaRecienLlegada({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor }) {
+export function FilaNueva({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor }) {
   return (
-    <Link
-      href={`/p/${tarjeta.producto.slug}?oferta=${tarjeta.oferta_id}`}
-      className="flex min-w-0 flex-col gap-2 rounded-[20px] border border-linea bg-white p-3 text-tinta no-underline hover:border-borde"
-    >
+    <li className="relative flex items-center gap-4 border-b-[1.5px] border-linea py-3.5">
       <Miniatura
         ruta={tarjeta.producto.foto}
         categoria={tarjeta.producto.categoria.slug}
-        className="aspect-[16/7] w-full rounded-xl bg-superficie"
-        glifo={84}
-        grosor={2}
+        className="h-[74px] w-[74px] rounded-[14px] border-[1.5px] border-linea max-sm:h-16 max-sm:w-16"
+        glifo={46}
+        grosor={3}
       />
-      <span className="line-clamp-2 text-[15px] font-bold leading-5">
-        {tarjeta.producto.titulo}
+      <span className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Link
+          href={enlace(tarjeta)}
+          className="line-clamp-2 text-[16px] font-bold leading-[22px] text-tinta no-underline after:absolute after:inset-0 hover:underline"
+        >
+          {tarjeta.producto.titulo}
+        </Link>
+        <PrecioBurbuja
+          precio={tarjeta.precio}
+          socio={tarjeta.precio_socio}
+          negociable={tarjeta.negociable}
+        />
+        <span className="truncate text-nota text-detalle">
+          {lineaDe(tarjeta)} · {haceRato(tarjeta.actualizada_en).toLowerCase()}
+        </span>
       </span>
-      <span className="truncate text-nota text-secundario">{tarjeta.tienda.nombre}</span>
-      <span className="mt-auto">
-        <Precio tarjeta={tarjeta} />
+      <span
+        aria-hidden="true"
+        className="flex h-10 shrink-0 items-center rounded-full border-[1.5px] border-tinta bg-white px-4 text-apoyo font-bold max-sm:hidden"
+      >
+        Ver
       </span>
-    </Link>
+    </li>
   );
 }

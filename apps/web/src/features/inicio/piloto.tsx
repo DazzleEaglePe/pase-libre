@@ -1,22 +1,19 @@
 'use client';
 
 import type { RespuestaInicio } from '@paselibre/contracts';
-import { IconCheck, IconChevronRight, IconShare2 } from '@tabler/icons-react';
+import { IconBrandWhatsapp, IconCheck, IconChevronRight } from '@tabler/icons-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { iniciales } from '@/shared/iniciales';
-
-const CLAVE_INVITO = 'paselibre:invito-tienda';
+import { CLAVE_INVITO, invitarPorWhatsApp } from '@/shared/ui/invitacion-pie';
 
 /**
- * «Invita a una tienda vecina»: copia el enlace del sitio para pasarlo por WhatsApp. Se
- * recuerda en este navegador para tachar el paso de «Primeros pasos».
+ * «Invita a una tienda vecina»: abre WhatsApp con el enlace del sitio. Se recuerda en este
+ * navegador para tachar el paso de «Primeros pasos».
  */
-function useInvitar() {
+function useInvito(): boolean {
   const [invito, setInvito] = useState(false);
-  const [aviso, setAviso] = useState<string | null>(null);
-
   useEffect(() => {
     try {
       setInvito(window.localStorage.getItem(CLAVE_INVITO) === '1');
@@ -27,117 +24,84 @@ function useInvitar() {
     window.addEventListener('paselibre:invito', alInvitar);
     return () => window.removeEventListener('paselibre:invito', alInvitar);
   }, []);
-
-  const invitar = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.origin);
-      setAviso('Enlace copiado. Pásalo por WhatsApp a la tienda vecina.');
-    } catch {
-      setAviso(`Pásale este enlace a la tienda vecina: ${window.location.origin}`);
-    }
-    try {
-      window.localStorage.setItem(CLAVE_INVITO, '1');
-    } catch {
-      // Igual se tacha mientras dure la página.
-    }
-    setInvito(true);
-    window.dispatchEvent(new Event('paselibre:invito'));
-  }, []);
-
-  return { invito, aviso, cerrarAviso: () => setAviso(null), invitar };
-}
-
-function Aviso({ texto, alCerrar }: { texto: string; alCerrar: () => void }) {
-  return (
-    <div
-      role="status"
-      className="fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-[460px] items-center justify-between gap-4 rounded-2xl bg-tinta px-4 py-3 text-apoyo text-white shadow-[0_12px_28px_rgba(20,22,26,0.24)] md:bottom-8"
-    >
-      {texto}
-      <button
-        type="button"
-        onClick={alCerrar}
-        className="h-9 rounded-full px-3 font-bold text-acento"
-      >
-        OK
-      </button>
-    </div>
-  );
+  return invito;
 }
 
 /**
- * «Piloto en la galería · Eres de las primeras tiendas de PaseLibre» (FI_Web): cuántas
- * entraron de la meta, sus iniciales y el botón para invitar.
+ * «Piloto en la galería · Eres de las primeras tiendas de PaseLibre» (N16): cuántas entraron de
+ * la meta, sus iniciales y el botón para invitar. Con `compacto` (primera semana) se achica:
+ * sin el título ni la frase.
  */
 export function PilotoGaleria({
   tiendas,
   miTienda,
+  compacto = false,
 }: {
   tiendas: RespuestaInicio['tiendas'];
   miTienda: string;
+  compacto?: boolean;
 }) {
-  const { invito, aviso, cerrarAviso, invitar } = useInvitar();
-  const circulos = [miTienda, ...tiendas.visibles.map((tienda) => tienda.nombre)].slice(0, 5);
+  const circulos = [miTienda, ...tiendas.visibles.map((tienda) => tienda.nombre)]
+    .filter(Boolean)
+    .slice(0, 5);
+  const avance = Math.min(100, Math.round((tiendas.activas / tiendas.meta) * 100));
   return (
     <section
       aria-label="Piloto en la galería"
-      className="flex flex-col gap-3.5 rounded-[28px] bg-marca p-5 text-white"
+      className="flex flex-col gap-3 rounded-[18px] bg-marca p-[18px] text-white"
     >
-      <span className="self-start rounded-full bg-contador px-2.5 py-1 text-nota font-bold text-tinta">
+      <span className="self-start rounded-full bg-brasa px-2.5 py-[3px] text-[11px] font-extrabold text-tinta">
         Piloto en la galería
       </span>
-      <h2 className="text-[22px] font-bold leading-7">Eres de las primeras tiendas de PaseLibre</h2>
-      <div className="flex items-center gap-3">
-        <span className="flex shrink-0">
-          {circulos.map((nombre) => (
+      {!compacto && (
+        <h2 className="text-[20px] font-bold leading-[26px]">
+          Eres de las primeras tiendas de PaseLibre
+        </h2>
+      )}
+      <div className="flex items-center gap-2.5">
+        <span className="flex shrink-0 pl-2">
+          {circulos.map((nombre, n) => (
             <span
-              key={nombre}
+              key={`${nombre}-${n}`}
               aria-hidden="true"
-              className="-ml-1.5 flex h-9 w-9 items-center justify-center rounded-full border-2 border-marca bg-pase-medio text-[11px] font-bold text-marca first:ml-0"
+              className="-ml-2 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-pase bg-pase-medio text-[11px] font-extrabold text-marca"
             >
               {iniciales(nombre)}
             </span>
           ))}
         </span>
-        <span className="text-apoyo">
+        <span className="text-apoyo font-medium">
           {tiendas.activas} de {tiendas.meta} tiendas ya entraron
         </span>
       </div>
       <span className="h-2 rounded-full bg-white/20">
-        <span
-          className="block h-full rounded-full bg-contador"
-          style={{ width: `${Math.min(100, Math.round((tiendas.activas / tiendas.meta) * 100))}%` }}
-        />
+        <span className="block h-full rounded-full bg-brasa" style={{ width: `${avance}%` }} />
       </span>
-      <p className="m-0 text-apoyo text-white/90">
-        Con {tiendas.meta} tiendas, aquí vas a encontrar casi todo lo que buscas sin salir del
-        stand.
-      </p>
+      {!compacto && (
+        <p className="m-0 text-apoyo text-white/90">
+          Con {tiendas.meta} tiendas, aquí vas a encontrar casi todo lo que buscas sin salir del
+          stand.
+        </p>
+      )}
       <button
         type="button"
-        onClick={() => void invitar()}
-        className="flex h-12 items-center gap-2 self-start rounded-full bg-white px-5 font-bold text-marca"
+        onClick={invitarPorWhatsApp}
+        className="flex h-11 items-center gap-2 self-start rounded-full bg-white px-5 text-cuerpo font-bold text-marca hover:bg-pase-suave"
       >
-        <IconShare2 size={18} stroke={2} aria-hidden="true" />
+        <IconBrandWhatsapp size={18} stroke={1.8} aria-hidden="true" />
         Invita a una tienda vecina
       </button>
-      <span className="text-nota text-white/85">
-        {invito
-          ? 'Gracias por invitar. Te avisamos cuando entre.'
-          : 'Si entra con tu recomendación, la revisamos más rápido.'}
-      </span>
-      {aviso && <Aviso texto={aviso} alCerrar={cerrarAviso} />}
     </section>
   );
 }
 
-/** «Primeros pasos · 1 de 4 listos» (FI_Web): cada uno lleva a donde se hace. */
+/** «Primeros pasos · 1 de 4 listos» (N16): cada uno lleva a donde se hace. */
 export function PrimerosPasos({ pasos }: { pasos: RespuestaInicio['pasos'] }) {
-  const { invito, aviso, cerrarAviso, invitar } = useInvitar();
+  const invito = useInvito();
   const lista: Array<{ titulo: string; detalle: string; hecho: boolean; href?: string }> = [
     {
       titulo: 'Completa tu perfil',
-      detalle: 'Horario y qué vendes',
+      detalle: 'Portada, horario y qué vendes',
       hecho: pasos.perfil,
       href: '/cuenta/configuracion',
     },
@@ -165,16 +129,16 @@ export function PrimerosPasos({ pasos }: { pasos: RespuestaInicio['pasos'] }) {
   return (
     <section
       aria-labelledby="primeros-pasos"
-      className="flex flex-col overflow-hidden rounded-[20px] border border-linea bg-white"
+      className="flex flex-col rounded-[18px] border-[1.5px] border-linea bg-white px-[18px] pb-1 pt-4"
     >
-      <div className="flex flex-col gap-2.5 px-4 pb-3 pt-4">
+      <div className="flex flex-col gap-2.5 pb-2">
         <span className="flex items-center justify-between">
           <h2 id="primeros-pasos" className="text-[18px] font-bold">
             Primeros pasos
           </h2>
-          <span className="text-nota font-bold text-pase-texto">{listos} de 4 listos</span>
+          <span className="text-nota font-bold text-marca">{listos} de 4 listos</span>
         </span>
-        <span className="h-2 rounded-full bg-superficie">
+        <span className="h-1.5 rounded-full bg-superficie">
           <span
             className="block h-full rounded-full bg-pase"
             style={{ width: `${listos * 25}%` }}
@@ -206,7 +170,7 @@ export function PrimerosPasos({ pasos }: { pasos: RespuestaInicio['pasos'] }) {
             </>
           );
           const clase =
-            'flex w-full items-center gap-3 border-t border-linea px-4 py-3 text-left text-tinta no-underline hover:bg-superficie';
+            'flex w-full items-center gap-3 border-t-[1.5px] border-linea py-3 text-left text-tinta no-underline hover:bg-superficie';
           return (
             <li key={paso.titulo}>
               {paso.href ? (
@@ -214,7 +178,7 @@ export function PrimerosPasos({ pasos }: { pasos: RespuestaInicio['pasos'] }) {
                   {contenido}
                 </Link>
               ) : (
-                <button type="button" onClick={() => void invitar()} className={clase}>
+                <button type="button" onClick={invitarPorWhatsApp} className={clase}>
                   {contenido}
                 </button>
               )}
@@ -222,7 +186,6 @@ export function PrimerosPasos({ pasos }: { pasos: RespuestaInicio['pasos'] }) {
           );
         })}
       </ul>
-      {aviso && <Aviso texto={aviso} alCerrar={cerrarAviso} />}
     </section>
   );
 }

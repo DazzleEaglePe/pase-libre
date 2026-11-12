@@ -1,6 +1,6 @@
 'use client';
 
-import { IconBrandWhatsapp, IconCheck, IconCopy } from '@tabler/icons-react';
+import { IconBrandWhatsapp, IconCheck, IconCopy, IconX } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -9,34 +9,65 @@ const boton =
 const principal = `${boton} bg-white text-marca hover:bg-pase-suave`;
 const secundario = `${boton} border border-pase-medio text-white hover:bg-white/10`;
 
-/**
- * La banda verde del pie (D_Pie): quien no tiene cuenta la pide; quien la tiene invita a una
- * tienda vecina con el enlace del sitio.
- */
-export function InvitacionPie({ conSesion }: { conSesion: boolean }) {
-  const [copiado, setCopiado] = useState(false);
+/** «Invita a una tienda vecina» de «Primeros pasos» queda hecho en este navegador. */
+export const CLAVE_INVITO = 'paselibre:invito-tienda';
 
-  function enlace(): string {
-    return window.location.origin;
+export function marcarInvito() {
+  try {
+    window.localStorage.setItem(CLAVE_INVITO, '1');
+  } catch {
+    // Sin almacenamiento, el paso se tacha solo mientras dure la página.
   }
+  window.dispatchEvent(new Event('paselibre:invito'));
+}
+
+/** El mensaje de WhatsApp con el enlace del sitio, para invitar a una tienda vecina. */
+export function invitarPorWhatsApp() {
+  const texto = `Te invito a PaseLibre, el catálogo para pasarse productos entre tiendas de Wilson: ${window.location.origin}`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+  marcarInvito();
+}
+
+/**
+ * La banda verde (D_Pie, N07): quien no tiene cuenta la pide; quien la tiene invita a una
+ * tienda vecina con el enlace del sitio. Con `alCerrar` lleva la X (el banner del inicio).
+ */
+export function InvitacionPie({
+  conSesion,
+  alCerrar,
+}: {
+  conSesion: boolean;
+  alCerrar?: () => void;
+}) {
+  const [copiado, setCopiado] = useState(false);
 
   async function copiar() {
     try {
-      await navigator.clipboard.writeText(enlace());
+      await navigator.clipboard.writeText(window.location.origin);
       setCopiado(true);
+      marcarInvito();
       setTimeout(() => setCopiado(false), 2500);
     } catch {
       // Sin permiso para el portapapeles no hay nada que hacer: el botón queda como estaba.
     }
   }
 
-  function compartir() {
-    const texto = `Te invito a PaseLibre, el catálogo para pasarse productos entre tiendas de Wilson: ${enlace()}`;
-    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
-  }
-
   return (
-    <section className="flex flex-wrap items-center justify-between gap-x-10 gap-y-5 rounded-3xl bg-marca px-6 py-6 sm:px-8 sm:py-7">
+    <section
+      className={`relative flex flex-wrap items-center justify-between gap-x-10 gap-y-5 rounded-3xl bg-marca px-6 py-6 sm:px-8 sm:py-7 ${
+        alCerrar ? 'pr-14 sm:pr-16' : ''
+      }`}
+    >
+      {alCerrar && (
+        <button
+          type="button"
+          onClick={alCerrar}
+          aria-label="Cerrar: no volver a mostrar"
+          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 sm:right-4 sm:top-1/2 sm:-translate-y-1/2"
+        >
+          <IconX size={16} stroke={2.2} aria-hidden="true" />
+        </button>
+      )}
       <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-1.5">
         <h2 className="text-seccion">
           {conSesion
@@ -52,7 +83,7 @@ export function InvitacionPie({ conSesion }: { conSesion: boolean }) {
       <div className="flex flex-wrap gap-2.5">
         {conSesion ? (
           <>
-            <button type="button" onClick={compartir} className={principal}>
+            <button type="button" onClick={invitarPorWhatsApp} className={principal}>
               <IconBrandWhatsapp size={18} stroke={1.5} aria-hidden="true" />
               Invitar por WhatsApp
             </button>

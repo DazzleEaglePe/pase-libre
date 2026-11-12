@@ -8,7 +8,8 @@ import { useAhora } from '@/features/en-vivo/datos';
 import { BotonResponder } from '@/features/en-vivo/responder';
 import { conVendedor, cuantoQueda, etiquetaTipo, type ItemEnVivo } from '@/features/en-vivo/textos';
 import { haceRato } from '@/shared/fechas';
-import { BotonBrasa, EtiquetaEnVivo } from '@/shared/ui/brasa';
+import { iniciales } from '@/shared/iniciales';
+import { BotonBrasa } from '@/shared/ui/brasa';
 
 /** Lo que piden o rematan las demás tiendas ahora (sin lo tuyo). */
 function useAjenosEnVivo(): { lista: ItemEnVivo[]; listo: boolean; activo: boolean } {
@@ -20,31 +21,34 @@ function useAjenosEnVivo(): { lista: ItemEnVivo[]; listo: boolean; activo: boole
 }
 
 /**
- * «HOLA, DARK ALIEN PLANETA · Cyberplaza · Stand 2B 105 · 3 tiendas piden algo ahora» con
- * «Pedir algo en vivo» en Brasa (COR14 y COR25). Sin el «Publicar» repetido: ya está arriba.
+ * «HOLA, DARK ALIEN PLANETA · Cyberplaza · Stand 2B 105» con «Pedir algo en vivo» en Brasa
+ * (N16). En el celular el botón va debajo, a lo ancho.
  */
 export function SaludoTienda({ sesion }: { sesion: RespuestaYo }) {
-  const { lista, activo } = useAjenosEnVivo();
+  const { activo } = useAjenosEnVivo();
   const tienda = sesion.tienda;
-  const tiendas = new Set(lista.map((item) => (conVendedor(item) ? item.tienda.nombre : item.id)))
-    .size;
-  const lugar = [
-    tienda?.galeria ?? 'Independiente',
-    tienda?.stand && `Stand ${tienda.stand}`,
-    tiendas > 0 && `${tiendas} ${tiendas === 1 ? 'tienda pide' : 'tiendas piden'} algo ahora`,
-  ]
+  const nombre = tienda?.nombre ?? sesion.usuario.nombre;
+  const lugar = [tienda?.galeria ?? 'Independiente', tienda?.stand && `Stand ${tienda.stand}`]
     .filter(Boolean)
     .join(' · ');
   return (
     <section
       aria-label="Tu tienda"
-      className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border border-linea bg-white px-6 py-5 max-sm:px-4"
+      className="flex flex-wrap items-center justify-between gap-4 rounded-[20px] border-[1.5px] border-linea bg-white px-6 py-5 max-sm:px-4 max-sm:py-4"
     >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <h1 className="truncate text-[28px] leading-8 max-sm:text-[22px] max-sm:leading-7">
-          Hola, {tienda?.nombre ?? sesion.usuario.nombre}
-        </h1>
-        <span className="text-apoyo text-secundario">{lugar}</span>
+      <div className="flex min-w-0 items-center gap-3.5">
+        <span
+          aria-hidden="true"
+          className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-full bg-tinta text-[17px] font-extrabold text-white max-sm:h-11 max-sm:w-11 max-sm:text-[15px]"
+        >
+          {iniciales(nombre)}
+        </span>
+        <div className="flex min-w-0 flex-col">
+          <h1 className="tit truncate text-[26px] leading-8 max-sm:text-[19px] max-sm:leading-6">
+            Hola, {nombre}
+          </h1>
+          <span className="text-cuerpo text-secundario max-sm:text-apoyo">{lugar}</span>
+        </div>
       </div>
       {activo && (
         <BotonBrasa href="/pedidos-en-vivo/publicar" className="max-sm:w-full">
@@ -55,75 +59,158 @@ export function SaludoTienda({ sesion }: { sesion: RespuestaYo }) {
   );
 }
 
-function TarjetaEnVivo({ item, ahora }: { item: ItemEnVivo; ahora: number }) {
-  const queda = cuantoQueda(item.vence_en, ahora, true);
-  const respuestas = conVendedor(item) ? item.respuestas : 0;
-  const linea = [
+/** «Quedan 12 min» con su relojito, en naranja oscuro. */
+function Queda({ venceEn, ahora }: { venceEn: string; ahora: number }) {
+  const queda = cuantoQueda(venceEn, ahora, true);
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] font-extrabold text-[#C2410C]">
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </svg>
+      {queda === 'Venció' ? 'Venció' : `Quedan ${queda}`}
+    </span>
+  );
+}
+
+function TarjetaEnVivo({
+  item,
+  ahora,
+  className = '',
+}: {
+  item: ItemEnVivo;
+  ahora: number;
+  className?: string;
+}) {
+  const quien = [
     conVendedor(item) ? item.tienda.nombre : null,
     haceRato(item.creado_en, new Date(ahora)).toLowerCase(),
-    item.tipo === 'BUSCO'
-      ? `${respuestas} ${respuestas === 1 ? 'respuesta' : 'respuestas'}`
-      : `${respuestas} ${respuestas === 1 ? 'interesado' : 'interesados'}`,
   ]
     .filter(Boolean)
     .join(' · ');
   return (
-    <li className="flex w-[300px] shrink-0 flex-col gap-2 rounded-[20px] border border-linea bg-white p-4 sm:w-auto sm:min-w-0">
+    <li
+      className={`flex min-w-0 flex-col gap-1.5 rounded-[14px] bg-white p-3.5 text-tinta ${className}`}
+    >
       <span className="flex items-center justify-between gap-2">
-        <EtiquetaEnVivo />
-        <span className="text-nota font-bold text-aviso">
-          {queda === 'Venció' ? 'Venció' : `quedan ${queda}`}
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-[12px] font-extrabold ${
+            item.tipo === 'BUSCO' ? 'bg-pase-medio text-marca' : 'bg-[#FFEDD5] text-aviso'
+          }`}
+        >
+          {etiquetaTipo(item.tipo)}
         </span>
-      </span>
-      <span className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-secundario">
-        {etiquetaTipo(item.tipo)}
+        <Queda venceEn={item.vence_en} ahora={ahora} />
       </span>
       <Link
         href={`/pedidos-en-vivo?id=${item.id}`}
-        className="text-[17px] font-bold leading-6 text-tinta no-underline hover:underline"
+        className="line-clamp-2 text-[16px] font-bold leading-6 text-tinta no-underline hover:underline"
       >
         {item.titulo}
       </Link>
-      <span className="text-apoyo text-secundario">{linea}</span>
-      <span className="mt-auto flex items-center gap-2 pt-1">
+      <span className="mt-auto flex items-center justify-between gap-2 pt-1">
+        <span className="min-w-0 truncate text-[12px] text-detalle">{quien}</span>
+        {/* «¡Lo tengo!» abre el chat directo (N16): si hay una sola publicación que calce. */}
         <BotonResponder
           item={item}
-          className="inline-flex h-10 items-center gap-1.5 rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline"
+          directo
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-contador px-3.5 text-[13px] font-extrabold text-tinta no-underline"
         />
-        <Link
-          href={`/pedidos-en-vivo?id=${item.id}`}
-          className="inline-flex h-10 items-center rounded-full border border-tinta px-4 text-apoyo font-bold text-tinta no-underline"
-        >
-          Ver
-        </Link>
       </span>
     </li>
   );
 }
 
 /**
- * «PEDIDOS EN VIVO AHORA» del inicio (COR25): hasta 3, lo que vence primero, con «¡Lo tengo!» y
- * «Ver». Sin nada en vivo no se muestra: el saludo ya invita a pedir.
+ * «Pedidos en vivo · 3» en el rectángulo negro (N15, N16): hasta 3 en la computadora y 2 en el
+ * celular, con «¡Lo tengo!» y «Ver todos ›». Sin nada en vivo, «Aún no hay pedidos en vivo ·
+ * Sé el primero…»; con menos de 3, al lado invita a pedir. Nunca queda vacío.
  */
-export function PedidosEnVivoAhora() {
+export function PedidosEnVivo() {
   const { lista, listo, activo } = useAjenosEnVivo();
   const ahora = useAhora();
-  if (!activo || !listo || lista.length === 0) return null;
+  if (!activo) return null;
+  const visibles = lista.slice(0, 3);
+  const libres = 3 - visibles.length;
   return (
-    <section aria-labelledby="en-vivo-ahora" className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="en-vivo-ahora" className="tit text-[22px] leading-7">
-          Pedidos en vivo ahora
+    <section
+      aria-labelledby="pedidos-en-vivo"
+      className="flex flex-col gap-3.5 rounded-[22px] bg-tinta p-5 text-white max-sm:p-4"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2
+          id="pedidos-en-vivo"
+          className="flex items-center gap-2 text-[20px] font-extrabold leading-7"
+        >
+          <span
+            aria-hidden="true"
+            className="h-[9px] w-[9px] shrink-0 animate-latido rounded-full bg-[#E11D2E]"
+          />
+          Pedidos en vivo{lista.length > 0 ? ` · ${lista.length}` : ''}
         </h2>
-        <Link href="/pedidos-en-vivo" className="text-apoyo font-bold text-pase-texto">
-          {lista.length === 1 ? 'Ver ›' : `Ver los ${lista.length} ›`}
-        </Link>
+        {lista.length > 0 && (
+          <Link
+            href="/pedidos-en-vivo"
+            className="text-nota font-extrabold text-acento underline hover:text-acento"
+          >
+            Ver todos ›
+          </Link>
+        )}
       </div>
-      <ul className="-mx-4 m-0 flex list-none gap-3 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
-        {lista.slice(0, 3).map((item) => (
-          <TarjetaEnVivo key={item.id} item={item} ahora={ahora} />
-        ))}
-      </ul>
+      {!listo ? (
+        <div aria-hidden="true" className="h-[118px] rounded-[14px] bg-[#1C2420]" />
+      ) : lista.length === 0 ? (
+        <div className="flex flex-col gap-2 rounded-[14px] bg-[#1C2420] p-4">
+          <b className="text-[16px] font-bold">Aún no hay pedidos en vivo</b>
+          <span className="text-nota text-[#B9C4BE]">
+            Sé el primero. Lo que pidas les llega al instante a todas las tiendas que lo venden, y
+            te responden aquí.
+          </span>
+          <BotonBrasa
+            href="/pedidos-en-vivo/publicar"
+            className="mt-1 !h-[42px] self-start !text-[14px]"
+          >
+            ¿Qué te falta hoy? Pídelo
+          </BotonBrasa>
+        </div>
+      ) : (
+        <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
+          {visibles.map((item, n) => (
+            <TarjetaEnVivo
+              key={item.id}
+              item={item}
+              ahora={ahora}
+              className={n === 2 ? 'max-lg:hidden' : ''}
+            />
+          ))}
+          {libres > 0 && (
+            <li
+              className={`flex items-center justify-between gap-3 rounded-[14px] border-[1.5px] border-dashed border-detalle px-[18px] py-3.5 max-lg:hidden ${
+                libres === 2 ? 'lg:col-span-2' : ''
+              }`}
+            >
+              <span className="flex flex-col gap-0.5">
+                <b className="text-[15px] font-bold">¿Te falta algo para un cliente?</b>
+                <span className="text-nota text-[#B9C4BE]">
+                  Pídelo en vivo y te responden en minutos.
+                </span>
+              </span>
+              <BotonBrasa href="/pedidos-en-vivo/publicar" className="!h-10 !px-4 !text-[13px]">
+                Pedir algo en vivo
+              </BotonBrasa>
+            </li>
+          )}
+        </ul>
+      )}
     </section>
   );
 }

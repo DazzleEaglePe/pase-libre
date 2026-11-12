@@ -29,17 +29,12 @@ export default async function Portada({
       `/portada${galeria ? `?galeria=${encodeURIComponent(galeria)}` : ''}`,
     ),
   ]);
-  // La tienda tiene su propio inicio, que crece solo (sección 5 del lienzo final).
+  // La tienda tiene su propio inicio, que crece solo (N16, N15).
   if (sesion?.tienda && portada.audiencia !== 'visitante' && !galeria) {
     const inicio = await consultarApi<RespuestaInicio>('/inicio');
     if (inicio.estado === 200 && inicio.cuerpo) {
       return (
-        <InicioTienda
-          sesion={sesion}
-          inicio={inicio.cuerpo}
-          recientes={portada.recien_publicado}
-          categorias={portada.categorias}
-        />
+        <InicioTienda sesion={sesion} inicio={inicio.cuerpo} categorias={portada.categorias} />
       );
     }
   }

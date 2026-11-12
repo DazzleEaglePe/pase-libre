@@ -29,11 +29,53 @@ function mensajeSugerido(opcion: OpcionRespuestaEnVivo | undefined): string {
 
 /**
  * El botón «¡Lo tengo!» o «¡Lo quiero!» de cada publicación en vivo (RF-26). Sin sesión
- * lleva a ingresar; si tu tienda ya respondió, al chat; si es tuya, no aparece.
+ * lleva a ingresar; si tu tienda ya respondió, al chat; si es tuya, no aparece. Con `directo`
+ * (el inicio, N16) abre el chat sin preguntar cuando no hay nada que elegir: en un busco, si
+ * tienes una sola publicación que calce; en un remate, siempre.
  */
-export function BotonResponder({ item, className }: { item: ItemEnVivo; className: string }) {
+export function BotonResponder({
+  item,
+  className,
+  directo = false,
+}: {
+  item: ItemEnVivo;
+  className: string;
+  directo?: boolean;
+}) {
+  const router = useRouter();
   const [abierta, setAbierta] = useState(false);
+  const [enviando, setEnviando] = useState(false);
   const accion = textoAccion(item.tipo);
+
+  async function responderDirecto() {
+    setEnviando(true);
+    try {
+      let cuerpo: { texto: string; oferta?: string } = { texto: '¡Lo quiero! ¿Me la separas?' };
+      if (item.tipo === 'BUSCO') {
+        const { ofertas } = await llamarApi<RespuestaOpcionesEnVivo>(
+          `/en-vivo/${item.id}/opciones`,
+        );
+        const [unica] = ofertas;
+        // Con varias (o ninguna) hay que elegir cuál o publicarla: la ventana de siempre.
+        if (!unica || ofertas.length > 1) {
+          setAbierta(true);
+          return;
+        }
+        cuerpo = { texto: mensajeSugerido(unica), oferta: unica.oferta_id };
+      }
+      const { conversacion_id } = await llamarApi<RespuestaResponderEnVivo>(
+        `/en-vivo/${item.id}/respuestas`,
+        { metodo: 'POST', cuerpo },
+      );
+      router.push(`/mensajes/${conversacion_id}`);
+    } catch (e) {
+      const chat = e instanceof ErrorApi ? e.detalles?.conversacion_id : null;
+      if (typeof chat === 'string') router.push(`/mensajes/${chat}`);
+      else setAbierta(true);
+    } finally {
+      setEnviando(false);
+    }
+  }
 
   if (!conVendedor(item)) {
     return (
@@ -60,7 +102,13 @@ export function BotonResponder({ item, className }: { item: ItemEnVivo; classNam
   }
   return (
     <>
-      <button type="button" onClick={() => setAbierta(true)} className={className}>
+      <button
+        type="button"
+        disabled={enviando}
+        aria-busy={enviando}
+        onClick={() => (directo ? void responderDirecto() : setAbierta(true))}
+        className={className}
+      >
         <IconBolt size={16} stroke={1.8} aria-hidden="true" />
         {accion}
       </button>
