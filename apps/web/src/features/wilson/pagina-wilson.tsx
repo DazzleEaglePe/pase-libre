@@ -1,11 +1,13 @@
 import {
   formatearPrecio,
   type GaleriaEnVivo,
+  type NivelGaleria,
   type RespuestaWilson,
   textoEstadoDetalle,
 } from '@paselibre/contracts';
 import { IconMapPin } from '@tabler/icons-react';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { PrecioConSesion } from '@/features/catalogo/precio-con-sesion';
 import { haceRato } from '@/shared/fechas';
@@ -13,45 +15,149 @@ import { conPlural } from '@/shared/plural';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Miniatura } from '@/shared/ui/miniatura';
 
-/** Más oscuro = más publicado (CAT_Web3): fondo, texto y texto chico. */
-function tono(productos: number, mayor: number): [string, string, string] {
-  const parte = mayor === 0 ? 0 : productos / mayor;
-  if (parte > 0.85) return ['bg-marca', 'text-white', 'text-pase-medio'];
-  if (parte > 0.6) return ['bg-pase', 'text-white', 'text-pase-suave'];
-  if (parte > 0.45) return ['bg-[#A7E3C3]', 'text-tinta', 'text-secundario'];
-  return ['bg-pase-medio', 'text-tinta', 'text-secundario'];
-}
+import { hrefDirectorio, SIN_FILTROS } from './consulta-directorio';
 
-function distancia(galeria: GaleriaEnVivo): string | null {
-  if (galeria.mia) return 'Aquí estás';
-  if (galeria.minutos === null) return null;
-  return `a ${galeria.minutos} min caminando`;
+/** Solo verde, sin rojo (N08): fondo, borde y texto de cada nivel. */
+const TONO: Record<NivelGaleria, string> = {
+  SIN: 'border-dashed border-borde bg-white text-tinta',
+  POCOS: 'border-pase-medio bg-pase-medio text-tinta',
+  VARIOS: 'border-[#7FD9A8] bg-[#7FD9A8] text-tinta',
+  MUCHOS: 'border-pase bg-pase text-white',
+};
+
+/** La leyenda de abajo del mapa: el puntito de cada nivel. */
+const LEYENDA: Array<[NivelGaleria, string, string]> = [
+  ['SIN', 'Sin productos', 'border-dashed border-borde-control bg-white'],
+  ['POCOS', 'Pocos', 'border-pase-medio bg-pase-medio'],
+  ['VARIOS', 'Varios', 'border-[#7FD9A8] bg-[#7FD9A8]'],
+  ['MUCHOS', 'Muchos', 'border-pase bg-pase'],
+];
+
+/** A dónde va la pestaña «Tiendas»: sin sesión, a iniciar sesión y de vuelta aquí. */
+export function hrefPestanaTiendas(conSesion: boolean, destino = hrefDirectorio(SIN_FILTROS)) {
+  return conSesion ? destino : `/ingresar?volver=${encodeURIComponent(destino)}`;
 }
 
 /**
- * «Wilson en vivo» (CAT_Web3, CAT_Cel3, sección 8 del lienzo final): la avenida como mapa de
- * calor (más oscuro, más publicado), lo último de la galería elegida y sus tiendas por piso.
- * Todo se elige con enlaces: `?categoria=`, `?galeria=` y `?vista=tiendas`.
+ * «Wilson en vivo» (N08, N13): el título y las pestañas «Galerías · Tiendas». En el celular,
+ * la cabecera verde con «Tu galería primero».
  */
-export function PaginaWilson({
-  datos,
-  vista,
+export function MarcoWilson({
+  pestana,
+  conSesion,
+  children,
 }: {
-  datos: RespuestaWilson;
-  vista: 'publicado' | 'tiendas';
+  pestana: 'galerias' | 'tiendas';
+  conSesion: boolean;
+  children: ReactNode;
 }) {
-  const mayor = Math.max(0, ...datos.galerias.map((galeria) => galeria.productos));
-  // «tarjetas de video» con una categoría elegida; con una sola cosa, «producto» (la categoría ya
-  // se ve elegida arriba).
+  const pastilla = (activa: boolean) =>
+    `flex h-[38px] items-center rounded-full px-4 text-apoyo font-bold no-underline ${
+      activa ? 'bg-tinta text-white' : 'border-[1.5px] border-borde bg-white text-tinta'
+    }`;
+  return (
+    <div className="flex flex-col gap-5 max-md:gap-3.5">
+      <CabeceraMovil
+        centro={
+          <span className="flex min-w-0 flex-1 flex-col pl-1">
+            <b className="truncate text-[19px] font-bold leading-6">Wilson en vivo</b>
+            <span className="truncate text-nota text-pase-medio">
+              {pestana === 'tiendas' ? 'Todas las tiendas de la avenida' : 'Tu galería primero'}
+            </span>
+          </span>
+        }
+      />
+      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div className="flex max-w-[760px] flex-col gap-1 max-md:hidden">
+          <h1 className="tit m-0 text-[26px] leading-8">Wilson en vivo</h1>
+          <p className="m-0 text-cuerpo text-secundario">
+            {pestana === 'tiendas'
+              ? 'Todas las tiendas de la avenida: por galería, piso y lo que venden.'
+              : 'Mira en qué galería hay más de lo que buscas. Toca una para ver lo que publicaron.'}
+          </p>
+        </div>
+        <nav aria-label="Wilson en vivo" className="flex items-center gap-2">
+          <Link
+            href="/wilson-en-vivo"
+            aria-current={pestana === 'galerias' ? 'page' : undefined}
+            className={pastilla(pestana === 'galerias')}
+          >
+            Galerías
+          </Link>
+          <Link
+            href={hrefPestanaTiendas(conSesion)}
+            aria-current={pestana === 'tiendas' ? 'page' : undefined}
+            className={pastilla(pestana === 'tiendas')}
+          >
+            Tiendas
+          </Link>
+        </nav>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** «214» y «productos · 38 tiendas», o «Sin publicaciones aún». */
+function Galeria({
+  galeria,
+  activa,
+  href,
+  cosas,
+}: {
+  galeria: GaleriaEnVivo;
+  activa: boolean;
+  href: string;
+  cosas: (n: number) => string;
+}) {
+  return (
+    <li className="relative">
+      {galeria.mia && (
+        <span className="absolute -top-3 right-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-tinta px-2.5 py-[3px] text-[12px] font-extrabold text-white">
+          <IconMapPin size={13} stroke={1.8} aria-hidden="true" />
+          Estás aquí
+        </span>
+      )}
+      <Link
+        href={href}
+        scroll={false}
+        aria-current={activa ? 'true' : undefined}
+        className={`flex min-h-20 flex-col gap-1 rounded-2xl border-2 p-3.5 no-underline md:min-h-[110px] ${TONO[galeria.nivel]} ${
+          galeria.mia ? '!border-solid !border-tinta outline outline-[3px] outline-tinta' : ''
+        } ${activa ? 'shadow-[0_10px_22px_rgba(15,20,18,0.2)]' : 'hover:shadow-[0_6px_14px_rgba(15,20,18,0.12)]'}`}
+      >
+        <b className="text-cuerpo font-bold">{galeria.nombre}</b>
+        {galeria.productos === 0 ? (
+          <span className="text-[12px] leading-4 text-detalle">Sin publicaciones aún</span>
+        ) : (
+          <>
+            <b className="text-[26px] font-bold leading-[1.1]">{galeria.productos}</b>
+            <span className="text-[12px] leading-4 opacity-85">
+              {cosas(galeria.productos)} · {conPlural(galeria.tiendas, 'tienda', 'tiendas')}
+            </span>
+          </>
+        )}
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * La pestaña «Galerías» (N08, CAT_Web3): todas las galerías de la avenida, la tuya primero, en
+ * verde según cuánto tienen comparadas entre sí (lo decide la API: «Pocos / Varios / Muchos»),
+ * y debajo lo último de la galería elegida. Todo se elige con enlaces: `?categoria=` y
+ * `?galeria=`.
+ */
+export function VistaGalerias({ datos }: { datos: RespuestaWilson }) {
+  // «tarjetas de video» con una categoría elegida; con una sola cosa, «producto».
   const cosas = datos.categoria ? datos.categoria.nombre.toLowerCase() : 'productos';
   const queCosa = (n: number) => (n === 1 ? 'producto' : cosas);
-  const enlace = (cambios: { galeria?: string; categoria?: string | null; vista?: string }) => {
+  const enlace = (cambios: { galeria?: string; categoria?: string | null }) => {
     const parametros = new URLSearchParams();
     const categoria = cambios.categoria === undefined ? datos.categoria?.slug : cambios.categoria;
     const galeria = cambios.galeria ?? datos.galeria?.slug;
     if (categoria) parametros.set('categoria', categoria);
     if (galeria) parametros.set('galeria', galeria);
-    if (cambios.vista === 'tiendas') parametros.set('vista', 'tiendas');
     const texto = parametros.toString();
     return `/wilson-en-vivo${texto ? `?${texto}` : ''}`;
   };
@@ -62,93 +168,62 @@ export function PaginaWilson({
         : 'border-borde bg-white font-medium text-tinta'
     }`;
   const elegida = datos.galeria;
+  const conSesion = datos.audiencia !== 'visitante';
 
   return (
-    <div className="flex flex-col gap-6">
-      <CabeceraMovil
-        centro={
-          <span className="flex min-w-0 flex-1 flex-col pl-1">
-            <b className="truncate text-[20px] font-bold leading-6">Wilson en vivo</b>
-            <span className="truncate text-nota text-white/85">
-              Dónde hay más y qué tan lejos está
-            </span>
-          </span>
-        }
-      />
-      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-        <div className="flex max-w-[760px] flex-col gap-1 max-md:hidden">
-          <h1 className="text-titulo">Wilson en vivo</h1>
-          <p className="m-0 text-cuerpo text-secundario">
-            Mira en qué galería hay más de lo que buscas y qué tan lejos está de tu stand. Toca una
-            para ver lo que publicaron.
-          </p>
-        </div>
-        <nav
-          aria-label="Categoría"
-          className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0"
-        >
-          <Link href={enlace({ categoria: null })} className={chip(!datos.categoria)}>
-            Todo
+    <>
+      <nav
+        aria-label="Categoría"
+        className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0"
+      >
+        <Link href={enlace({ categoria: null })} scroll={false} className={chip(!datos.categoria)}>
+          Todo
+        </Link>
+        {datos.categorias.map((categoria) => (
+          <Link
+            key={categoria.slug}
+            href={enlace({ categoria: categoria.slug })}
+            scroll={false}
+            aria-current={datos.categoria?.slug === categoria.slug ? 'true' : undefined}
+            className={chip(datos.categoria?.slug === categoria.slug)}
+          >
+            {categoria.nombre}
           </Link>
-          {datos.categorias.map((categoria) => (
-            <Link
-              key={categoria.slug}
-              href={enlace({ categoria: categoria.slug })}
-              aria-current={datos.categoria?.slug === categoria.slug ? 'true' : undefined}
-              className={chip(datos.categoria?.slug === categoria.slug)}
-            >
-              {categoria.nombre}
-            </Link>
-          ))}
-        </nav>
-      </div>
+        ))}
+      </nav>
 
       <section
         aria-label="Las galerías de la avenida"
-        className="flex flex-col gap-3 rounded-[28px] bg-superficie p-3.5 sm:p-5"
+        className="flex flex-col gap-4 rounded-[14px] md:border-[1.5px] md:border-borde md:bg-superficie md:p-5"
       >
-        <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-4">
-          {datos.galerias.map((galeria) => {
-            const [fondo, texto, chico] = tono(galeria.productos, mayor);
-            const activa = elegida?.slug === galeria.slug;
-            const lejos = distancia(galeria);
-            return (
-              <li key={galeria.slug} className="relative">
-                {galeria.mia && (
-                  <span className="absolute -top-2.5 right-3 z-10 flex h-7 items-center gap-1 rounded-full bg-tinta px-2.5 text-[12px] font-bold text-white">
-                    <IconMapPin size={13} stroke={2} aria-hidden="true" />
-                    Estás aquí
-                  </span>
-                )}
-                <Link
-                  href={enlace({ galeria: galeria.slug })}
-                  aria-current={activa ? 'true' : undefined}
-                  className={`flex min-h-[140px] flex-col justify-between gap-1.5 rounded-2xl border-[3px] p-3.5 no-underline ${fondo} ${texto} ${
-                    activa
-                      ? 'border-tinta shadow-[0_8px_18px_rgba(15,20,18,0.18)]'
-                      : 'border-transparent'
-                  }`}
-                >
-                  <b className="text-cuerpo font-bold">{galeria.nombre}</b>
-                  <span className="flex flex-col">
-                    <b className="text-[28px] font-bold leading-9">{galeria.productos}</b>
-                    <span className={`text-nota ${chico}`}>
-                      {queCosa(galeria.productos)} ·{' '}
-                      {conPlural(galeria.tiendas, 'tienda', 'tiendas')}
-                    </span>
-                    {lejos && <span className={`text-nota ${chico}`}>{lejos}</span>}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+        <ul className="m-0 grid list-none grid-cols-2 gap-3.5 p-0 pt-3 md:gap-4 lg:grid-cols-4">
+          {datos.galerias.map((galeria) => (
+            <Galeria
+              key={galeria.slug}
+              galeria={galeria}
+              activa={elegida?.slug === galeria.slug}
+              href={enlace({ galeria: galeria.slug })}
+              cosas={queCosa}
+            />
+          ))}
         </ul>
-        <div className="flex h-9 items-center justify-center rounded-lg bg-[#C9D1CC] text-nota font-bold uppercase tracking-[0.12em] text-secundario">
+        <div
+          aria-hidden="true"
+          className="flex h-10 items-center justify-center rounded-[10px] bg-borde text-nota font-extrabold uppercase tracking-[0.1em] max-md:hidden"
+        >
           Av. Garcilaso de la Vega (Wilson)
         </div>
-        <span className="text-nota text-secundario">
-          Más oscuro = más productos publicados. Toca una galería para ver qué hay.
-        </span>
+        <ul aria-label="Leyenda" className="m-0 flex list-none flex-wrap items-center gap-4 p-0">
+          {LEYENDA.map(([nivel, texto, punto]) => (
+            <li key={nivel} className="inline-flex items-center gap-1.5 text-nota">
+              <span
+                aria-hidden="true"
+                className={`h-3.5 w-3.5 rounded-full border-[1.5px] ${punto}`}
+              />
+              {texto}
+            </li>
+          ))}
+        </ul>
       </section>
 
       {elegida && (
@@ -172,72 +247,17 @@ export function PaginaWilson({
                   .join(' · ')}
               </span>
             </div>
-            <div role="tablist" className="flex rounded-full bg-superficie p-1">
-              {(
-                [
-                  ['publicado', 'Lo publicado'],
-                  ['tiendas', 'Tiendas por piso'],
-                ] as const
-              ).map(([clave, texto]) => (
-                <Link
-                  key={clave}
-                  role="tab"
-                  aria-selected={vista === clave}
-                  href={enlace({ vista: clave })}
-                  scroll={false}
-                  className={`flex h-[38px] items-center rounded-full px-4 text-apoyo no-underline ${
-                    vista === clave
-                      ? 'bg-tinta font-bold text-white'
-                      : 'font-medium text-secundario'
-                  }`}
-                >
-                  {texto}
-                </Link>
-              ))}
-            </div>
+            {conSesion && (
+              <Link
+                href={hrefDirectorio(SIN_FILTROS, { galeria: elegida.slug })}
+                className="text-apoyo font-bold text-pase-texto"
+              >
+                Ver las tiendas de {elegida.nombre} ›
+              </Link>
+            )}
           </div>
 
-          {vista === 'tiendas' ? (
-            datos.audiencia === 'visitante' ? (
-              <p className="m-0 rounded-2xl border border-linea px-5 py-8 text-center text-secundario">
-                Las tiendas de cada piso se ven al{' '}
-                <Link href="/ingresar" className="font-bold text-pase-texto">
-                  iniciar sesión
-                </Link>
-                .
-              </p>
-            ) : (
-              <div className="flex flex-col gap-5">
-                {datos.pisos.map((piso) => (
-                  <section key={piso.piso} aria-label={piso.piso} className="flex flex-col gap-2">
-                    <h3 className="m-0 text-etiqueta uppercase text-detalle">{piso.piso}</h3>
-                    <ul className="m-0 grid list-none gap-2.5 p-0 sm:grid-cols-2 lg:grid-cols-4">
-                      {piso.tiendas.map((tienda) => (
-                        <li key={tienda.id}>
-                          <Link
-                            href={tienda.mia ? '/mis-publicaciones' : `/tiendas/${tienda.id}`}
-                            className="flex flex-col gap-0.5 rounded-2xl border border-linea bg-white px-4 py-3 text-tinta no-underline hover:border-borde"
-                          >
-                            <b className="text-cuerpo font-bold">{tienda.nombre}</b>
-                            <span className="text-nota text-secundario">
-                              {tienda.stand ? `Stand ${tienda.stand}` : 'Sin stand'}
-                            </span>
-                            <span
-                              className={`text-nota font-bold ${tienda.mia ? 'text-pase-texto' : 'text-secundario'}`}
-                            >
-                              {tienda.mia
-                                ? 'Tu tienda'
-                                : conPlural(tienda.productos, 'publicación', 'publicaciones')}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-            )
-          ) : datos.ofertas.length === 0 ? (
+          {datos.ofertas.length === 0 ? (
             <p className="m-0 rounded-2xl border border-linea px-5 py-8 text-center text-secundario">
               Aún no hay {cosas} en {elegida.nombre}.
             </p>
@@ -297,6 +317,6 @@ export function PaginaWilson({
           )}
         </section>
       )}
-    </div>
+    </>
   );
 }

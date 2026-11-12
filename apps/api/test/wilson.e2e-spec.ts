@@ -50,7 +50,7 @@ describe('Wilson en vivo, categoría y seguidas (sección 8)', () => {
       expect(texto).not.toContain('"tienda"');
     });
 
-    it('con sesión, abre en tu galería, con la distancia y las tiendas por piso', async () => {
+    it('con sesión, abre en tu galería (la primera) y con la distancia', async () => {
       const tiendaB = await prisma.tienda.findFirstOrThrow({
         where: { nombre: 'Tienda B' },
         include: { galeria: true },
@@ -67,12 +67,11 @@ describe('Wilson en vivo, categoría y seguidas (sección 8)', () => {
         .set('Cookie', await como('tiendab'))
         .expect(200);
       expect(respuesta.body.galeria).toMatchObject({ slug: tiendaB.galeria?.slug, mia: true });
+      expect(respuesta.body.galerias[0]).toMatchObject({ slug: tiendaB.galeria?.slug, mia: true });
       const lejos = respuesta.body.galerias.find((g: { slug: string }) => g.slug === otra.slug);
       expect(lejos.minutos).toBe(3);
-      const tiendas = respuesta.body.pisos.flatMap(
-        (piso: { tiendas: Array<{ nombre: string; mia: boolean }> }) => piso.tiendas,
-      );
-      expect(tiendas).toContainEqual(expect.objectContaining({ nombre: 'Tienda B', mia: true }));
+      // Las tiendas por piso ahora son la pestaña «Tiendas» (directorio-tiendas.e2e-spec).
+      expect(respuesta.body.pisos).toEqual([]);
     });
 
     it('con una categoría, cuenta solo lo de esa categoría', async () => {

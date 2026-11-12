@@ -31,7 +31,7 @@ import {
   type RespuestaMapaDelSitio,
   type RespuestaBarra,
   type RespuestaMasBuscado,
-  type RespuestaSugerenciasBusqueda,
+  type RespuestaSugerenciasConTiendas,
   type RespuestaInicio,
   type RespuestaPortada,
   type RespuestaRedireccion,
@@ -50,6 +50,7 @@ import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { BusquedaService } from './busqueda.service';
 import { INTERRUPTOR_EN_VIVO, type InterruptorEnVivo } from '../en-vivo/interruptor';
 import { CatalogoService } from './catalogo.service';
+import { DirectorioService } from './directorio.service';
 import { InicioService } from './inicio.service';
 import { WilsonService } from './wilson.service';
 
@@ -67,6 +68,7 @@ export class CatalogoController {
     @Inject(InicioService) private readonly inicioTienda: InicioService,
     @Inject(WilsonService) private readonly wilsonEnVivo: WilsonService,
     @Inject(INTERRUPTOR_EN_VIVO) private readonly enVivo: InterruptorEnVivo,
+    @Inject(DirectorioService) private readonly directorio: DirectorioService,
   ) {}
 
   @Get('portada')
@@ -145,15 +147,20 @@ export class CatalogoController {
 
   /**
    * El desplegable del buscador de la barra, mientras se escribe. La web espera a que se
-   * deje de teclear, pero el límite es más alto que el de la búsqueda.
+   * deje de teclear, pero el límite es más alto que el de la búsqueda. Con sesión suma las
+   * tiendas que coinciden («TIENDAS», N13); sin sesión, ninguna.
    */
   @Get('buscar/sugerencias')
   @Throttle({ [LIMITE_PERSONA]: { limit: 120, ttl: 60_000 } })
-  sugerencias(
+  async sugerencias(
     @Query(new ZodValidationPipe(sugerenciasBusquedaSchema)) consulta: SugerenciasBusquedaConsulta,
     @MiradaActual() mirada: Mirada,
-  ): Promise<RespuestaSugerenciasBusqueda> {
-    return this.busqueda.sugerencias(consulta, mirada);
+  ): Promise<RespuestaSugerenciasConTiendas> {
+    const [productos, tiendas] = await Promise.all([
+      this.busqueda.sugerencias(consulta, mirada),
+      this.directorio.paraElBuscador(consulta.q, mirada),
+    ]);
+    return { ...productos, tiendas };
   }
 
   /**
