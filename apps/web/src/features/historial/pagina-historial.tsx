@@ -2,6 +2,7 @@
 
 import {
   formatearPrecio,
+  siguienteInsignia,
   TEXTO_MODO_VENTA,
   type RespuestaHistorial,
   type VentaEnHistorial,
@@ -25,7 +26,6 @@ const MES_LIMA = new Intl.DateTimeFormat('en-CA', {
 });
 
 const items = (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`;
-const faltan = (n: number) => (n === 1 ? 'Te falta 1' : `Te faltan ${n}`);
 
 /** Papelitos del «¡Pica pica!» (HI_A2_CelPica). Fijos: no cambian en cada render. */
 const PAPELITOS: Array<[number, number, string, number]> = [
@@ -41,9 +41,25 @@ const PAPELITOS: Array<[number, number, string, number]> = [
   [47, 8, '#FFFFFF', 10],
 ];
 
+/** «Te faltan 9 ventas para tu insignia de plata 🥈» (N03): plata a las 10 y oro a las 20. */
+function FaltanParaInsignia({ n, claro = false }: { n: number; claro?: boolean }) {
+  const insignia = siguienteInsignia(n);
+  if (!insignia) return null;
+  return (
+    <span className={`relative text-apoyo ${claro ? 'text-white/90' : 'text-secundario'}`}>
+      {insignia.faltan === 1 ? 'Te falta ' : 'Te faltan '}
+      <b className={`font-bold ${claro ? 'text-white' : 'text-tinta'}`}>
+        {insignia.faltan === 1 ? '1 venta' : `${insignia.faltan} ventas`}
+      </b>{' '}
+      para tu insignia de {insignia.nombre} {insignia.emoji}
+    </span>
+  );
+}
+
 /**
- * «Este mes vendiste 9 items» (HI_A2_Web, estilo A · emojis): 💪 hasta los 10, 🎉 «¡Pica pica!»
- * hasta los 20 y 🔥 desde ahí.
+ * «Este mes vendiste 9 items» (HI_A2_Web, estilo A · emojis): 💪 hasta los 10 con «¡Lo estás
+ * haciendo genial! Te faltan N ventas para tu insignia de plata 🥈» (N03), 🎉 hasta los 20 (la de
+ * oro) y 🔥 desde ahí.
  */
 function Logro({ n, mes, promedio }: { n: number; mes: string; promedio: number | null }) {
   const encabezado = `${mes} vendiste`;
@@ -101,13 +117,14 @@ function Logro({ n, mes, promedio }: { n: number; mes: string; promedio: number 
         <span className="relative text-apoyo text-white/90">
           Ya pasaste los 10 items: las tiendas confían en lo que vendes.
         </span>
+        <FaltanParaInsignia n={n} claro />
         <span className="relative mt-1 h-2.5 rounded-full bg-white/25">
           <span
             className="block h-full rounded-full bg-white"
-            style={{ width: `${Math.min(100, (n - 10) * 10)}%` }}
+            style={{ width: `${Math.min(100, (n / 20) * 100)}%` }}
           />
         </span>
-        <span className="relative text-nota">{faltan(20 - n)} para el 🔥</span>
+        <span className="relative text-nota">{n} de 20 ventas este mes</span>
       </section>
     );
   }
@@ -125,16 +142,16 @@ function Logro({ n, mes, promedio }: { n: number; mes: string; promedio: number 
       <b className="text-[18px] font-bold leading-6">
         {n === 0 ? 'Tu primera venta del mes está cerca' : '¡Lo estás haciendo genial!'}
       </b>
-      <span className="text-apoyo text-secundario">
-        {n === 0
-          ? 'Cuando marcas «Vendido» en el chat, sale aquí.'
-          : 'Las tiendas están comprando tus productos.'}{' '}
-        {faltan(10 - n)} para tu primer 🎉
-      </span>
-      <span className="mt-1 h-2.5 rounded-full bg-superficie">
+      {n === 0 && (
+        <span className="text-apoyo text-secundario">
+          Cuando marcas «Vendido» en el chat, sale aquí.
+        </span>
+      )}
+      <FaltanParaInsignia n={n} />
+      <span className="mt-1 h-2 rounded-full bg-[#E2E7E4]">
         <span className="block h-full rounded-full bg-pase" style={{ width: `${n * 10}%` }} />
       </span>
-      <span className="text-nota text-secundario">a los 10 items cae pica pica</span>
+      <span className="text-nota text-secundario">{n} de 10 ventas este mes</span>
     </section>
   );
 }

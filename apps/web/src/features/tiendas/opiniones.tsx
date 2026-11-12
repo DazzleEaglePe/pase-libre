@@ -1,14 +1,14 @@
 'use client';
 
-import type { RespuestaOpiniones } from '@paselibre/contracts';
-import { IconCheck, IconStarFilled } from '@tabler/icons-react';
+import type { OpinionPublica, RespuestaOpiniones } from '@paselibre/contracts';
+import { IconCheck, IconLock, IconStarFilled } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
 
-import { decimal, Estrellas } from './perfil-tienda';
+import { decimal, Estrellas } from './reputacion';
 
 const FILTROS: Array<[string, string]> = [
   ['todas', 'Todas'],
@@ -45,6 +45,7 @@ export function ListaOpiniones({
   const router = useRouter();
   const [filtro, setFiltro] = useState('todas');
   const [respondiendo, setRespondiendo] = useState<string | null>(null);
+  const [revisando, setRevisando] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { reputacion, distribucion, aspectos, opiniones } = datos;
@@ -60,6 +61,22 @@ export function ListaOpiniones({
       router.refresh();
     } catch (falla) {
       setError(falla instanceof ErrorApi ? falla.message : 'No pudimos guardar tu respuesta.');
+    }
+  }
+
+  /** «Pedir revisión al Equipo» (N03): queda como un reporte que el Equipo revisa. */
+  async function pedirRevision(id: string) {
+    setError(null);
+    try {
+      await llamarApi(`/opiniones/${id}/revision`, {
+        metodo: 'POST',
+        cuerpo: texto.trim() ? { motivo: texto.trim() } : {},
+      });
+      setRevisando(null);
+      setTexto('');
+      alFiltrar(filtro);
+    } catch (falla) {
+      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos enviar tu pedido.');
     }
   }
 
@@ -196,7 +213,19 @@ export function ListaOpiniones({
                   </span>
                 )}
               </span>
-              {opinion.texto && <p className="m-0 text-cuerpo">{opinion.texto}</p>}
+              {opinion.texto && (
+                <p className="m-0 text-cuerpo">
+                  {opinion.privada ? `«${opinion.texto}»` : opinion.texto}
+                </p>
+              )}
+              {opinion.privada && opinion.texto && (
+                <span className="flex items-start gap-1.5 text-[12px] font-bold leading-4 text-detalle">
+                  <IconLock size={14} stroke={1.8} aria-hidden="true" className="shrink-0" />
+                  {datos.puede_responder
+                    ? 'Comentario privado: solo lo ves tú y el Equipo. Las estrellas sí cuentan en el promedio.'
+                    : 'Comentario privado: solo lo ven la tienda calificada y el Equipo.'}
+                </span>
+              )}
               {opinion.aspectos.length > 0 && (
                 <span className="text-nota text-secundario">{opinion.aspectos.join(' · ')}</span>
               )}
@@ -248,17 +277,67 @@ export function ListaOpiniones({
                     </span>
                   </form>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
+                  <AccionesDeLaTienda
+                    opinion={opinion}
+                    alResponder={() => {
                       setRespondiendo(opinion.id);
+                      setRevisando(null);
                       setTexto('');
                     }}
-                    className="h-9 self-start text-apoyo font-bold text-pase-texto underline"
-                  >
-                    Responder
-                  </button>
+                    alPedirRevision={() => {
+                      setRevisando(opinion.id);
+                      setRespondiendo(null);
+                      setTexto('');
+                    }}
+                  />
                 ))
+              )}
+              {datos.puede_responder && opinion.respuesta && opinion.privada && (
+                <RevisionPedida opinion={opinion} alPedir={() => setRevisando(opinion.id)} />
+              )}
+              {revisando === opinion.id && (
+                <form
+                  onSubmit={(evento) => {
+                    evento.preventDefault();
+                    void pedirRevision(opinion.id);
+                  }}
+                  className="flex flex-col gap-2 rounded-xl bg-superficie p-3"
+                >
+                  <label className="flex flex-col gap-1.5 text-apoyo font-semibold">
+                    ¿Por qué crees que no es justa? (opcional)
+                    <textarea
+                      value={texto}
+                      onChange={(evento) => setTexto(evento.target.value)}
+                      rows={2}
+                      maxLength={500}
+                      placeholder="Por ejemplo: separamos el producto el mismo día, lo dice el chat."
+                      className="rounded-xl border border-borde bg-white px-3.5 py-2.5 font-normal"
+                    />
+                  </label>
+                  <span className="text-nota text-detalle">
+                    El Equipo PaseLibre la revisa y te cuenta qué hizo en «Mis reportes».
+                  </span>
+                  {error && (
+                    <p role="alert" className="text-apoyo text-error">
+                      {error}
+                    </p>
+                  )}
+                  <span className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="h-10 rounded-full bg-tinta px-4 text-apoyo font-bold text-white"
+                    >
+                      Enviar al Equipo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRevisando(null)}
+                      className="h-10 rounded-full px-3 text-apoyo font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  </span>
+                </form>
               )}
             </li>
           ))}
@@ -268,5 +347,51 @@ export function ListaOpiniones({
         </span>
       </div>
     </div>
+  );
+}
+
+/** «Responder» y, en una opinión baja, «Pedir revisión al Equipo» (N03). */
+function AccionesDeLaTienda({
+  opinion,
+  alResponder,
+  alPedirRevision,
+}: {
+  opinion: OpinionPublica;
+  alResponder: () => void;
+  alPedirRevision: () => void;
+}) {
+  return (
+    <span className="flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={alResponder}
+        className="h-9 rounded-full border-[1.5px] border-tinta bg-white px-4 text-nota font-bold text-tinta"
+      >
+        Responder
+      </button>
+      {opinion.privada && <RevisionPedida opinion={opinion} alPedir={alPedirRevision} />}
+    </span>
+  );
+}
+
+/** «Pedir revisión al Equipo», o en qué quedó si ya se pidió. */
+function RevisionPedida({ opinion, alPedir }: { opinion: OpinionPublica; alPedir: () => void }) {
+  if (opinion.revision) {
+    return (
+      <span className="text-nota font-semibold text-detalle">
+        {opinion.revision.resuelta
+          ? `El Equipo ya la revisó · ${opinion.revision.codigo}`
+          : `Le pediste al Equipo que la revise · ${opinion.revision.codigo}`}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={alPedir}
+      className="h-9 self-start text-nota font-medium text-tinta underline"
+    >
+      Pedir revisión al Equipo
+    </button>
   );
 }

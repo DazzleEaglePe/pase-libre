@@ -13,15 +13,20 @@ export const metadata: Metadata = {
  */
 const SECCIONES_VALIDAS: readonly Seccion[] = [
   'datos',
+  'acceso',
   'seguridad',
   'avisos',
   'privacidad',
   'preferencias',
+  'asesores',
   'reportes',
   'bloqueadas',
 ];
 
-/** `/cuenta/configuracion?seccion=` (C_Configuracion, REP_WebMisReportes, REP_WebBloqueadas). */
+/**
+ * `/cuenta/configuracion?seccion=` (N09_ConfigWebTodo, REP_WebMisReportes, REP_WebBloqueadas).
+ * Sin `?seccion=`, en el celular se ve el menú y en la computadora «Datos de la tienda».
+ */
 export default async function PaginaConfiguracion({
   searchParams,
 }: {

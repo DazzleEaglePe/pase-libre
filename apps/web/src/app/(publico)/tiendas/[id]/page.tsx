@@ -2,16 +2,15 @@ import type { PerfilTienda } from '@paselibre/contracts';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 
-import { PerfilPropio } from '@/features/tiendas/perfil-propio';
 import { PerfilDeTienda } from '@/features/tiendas/perfil-tienda';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 
 export const metadata: Metadata = { title: 'Perfil de tienda', robots: { index: false } };
 
 /**
- * `/tiendas/:id` (SG_Web, SG_Cel): el perfil de otra tienda, solo con sesión. Un visitante no
- * sabe qué tienda tiene qué, así que va a iniciar sesión, que le dice qué tienda le compartieron
- * y lo trae de vuelta aquí (COR3).
+ * `/tiendas/:id` (N04_PerfilA_Web, N04_PerfilB_Web): el perfil de una tienda, solo con sesión.
+ * Un visitante no sabe qué tienda tiene qué, así que va a iniciar sesión, que le dice qué tienda
+ * le compartieron y lo trae de vuelta aquí (COR3).
  */
 export default async function PaginaTienda({
   params,
@@ -24,14 +23,15 @@ export default async function PaginaTienda({
   if (!sesion) redirect(`/ingresar?volver=${encodeURIComponent(`/tiendas/${id}`)}`);
   const { estado, cuerpo } = await consultarApi<PerfilTienda>(`/tiendas/${encodeURIComponent(id)}`);
   if (estado === 404 || estado === 400 || !cuerpo) notFound();
-  // Tu propia tienda: la vista de dueña, con el ojito para ver cómo te ven (P_WebCuentaD2).
-  if (cuerpo.propia && sesion.tienda) return <PerfilPropio perfil={cuerpo} />;
 
+  // Tu propia tienda se ve igual que la ven los demás, con tus botones y «Tu mes» (N04).
   return (
     <PerfilDeTienda
       key={cuerpo.id}
       perfil={cuerpo}
-      pestanaInicial={pestana === 'opiniones' ? 'opiniones' : 'productos'}
+      pestanaInicial={
+        pestana === 'opiniones' ? 'opiniones' : pestana === 'detalles' ? 'detalles' : 'productos'
+      }
     />
   );
 }
