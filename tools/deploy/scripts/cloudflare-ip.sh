@@ -48,9 +48,10 @@ install -m 644 -o root -g root "$NUEVO" "$DESTINO"
 if nginx -t 2>/dev/null; then
   systemctl reload nginx
   echo "Rangos de Cloudflare actualizados: $rangos."
-  [ -n "$ANTERIOR" ] && rm -f "$ANTERIOR"
+  if [ -n "$ANTERIOR" ]; then rm -f "$ANTERIOR"; fi
 else
   echo "nginx no aceptó los rangos nuevos: dejo los anteriores." >&2
   if [ -n "$ANTERIOR" ]; then cp -a "$ANTERIOR" "$DESTINO"; rm -f "$ANTERIOR"; else rm -f "$DESTINO"; fi
   exit 1
 fi
+exit 0
