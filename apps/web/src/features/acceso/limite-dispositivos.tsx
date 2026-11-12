@@ -1,7 +1,7 @@
 'use client';
 
 import type { DetallesLimiteDispositivos } from '@paselibre/contracts';
-import { IconLock } from '@tabler/icons-react';
+import { IconChevronLeft, IconLock } from '@tabler/icons-react';
 import { useState } from 'react';
 
 import { conPlural } from '@/shared/plural';
@@ -29,6 +29,21 @@ export function LimiteDispositivos({
   const [elegida, setElegida] = useState<string | null>(detalles.sesiones.at(-1)?.id ?? null);
   return (
     <div className="flex flex-col gap-3.5">
+      {/* En el celular, la banda verde de «Entrar» con su flecha para volver (N10_11). */}
+      <div className="-mx-5 -mt-8 mb-1 flex items-center gap-2 bg-marca px-3 py-3 text-white md:hidden">
+        <button
+          type="button"
+          aria-label="Volver a Inicia sesión"
+          onClick={alCancelar}
+          className="flex h-11 w-9 items-center justify-center"
+        >
+          <IconChevronLeft size={22} stroke={2} aria-hidden="true" />
+        </button>
+        <span className="flex flex-col">
+          <b className="text-[18px] font-bold leading-6">Entrar</b>
+          <span className="text-nota text-white/85">Límite de dispositivos</span>
+        </span>
+      </div>
       <span
         aria-hidden="true"
         className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#FFF4E5] text-[#9A3412]"

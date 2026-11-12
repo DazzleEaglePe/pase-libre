@@ -73,8 +73,9 @@ export function respuestaYo(usuario: UsuarioConTienda, soporte?: SoporteActivo):
       nombre: usuario.nombre,
       correo: usuario.correo,
       rol: usuario.rol,
-      debe_cambiar_clave: usuario.debeCambiarClave,
-      ver_bienvenida: Boolean(tienda) && usuario.bienvenidaVistaEn === null,
+      // En modo soporte el equipo no cambia la contraseña del dueño ni ve su bienvenida.
+      debe_cambiar_clave: !soporte && usuario.debeCambiarClave,
+      ver_bienvenida: !soporte && Boolean(tienda) && usuario.bienvenidaVistaEn === null,
       tema_oscuro: usuario.temaOscuro,
       permisos: permisosDe(usuario),
     },
@@ -165,6 +166,11 @@ export class SesionService {
           intentosDesde: null,
           bloqueadoHasta: null,
           ultimoIngresoEn: ahora,
+          // Quien entra con una contraseña que no es temporal (el asesor que creó el dueño) ya
+          // hizo su primer ingreso.
+          ...(!usuario.debeCambiarClave && !usuario.primerIngresoEn
+            ? { primerIngresoEn: ahora }
+            : {}),
         },
         include: INCLUIR_TIENDA,
       });

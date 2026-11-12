@@ -424,6 +424,7 @@ export class FichaService {
       conversacion.tiendaCompradoraId === id
         ? conversacion.tiendaVendedora.nombre
         : conversacion.tiendaCompradora.nombre;
+    const versiones = await this.versionesDe(mensajes.map((mensaje) => mensaje.id));
     await this.prisma.$transaction([
       this.prisma.registroEquipo.create({
         data: { autorId: sesion.usuario.id, tiendaId: id, accion: `abrió el chat con ${con}` },
@@ -444,9 +445,16 @@ export class FichaService {
       producto: conversacion.oferta.producto.titulo,
       mensajes: mensajes.map((mensaje) => {
         const deLaTienda = mensaje.autor?.tiendaId === id;
+        const cambios = versiones.get(mensaje.id) ?? [];
+        const borrado = cambios.find((cambio) => cambio.cambio === 'ELIMINADO');
+        const editado = cambios.find((cambio) => cambio.cambio === 'EDITADO');
+        const quien = deLaTienda
+          ? primerNombre(mensaje.autor?.nombre ?? '')
+          : (mensaje.autor?.tienda?.nombre ?? mensaje.autor?.nombre ?? '');
         return {
           id: mensaje.id,
-          texto: mensaje.texto,
+          // Borrado para todos: el chat lo vació, el Equipo ve lo que decía.
+          texto: borrado ? (borrado.texto ?? mensaje.texto) : mensaje.texto,
           foto: mensaje.foto,
           de_la_tienda: deLaTienda,
           autor:
@@ -456,11 +464,38 @@ export class FichaService {
                 ? primerNombre(mensaje.autor.nombre)
                 : (mensaje.autor.tienda?.nombre ?? mensaje.autor.nombre),
           creado_en: mensaje.creadoEn.toISOString(),
-          antes: null,
-          borrado_por: null,
+          // El texto original, antes de la primera edición.
+          antes: editado ? (editado.texto ?? '') : null,
+          // Solo su autor lo puede borrar para todos.
+          borrado_por: borrado ? quien : null,
         };
       }),
     };
+  }
+
+  /**
+   * Lo que decían los mensajes antes de editarlos o borrarlos. Lo guarda el chat (área A, tabla
+   * `mensaje_version`); se lee con SQL para no depender de su modelo, y si la tabla todavía no
+   * existe se muestra lo que hay.
+   */
+  private async versionesDe(
+    ids: string[],
+  ): Promise<Map<string, Array<{ cambio: string; texto: string | null }>>> {
+    const versiones = new Map<string, Array<{ cambio: string; texto: string | null }>>();
+    if (ids.length === 0) return versiones;
+    const [tabla] = await this.prisma.$queryRaw<Array<{ existe: boolean }>>`
+      SELECT to_regclass('public.mensaje_version') IS NOT NULL AS existe`;
+    if (!tabla?.existe) return versiones;
+    const filas = await this.prisma.$queryRaw<
+      Array<{ mensaje_id: string; cambio: string; texto: string | null }>
+    >`
+      SELECT mensaje_id::text, cambio::text, texto FROM mensaje_version
+      WHERE mensaje_id = ANY(${ids}::uuid[])
+      ORDER BY creada_en ASC`;
+    for (const fila of filas) {
+      versiones.set(fila.mensaje_id, [...(versiones.get(fila.mensaje_id) ?? []), fila]);
+    }
+    return versiones;
   }
 
   // ── Actividad (sin leer chats) ───────────────────────────────────────────

@@ -14,7 +14,7 @@ import {
 import { IconChevronLeft, IconUser } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useId, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue, hora } from '@/shared/fechas';
@@ -62,6 +62,7 @@ export function FichaDeTienda({
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const [error, setError] = useState<string | null>(null);
   const [confirmar, setConfirmar] = useState<'soporte' | 'suspender' | null>(null);
+  const pestanas = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -73,6 +74,12 @@ export function FichaDeTienda({
   useEffect(() => {
     void cargar();
   }, [cargar]);
+  // En el celular las pestañas se deslizan: la elegida queda a la vista.
+  useEffect(() => {
+    pestanas.current
+      ?.querySelector('[aria-selected="true"]')
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [pestana, ficha]);
 
   function elegir(nueva: Pestana) {
     setPestana(nueva);
@@ -191,6 +198,7 @@ export function FichaDeTienda({
       </section>
 
       <div
+        ref={pestanas}
         role="tablist"
         aria-label="Pestañas de la ficha"
         className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]"

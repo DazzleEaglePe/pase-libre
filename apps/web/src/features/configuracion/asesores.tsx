@@ -128,11 +128,8 @@ export function SeccionAsesores({
     <>
       <div className={tarjeta}>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <span className="flex flex-col">
-            <h3 className="text-[18px] font-bold leading-6">Asesores</h3>
-            <span className="text-apoyo text-secundario">
-              Atienden tu tienda, pero no la administran.
-            </span>
+          <span className="text-apoyo text-secundario">
+            Atienden tu tienda, pero no la administran.
           </span>
           {datos && (
             <span className="rounded-full bg-pase-suave px-2.5 text-nota font-bold leading-6 text-pase-texto">

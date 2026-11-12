@@ -98,6 +98,19 @@
   background-color: #22d37a;
   color: #0f1412;
 }
+/* Los textos de color sobre las tarjetas oscuras (la ficha de la tienda, N14). */
+.panel-oscuro main .text-pase-texto {
+  color: #22d37a;
+}
+.panel-oscuro main .text-aviso {
+  color: #fdba74;
+}
+.panel-oscuro main .text-error {
+  color: #fca5a5;
+}
+.panel-oscuro main .border-error {
+  border-color: #f87171;
+}
 
 @layer components {
   /* Un título en mayúsculas que no es el de la página: las secciones del inicio, por ejemplo. */
