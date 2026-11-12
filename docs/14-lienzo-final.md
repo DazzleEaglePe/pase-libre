@@ -146,3 +146,29 @@ valores `OTRO` y `OTRA`; `producto.version` y `codigo_parte` (único); soles por
 - «Unir con este» no une si la misma tienda tiene publicados los dos: pide quitar uno primero.
 - En «Agregar uno», Chip, Memoria y Tipo de memoria van siempre (son los del tablero, de
   tarjetas de video); en el archivo, cualquier otra columna entra como característica.
+
+## 7. Correcciones 11/11 y feed (versión `1794455592-a02d`)
+
+Páginas «★ CORRECCIONES 11/11 · versión elegida» (`N00`–`N14`) y «★ FEED» (`N15`, `N16`). Se construyó en seis ramas en paralelo (`nov11/chat`, `perfil`, `equipo`, `feed`, `wilson`, `busqueda`) y se unió en `main`; el detalle de cada tarea está en el CHECKLIST §11 y §12.
+
+| Área | Lo principal | Migración |
+|---|---|---|
+| Chat (1, 2, 3, 11) | Puntito verde y «Activo hace N min» en vivo (30 s de gracia), checks enviado / le llegó / lo leyó (grises con el «Visto» apagado), editar y eliminar en 15 min (lo de antes queda en `mensaje_version`), pedir y compartir WhatsApp, «Marcar vendido» con confirmación y «Deshacer» (48 h, si no calificaron), tarjeta de calificar con X, respuestas rápidas por papel con «{tienda}», autor de cada mensaje | `20261112100000_chat_checks_editar_whatsapp_y_respuestas` |
+| Perfil (3, 4, 9) | Reputación con nivel (función pura `calcularReputacion`, «Nueva» hasta 5 opiniones), comentario privado en opiniones de ≤ 2 estrellas y «Pedir revisión al Equipo», cabecera A con «Sobre la tienda» y barra que se ilumina, «Tu mes» en el propio, configuración A + B, horario por días, cambio de galería/piso/stand pendiente del Equipo, «Mi acceso» por persona | `20261112110000_reputacion_horario_y_lugar` |
+| Equipo (10, 12, 14) | Máximo 2 dispositivos de la cuenta principal (elegir cuál cerrar después de la contraseña), Seguridad en tarjetas, asesores con permisos que cumple el servidor (`@Permiso`), ficha completa de la tienda en el panel, contraseña temporal o definitiva, chats en solo lectura con registro silencioso, modo soporte de 1 h, respuesta automática del chat del Equipo, advertencias «N de 3» | `20261112120000_asesores_seguridad_y_soporte` |
+| Feed (5, 6, 7, N15, N16) | Inicio por estados (0, 1–11 con «Van N de 12», normal desde 12 y no vuelve atrás), «Recién publicado» 4 × 6 mezclado por tienda y de a 24, bienvenida nueva, «Precio fijo ▾» y detalles nuevos al publicar, tarjeta de todo el sitio con burbujita (Pase, Negociable, Socio, Por chat) y borde de 2 px, pie A, banner de invitar con X por persona, «Recién llegados +N nuevos», avisos que bajan el contador al toque | `20261112130000_feed_hito_invitar_y_negociable` |
+| Wilson (8, 13) | Todas las galerías, la tuya primero, solo verde por tercios; pestaña «Tiendas» (directorio con filtros); tiendas en el buscador; reservadas, suspendidas y bloqueadas nunca salen | — |
+| Búsqueda (docs/16) | Memoria de 30 s para visitantes, lista y totales en una consulta, tabla `producto_resumen` mantenida por triggers, 8 s máximo por consulta y sin JIT | `20261112150000_resumen_de_productos` |
+
+**Al unir** (lo que se cruzaba entre áreas): el perfil usa la tarjeta del feed con «Socio» y «Negociable»; «Asesores» en Configuración solo para el dueño y «Datos de la tienda» se esconde al asesor sin ese permiso; el chat esconde «Marcar vendido» y «Deshacer» a quien no tiene el permiso (la API ya los negaba); el asesor nuevo recibe las respuestas rápidas por papel.
+
+**Decisiones tomadas sin el lienzo** (cambiarlas si Fabrizio dice otra cosa):
+
+- El orden de las galerías vive en `apps/api/src/modules/catalogo/galerias-en-orden.ts` (`ORDEN_DE_GALERIAS`, hoy vacío: manda el de la base). Falta el listado de Fabrizio.
+- El cambio de galería pasa por aprobación del Equipo; el límite de dispositivos es solo de la cuenta principal (los asesores, sin límite); «Agregar socio» con una tienda reservada queda como antes.
+- Fórmula de reputación: 60 % estrellas (con 3 opiniones de arranque de 3,5 y media vida de 90 días), 20 % pases en 60 días, 20 % rapidez; umbrales Excelente 0,90 · Muy buena 0,75 · Buena 0,60 · Regular 0,45.
+- «Negociable» es una columna nueva (`oferta.negociable`); «Con comprobante» usa `con_factura`; «Accesorios completos» y «Entrega inmediata» van en el texto de la publicación.
+- La tarjeta de calificar cerrada se recuerda en el navegador; «Marcar vendido» vende a la tienda de ese chat (se fue la ventana «¿A quién se lo vendiste?»).
+- **Privacidad:** el Equipo puede abrir un chat solo para leerlo y entrar como la tienda una hora. Se cambiaron la política de privacidad §4, la Ayuda, docs/08 y RNF-44, que decían que el Equipo no lee mensajes. **Revisar el texto legal antes de subir.**
+
+**Pendiente de esta ronda:** memoria corta para «Recién publicado» del visitante (con 180 mil ofertas de la misma fecha es lo que más pesa ahora); índice en `producto.fusionado_en_id`; 503 con `Retry-After`; reordenar respuestas rápidas con teclado.

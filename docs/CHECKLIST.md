@@ -177,57 +177,57 @@ Se hace cuando exista el VPS. La guía está en [tools/deploy/DESPLIEGUE.md](../
 
 ## 11. Correcciones 11/11 y feed (lienzo versión `1794455592-a02d`)
 
-Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`) y «★ FEED» (`N15`, `N16`) del [lienzo](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7). Se construye por áreas en ramas `nov11/*`, se une en `main` y se revisa en local antes de subir.
+Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`) y «★ FEED» (`N15`, `N16`) del [lienzo](https://claude.ai/artifact/EPB8HopVtygjLksky5HjC7). Se construyó por áreas en ramas `nov11/*` y se unió en `main` el 12/11 (resumen en [docs/14 §7](14-lienzo-final.md#7-correcciones-1111-y-feed-versión-1794455592-a02d)); falta revisarlo en local y subirlo.
 
 **A · Chat y respuestas rápidas** (rama `nov11/chat`)
 
-- [ ] 1 · Puntito verde en la lista de chats para las tiendas conectadas; «Activo ahora» → «Activo hace N min» en vivo (30 s de gracia al recargar)
-- [ ] 1 · Checks como WhatsApp: enviado, le llegó, lo leyó (verde); con el «Visto» apagado quedan grises
-- [ ] 1 · Editar y eliminar dentro de 15 min («editado», «Eliminaste este mensaje»; para todos o para mí); lo de una venta cerrada no se cambia
-- [ ] 1 · Pedir WhatsApp en los dos sentidos: botón arriba del chat, tarjeta Aceptar / Ahora no, número guardado en el chat con «Abrir»; «Compartir mi WhatsApp» desde ⋯
-- [ ] 2 · Botón «Marcar vendido»: blanco → verde suave al pasar → confirmación «¿Se la vendiste a …?» → verde sólido «Vendido» con «Deshacer»; solo lo ve quien vende
-- [ ] 3 · Tarjeta de calificar con X y «Ahora no»; cerrada queda chiquita («Calificar a …»)
-- [ ] 11 · Respuestas rápidas por papel: «Cuando te escriben» (vendes) y «Cuando tú preguntas» (compras); en cada chat solo las del papel; «Nombre de la tienda» se reemplaza; al tocar se escribe en la caja, no se envía sola; sugerencias para agregar
+- [x] 1 · Puntito verde en la lista de chats para las tiendas conectadas; «Activo ahora» → «Activo hace N min» en vivo (30 s de gracia al recargar)
+- [x] 1 · Checks como WhatsApp: enviado, le llegó, lo leyó (verde); con el «Visto» apagado quedan grises
+- [x] 1 · Editar y eliminar dentro de 15 min («editado», «Eliminaste este mensaje»; para todos o para mí); lo de una venta cerrada no se cambia
+- [x] 1 · Pedir WhatsApp en los dos sentidos: botón arriba del chat, tarjeta Aceptar / Ahora no, número guardado en el chat con «Abrir»; «Compartir mi WhatsApp» desde ⋯
+- [x] 2 · Botón «Marcar vendido»: blanco → verde suave al pasar → confirmación «¿Se la vendiste a …?» → verde sólido «Vendido» con «Deshacer»; solo lo ve quien vende
+- [x] 3 · Tarjeta de calificar con X y «Ahora no»; cerrada queda chiquita («Calificar a …»)
+- [x] 11 · Respuestas rápidas por papel: «Cuando te escriben» (vendes) y «Cuando tú preguntas» (compras); en cada chat solo las del papel; «Nombre de la tienda» se reemplaza; al tocar se escribe en la caja, no se envía sola; sugerencias para agregar
 
 **B · Perfil, reputación y configuración** (rama `nov11/perfil`)
 
-- [ ] 3 · Reputación: «🌱 Nueva en PaseLibre» con barra gris hasta 5 opiniones; después nivel (Baja → Excelente) que junta estrellas, pases cerrados y rapidez, lo reciente pesa más
-- [ ] 3 · Calificación baja con comentario privado (solo la tienda y el Equipo); «Responder» y «Pedir revisión al Equipo»
-- [ ] 3 · Historial: «¡Lo estás haciendo genial! Te faltan N ventas para tu insignia de plata»
-- [ ] 4 · Perfil de otra tienda: cabecera A (negra, estilo Pinterest), botones Escribir / Siguiendo, pestañas Productos · Opiniones · Detalles, tarjeta «Sobre la tienda» con reputación que se ilumina hasta su nivel
-- [ ] 4 · Tu propio perfil igual que lo ven los demás + «Editar perfil», «Cambiar portada» y la franja «Tu mes» (solo tú)
-- [ ] 4 · Tarjetas de producto con borde de 2 px en el perfil y en el feed
-- [ ] 9 · Configuración A + B: íconos nuevos (Preferencias «ajustes», Tiendas bloqueadas «restringido») y rayitas entre opciones
-- [ ] 9 · Datos de la tienda: galería, piso y stand (cambio «Pendiente de aprobación» del Equipo), horario por días con «+ Otro horario», «Cómo llegar», «Sobre la tienda», «Perfil al N %»
-- [ ] 9 · «Mi acceso»: usuario (lo cambia el Equipo), correo y mi WhatsApp de la persona que entra; se va «Persona a cargo»
+- [x] 3 · Reputación: «🌱 Nueva en PaseLibre» con barra gris hasta 5 opiniones; después nivel (Baja → Excelente) que junta estrellas, pases cerrados y rapidez, lo reciente pesa más
+- [x] 3 · Calificación baja con comentario privado (solo la tienda y el Equipo); «Responder» y «Pedir revisión al Equipo»
+- [x] 3 · Historial: «¡Lo estás haciendo genial! Te faltan N ventas para tu insignia de plata»
+- [x] 4 · Perfil de otra tienda: cabecera A (negra, estilo Pinterest), botones Escribir / Siguiendo, pestañas Productos · Opiniones · Detalles, tarjeta «Sobre la tienda» con reputación que se ilumina hasta su nivel
+- [x] 4 · Tu propio perfil igual que lo ven los demás + «Editar perfil», «Cambiar portada» y la franja «Tu mes» (solo tú)
+- [x] 4 · Tarjetas de producto con borde de 2 px en el perfil y en el feed
+- [x] 9 · Configuración A + B: íconos nuevos (Preferencias «ajustes», Tiendas bloqueadas «restringido») y rayitas entre opciones
+- [x] 9 · Datos de la tienda: galería, piso y stand (cambio «Pendiente de aprobación» del Equipo), horario por días con «+ Otro horario», «Cómo llegar», «Sobre la tienda», «Perfil al N %»
+- [x] 9 · «Mi acceso»: usuario (lo cambia el Equipo), correo y mi WhatsApp de la persona que entra; se va «Persona a cargo»
 
 **C · Asesores, seguridad y panel del Equipo** (rama `nov11/equipo`)
 
-- [ ] 10 · Máximo 2 dispositivos para la cuenta principal: al entrar desde un tercero, elegir cuál cerrar (después de la contraseña); aviso al cerrar una sesión; el Equipo puede subir el límite
-- [ ] 10 · Seguridad en tarjetas: sesiones abiertas «N de 2», cerrar todas las demás, «Verificación en dos pasos · Próximamente»
-- [ ] 12 · Asesores (hasta 3) con permisos por asesor (casillas; chatear siempre; asesores y seguridad solo el dueño); contraseña visible solo al crearla; cada mensaje dice quién lo escribió
-- [ ] 14 · Ficha completa de la tienda en el panel (pestañas Datos, Imagen, Publicaciones, Conversaciones, Actividad, Reportes y advertencias, Acceso, Historial de cambios); la columna WhatsApp lee el de la tienda; toda la fila abre la ficha
-- [ ] 14 · Acceso: contraseña temporal o definitiva, cerrar sesiones, límite de dispositivos; aviso a la tienda de cada cambio
-- [ ] 14 · Conversaciones: clic y se abre en solo lectura (con editados y borrados), sin preguntar motivo; queda anotado quién y cuándo
-- [ ] 14 · Modo soporte «Ayudar como la tienda»: 1 hora, todo registrado, aviso a la tienda; lo pide la tienda o lo activa el Equipo
-- [ ] 14 · Chat del Equipo con respuesta automática (primera vez o tras 12 h) editable; reportes con «Dar advertencia» / «Cerrar sin cambios»; «1 de 3» cuenta advertencias, no reportes
+- [x] 10 · Máximo 2 dispositivos para la cuenta principal: al entrar desde un tercero, elegir cuál cerrar (después de la contraseña); aviso al cerrar una sesión; el Equipo puede subir el límite
+- [x] 10 · Seguridad en tarjetas: sesiones abiertas «N de 2», cerrar todas las demás, «Verificación en dos pasos · Próximamente»
+- [x] 12 · Asesores (hasta 3) con permisos por asesor (casillas; chatear siempre; asesores y seguridad solo el dueño); contraseña visible solo al crearla; cada mensaje dice quién lo escribió
+- [x] 14 · Ficha completa de la tienda en el panel (pestañas Datos, Imagen, Publicaciones, Conversaciones, Actividad, Reportes y advertencias, Acceso, Historial de cambios); la columna WhatsApp lee el de la tienda; toda la fila abre la ficha
+- [x] 14 · Acceso: contraseña temporal o definitiva, cerrar sesiones, límite de dispositivos; aviso a la tienda de cada cambio
+- [x] 14 · Conversaciones: clic y se abre en solo lectura (con editados y borrados), sin preguntar motivo; queda anotado quién y cuándo
+- [x] 14 · Modo soporte «Ayudar como la tienda»: 1 hora, todo registrado, aviso a la tienda; lo pide la tienda o lo activa el Equipo
+- [x] 14 · Chat del Equipo con respuesta automática (primera vez o tras 12 h) editable; reportes con «Dar advertencia» / «Cerrar sin cambios»; «1 de 3» cuenta advertencias, no reportes
 
 **D · Feed, bienvenida, publicar y pie** (rama `nov11/feed`)
 
-- [ ] Feed · 0 publicaciones: bienvenida, precios protegidos, lo que más se pide, tiendas que ya están, piloto «N de 20», primeros pasos (nunca cuadrícula vacía)
-- [ ] Feed · 1 a 11: lo nuevo en lista con «Van N de 12»; desde 12 inicio normal, cambia solo y no vuelve atrás
-- [ ] Feed · Recién publicado hasta 4 filas de 6 (24), mezclado por tienda; flechita → siguientes 24 sin fin; pedidos en vivo en el rectángulo negro; «¡Lo tengo!» abre el chat; sin leyenda de precios
-- [ ] 5 · Bienvenida más cálida («Te protegemos de estafas y malos tratos», «todos los días»)
-- [ ] 6 · Publicar: «Precio fijo ▾» dentro del campo, burbujita Pase / Negociable / Socio (verde claro con dorado) / Por chat (plomo); detalles nuevos (Con caja, Probada, Con comprobante, Accesorios completos, Entrega inmediata); «Al interno · por chat» pliega el precio
-- [ ] 7 · Pie A «Tu venta es tuya…»; banner «¿Conoces una tienda…?» con X que se guarda en la cuenta
-- [ ] 7 · «Recién llegados» cuenta lo nuevo desde tu última visita (sin lo tuyo, máximo 24 h, dice «nuevo»)
-- [ ] 7 · Avisos: al tocarlos bajan los contadores en todos lados; abrir un chat marca su aviso como leído
+- [x] Feed · 0 publicaciones: bienvenida, precios protegidos, lo que más se pide, tiendas que ya están, piloto «N de 20», primeros pasos (nunca cuadrícula vacía)
+- [x] Feed · 1 a 11: lo nuevo en lista con «Van N de 12»; desde 12 inicio normal, cambia solo y no vuelve atrás
+- [x] Feed · Recién publicado hasta 4 filas de 6 (24), mezclado por tienda; flechita → siguientes 24 sin fin; pedidos en vivo en el rectángulo negro; «¡Lo tengo!» abre el chat; sin leyenda de precios
+- [x] 5 · Bienvenida más cálida («Te protegemos de estafas y malos tratos», «todos los días»)
+- [x] 6 · Publicar: «Precio fijo ▾» dentro del campo, burbujita Pase / Negociable / Socio (verde claro con dorado) / Por chat (plomo); detalles nuevos (Con caja, Probada, Con comprobante, Accesorios completos, Entrega inmediata); «Al interno · por chat» pliega el precio
+- [x] 7 · Pie A «Tu venta es tuya…»; banner «¿Conoces una tienda…?» con X que se guarda en la cuenta
+- [x] 7 · «Recién llegados» cuenta lo nuevo desde tu última visita (sin lo tuyo, máximo 24 h, dice «nuevo»)
+- [x] 7 · Avisos: al tocarlos bajan los contadores en todos lados; abrir un chat marca su aviso como leído
 
 **E · Wilson en vivo y buscar tiendas** (rama `nov11/wilson`)
 
-- [ ] 8 · Todas las galerías, la tuya primero; solo verde «Pocos / Varios / Muchos» por tercios, todo verde suave con menos de 20 productos; solo cuentan productos con stock
-- [ ] 13 · Pestaña «Tiendas» en Wilson en vivo (directorio con galería, piso, «Vende», orden por reputación)
-- [ ] 13 · El buscador de arriba muestra tiendas («TIENDAS») y «Ver todas las tiendas ›»; las reservadas nunca salen (filtro en el servidor); nada de esto para visitantes
+- [x] 8 · Todas las galerías, la tuya primero; solo verde «Pocos / Varios / Muchos» por tercios, todo verde suave con menos de 20 productos; solo cuentan productos con stock
+- [x] 13 · Pestaña «Tiendas» en Wilson en vivo (directorio con galería, piso, «Vende», orden por reputación)
+- [x] 13 · El buscador de arriba muestra tiendas («TIENDAS») y «Ver todas las tiendas ›»; las reservadas nunca salen (filtro en el servidor); nada de esto para visitantes
 
 **Pendiente de Fabrizio / diseño** (el lienzo lo deja abierto; se construye con lo marcado y se cambia si dicen otra cosa)
 
@@ -239,8 +239,10 @@ Páginas «★ CORRECCIONES 11/11 · versión elegida» (tableros `N00`–`N14`)
 ## 12. Seguridad y escala ([docs/16](16-seguridad-y-escala.md))
 
 - [x] Fase 0 · nginx: límites, tiempos de espera y subidas por ruta (11/11, en producción)
-- [ ] Búsqueda: caché de visitantes, una sola consulta y tabla resumen; volver a medir con `tools/carga` (rama `nov11/busqueda`)
+- [x] Búsqueda: caché de visitantes, una sola consulta y tabla resumen; volver a medir con `tools/carga` (con fechas reales: 1 010–1 799 pedidos/s y p95 de búsqueda 40–88 ms; ver `tools/carga/README.md`)
+- [ ] Memoria corta para «Recién publicado» del visitante y 503 con `Retry-After` (lo que queda de docs/16 §4.4)
 - [ ] Fase 0 · `unattended-upgrades` y CrowdSec o `fail2ban` para SSH
-- [ ] Fase 1 · Cloudflare (necesita que Dazz cree la cuenta o dé acceso, y cambiar los *nameservers* en Spaceship)
+- [x] Fase 1 · nginx listo para Cloudflare: IP real solo desde sus rangos y renovación del certificado por HTTPS (12/11, en producción)
+- [ ] Fase 1 · Cloudflare: Dazz crea la cuenta, apaga DNSSEC en Spaceship y cambia los *nameservers* (guía en el chat del 12/11)
 - [ ] VPS propio o más RAM para PaseLibre (decisión y compra de Dazz/Fabrizio)
 - [ ] Dos réplicas de la API con Redis (después del VPS: en el servidor actual no hay RAM)
