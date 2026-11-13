@@ -23,14 +23,14 @@ export interface FichaTienda {
   stand: string | null;
   /** El usuario de la cuenta principal. Nunca su contraseña. */
   usuario: string | null;
-  /** El WhatsApp de la tienda. */
-  whatsapp: string;
+  /** El WhatsApp de la tienda; nulo si se creó sin él (doc 19, punto 6). */
+  whatsapp: string | null;
   asesores: number;
   logo: string | null;
   portada: { ruta: string; posicion: number } | null;
   datos: {
     nombre: string;
-    whatsapp: string;
+    whatsapp: string | null;
     /** Slug de la galería; nulo si es independiente. */
     galeria: string | null;
     piso: string | null;

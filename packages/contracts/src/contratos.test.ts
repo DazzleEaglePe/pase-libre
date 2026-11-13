@@ -131,6 +131,41 @@ describe('crearCuentaSchema', () => {
     expect(cuenta.tienda?.whatsapp).toBe('987654321');
   });
 
+  it('sin WhatsApp ni persona a cargo, y con contraseña temporal por defecto (doc 19, punto 6)', () => {
+    const cuenta = crearCuentaSchema.parse({
+      tipo: 'DUENO',
+      nombre: '  ',
+      usuario: 'tecnowilson',
+      tienda: { nombre: 'Tecno Wilson', galeria: 'cyberplaza', whatsapp: null },
+    });
+    expect(cuenta.nombre).toBeUndefined();
+    expect(cuenta.tienda?.whatsapp).toBeNull();
+    expect(cuenta.clave).toEqual({ tipo: 'TEMPORAL' });
+    const sinCampo = { ...dueno, tienda: { nombre: 'Tienda F', galeria: 'cyberplaza' } };
+    expect(crearCuentaSchema.safeParse(sinCampo).success).toBe(true);
+  });
+
+  it('la contraseña definitiva sigue la regla de 8 caracteres y un número', () => {
+    const definitiva = (clave: string) =>
+      crearCuentaSchema.safeParse({ ...dueno, clave: { tipo: 'DEFINITIVA', clave } }).success;
+    expect(definitiva('pegaso2026')).toBe(true);
+    expect(definitiva('sinnumeros')).toBe(false);
+    expect(definitiva('corta1')).toBe(false);
+    expect(
+      crearCuentaSchema.safeParse({ ...dueno, clave: { tipo: 'TEMPORAL', clave: 'x' } }).success,
+    ).toBe(false);
+  });
+
+  it('el asesor sí necesita su nombre', () => {
+    const asesor = {
+      tipo: 'ASESOR',
+      usuario: 'tiendaf.kevin',
+      tienda_id: '00000000-0000-4000-8000-000000000000',
+    };
+    expect(crearCuentaSchema.safeParse(asesor).success).toBe(false);
+    expect(crearCuentaSchema.safeParse({ ...asesor, nombre: 'Kevin P.' }).success).toBe(true);
+  });
+
   it('pide galería al dueño de tienda, pero no al independiente', () => {
     const sinGaleria = { ...dueno, tienda: { ...dueno.tienda, galeria: null } };
     expect(crearCuentaSchema.safeParse(sinGaleria).success).toBe(false);

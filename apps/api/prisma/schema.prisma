@@ -238,7 +238,8 @@ model Tienda {
   stand                String?       @db.VarChar(20)
   /// «Sótano», «1», «2»… Lo trae el registro propio; el equipo lo completa en las demás.
   piso                 String?       @db.VarChar(20)
-  whatsapp             String        @db.VarChar(20)
+  /// Opcional desde la 1.10.0 (doc 19, punto 6): el Equipo crea la cuenta y lo completa después.
+  whatsapp             String?       @db.VarChar(20)
   horario              String?       @db.VarChar(120)
   /// El horario por días (N09): `[{ dias: ['lun', …], desde: '10:00', hasta: '19:00' }]`. Con él,
   /// `horario` se escribe solo («Lunes a sábado, 10:00 a 19:00 · Domingo cerrado»).
@@ -323,6 +324,9 @@ model Usuario {
   debeCambiarClave  Boolean         @default(true) @map("debe_cambiar_clave")
   /// El panel del equipo en oscuro (COR18): se guarda en la cuenta.
   temaOscuro        Boolean         @default(false) @map("tema_oscuro")
+  /// La última versión que abrió en «Versiones» (doc 19, punto 8): sin ella, o con otra, la
+  /// pastilla de la versión lleva el puntito verde.
+  versionVista      String?         @map("version_vista") @db.VarChar(20)
   primerIngresoEn   DateTime?       @map("primer_ingreso_en") @db.Timestamptz(6)
   estado            EstadoUsuario   @default(ACTIVO)
   intentosFallidos  Int             @default(0) @map("intentos_fallidos") @db.SmallInt

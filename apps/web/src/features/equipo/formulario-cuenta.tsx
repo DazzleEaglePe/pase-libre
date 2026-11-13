@@ -9,7 +9,10 @@ import {
 import { useEffect, useId, useState, type FormEvent } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { problemaDeClave } from '@/shared/clave';
 import { botonPrincipal, botonSecundario, campo, etiqueta } from '@/shared/ui/estilos';
+
+import { CampoClave, OpcionClave, type TipoClave } from './eleccion-clave';
 
 type Tipo = 'DUENO' | 'ASESOR' | 'INDEPENDIENTE';
 
@@ -29,9 +32,17 @@ function sugerirUsuario(tipo: Tipo, tienda: string, persona: string): string {
   return compacto(tienda);
 }
 
+/** «(opcional)» en gris, al lado de la etiqueta. */
+const Opcional = () => <span className="font-normal text-detalle">(opcional)</span>;
+
 /**
  * Crear cuenta (RF-35, D-42), como el panel lateral del lienzo. El dueño y el
  * independiente crean su tienda; el asesor se suma a una que ya existe.
+ *
+ * Desde la 1.10.0 (doc 19, punto 6) solo son obligatorios el nombre de la tienda, la galería
+ * (del dueño) y el usuario: el WhatsApp se completa después y, sin persona a cargo, la cuenta
+ * lleva el nombre de la tienda. La contraseña es temporal (como antes) o definitiva, igual que
+ * en Tienda › Acceso.
  */
 export function FormularioCuenta({
   alCrear,
@@ -52,6 +63,8 @@ export function FormularioCuenta({
   const [usuarioEditado, setUsuarioEditado] = useState(false);
   const [whatsappPersona, setWhatsappPersona] = useState('');
   const [correo, setCorreo] = useState('');
+  const [tipoClave, setTipoClave] = useState<TipoClave>('TEMPORAL');
+  const [clave, setClave] = useState('');
   const [galerias, setGalerias] = useState<GaleriaResumen[]>([]);
   const [tiendas, setTiendas] = useState<TiendaParaEquipo[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -75,9 +88,16 @@ export function FormularioCuenta({
 
   async function crear(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    setEnviando(true);
     setError(null);
     setSugerencia(null);
+    const problema = tipoClave === 'DEFINITIVA' ? problemaDeClave(clave) : null;
+    if (problema) {
+      setError(problema);
+      return;
+    }
+    setEnviando(true);
+    const contrasena =
+      tipoClave === 'DEFINITIVA' ? { tipo: tipoClave, clave } : { tipo: tipoClave };
     const cuerpo =
       tipo === 'ASESOR'
         ? {
@@ -87,18 +107,21 @@ export function FormularioCuenta({
             usuario: usuarioFinal,
             correo,
             whatsapp: whatsappPersona || undefined,
+            clave: contrasena,
           }
         : {
             tipo,
-            nombre,
+            // Vacío: la API le pone el nombre de la tienda.
+            nombre: nombre.trim() || undefined,
             usuario: usuarioFinal,
             correo,
             tienda: {
               nombre: tiendaNombre,
               galeria: galeria || null,
               stand,
-              whatsapp: whatsappTienda,
+              whatsapp: whatsappTienda.trim() || null,
             },
+            clave: contrasena,
           };
     try {
       alCrear(await llamarApi<RespuestaAcceso>('/equipo/cuentas', { metodo: 'POST', cuerpo }));
@@ -167,7 +190,7 @@ export function FormularioCuenta({
 
       {tipo === 'ASESOR' ? (
         <label htmlFor={`${id}-1`} className={etiqueta}>
-          Tienda a la que pertenece
+          Tienda a la que pertenece *
           <select
             id={`${id}-1`}
             required
@@ -186,7 +209,7 @@ export function FormularioCuenta({
       ) : (
         <>
           <label htmlFor={`${id}-2`} className={etiqueta}>
-            {tipo === 'INDEPENDIENTE' ? 'Nombre que verán los vendedores' : 'Nombre de la tienda'}
+            {tipo === 'INDEPENDIENTE' ? 'Nombre que verán los vendedores' : 'Nombre de la tienda'} *
             <input
               id={`${id}-2`}
               required
@@ -197,7 +220,7 @@ export function FormularioCuenta({
           </label>
           <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3">
             <label htmlFor={`${id}-3`} className={etiqueta}>
-              Galería
+              {tipo === 'DUENO' ? 'Galería *' : 'Galería'}
               <select
                 id={`${id}-3`}
                 required={tipo === 'DUENO'}
@@ -224,10 +247,11 @@ export function FormularioCuenta({
             </label>
           </div>
           <label htmlFor={`${id}-5`} className={etiqueta}>
-            WhatsApp de la tienda
+            <span>
+              WhatsApp de la tienda <Opcional />
+            </span>
             <input
               id={`${id}-5`}
-              required
               type="tel"
               inputMode="tel"
               placeholder="987 654 321"
@@ -240,17 +264,26 @@ export function FormularioCuenta({
       )}
 
       <label htmlFor={`${id}-6`} className={etiqueta}>
-        Persona a cargo
+        {tipo === 'ASESOR' ? (
+          'Persona a cargo *'
+        ) : (
+          <span>
+            Persona a cargo <Opcional />
+          </span>
+        )}
         <input
           id={`${id}-6`}
-          required
+          required={tipo === 'ASESOR'}
+          placeholder={
+            tipo === 'ASESOR' ? undefined : 'Si la dejas vacía, va el nombre de la tienda'
+          }
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           className={campo}
         />
       </label>
       <label htmlFor={`${id}-7`} className={etiqueta}>
-        Usuario para ingresar
+        Usuario para ingresar *
         <input
           id={`${id}-7`}
           required
@@ -270,7 +303,7 @@ export function FormularioCuenta({
       {tipo === 'ASESOR' && (
         <label htmlFor={`${id}-8`} className={etiqueta}>
           <span>
-            WhatsApp del asesor <span className="font-normal text-detalle">(opcional)</span>
+            WhatsApp del asesor <Opcional />
           </span>
           <input
             id={`${id}-8`}
@@ -285,7 +318,7 @@ export function FormularioCuenta({
       )}
       <label htmlFor={`${id}-9`} className={etiqueta}>
         <span>
-          Correo <span className="font-normal text-detalle">(opcional)</span>
+          Correo <Opcional />
         </span>
         <input
           id={`${id}-9`}
@@ -296,10 +329,36 @@ export function FormularioCuenta({
           className={campo}
         />
       </label>
-      <p className="text-nota text-detalle">
-        PaseLibre genera una contraseña temporal. Al entrar por primera vez, la persona crea la
-        suya.
-      </p>
+      <fieldset className="flex flex-col gap-2.5">
+        <legend className="mb-2 text-apoyo font-medium">Contraseña</legend>
+        <OpcionClave
+          nombre={`${id}-clave`}
+          valor="TEMPORAL"
+          elegido={tipoClave}
+          alElegir={setTipoClave}
+          titulo="Temporal"
+          ayuda="PaseLibre la genera y al entrar le pide cambiarla."
+        />
+        <OpcionClave
+          nombre={`${id}-clave`}
+          valor="DEFINITIVA"
+          elegido={tipoClave}
+          alElegir={setTipoClave}
+          titulo="Definitiva"
+          ayuda="La escribes tú. Entra directo, sin cambiarla."
+        />
+        {tipoClave === 'DEFINITIVA' && (
+          <CampoClave
+            id={`${id}-10`}
+            etiqueta="Contraseña definitiva"
+            etiquetaOculta
+            valor={clave}
+            alCambiar={setClave}
+            clases={campo}
+            conGenerar
+          />
+        )}
+      </fieldset>
       <div className="flex gap-3 pt-2">
         <button type="submit" disabled={enviando} className={botonPrincipal}>
           {enviando ? 'Creando…' : 'Crear cuenta'}

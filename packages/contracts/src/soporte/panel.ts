@@ -146,7 +146,8 @@ export interface TiendaEnPanel {
 export interface DetalleTiendaPanel extends TiendaEnPanel {
   piso: string | null;
   horario: string | null;
-  whatsapp: string;
+  /** Nulo si la cuenta se creó sin él (doc 19, punto 6). */
+  whatsapp: string | null;
   cuentas: number;
   publicaciones: number;
   historial: Array<{ tipo: 'ADVERTENCIA' | 'REPORTE'; texto: string; fecha: string }>;

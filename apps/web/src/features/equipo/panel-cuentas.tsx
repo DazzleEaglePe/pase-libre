@@ -269,10 +269,17 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
               <span role="cell" className="font-mono text-nota">
                 {cuenta.usuario}
               </span>
-              {/* Error 40: el número de la tienda, no el de la persona (que suele estar vacío). */}
-              <span role="cell" className="text-apoyo font-bold text-pase-texto">
-                {whatsappLegible(cuenta.tienda.whatsapp)}
-              </span>
+              {/* Error 40: el número de la tienda, no el de la persona (que suele estar vacío).
+                  Sin él (doc 19, punto 6), «Falta WhatsApp» en gris para completarlo después. */}
+              {cuenta.tienda.whatsapp ? (
+                <span role="cell" className="text-apoyo font-bold text-pase-texto">
+                  {whatsappLegible(cuenta.tienda.whatsapp)}
+                </span>
+              ) : (
+                <span role="cell" className="text-apoyo text-detalle">
+                  Falta WhatsApp
+                </span>
+              )}
               <span role="cell" className="flex flex-col items-start gap-1">
                 <span
                   className={`rounded-full px-2.5 text-nota font-medium leading-6 ${estado.clases}`}

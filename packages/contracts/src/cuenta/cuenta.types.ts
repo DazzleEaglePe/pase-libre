@@ -39,7 +39,8 @@ export interface RespuestaCuenta {
     piso: string | null;
     /** El cambio de lugar que espera al Equipo, o nulo. */
     lugar_pendiente: LugarPendiente | null;
-    whatsapp: string;
+    /** Nulo si el Equipo creó la cuenta sin él (doc 19, punto 6): lo completa la tienda. */
+    whatsapp: string | null;
     horario: string | null;
     /** El horario por días (o leído del `horario` escrito a mano); nulo si no se entiende. */
     horario_tramos: TramoHorario[] | null;

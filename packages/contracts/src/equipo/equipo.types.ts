@@ -24,8 +24,11 @@ export interface CuentaEquipo {
     tipo: TipoTienda;
     galeria: string | null;
     stand: string | null;
-    /** El de la tienda (error 40: la columna WhatsApp lee este). */
-    whatsapp: string;
+    /**
+     * El de la tienda (error 40: la columna WhatsApp lee este). Nulo si se creó sin él
+     * (doc 19, punto 6): en Cuentas sale «Falta WhatsApp».
+     */
+    whatsapp: string | null;
     /** Cuentas de la tienda, contando esta: con una sola no hay a quién traspasar. */
     cuentas: number;
   };
@@ -52,7 +55,13 @@ export interface RespuestaCuentas {
  */
 export interface RespuestaAcceso {
   cuenta: CuentaEquipo;
+  /**
+   * La clave que se entrega. Es temporal salvo al crear con «Definitiva» (doc 19, punto 6):
+   * entonces es la que escribió el Equipo y no se pide cambiarla.
+   */
   clave_temporal: string;
+  /** La clave la eligió el Equipo y la cuenta entra sin cambiarla. */
+  definitiva: boolean;
   mensaje: string;
   /** `wa.me` con el mensaje armado, o nulo si la cuenta no tiene WhatsApp. */
   enlace_whatsapp: string | null;

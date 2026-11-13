@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { claveNuevaSchema } from '../sesion/sesion.schemas.js';
+
 /**
  * WhatsApp de Perú: se guarda solo con los 9 dígitos del celular.
  * Acepta «987 654 321», «+51 987654321» o «51987654321».
@@ -44,8 +46,29 @@ const tiendaNuevaSchema = z.strictObject({
     .transform((s) => s || null)
     .nullable()
     .optional(),
-  whatsapp: whatsappSchema,
+  /** Opcional (doc 19, punto 6): se completa después en la ficha de la tienda. */
+  whatsapp: whatsappSchema.nullable().optional(),
 });
+
+/**
+ * La contraseña al crear la cuenta (doc 19, punto 6), como en Tienda › Acceso. Temporal: la
+ * arma la API y pide cambiarla al entrar. Definitiva: la escribe el Equipo y entra directo.
+ */
+export const claveCuentaNuevaSchema = z.discriminatedUnion('tipo', [
+  z.strictObject({ tipo: z.literal('TEMPORAL') }),
+  z.strictObject({ tipo: z.literal('DEFINITIVA'), clave: claveNuevaSchema }),
+]);
+
+/** Vacío es «no puse nada». */
+const nombreDePersona = z.preprocess(
+  (valor) => (typeof valor === 'string' && valor.trim() === '' ? undefined : valor),
+  z
+    .string()
+    .trim()
+    .min(2, 'Escribe el nombre de la persona a cargo.')
+    .max(120, 'El nombre llega hasta 120 caracteres.')
+    .optional(),
+);
 
 /**
  * Crear una cuenta (RF-35, D-42). El dueño y el independiente traen su tienda nueva;
@@ -56,14 +79,27 @@ export const crearCuentaSchema = z
     tipo: z.enum(['DUENO', 'ASESOR', 'INDEPENDIENTE']),
     tienda: tiendaNuevaSchema.optional(),
     tienda_id: z.uuid('Elige la tienda del asesor.').optional(),
-    nombre: z.string().trim().min(2, 'Escribe el nombre de la persona a cargo.').max(120),
+    /**
+     * Persona a cargo. Opcional para el dueño y el independiente (doc 19, punto 6): sin ella,
+     * la cuenta lleva el nombre de la tienda. El asesor sí la necesita.
+     */
+    nombre: nombreDePersona,
     usuario: nombreDeUsuarioSchema,
     correo: correoOpcional,
     /** Del asesor; el dueño y el independiente usan el de su tienda si no se indica. */
     whatsapp: whatsappSchema.optional(),
+    /** Sin ella, temporal (como antes). */
+    clave: claveCuentaNuevaSchema.default({ tipo: 'TEMPORAL' }),
   })
   .superRefine((cuenta, contexto) => {
     if (cuenta.tipo === 'ASESOR') {
+      if (!cuenta.nombre) {
+        contexto.addIssue({
+          code: 'custom',
+          path: ['nombre'],
+          message: 'Escribe el nombre del asesor.',
+        });
+      }
       if (!cuenta.tienda_id) {
         contexto.addIssue({
           code: 'custom',
@@ -122,3 +158,4 @@ export type CrearCuentaDatos = z.output<typeof crearCuentaSchema>;
 export type FiltroCuentas = z.output<typeof filtroCuentasSchema>;
 export type CambiarEstadoCuenta = z.infer<typeof cambiarEstadoCuentaSchema>;
 export type Traspasar = z.infer<typeof traspasarSchema>;
+export type ClaveCuentaNueva = z.output<typeof claveCuentaNuevaSchema>;

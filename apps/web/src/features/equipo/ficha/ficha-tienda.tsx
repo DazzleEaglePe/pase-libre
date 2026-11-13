@@ -159,7 +159,7 @@ export function FichaDeTienda({
                 <span className="font-mono text-tinta">{ficha.usuario}</span>
               </>
             )}
-            {` · WhatsApp ${whatsappLegible(ficha.whatsapp)} · ${conPlural(ficha.asesores, 'asesor', 'asesores')}`}
+            {` · ${ficha.whatsapp ? `WhatsApp ${whatsappLegible(ficha.whatsapp)}` : 'Falta WhatsApp'} · ${conPlural(ficha.asesores, 'asesor', 'asesores')}`}
           </span>
           {ficha.soporte.activo && (
             <span className="text-nota font-bold text-aviso">

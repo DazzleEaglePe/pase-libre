@@ -66,6 +66,11 @@ export interface RespuestaYo {
     ver_bienvenida: boolean;
     /** El panel del equipo en oscuro (COR18). */
     tema_oscuro: boolean;
+    /**
+     * La última versión que abrió en Equipo › Versiones (doc 19, punto 8). Si no es `VERSION`,
+     * la pastilla de la versión lleva el puntito verde.
+     */
+    version_vista: string | null;
     /** Lo que puede hacer en su tienda (N12): el dueño, todo; el asesor, lo que le dieron. */
     permisos: PermisoAsesor[];
   };

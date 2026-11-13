@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { BotonSalir } from '@/features/acceso/boton-salir';
+import { MenuEquipo } from '@/features/equipo/menu-equipo';
 import { BotonTema, SeccionesDelPanel } from '@/features/equipo/secciones';
 import { consultarApi, obtenerSesion } from '@/shared/api/servidor';
 import { ProveedorTiempoReal } from '@/shared/tiempo-real';
@@ -18,13 +18,16 @@ export const metadata: Metadata = {
 /**
  * Panel del equipo (ADM_Web, sección 20 del lienzo final): solo para cuentas con rol EQUIPO.
  * Su propia barra negra con las secciones y lo que espera en cada una. Claro u oscuro según tu
- * cuenta (COR17, COR18).
+ * cuenta (COR17, COR18). Al lado de «Equipo», la versión que corre, con un puntito verde hasta
+ * que abres Versiones (doc 19, punto 8); a la derecha, tu menú (punto 7).
  */
 export default async function LayoutEquipo({ children }: { children: ReactNode }) {
   const sesion = await obtenerSesion();
   if (!sesion || sesion.usuario.debe_cambiar_clave) redirect('/ingresar');
   if (sesion.usuario.rol !== 'EQUIPO') notFound();
   const { cuerpo: inicio } = await consultarApi<RespuestaInicioEquipo>('/equipo/inicio');
+
+  const versionNueva = sesion.usuario.version_vista !== VERSION;
 
   // Con tiempo real: las respuestas de las tiendas llegan sin recargar (doc 19, A3).
   return (
@@ -39,6 +42,23 @@ export default async function LayoutEquipo({ children }: { children: ReactNode }
               <span className="rounded-full bg-contador px-2 py-0.5 text-nota font-bold text-tinta">
                 Equipo
               </span>
+              <Link
+                href="/equipo/versiones"
+                aria-label={
+                  versionNueva
+                    ? `Versión ${VERSION}: hay novedades que todavía no viste`
+                    : `Versión ${VERSION}`
+                }
+                className="relative rounded-full border-[1.5px] border-acento px-2.5 py-px text-[13px] font-extrabold text-acento no-underline hover:bg-acento/10"
+              >
+                v{VERSION}
+                {versionNueva && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-[3px] -top-[3px] h-[9px] w-[9px] rounded-full border-2 border-tinta bg-acento"
+                  />
+                )}
+              </Link>
             </span>
             <SeccionesDelPanel
               solicitudes={inicio?.solicitudes ?? 0}
@@ -48,20 +68,16 @@ export default async function LayoutEquipo({ children }: { children: ReactNode }
               galerias={inicio?.galerias_nuevas ?? 0}
             />
             <BotonTema oscuro={sesion.usuario.tema_oscuro} />
-            <span className="flex shrink-0 items-center gap-3 text-apoyo">
-              <span className="text-white/80">{sesion.usuario.nombre}</span>
-              <BotonSalir oscuro />
-            </span>
+            <MenuEquipo
+              nombre={sesion.usuario.nombre}
+              usuario={sesion.usuario.usuario}
+              oscuro={sesion.usuario.tema_oscuro}
+            />
           </div>
         </header>
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 pb-10 pt-7 sm:px-8">
           {children}
         </main>
-        <footer className="mx-auto flex w-full max-w-[1440px] justify-end px-4 pb-6 text-nota text-secundario sm:px-8">
-          <Link href="/equipo/versiones" className="hover:text-tinta hover:underline">
-            Versión {VERSION} · <span className="underline underline-offset-2">Ver cambios</span>
-          </Link>
-        </footer>
       </div>
     </ProveedorTiempoReal>
   );
