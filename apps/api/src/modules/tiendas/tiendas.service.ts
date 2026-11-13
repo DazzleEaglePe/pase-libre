@@ -259,6 +259,11 @@ export class TiendasService {
       mejores_precios: mejores,
       categorias,
       hay_mas: todo?.hay_mas ?? false,
+      // El sello «★ Fundadora», solo en su perfil (doc 20, punto 7).
+      fundadora:
+        tienda.fundadoraDesde && tienda.fundadoraSello
+          ? { desde: tienda.fundadoraDesde.toISOString() }
+          : null,
     };
   }
 

@@ -11,8 +11,8 @@ import { enPlural } from '@/shared/plural';
 
 import { BannerInvitar } from './banner-invitar';
 import { PedidosEnVivo, SaludoTienda } from './en-vivo-ahora';
+import { GrillaInicio } from './grilla-inicio';
 import { PilotoGaleria, PrimerosPasos } from './piloto';
-import { RecienPublicado } from './recien-publicado';
 import { FilaNueva } from './tarjetas';
 
 type Categoria = { slug: string; nombre: string; productos: number };
@@ -179,11 +179,14 @@ function VanDeDoce({ publicaciones }: { publicaciones: number }) {
 /**
  * El inicio de una tienda (N16, N15): crece solo y lo decide la API.
  * - Día 1 (nadie más publicó): bienvenida, pedidos en vivo, precios protegidos, lo que más se
- *   pide, tiendas que ya están, el piloto y primeros pasos. Nunca una cuadrícula vacía.
- * - De 1 a 11: lo nuevo en lista con «Van 3 de 12»; el piloto se achica.
- * - Desde 12 (y ya no vuelve atrás): pedidos en vivo en el rectángulo negro, «Recién publicado»
- *   en 4 filas de hasta 18, cada una con su flecha (docs/18 §5), y las categorías.
- * Al final, el banner para invitar a otra tienda, hasta que se cierre con la X.
+ *   pide, tiendas que ya están, las tiendas fundadoras y primeros pasos. Nunca una cuadrícula
+ *   vacía.
+ * - De 1 a 11: lo nuevo en lista con «Van 3 de 12»; la tarjeta de fundadoras se achica.
+ * - Desde 12 (y ya no vuelve atrás): pedidos en vivo en el rectángulo negro, centrado al ancho
+ *   de antes (1216), y una sola grilla sin títulos de 5 por fila y 4 filas, con paginación y sus
+ *   chapitas (doc 20, puntos 4 y 22), y las categorías.
+ * El Inicio va a 1440 de ancho (`pl-inicio-ancho`, doc 20, punto 4). Al final, el banner para
+ * invitar a otra tienda, hasta que se cierre con la X.
  */
 export function InicioTienda({
   sesion,
@@ -198,10 +201,18 @@ export function InicioTienda({
 
   if (inicio.fase === 'NORMAL') {
     return (
-      <div className="flex flex-col gap-8 max-sm:gap-6">
+      <div className="pl-inicio-ancho flex flex-col gap-8 max-sm:gap-6">
         <SaludoTienda sesion={sesion} />
-        <PedidosEnVivo />
-        <RecienPublicado tarjetas={inicio.recien} total={inicio.total} />
+        {/* Fabrizio la quiere «centradita», al ancho de antes. */}
+        <div className="mx-auto w-full max-w-[1216px]">
+          <PedidosEnVivo />
+        </div>
+        <GrillaInicio
+          primera={inicio.recien}
+          totalPaginas={inicio.total_paginas}
+          enPaginas={inicio.en_paginas}
+          total={inicio.total}
+        />
         <ExploraCategorias categorias={categorias} />
         {banner}
       </div>
@@ -209,13 +220,10 @@ export function InicioTienda({
   }
 
   const dia1 = inicio.fase === 'DIA_1';
-  const miTienda = sesion.tienda
-    ? { nombre: sesion.tienda.nombre, logo: sesion.tienda.logo }
-    : null;
   return (
-    <div className="flex flex-col gap-6">
-      {/* En el celular: el día 1 lleva el piloto arriba y los pasos al final; la primera semana,
-          lo nuevo primero y el piloto con los pasos al final (N15_InicioCel). */}
+    <div className="pl-inicio-ancho flex flex-col gap-6">
+      {/* En el celular: el día 1 lleva las fundadoras arriba y los pasos al final; la primera
+          semana, lo nuevo primero y las fundadoras con los pasos al final (N15_InicioCel). */}
       <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <div className="lg:col-start-1 lg:row-start-1">
           <SaludoTienda sesion={sesion} />
@@ -226,7 +234,7 @@ export function InicioTienda({
             dia1 ? '' : 'max-lg:order-last'
           }`}
         >
-          <PilotoGaleria tiendas={inicio.tiendas} miTienda={miTienda} compacto={!dia1} />
+          <PilotoGaleria fundadoras={inicio.fundadoras} compacto={!dia1} />
           <div className={dia1 ? 'max-lg:hidden' : ''}>
             <PrimerosPasos pasos={inicio.pasos} />
           </div>

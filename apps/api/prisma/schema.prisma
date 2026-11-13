@@ -286,6 +286,15 @@ model Tienda {
   motivoSuspension     String?       @map("motivo_suspension") @db.VarChar(200)
   /// Máximo de sesiones abiertas de la cuenta principal (N10). El equipo lo sube a pedido.
   limiteDispositivos   Int           @default(2) @map("limite_dispositivos") @db.SmallInt
+  /// «Tiendas fundadoras» (doc 20, punto 7): desde cuándo lo es. Nulo = no es fundadora. Son 10
+  /// como máximo (lo cuida la API en una transacción).
+  fundadoraDesde       DateTime?     @map("fundadora_desde") @db.Timestamptz(6)
+  /// Su día destacado: 1 = lunes … 6 = sábado (hora de Lima). Nulo = todavía sin día.
+  fundadoraDia         Int?          @map("fundadora_dia") @db.SmallInt
+  /// «Sello en su perfil»: «★ Fundadora», solo en su perfil.
+  fundadoraSello       Boolean       @default(true) @map("fundadora_sello")
+  /// «Prioridad en el chat»: su chat con el Equipo va fijo arriba y primero en Equipo › Chats.
+  fundadoraPrioridad   Boolean       @default(true) @map("fundadora_prioridad")
   creadaEn             DateTime      @default(now()) @map("creada_en") @db.Timestamptz(6)
   actualizadaEn        DateTime      @default(now()) @updatedAt @map("actualizada_en") @db.Timestamptz(6)
 
@@ -1531,6 +1540,8 @@ model Destacado {
   /// Se le mandó «Te dimos un empujoncito 🤫».
   avisada   Boolean   @default(false)
   quitadoEn DateTime? @map("quitado_en") @db.Timestamptz(6)
+  /// Cuántos puntos suma en el Inicio (doc 20, punto 4b): Suave +20, Media +40, Fuerte +70.
+  fuerza    FuerzaDestacado @default(MEDIA)
 
   tienda Tienda  @relation(fields: [tiendaId], references: [id])
   por    Usuario @relation("DestacadosPor", fields: [porId], references: [id])
@@ -1673,4 +1684,13 @@ model ProductoResumen {
   @@index([actualizadaEn(sort: Desc), titulo])
   @@index([categoriaId, actualizadaEn(sort: Desc), titulo])
   @@map("producto_resumen")
+}
+
+/// «¿Con qué fuerza?» de «Destacar» (doc 20, punto 4b): solo suma puntos en el Inicio.
+enum FuerzaDestacado {
+  SUAVE
+  MEDIA
+  FUERTE
+
+  @@map("fuerza_destacado")
 }

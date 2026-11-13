@@ -210,12 +210,20 @@ export interface ComunicadoEnviado {
 export const MAX_DESTACADAS = 3;
 export const DURACIONES_DESTACADO = ['1h', '3h', 'dia'] as const;
 export type DuracionDestacado = (typeof DURACIONES_DESTACADO)[number];
+/**
+ * «¿Con qué fuerza?» (doc 20, punto 4b): solo suma puntos en el Inicio, nunca lugares fijos.
+ * Suave +20 («Sube un poco y queda repartida»), Media +40 («Sale en las primeras filas») y Fuerte
+ * +70 («Casi seguro en la primera fila»).
+ */
+export const FUERZAS_DESTACADO = ['SUAVE', 'MEDIA', 'FUERTE'] as const;
+export type FuerzaDestacado = (typeof FUERZAS_DESTACADO)[number];
 
 /** `POST /v1/equipo/tiendas/:id/destacar`. Sin `ofertas`, todas sus publicaciones. */
 export const destacarSchema = z.strictObject({
   duracion: z.enum(DURACIONES_DESTACADO, 'Elige por cuánto tiempo.'),
   ofertas: z.array(z.uuid()).max(3, 'Elige hasta 3 publicaciones.').default([]),
   avisar: z.boolean().default(true),
+  fuerza: z.enum(FUERZAS_DESTACADO, 'Elige con qué fuerza.').default('MEDIA'),
 });
 export type DestacarDatos = z.output<typeof destacarSchema>;
 
@@ -228,6 +236,7 @@ export interface DestacadoActivo {
   hasta: string;
   por: string;
   avisada: boolean;
+  fuerza: FuerzaDestacado;
 }
 
 /** `GET /v1/equipo/destacados`: las destacadas ahora (solo las ve el equipo). */

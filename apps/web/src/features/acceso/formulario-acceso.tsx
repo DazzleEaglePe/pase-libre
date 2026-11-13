@@ -340,7 +340,7 @@ function Ingreso({
         ) : (
           <>
             <span className="text-apoyo text-secundario">
-              Durante el piloto, el equipo de PaseLibre crea las cuentas de las tiendas de Wilson.
+              Por ahora, el equipo de PaseLibre crea las cuentas de las tiendas de Wilson.
             </span>
             {whatsappCuenta && (
               <a

@@ -45,7 +45,7 @@ const whatsappLegible = (numero: string) => numero.replace(/^(\d{3})(\d{3})(\d{3
 const columnas =
   'xl:grid xl:grid-cols-[minmax(0,1.5fr)_120px_minmax(0,1fr)_130px_120px_150px_minmax(330px,auto)] xl:items-center xl:gap-x-4';
 
-/** Cuentas del piloto (RF-49), con las acciones de la fila según su estado. */
+/** Cuentas de tiendas (RF-49), con las acciones de la fila según su estado. */
 export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean }) {
   const router = useRouter();
   const [filtro, setFiltro] = useState<Filtro>('todas');
@@ -133,7 +133,7 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-titulo">Cuentas del piloto</h1>
+          <h1 className="text-titulo">Cuentas de tiendas</h1>
           <span className="text-apoyo text-secundario">
             {resumen
               ? `${conPlural(resumen.total, 'cuenta', 'cuentas')} · ${conPlural(resumen.activas, 'activa', 'activas')} · ${resumen.sin_primer_ingreso} sin primer ingreso`

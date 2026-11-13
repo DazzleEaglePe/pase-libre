@@ -328,6 +328,25 @@ interface BasePortada {
  */
 export type FaseInicio = 'DIA_1' | 'POCAS' | 'NORMAL';
 
+/**
+ * Las chapitas del Inicio (doc 20, punto 22), en su orden de prioridad: cada tarjeta lleva una
+ * sola, la primera que le toque.
+ * - `RECIEN`: «Recién publicado», publicada hace 20 minutos o menos.
+ * - `MAS_BARATO`: «Más barato de la galería», el precio de pase más bajo de ese producto en su
+ *   galería (con al menos 2 ofertas).
+ * - `MUY_BUSCADO`: «Muy buscado hoy», el producto está entre los 10 más buscados de hoy.
+ * - `BAJO`: «Bajó S/ 40», bajó de precio en las últimas 48 h.
+ */
+export const CHAPITAS_INICIO = ['RECIEN', 'MAS_BARATO', 'MUY_BUSCADO', 'BAJO'] as const;
+export type ChapitaInicio = (typeof CHAPITAS_INICIO)[number];
+
+/** Una tarjeta del Inicio: la de siempre, con su chapita (doc 20, punto 22). */
+export interface TarjetaInicio extends TarjetaOfertaConVendedor {
+  chapita: ChapitaInicio | null;
+  /** Con `BAJO`: cuánto bajó, en céntimos de la moneda de su precio («Bajó S/ 40»). */
+  bajo_centimos: number | null;
+}
+
 /** `GET /v1/inicio`: lo que solo ve una tienda en su inicio. */
 export interface RespuestaInicio {
   /** DIA_1: nadie más publicó; POCAS: menos de 12 publicaciones de otras tiendas. */
@@ -351,6 +370,11 @@ export interface RespuestaInicio {
     meta: number;
   };
   /**
+   * La tarjeta verde «★ Tiendas fundadoras · 7 de 10 ya entraron» (doc 20, punto 7): cuántas
+   * hay, el máximo y sus iniciales.
+   */
+  fundadoras: { entraron: number; total: number; iniciales: string[] };
+  /**
    * «Primeros pasos»: perfil con portada y horario («Sobre la tienda» es opcional, doc 20, A4),
    * cuántas publicaste y si pediste en vivo.
    */
@@ -358,16 +382,17 @@ export interface RespuestaInicio {
   /** Publicaciones vigentes de otras tiendas (sin las bloqueadas): «Van 3 de 12». */
   publicaciones: number;
   /**
-   * Con `POCAS`, «Lo nuevo en la galería» (hasta 11); con `NORMAL`, las primeras 72 de «Recién
-   * publicado» (4 filas de hasta 18), mezcladas por tienda (nunca dos seguidas de la misma). Sin
+   * Con `POCAS`, «Lo nuevo en la galería» (hasta 11); con `NORMAL`, la página 1 del Inicio (doc
+   * 20, puntos 4 y 4b): 20 en el orden por puntos, con el tope por tienda en cada fila de 5. Sin
    * las tuyas.
    */
-  recien: TarjetaOfertaConVendedor[];
-  /**
-   * Cuántas hay en todo «Recién publicado» (las mismas que `publicaciones`). Con más de 72 salen
-   * «Ver todas las publicaciones (N)» y la tarjeta del final de cada fila llena.
-   */
+  recien: TarjetaInicio[];
+  /** «Ver todas las publicaciones (130)»: las vigentes de las demás tiendas. */
   total: number;
+  /** Cuántas páginas de 20 tiene el Inicio: `‹ 1 2 3 … 7 Siguiente ›`. */
+  total_paginas: number;
+  /** Cuántas hay en todas esas páginas: en el celular van de a 10 (`RECIEN_POR_PAGINA_CELULAR`). */
+  en_paginas: number;
   /**
    * Tocaste la X de la banda «¿Conoces una tienda…?» hace menos de 2 días (N07, doc 19 punto
    * 14): por ahora no sale. Pasados los 2 días vuelve, sin ningún aviso.
@@ -377,23 +402,28 @@ export interface RespuestaInicio {
 
 /** Desde cuántas publicaciones de otras tiendas el inicio es el normal (N16). */
 export const PUBLICACIONES_INICIO_NORMAL = 12;
-/** De a cuántas trae `GET /v1/inicio/recien` (N15). El inicio ya no la usa (docs/18 §5). */
-export const RECIEN_POR_PAGINA = 24;
-/** «Recién publicado» del inicio (docs/18 §5): 4 filas, cada una con su flecha. */
+/** El Inicio (doc 20, punto 4): 5 tarjetas por fila… */
+export const RECIEN_POR_FILA = 5;
+/** …y 4 filas por página. */
 export const RECIEN_FILAS = 4;
-/** Cada fila guarda hasta 18: las 6 que se ven y 2 clics más. */
-export const RECIEN_POR_FILA = 18;
-/** Cuántas manda `GET /v1/inicio` en la fase normal: 4 filas de 18. */
-export const RECIEN_INICIO = RECIEN_FILAS * RECIEN_POR_FILA;
+/** De a cuántas trae `GET /v1/inicio/recien?pagina=N`: una página del Inicio. */
+export const RECIEN_POR_PAGINA = RECIEN_POR_FILA * RECIEN_FILAS;
+/** Cuántas manda `GET /v1/inicio` en la fase normal: la página 1. */
+export const RECIEN_INICIO = RECIEN_POR_PAGINA;
+/** En el celular: 2 por fila y 10 por página, con la misma paginación. */
+export const RECIEN_POR_PAGINA_CELULAR = 10;
 
 /**
- * `GET /v1/inicio/recien?desde=24`: las siguientes 24 de «Recién publicado», sin fin. Queda para
- * otros usos: el inicio trae sus 72 de una vez.
+ * `GET /v1/inicio/recien?pagina=2`: una página del Inicio (doc 20, puntos 4 y 4b). El orden por
+ * puntos es el mismo para todos por 60 s, así que la página 3 sigue donde terminó la 2.
  */
 export interface RespuestaRecienInicio {
-  tarjetas: TarjetaOfertaConVendedor[];
-  desde: number;
-  /** Cuántas hay en todo «Recién publicado»: «25–48 de 50». */
+  tarjetas: TarjetaInicio[];
+  pagina: number;
+  total_paginas: number;
+  /** Cuántas hay en todas las páginas: en el celular van de a 10. */
+  en_paginas: number;
+  /** «Ver todas las publicaciones (130)». */
   total: number;
 }
 

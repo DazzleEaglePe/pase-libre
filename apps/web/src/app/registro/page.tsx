@@ -28,8 +28,8 @@ export default async function PaginaRegistro() {
           <div className="flex flex-col items-start gap-4 rounded-2xl border border-linea p-6">
             <h1 className="text-titulo">Todavía no se puede crear la cuenta aquí</h1>
             <p className="text-cuerpo text-secundario">
-              Mientras dura el piloto, el equipo de PaseLibre crea las cuentas de las tiendas de
-              Wilson y te las entrega por WhatsApp.
+              Por ahora, el equipo de PaseLibre crea las cuentas de las tiendas de Wilson y te las
+              entrega por WhatsApp.
             </p>
             <Link href="/ingresar?pestana=crear" className={botonPrincipal}>
               Cómo pedir mi cuenta

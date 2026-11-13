@@ -1,21 +1,29 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
+  MAX_FUNDADORAS,
   normalizarTexto,
   PUBLICACIONES_INICIO_NORMAL,
   RECIEN_INICIO,
+  RECIEN_POR_FILA,
   RECIEN_POR_PAGINA,
+  type ChapitaInicio,
   type FaseInicio,
   type RespuestaInicio,
   type RespuestaRecienInicio,
   type RespuestaRecienLlegados,
+  type TarjetaInicio,
 } from '@paselibre/contracts';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
+import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { tiendasQueNoVeo } from '../../shared/bloqueadas';
-import { destacadasAhora, mezclarDestacadas } from '../../shared/destacados';
+import { destacadasAhora } from '../../shared/destacados';
+import { fundadorasDelDia } from '../../shared/fundadoras';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { recordarPor } from '../../shared/memoria';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { BusquedaService } from './busqueda.service';
 import {
@@ -25,8 +33,28 @@ import {
   SELECT_OFERTA_CON_VENDEDOR,
   tarjetaConVendedor,
 } from './catalogo.service';
+import { ofertasMasBaratasDeLaGaleria } from './mas-barato';
+import {
+  BAJO_DE_PRECIO,
+  chapitaDe,
+  compararPorPuntos,
+  MAXIMO_INICIO,
+  MUY_BUSCADO_CUANTOS,
+  MUY_BUSCADO_MINIMO,
+  MUY_BUSCADO_POR_PEDIDO,
+  ORDEN_INICIO_MS,
+  ordenarConTope,
+  puntosDe,
+  puntosDeResenas,
+  RESPONDE_RAPIDO_MINUTOS,
+  VENTANA_INICIO,
+} from './puntos-inicio';
+import { reputacionCorta } from './reputacion-corta';
 
-/** «Con 20 tiendas, aquí vas a encontrar casi todo» (N16): la meta del piloto. */
+// `mezclarSinRepetir` vive con el resto del orden del Inicio (doc 20, punto 4b).
+export { mezclarSinRepetir } from './puntos-inicio';
+
+/** «Con 20 tiendas, aquí vas a encontrar casi todo» (N16). */
 export const META_TIENDAS = 20;
 /** Desde cuántas publicaciones de otras tiendas el inicio es el de todos los días (N16). */
 export const PUBLICACIONES_NORMAL = PUBLICACIONES_INICIO_NORMAL;
@@ -35,43 +63,57 @@ const MAS_PEDIDO = 4;
 const RECIEN_LLEGADOS_MS = 24 * 60 * 60 * 1000;
 /** La banda «¿Conoces una tienda…?» del inicio vuelve a salir a los 2 días de su X (doc 19, 14). */
 export const INVITAR_VUELVE_MS = 2 * 24 * 60 * 60 * 1000;
-/** Cuántas de más se miran para mezclar sin dejar dos seguidas de la misma tienda. */
-const HOLGURA_MEZCLA = 2 * RECIEN_POR_PAGINA;
 
-type Ordenable = { id: string; tiendaId: string };
+/** Una publicación en el orden del Inicio, ya con sus puntos y su chapita. */
+interface EnElOrden {
+  id: string;
+  tiendaId: string;
+  creadaEn: Date;
+  puntos: number;
+  chapita: ChapitaInicio | null;
+  /** Cuánto bajó, en céntimos de su moneda, si bajó en las últimas 48 h. */
+  bajoCentimos: number | null;
+}
 
-/**
- * «Mezclado por tienda: nunca salen dos seguidos de la misma» (N15). Va en el orden de lo más
- * reciente y, si la siguiente es de la misma tienda que la anterior, adelanta la primera de otra
- * tienda. Solo se repite si ya no quedan de otras.
- */
-export function mezclarSinRepetir<T extends { tiendaId: string }>(lista: T[]): T[] {
-  const pendientes = [...lista];
-  const resultado: T[] = [];
-  while (pendientes.length > 0) {
-    const anterior = resultado[resultado.length - 1]?.tiendaId;
-    const indice = Math.max(
-      0,
-      pendientes.findIndex((item) => item.tiendaId !== anterior),
-    );
-    resultado.push(...pendientes.splice(indice, 1));
-  }
-  return resultado;
+/** «DA» para «Dark Alien Planeta», «A» para «Tienda A». */
+function iniciales(nombre: string): string {
+  return (
+    nombre
+      .replace(/^tienda\s+/i, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((palabra) => palabra[0] ?? '')
+      .join('')
+      .toUpperCase() || '·'
+  );
 }
 
 /**
  * El inicio de una tienda (N16, N15): crece solo. Sin nada publicado por las demás, bienvenida,
  * precios protegidos, lo que más se pide y primeros pasos; de 1 a 11, lo nuevo en lista con
- * «Van N de 12»; desde 12, el inicio normal con «Recién publicado» en 4 filas de hasta 18 (las 72
- * van de una vez, docs/18 §5). Al llegar a 12 se guarda el hito en la tienda y ya no vuelve atrás.
+ * «Van N de 12»; desde 12, el inicio normal: una sola grilla de 5 por fila y 4 filas, con
+ * paginación, ordenada por puntos y con tope por tienda en cada fila (doc 20, puntos 4, 22 y 4b).
+ * Al llegar a 12 se guarda el hito en la tienda y ya no vuelve atrás.
  */
 @Injectable()
 export class InicioService {
+  /** Soles por dólar, solo para comparar «Más barato de la galería» (TIPO_CAMBIO). */
+  private readonly tipoCambio: number;
+  /**
+   * El orden por puntos de todo lo vigente (doc 20, punto 4b): 60 s en memoria, igual para
+   * todos. Cada tienda que mira saca después las suyas y las que bloqueó.
+   */
+  private readonly ordenEnMemoria = recordarPor(ORDEN_INICIO_MS, () => this.calcularOrden());
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(CatalogoService) private readonly catalogo: CatalogoService,
     @Inject(BusquedaService) private readonly busqueda: BusquedaService,
-  ) {}
+    @Inject(ConfigService) config: ConfigService<Environment, true>,
+  ) {
+    this.tipoCambio = config.get('TIPO_CAMBIO', { infer: true });
+  }
 
   /** El inicio es de las cuentas con tienda (dueño o asesor): el equipo no tiene. */
   private deTienda(mirada: Mirada): { tiendaId: string; usuarioId: string } {
@@ -100,7 +142,7 @@ export class InicioService {
     const { tiendaId, usuarioId } = this.deTienda(mirada);
     // Bloqueadas, ocultas y privadas que no sigue (doc 20, punto 5).
     const bloqueadas = await tiendasQueNoVeo(this.prisma, mirada);
-    const [tienda, usuario, publicaciones, deSeguidas, masPedido, tiendas, pasos] =
+    const [tienda, usuario, publicaciones, deSeguidas, masPedido, tiendas, pasos, fundadoras] =
       await Promise.all([
         this.prisma.tienda.findUniqueOrThrow({
           where: { id: tiendaId },
@@ -115,6 +157,7 @@ export class InicioService {
         this.masPedido(tiendaId),
         this.tiendas(tiendaId, bloqueadas),
         this.pasos(tiendaId),
+        this.fundadoras(),
       ]);
 
     // «Cambia solo y no vuelve atrás»: el hito queda en la tienda la primera vez que llega a 12.
@@ -127,107 +170,225 @@ export class InicioService {
       normal = true;
     }
     const fase: FaseInicio = normal ? 'NORMAL' : publicaciones === 0 ? 'DIA_1' : 'POCAS';
-    const recien =
+    const pagina =
       fase === 'DIA_1'
-        ? []
-        : (
-            await this.pagina(
-              mirada,
-              bloqueadas,
-              0,
-              fase === 'POCAS' ? PUBLICACIONES_NORMAL - 1 : RECIEN_INICIO,
-            )
-          ).tarjetas;
+        ? null
+        : await this.pagina(
+            mirada,
+            bloqueadas,
+            1,
+            fase === 'POCAS' ? PUBLICACIONES_NORMAL - 1 : RECIEN_INICIO,
+          );
     return {
       fase,
       de_seguidas: deSeguidas,
       mas_pedido: masPedido,
       tiendas,
+      fundadoras,
       pasos,
       publicaciones,
-      recien,
+      recien: pagina?.tarjetas ?? [],
       // Es el mismo conteo que `publicaciones`: lo vigente de las demás, sin las bloqueadas.
       total: publicaciones,
+      total_paginas: pagina?.total_paginas ?? 0,
+      en_paginas: pagina?.en_paginas ?? 0,
       invitar_cerrado:
         usuario.invitarCerradoEn !== null &&
         Date.now() - usuario.invitarCerradoEn.getTime() < INVITAR_VUELVE_MS,
     };
   }
 
-  /** «La flechita trae las siguientes 24, sin fin» (N15). */
-  async recien(mirada: Mirada, desde: number): Promise<RespuestaRecienInicio> {
+  /** `‹ 1 2 3 … 7 Siguiente ›`: una página del Inicio, de a 20 (doc 20, punto 4). */
+  async recien(mirada: Mirada, pagina: number): Promise<RespuestaRecienInicio> {
     this.deTienda(mirada);
+    // Bloqueadas, ocultas y privadas que no sigue (doc 20, punto 5).
     const bloqueadas = await tiendasQueNoVeo(this.prisma, mirada);
-    return this.pagina(mirada, bloqueadas, desde, RECIEN_POR_PAGINA);
+    return this.pagina(mirada, bloqueadas, pagina, RECIEN_POR_PAGINA);
   }
 
   /**
-   * Una página de «Recién publicado»: lo más reciente de las demás tiendas, con lo destacado por
-   * el equipo entre los 4 primeros (COR16) y mezclado por tienda. El orden se arma siempre desde
-   * el principio, así cada página sigue donde terminó la anterior.
+   * Una página del Inicio (doc 20, puntos 4 y 4b). El orden por puntos es el mismo para todos
+   * (60 s en memoria); de ahí se sacan las tuyas y las que bloqueaste, se reparte en filas de 5
+   * con el tope por tienda y se corta la página. Como el orden no depende de la página, la 3
+   * sigue donde terminó la 2.
    */
   private async pagina(
     mirada: Mirada,
     bloqueadas: string[],
-    desde: number,
+    pagina: number,
     cuantas: number,
   ): Promise<RespuestaRecienInicio> {
     const tiendaId = mirada.tiendaId ?? '';
-    const where = this.deOtras(tiendaId, bloqueadas);
-    const orderBy = [
-      { actualizadaEn: 'desc' },
-      { creadaEn: 'desc' },
-      { id: 'asc' },
-    ] satisfies Prisma.OfertaOrderByWithRelationInput[];
-    const destacadas = await destacadasAhora(this.prisma);
-    const hayDestacadas = destacadas.tiendas.size > 0 || destacadas.ofertas.size > 0;
-    const [filas, total, impulsadas, socios] = await Promise.all([
-      this.prisma.oferta.findMany({
-        where,
-        orderBy,
-        take: desde + cuantas + HOLGURA_MEZCLA,
-        select: { id: true, tiendaId: true },
-      }),
-      this.prisma.oferta.count({ where }),
-      hayDestacadas
-        ? this.prisma.oferta.findMany({
-            where: {
-              AND: [
-                where,
-                {
-                  OR: [
-                    { tiendaId: { in: [...destacadas.tiendas] } },
-                    { id: { in: [...destacadas.ofertas] } },
-                  ],
-                },
-              ],
-            },
-            orderBy,
-            take: 4,
-            select: { id: true, tiendaId: true },
-          })
-        : Promise.resolve([] as Ordenable[]),
+    const fuera = new Set([tiendaId, ...bloqueadas]);
+    const [orden, total, socios] = await Promise.all([
+      this.ordenEnMemoria(),
+      this.prisma.oferta.count({ where: this.deOtras(tiendaId, bloqueadas) }),
       tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId),
     ]);
-    const arriba = new Set(impulsadas.map((o) => o.id));
-    const orden = mezclarSinRepetir(
-      mezclarDestacadas([...impulsadas, ...filas.filter((o) => !arriba.has(o.id))], (o) =>
-        arriba.has(o.id),
-      ),
+    const enFilas = ordenarConTope(
+      orden.filter((item) => !fuera.has(item.tiendaId)),
+      RECIEN_POR_FILA,
     );
-    const ids = orden.slice(desde, desde + cuantas).map((o) => o.id);
+    const elegidas = enFilas.slice((pagina - 1) * cuantas, pagina * cuantas);
     const completas = await this.prisma.oferta.findMany({
-      where: { id: { in: ids } },
+      where: { id: { in: elegidas.map((item) => item.id) } },
       select: { ...SELECT_OFERTA_CON_VENDEDOR, producto: PRODUCTO_TARJETA },
     });
     const porId = new Map(completas.map((o) => [o.id, o]));
+    const tarjetas: TarjetaInicio[] = [];
+    for (const item of elegidas) {
+      const oferta = porId.get(item.id);
+      if (!oferta) continue;
+      const tarjeta = tarjetaConVendedor(oferta, mirada, socios);
+      // «Bajó S/ 40» necesita el precio a la vista.
+      const bajo = item.chapita === 'BAJO' && tarjeta.precio !== null;
+      tarjetas.push({
+        ...tarjeta,
+        chapita: item.chapita === 'BAJO' && !bajo ? null : item.chapita,
+        bajo_centimos: bajo ? item.bajoCentimos : null,
+      });
+    }
     return {
-      tarjetas: ids
-        .map((id) => porId.get(id))
-        .filter((o) => o !== undefined)
-        .map((o) => tarjetaConVendedor(o, mirada, socios)),
-      desde,
+      tarjetas,
+      pagina,
+      total_paginas: Math.ceil(enFilas.length / cuantas),
+      en_paginas: enFilas.length,
       total,
+    };
+  }
+
+  /**
+   * El orden por puntos de todo lo vigente y con stock (doc 20, punto 4b): lo de los últimos 30
+   * días (como mucho las 600 más nuevas), con sus puntos y su chapita, de más a menos puntos.
+   */
+  private async calcularOrden(ahora = new Date()): Promise<EnElOrden[]> {
+    const ofertas = await this.prisma.oferta.findMany({
+      where: {
+        AND: [
+          OFERTA_VIGENTE,
+          { stock: { gt: 0 } },
+          { actualizadaEn: { gte: new Date(ahora.getTime() - VENTANA_INICIO) } },
+        ],
+      },
+      orderBy: [{ actualizadaEn: 'desc' }, { creadaEn: 'desc' }, { id: 'asc' }],
+      take: MAXIMO_INICIO,
+      select: {
+        id: true,
+        tiendaId: true,
+        productoId: true,
+        creadaEn: true,
+        actualizadaEn: true,
+        precioCentimos: true,
+        precioVisible: true,
+        precioAnteriorCentimos: true,
+        precioBajoEn: true,
+      },
+    });
+    if (ofertas.length === 0) return [];
+    const ids = ofertas.map((o) => o.id);
+    const tiendaIds = [...new Set(ofertas.map((o) => o.tiendaId))];
+    const [baratas, buscados, reputaciones, responde, fundadoras, destacadas, reportes] =
+      await Promise.all([
+        ofertasMasBaratasDeLaGaleria(this.prisma, this.tipoCambio, { ofertaIds: ids }),
+        this.muyBuscadosHoy(),
+        reputacionCorta(this.prisma, tiendaIds),
+        this.catalogo.respondeEn(tiendaIds),
+        fundadorasDelDia(this.prisma, ahora),
+        destacadasAhora(this.prisma, ahora),
+        this.prisma.denuncia.groupBy({
+          by: ['objetoId'],
+          where: {
+            objeto: 'OFERTA',
+            estado: { in: ['ABIERTA', 'EN_REVISION'] },
+            objetoId: { in: ids },
+          },
+          _count: { _all: true },
+        }),
+      ]);
+    const reportesDe = new Map(reportes.map((fila) => [fila.objetoId, fila._count._all]));
+    const delDia = new Set(fundadoras);
+    return ofertas
+      .map((o) => {
+        const bajoCentimos =
+          o.precioVisible &&
+          o.precioBajoEn !== null &&
+          ahora.getTime() - o.precioBajoEn.getTime() <= BAJO_DE_PRECIO &&
+          o.precioAnteriorCentimos !== null &&
+          o.precioCentimos !== null &&
+          o.precioAnteriorCentimos > o.precioCentimos
+            ? Number(o.precioAnteriorCentimos - o.precioCentimos)
+            : null;
+        const reputacion = reputaciones.get(o.tiendaId);
+        const minutos = responde.get(o.tiendaId);
+        const datos = {
+          creadaEn: o.creadaEn,
+          actualizadaEn: o.actualizadaEn,
+          masBarato: baratas.has(o.id),
+          muyBuscado: buscados.has(o.productoId),
+          bajo: bajoCentimos !== null,
+          resenas: reputacion ? puntosDeResenas(reputacion.opiniones, reputacion.puntaje) : 0,
+          respondeRapido: minutos !== undefined && minutos < RESPONDE_RAPIDO_MINUTOS,
+          diaFundadora: delDia.has(o.tiendaId),
+          destacada: destacadas.fuerzaDe(o),
+          reportesAbiertos: reportesDe.get(o.id) ?? 0,
+        };
+        return {
+          id: o.id,
+          tiendaId: o.tiendaId,
+          creadaEn: o.creadaEn,
+          puntos: puntosDe(datos, ahora),
+          chapita: chapitaDe(datos, ahora),
+          bajoCentimos,
+        };
+      })
+      .sort(compararPorPuntos);
+  }
+
+  /**
+   * «Muy buscado hoy» (doc 20, punto 4b): los 10 productos con más puntos hoy (hora de Lima),
+   * sumando las vistas de hoy de todas sus ofertas y 3 por cada pedido en vivo de hoy de ese
+   * producto. Con menos de 3 no entra.
+   */
+  private async muyBuscadosHoy(): Promise<Set<string>> {
+    const filas = await this.prisma.$queryRaw<Array<{ producto_id: string }>>`
+      WITH hoy AS (
+        SELECT (now() AT TIME ZONE 'America/Lima')::date AS dia,
+               (date_trunc('day', now() AT TIME ZONE 'America/Lima') AT TIME ZONE 'America/Lima') AS desde
+      ),
+      puntos AS (
+        SELECT o.producto_id, count(*)::int AS puntos
+        FROM vista_oferta v
+        JOIN oferta o ON o.id = v.oferta_id
+        CROSS JOIN hoy
+        WHERE v.dia = hoy.dia
+        GROUP BY o.producto_id
+        UNION ALL
+        SELECT e.producto_id, (count(*) * ${MUY_BUSCADO_POR_PEDIDO})::int AS puntos
+        FROM en_vivo e
+        CROSS JOIN hoy
+        WHERE e.tipo = 'BUSCO' AND e.producto_id IS NOT NULL AND e.creado_en >= hoy.desde
+        GROUP BY e.producto_id
+      )
+      SELECT producto_id::text AS producto_id
+      FROM puntos
+      GROUP BY producto_id
+      HAVING sum(puntos) >= ${MUY_BUSCADO_MINIMO}
+      ORDER BY sum(puntos) DESC, producto_id
+      LIMIT ${MUY_BUSCADO_CUANTOS}`;
+    return new Set(filas.map((fila) => fila.producto_id));
+  }
+
+  /** «★ Tiendas fundadoras · 7 de 10 ya entraron» (doc 20, punto 7). */
+  private async fundadoras(): Promise<RespuestaInicio['fundadoras']> {
+    const filas = await this.prisma.tienda.findMany({
+      where: { fundadoraDesde: { not: null }, estado: 'ACTIVA' },
+      orderBy: [{ fundadoraDesde: 'asc' }, { nombre: 'asc' }],
+      select: { nombre: true },
+    });
+    return {
+      entraron: filas.length,
+      total: MAX_FUNDADORAS,
+      iniciales: filas.map((fila) => iniciales(fila.nombre)),
     };
   }
 

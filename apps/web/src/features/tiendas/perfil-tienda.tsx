@@ -56,6 +56,7 @@ import {
   MenuOrdenar,
   TarjetaDelPerfil,
 } from './secciones-perfil';
+import { mesCorto, SelloFundadora } from './sello-fundadora';
 import { TarjetaPropia, type Salida } from './tarjeta-propia';
 import { FranjaTuMes } from './tu-mes';
 import {
@@ -472,10 +473,19 @@ function PerfilCompleto({
             <Logo perfil={perfil} />
             <span className="flex flex-col gap-0.5">
               {/* Como en N04: el nombre en Inter y como lo escribió la tienda, no en mayúsculas. */}
-              <h1 className="font-sans text-[24px] font-bold normal-case leading-8 tracking-normal sm:text-[30px] sm:leading-9">
-                {perfil.nombre}
-              </h1>
+              <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <h1 className="font-sans text-[24px] font-bold normal-case leading-8 tracking-normal sm:text-[30px] sm:leading-9">
+                  {perfil.nombre}
+                </h1>
+                {/* El sello dorado, solo aquí (doc 20, punto 7). */}
+                {perfil.fundadora && <SelloFundadora />}
+              </span>
               {vende && <span className="text-cuerpo text-secundario">{vende}</span>}
+              {perfil.fundadora && (
+                <span className="text-apoyo text-secundario">
+                  Tienda fundadora desde {mesCorto(perfil.fundadora.desde)}
+                </span>
+              )}
             </span>
             <span className="flex flex-col gap-1.5 text-apoyo text-secundario sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4">
               <span className="flex items-center gap-1.5">

@@ -18,6 +18,8 @@ import {
   SalirDeSoporteController,
 } from './ficha.controller';
 import { FichaService } from './ficha.service';
+import { FundadorasController } from './fundadoras.controller';
+import { FundadorasService } from './fundadoras.service';
 
 @Module({
   imports: [MensajesModule, ArchivosModule],
@@ -29,6 +31,7 @@ import { FichaService } from './ficha.service';
     FichaController,
     PedirAyudaController,
     SalirDeSoporteController,
+    FundadorasController,
   ],
   providers: [
     SoporteService,
@@ -38,6 +41,7 @@ import { FichaService } from './ficha.service';
     FichaService,
     AyudaService,
     EliminarTiendaService,
+    FundadorasService,
   ],
 })
 export class SoporteModule {}

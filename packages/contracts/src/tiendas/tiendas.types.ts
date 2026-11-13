@@ -145,6 +145,11 @@ export interface PerfilTienda {
   categorias: CategoriaDelPerfil[];
   /** Hay más que las primeras de `productos` («Ver más»). */
   hay_mas: boolean;
+  /**
+   * El sello dorado «★ Fundadora» y «Tienda fundadora desde nov. 2026» (doc 20, punto 7): solo en
+   * su perfil. Nulo si no es fundadora o el Equipo le apagó el sello.
+   */
+  fundadora: { desde: string } | null;
 }
 
 export interface RespuestaSeguir {

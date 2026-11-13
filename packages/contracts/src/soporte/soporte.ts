@@ -57,6 +57,11 @@ export interface RespuestaChatEquipo {
     maximo: number;
     ultima: { motivo: string; caso: string | null; fecha: string };
   } | null;
+  /**
+   * Del lado de la tienda: es fundadora con «Prioridad en el chat» (doc 20, punto 7). Su chat
+   * dice «★ Prioridad fundadora» y «Respondemos primero · menos de 1 h».
+   */
+  prioridad_fundadora?: boolean;
 }
 
 /** Un renglón de los chats del panel del equipo. */
@@ -72,4 +77,6 @@ export interface HiloEquipoEnLista {
   ultimo: MensajeChatEquipo | null;
   sin_leer: number;
   actualizado_en: string;
+  /** Fundadora con «Prioridad en el chat» (doc 20, punto 7): sale primero en Equipo › Chats. */
+  prioridad_fundadora: boolean;
 }

@@ -25,6 +25,13 @@ export function horaLima(fecha: Date): string {
   return HORA_LIMA.format(fecha).replace(/\s/g, ' ');
 }
 
+/** «suave», «media» o «fuerte» para el registro del Equipo (doc 20, punto 4b). */
+const FUERZA_EN_TEXTO: Record<DestacadoActivo['fuerza'], string> = {
+  SUAVE: 'suave',
+  MEDIA: 'media',
+  FUERTE: 'fuerte',
+};
+
 const iniciales = (nombre: string) =>
   nombre
     .trim()
@@ -39,6 +46,7 @@ const SELECT_DESTACADO = {
   ofertas: true,
   hasta: true,
   avisada: true,
+  fuerza: true,
   tienda: {
     select: {
       id: true,
@@ -51,7 +59,7 @@ const SELECT_DESTACADO = {
 
 /**
  * «Destacar en silencio» (COR16 del lienzo final): el equipo sube las publicaciones de una tienda
- * un rato. Nadie más lo nota; se apaga solo; hasta 3 tiendas a la vez. Si se elige, la tienda
+ * un rato, con la fuerza que elija (doc 20, punto 4b: solo suma puntos en el Inicio). Nadie más lo nota; se apaga solo; hasta 3 tiendas a la vez. Si se elige, la tienda
  * recibe «Te dimos un empujoncito 🤫», que solo ve ella.
  */
 @Injectable()
@@ -70,6 +78,7 @@ export class DestacadosService {
     ofertas: string[];
     hasta: Date;
     avisada: boolean;
+    fuerza: DestacadoActivo['fuerza'];
     tienda: { id: string; nombre: string; _count: { ofertas: number } };
     por: { nombre: string };
   }): DestacadoActivo {
@@ -85,6 +94,7 @@ export class DestacadosService {
       hasta: fila.hasta.toISOString(),
       por: fila.por.nombre,
       avisada: fila.avisada,
+      fuerza: fila.fuerza,
     };
   }
 
@@ -160,6 +170,7 @@ export class DestacadosService {
           ofertas: [...new Set(datos.ofertas)],
           hasta,
           avisada: datos.avisar,
+          fuerza: datos.fuerza,
         },
         select: SELECT_DESTACADO,
       });
@@ -172,7 +183,10 @@ export class DestacadosService {
       await tx.registroEquipo.create({
         data: {
           autorId: sesion.usuario.id,
-          accion: `destacó a ${tienda.nombre} ${duracion}`.slice(0, 240),
+          accion: `destacó a ${tienda.nombre} ${duracion} (${FUERZA_EN_TEXTO[datos.fuerza]})`.slice(
+            0,
+            240,
+          ),
         },
       });
       return fila;

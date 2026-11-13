@@ -71,7 +71,7 @@ function Pendiente({
 
 const conSigno = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n)}`;
 
-/** El inicio del panel (ADM_Web): «Para hoy», «Números del piloto» y «Lo último del equipo». */
+/** El inicio del panel (ADM_Web): «Para hoy», «Números de PaseLibre» y «Lo último del equipo». */
 export function InicioEquipo({ nombre, datos }: { nombre: string; datos: RespuestaInicioEquipo }) {
   const { reportes, numeros } = datos;
   const primero = reportes.primero;
@@ -145,7 +145,7 @@ export function InicioEquipo({ nombre, datos }: { nombre: string; datos: Respues
 
       <section aria-labelledby="numeros" className="flex flex-col gap-3">
         <h2 id="numeros" className="text-[20px] font-bold">
-          Números del piloto
+          Números de PaseLibre
         </h2>
         <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 lg:grid-cols-4">
           {[

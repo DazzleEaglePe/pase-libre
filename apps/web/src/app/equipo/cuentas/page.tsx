@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 
 import { PanelCuentas } from '@/features/equipo/panel-cuentas';
 
-export const metadata: Metadata = { title: 'Cuentas del piloto' };
+export const metadata: Metadata = { title: 'Cuentas de tiendas' };
 
-/** `/equipo/cuentas` (RF-35, RF-49): cuentas del piloto, crear, reenviar acceso y suspender. */
+/** `/equipo/cuentas` (RF-35, RF-49): cuentas de tiendas, crear, reenviar acceso y suspender. */
 export default async function PaginaCuentas({
   searchParams,
 }: {

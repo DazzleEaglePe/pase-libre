@@ -27,6 +27,11 @@ const ESTADO = {
   DESCARTADA: 'Cerrado',
 };
 const ULTIMOS = 200;
+/** Una tienda fundadora con «Prioridad en el chat» encendida (doc 20, punto 7). */
+const CON_PRIORIDAD_FUNDADORA = {
+  fundadoraDesde: { not: null },
+  fundadoraPrioridad: true,
+} satisfies Prisma.TiendaWhereInput;
 
 /** La respuesta automática sale la primera vez o después de 12 h sin conversación (N14). */
 const PAUSA_RESPUESTA_AUTOMATICA_MS = 12 * 3_600_000;
@@ -230,11 +235,16 @@ export class SoporteService implements OnModuleInit {
   /** Lo de la tienda: los mensajes y cuántos no leyó. Con `leer`, los marca leídos. */
   async miChat(sesion: SesionActiva, leer: boolean): Promise<RespuestaChatEquipo> {
     const tiendaId = this.tiendaDe(sesion);
-    const [hilo, advertencias] = await Promise.all([
+    const [hilo, advertencias, fundadora] = await Promise.all([
       this.prisma.hiloEquipo.findUnique({ where: { tiendaId }, select: SELECT_MARCAS }),
       this.advertenciasDe(tiendaId),
+      this.prisma.tienda.count({ where: { id: tiendaId, ...CON_PRIORIDAD_FUNDADORA } }),
     ]);
-    if (!hilo) return { mensajes: [], sin_leer: 0, ...(advertencias ? { advertencias } : {}) };
+    // «★ Prioridad fundadora» (doc 20, punto 7): solo se manda si la tiene.
+    const prioridad = fundadora > 0 ? { prioridad_fundadora: true } : {};
+    if (!hilo) {
+      return { mensajes: [], sin_leer: 0, ...(advertencias ? { advertencias } : {}), ...prioridad };
+    }
     const [filas, sinLeer] = await Promise.all([
       this.prisma.mensajeEquipo.findMany({
         where: { hiloId: hilo.id },
@@ -269,6 +279,7 @@ export class SoporteService implements OnModuleInit {
       mensajes: filas.reverse().map((fila) => aMensaje(fila, sesion.usuario.id, marcas)),
       sin_leer: leer ? 0 : sinLeer,
       ...(advertencias ? { advertencias } : {}),
+      ...prioridad,
     };
   }
 
@@ -412,6 +423,8 @@ export class SoporteService implements OnModuleInit {
             logo: true,
             stand: true,
             galeria: { select: { nombre: true } },
+            fundadoraDesde: true,
+            fundadoraPrioridad: true,
           },
         },
         mensajes: { orderBy: { creadoEn: 'desc' }, take: 1, select: SELECT_MENSAJE },
@@ -420,18 +433,26 @@ export class SoporteService implements OnModuleInit {
     const sinLeer = await Promise.all(
       hilos.map((hilo) => this.sinLeerDe(hilo.id, false, hilo.leidoEquipoHasta)),
     );
-    return hilos.map((hilo, i) => ({
-      tienda: {
-        id: hilo.tienda.id,
-        nombre: hilo.tienda.nombre,
-        logo: hilo.tienda.logo,
-        galeria: hilo.tienda.galeria?.nombre ?? null,
-        stand: hilo.tienda.stand,
-      },
-      ultimo: hilo.mensajes[0] ? aMensaje(hilo.mensajes[0], '') : null,
-      sin_leer: sinLeer[i] ?? 0,
-      actualizado_en: hilo.ultimoMensajeEn.toISOString(),
-    }));
+    return (
+      hilos
+        .map((hilo, i) => ({
+          tienda: {
+            id: hilo.tienda.id,
+            nombre: hilo.tienda.nombre,
+            logo: hilo.tienda.logo,
+            galeria: hilo.tienda.galeria?.nombre ?? null,
+            stand: hilo.tienda.stand,
+          },
+          ultimo: hilo.mensajes[0] ? aMensaje(hilo.mensajes[0], '') : null,
+          sin_leer: sinLeer[i] ?? 0,
+          actualizado_en: hilo.ultimoMensajeEn.toISOString(),
+          prioridad_fundadora:
+            hilo.tienda.fundadoraDesde !== null && hilo.tienda.fundadoraPrioridad,
+        }))
+        // Las fundadoras con «Prioridad en el chat» salen primero (doc 20, punto 7); entre ellas y
+        // entre las demás, lo más reciente arriba (`sort` no cambia el orden de las iguales).
+        .sort((a, b) => Number(b.prioridad_fundadora) - Number(a.prioridad_fundadora))
+    );
   }
 
   async chatDeTienda(tiendaId: string, sesion: SesionActiva): Promise<RespuestaChatEquipo> {
