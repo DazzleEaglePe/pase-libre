@@ -129,6 +129,11 @@ export function useConexionTiempoReal(): number {
   return useContext(Contexto).conexion;
 }
 
+/** El socket de la pestaña, para lo poco que el navegador le manda («escribiendo», doc 19). */
+export function useSocket(): Socket | null {
+  return useContext(Contexto).socket;
+}
+
 /** Si el socket está conectado; `null` fuera del proveedor (sin sesión de tienda). */
 export function useConectado(): boolean | null {
   return useContext(Contexto).conectado;

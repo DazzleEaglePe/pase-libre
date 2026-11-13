@@ -168,3 +168,160 @@ body:has(.ficha-fondo) {
     transform: translateX(95%);
   }
 }
+
+/* ── doc 19 · punto 17: «¿Lograste cerrar el trato?» entra subiendo 14 px (escala 0.97 → 1,
+   250 ms); quieta con «reducir movimiento». ── */
+@keyframes trato-entra {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+}
+
+.trato-entra {
+  animation: trato-entra 250ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trato-entra {
+    animation: none;
+  }
+}
+
+/* ── doc 19 · punto 18: en el panel oscuro la burbuja del Equipo es clara, así que sus checks
+   van con el verde y el gris del lienzo. ── */
+.panel-oscuro main .bg-tinta [data-check='oscuro-leido'] path {
+  stroke: #00875a;
+}
+.panel-oscuro main .bg-tinta [data-check='oscuro-recibido'] path,
+.panel-oscuro main .bg-tinta [data-check='oscuro-enviado'] path {
+  stroke: #8a958f;
+}
+
+/* ── doc 19 · punto 19: «escribiendo…» y mensajes que entran con animación. Los 3 puntitos
+   saltan uno tras otro (1,2 s por vuelta, 0,15 s entre puntitos); el mensaje que llega sube
+   14 px y aparece en 180 ms; el tuyo sube desde la caja; el avioncito da un saltito (5 px y
+   12°); el ✓✓ verde, un rebote chico; el numerito de la lista, de 1.3 a 1. Con «reducir
+   movimiento», todo aparece y desaparece sin moverse. ── */
+@keyframes chat-punto {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+@keyframes chat-puntitos {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.85);
+  }
+}
+
+@keyframes chat-llega {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes chat-sale {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+@keyframes chat-avioncito {
+  0%,
+  100% {
+    transform: none;
+  }
+  35% {
+    transform: translateX(5px) rotate(12deg);
+  }
+}
+
+@keyframes chat-rebote {
+  0% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes chat-numerito {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.chat-puntitos {
+  transform-origin: left bottom;
+  animation: chat-puntitos 180ms ease-out both;
+}
+
+.chat-punto {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #59645e;
+  animation: chat-punto 1.2s ease-in-out infinite;
+}
+
+.chat-punto:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-punto:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.chat-llega {
+  animation: chat-llega 180ms ease-out both;
+}
+
+.chat-sale {
+  animation: chat-sale 220ms ease-out both;
+}
+
+.chat-avioncito {
+  animation: chat-avioncito 300ms ease-out;
+}
+
+.chat-check-rebote {
+  transform-origin: center;
+  animation: chat-rebote 260ms ease-out;
+}
+
+.chat-numerito {
+  animation: chat-numerito 300ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-puntitos,
+  .chat-llega,
+  .chat-sale,
+  .chat-avioncito,
+  .chat-check-rebote,
+  .chat-numerito {
+    animation: none;
+  }
+  .chat-punto {
+    animation: none;
+    opacity: 0.6;
+  }
+}

@@ -3,6 +3,7 @@
 import {
   EVENTOS,
   type EventoMensajeEquipo,
+  type EventoVistoEquipo,
   type MensajeChatEquipo,
   type RespuestaChatEquipo,
 } from '@paselibre/contracts';
@@ -19,8 +20,13 @@ import {
 } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { useAvisarEscribiendo, useEscribiendo } from '@/shared/escribiendo';
 import { diaDelChat, hora } from '@/shared/fechas';
 import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
+
+import { Checks } from './burbuja';
+import { checkDeEquipo, claseDe, useEntradas } from './entradas';
+import { Puntitos } from './puntitos';
 
 const RAPIDAS = ['Ya lo corregí', '¿Cómo lo edito?', 'Gracias'];
 
@@ -97,33 +103,46 @@ export function ChatEquipo() {
   const [error, setError] = useState<string | null>(null);
   const caja = useRef<HTMLDivElement>(null);
   const conexion = useConexionTiempoReal();
+  // Doc 19, punto 19: lo que llega o sale con el chat abierto entra con animación, y se ve
+  // «El equipo está escribiendo…».
+  const { entradaDe, marcarNuevos, marcar } = useEntradas();
+  const [vuelo, setVuelo] = useState(0);
+  const escribiendo = useEscribiendo();
+  const equipoEscribe = escribiendo.enEquipo();
+  useAvisarEscribiendo({ equipo: true }, borrador);
 
   const cargar = useCallback(async () => {
     try {
-      setDatos(await llamarApi<RespuestaChatEquipo>('/equipo-chat?leer=1'));
+      const respuesta = await llamarApi<RespuestaChatEquipo>('/equipo-chat?leer=1');
+      marcarNuevos(respuesta.mensajes);
+      setDatos(respuesta);
     } catch (falla) {
       setError(falla instanceof ErrorApi ? falla.message : 'No pudimos abrir el chat.');
     }
-  }, []);
+  }, [marcarNuevos]);
   useEffect(() => {
     void cargar();
   }, [cargar, conexion]);
   // Su propio evento, aparte de la campanita: llega aunque esté en «No molestar» (doc 19, A3).
   useEvento<EventoMensajeEquipo>(EVENTOS.mensajeEquipo, () => void cargar());
+  // ✓✓ gris o verde en tus mensajes (doc 19, punto 18).
+  useEvento<EventoVistoEquipo>(EVENTOS.vistoEquipo, () => void cargar());
   useRespaldo(cargar);
   useLayoutEffect(() => {
     if (caja.current) caja.current.scrollTop = caja.current.scrollHeight;
-  }, [datos]);
+  }, [datos, equipoEscribe]);
 
   async function enviar(texto: string) {
     if (!texto.trim() || enviando) return;
     setEnviando(true);
     setError(null);
     try {
+      setVuelo((n) => n + 1);
       const mensaje = await llamarApi<MensajeChatEquipo>('/equipo-chat/mensajes', {
         metodo: 'POST',
         cuerpo: { texto: texto.trim() },
       });
+      marcar(mensaje, 'sale');
       setDatos((antes) => ({
         ...antes,
         mensajes: [...(antes?.mensajes ?? []), mensaje],
@@ -168,9 +187,13 @@ export function ChatEquipo() {
               Oficial
             </span>
           </span>
-          <span className="text-nota text-white/75">
-            Te atiende el equipo · responde en máx. 3 h
-          </span>
+          {equipoEscribe ? (
+            <i className="text-nota font-bold text-[#3BDB8A]">El equipo está escribiendo…</i>
+          ) : (
+            <span className="text-nota text-white/75">
+              Te atiende el equipo · responde en máx. 3 h
+            </span>
+          )}
         </span>
       </div>
       <p className="m-0 flex items-center gap-2 bg-pase-suave px-4 py-2.5 text-apoyo text-marca">
@@ -206,6 +229,8 @@ export function ChatEquipo() {
         {mensajes.map((mensaje, i) => {
           const dia = diaDelChat(mensaje.creado_en);
           const anterior = mensajes[i - 1];
+          const entrada = entradaDe(mensaje.id);
+          const check = checkDeEquipo(mensaje);
           return (
             <Fragment key={mensaje.id}>
               {(!anterior || diaDelChat(anterior.creado_en) !== dia) && (
@@ -217,7 +242,7 @@ export function ChatEquipo() {
               {mensaje.de_equipo ? (
                 <div
                   id={`mensaje-${mensaje.id}`}
-                  className="flex max-w-[85%] flex-col gap-1 self-start sm:max-w-[75%]"
+                  className={`flex max-w-[85%] flex-col gap-1 self-start sm:max-w-[75%] ${claseDe(entrada)}`}
                 >
                   {mensaje.automatica ? (
                     <span className="self-start rounded-full bg-marca px-2 text-[11px] font-bold leading-5 text-acento">
@@ -237,16 +262,20 @@ export function ChatEquipo() {
                   </span>
                 </div>
               ) : (
-                <div className="max-w-[85%] self-end rounded-[18px_18px_6px_18px] bg-pase-medio px-4 py-3 text-cuerpo sm:max-w-[75%]">
+                <div
+                  className={`max-w-[85%] self-end rounded-[18px_18px_6px_18px] bg-pase-medio px-4 py-3 text-cuerpo sm:max-w-[75%] ${claseDe(entrada)}`}
+                >
                   <span className="whitespace-pre-wrap break-words">{mensaje.texto}</span>
-                  <span className="block text-right text-[11px] text-secundario">
+                  <span className="flex items-center justify-end gap-1.5 text-[11px] text-secundario">
                     {hora(mensaje.creado_en)}
+                    {check && <Checks estado={check} fondo="claro" />}
                   </span>
                 </div>
               )}
             </Fragment>
           );
         })}
+        {equipoEscribe && <Puntitos quien="El equipo" />}
         <span id="fin-del-chat" />
       </div>
 
@@ -296,7 +325,13 @@ export function ChatEquipo() {
             disabled={enviando || !borrador.trim()}
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-tinta text-white disabled:bg-superficie disabled:text-borde-control"
           >
-            <IconSend size={20} stroke={1.8} aria-hidden="true" />
+            <IconSend
+              key={vuelo}
+              size={20}
+              stroke={1.8}
+              aria-hidden="true"
+              className={vuelo > 0 ? 'chat-avioncito' : undefined}
+            />
           </button>
         </form>
       </div>

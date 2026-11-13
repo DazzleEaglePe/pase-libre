@@ -75,6 +75,14 @@ export class TiempoRealService implements OnModuleDestroy {
     return (this.conexiones.get(usuarioId) ?? 0) > 0;
   }
 
+  /**
+   * Hay alguien con PaseLibre abierto ahora mismo en esa sala (una tienda o el Equipo): lo que
+   * se le envía le llega (✓✓ gris del chat con el Equipo, doc 19 punto 18).
+   */
+  hayAlguienEn(sala: string): boolean {
+    return (this.servidor?.sockets?.adapter?.rooms?.get(sala)?.size ?? 0) > 0;
+  }
+
   /** Alguien de la tienda está en línea (el puntito verde y «Activo ahora», N01). */
   tiendaEnLinea(tiendaId: string): boolean {
     return (this.presentes.get(tiendaId)?.size ?? 0) > 0;

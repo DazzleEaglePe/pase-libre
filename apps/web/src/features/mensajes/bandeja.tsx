@@ -15,6 +15,7 @@ import { useParams, usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
+import { useEscribiendo, type Escribiendo } from '@/shared/escribiendo';
 import { horaCorta } from '@/shared/fechas';
 import { useAgrupado } from '@/shared/agrupar';
 import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
@@ -75,15 +76,45 @@ function extracto(c: ConversacionEnLista): string {
   return c.ultimo_mensaje ? extractoDeMensaje(c.ultimo_mensaje) : '';
 }
 
+/** «escribiendo…» en verde, en la última línea de la lista (doc 19, punto 19). */
+function EscribiendoEnLista() {
+  return <i className="truncate text-apoyo font-bold text-pase-texto">escribiendo…</i>;
+}
+
+/**
+ * El numerito de no leídos: cuando sube con la lista a la vista, aparece con un rebote (escala
+ * 1.3 → 1, doc 19 punto 19). Al abrir Mensajes no rebota nada.
+ */
+function Numerito({ valor, children }: { valor: number; children: ReactNode }) {
+  const antes = useRef(valor);
+  const [vuelta, setVuelta] = useState(0);
+  useEffect(() => {
+    if (valor > antes.current) setVuelta((n) => n + 1);
+    antes.current = valor;
+  }, [valor]);
+  return (
+    <span
+      key={vuelta}
+      className={`flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-contador px-1.5 text-[11px] font-bold text-tinta ${
+        vuelta > 0 ? 'chat-numerito' : ''
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
 function Renglon({
   grupo,
   abierta,
   enLinea,
+  escribiendo,
 }: {
   grupo: Grupo;
   abierta: string | null;
   /** El puntito verde (N01): la tienda está conectada ahora. */
   enLinea: boolean;
+  escribiendo: Escribiendo;
 }) {
   const [ultimo] = grupo.hilos;
   if (!ultimo) return null;
@@ -91,6 +122,7 @@ function Renglon({
   const noLeidos = grupo.hilos.reduce((suma, c) => suma + c.no_leidos, 0);
   const sinLeer = noLeidos > 0 || grupo.hilos.some((c) => c.no_leida);
   const enVivo = grupo.hilos.some((c) => c.pase_del_dia);
+  const escribe = grupo.hilos.some((c) => escribiendo.enConversacion(c.id));
   return (
     <li>
       <Link
@@ -141,19 +173,23 @@ function Renglon({
             )}
           </span>
           <span className="flex items-center justify-between gap-2">
-            <span
-              className={`truncate text-apoyo ${sinLeer ? 'font-bold text-tinta' : 'text-secundario'}`}
-            >
-              {extracto(ultimo)}
-            </span>
+            {escribe ? (
+              <EscribiendoEnLista />
+            ) : (
+              <span
+                className={`truncate text-apoyo ${sinLeer ? 'font-bold text-tinta' : 'text-secundario'}`}
+              >
+                {extracto(ultimo)}
+              </span>
+            )}
             {ultimo.silenciada ? (
               <span className="shrink-0 text-[11px] font-semibold text-detalle">Silenciado</span>
             ) : (
               sinLeer && (
-                <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-contador px-1.5 text-[11px] font-bold text-tinta">
+                <Numerito valor={noLeidos}>
                   {noLeidos > 0 ? noLeidos : ''}
                   <span className="sr-only"> sin leer</span>
-                </span>
+                </Numerito>
               )
             )}
           </span>
@@ -164,7 +200,16 @@ function Renglon({
 }
 
 /** El chat oficial, fijado arriba (REP_WebChatEquipo). */
-function RenglonEquipo({ chat, activo }: { chat: RespuestaChatEquipo | null; activo: boolean }) {
+function RenglonEquipo({
+  chat,
+  activo,
+  escribe,
+}: {
+  chat: RespuestaChatEquipo | null;
+  activo: boolean;
+  /** El Equipo le está escribiendo (doc 19, punto 19). */
+  escribe: boolean;
+}) {
   const ultimo = chat?.mensajes[chat.mensajes.length - 1];
   const sinLeer = (chat?.sin_leer ?? 0) > 0;
   return (
@@ -198,18 +243,18 @@ function RenglonEquipo({ chat, activo }: { chat: RespuestaChatEquipo | null; act
             )}
           </span>
           <span className="flex items-center justify-between gap-2">
-            <span
-              className={`truncate text-apoyo ${sinLeer ? 'font-bold text-tinta' : 'text-secundario'}`}
-            >
-              {ultimo
-                ? `${ultimo.mio ? 'Tú' : ultimo.autor}: ${ultimo.texto}`
-                : '¿Dudas o un problema? Escríbenos aquí.'}
-            </span>
-            {sinLeer && (
-              <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-contador px-1.5 text-[11px] font-bold text-tinta">
-                {chat?.sin_leer}
+            {escribe ? (
+              <EscribiendoEnLista />
+            ) : (
+              <span
+                className={`truncate text-apoyo ${sinLeer ? 'font-bold text-tinta' : 'text-secundario'}`}
+              >
+                {ultimo
+                  ? `${ultimo.mio ? 'Tú' : ultimo.autor}: ${ultimo.texto}`
+                  : '¿Dudas o un problema? Escríbenos aquí.'}
               </span>
             )}
+            {sinLeer && <Numerito valor={chat?.sin_leer ?? 0}>{chat?.sin_leer}</Numerito>}
           </span>
           <span className="flex items-center gap-1 text-[11px] text-detalle">
             <IconPin size={11} stroke={2} aria-hidden="true" />
@@ -244,6 +289,7 @@ export function Bandeja({ children }: { children: ReactNode }) {
   const [presencia, setPresencia] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const ultima = useRef(0);
+  const escribiendo = useEscribiendo();
 
   useEffect(() => {
     const espera = setTimeout(() => setQ(busca.trim()), 300);
@@ -375,13 +421,16 @@ export function Bandeja({ children }: { children: ReactNode }) {
           )}
           <div className="min-h-0 flex-1 overflow-y-auto">
             <ul className="m-0 flex list-none flex-col p-0">
-              {filtro === 'todas' && !q && <RenglonEquipo chat={equipo} activo={enEquipo} />}
+              {filtro === 'todas' && !q && (
+                <RenglonEquipo chat={equipo} activo={enEquipo} escribe={escribiendo.enEquipo()} />
+              )}
               {grupos.map((grupo) => (
                 <Renglon
                   key={grupo.clave}
                   grupo={grupo}
                   abierta={abierta}
                   enLinea={conectada(grupo)}
+                  escribiendo={escribiendo}
                 />
               ))}
             </ul>

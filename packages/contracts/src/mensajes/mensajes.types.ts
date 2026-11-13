@@ -2,6 +2,7 @@ import type { Precio } from '../comun/dinero.js';
 import type { Condicion } from '../catalogo/catalogo.types.js';
 import type { EnVivoEnChat } from '../en-vivo/en-vivo.types.js';
 import type { TipoTienda } from '../sesion/sesion.types.js';
+import type { TratoDelHilo } from './chat-vivo.js';
 
 /** La otra persona de una conversación: siempre con su tienda (A-11, bandeja por persona). */
 export interface PersonaChat {
@@ -152,6 +153,11 @@ export interface DetalleConversacion extends Omit<ConversacionEnLista, 'otro' | 
      */
     puede_deshacer: boolean;
   } | null;
+  /**
+   * «¿Lograste cerrar el trato?» (doc 19, punto 17): lo que quien vende ya respondió y si ya
+   * corresponde preguntar. Nulo para quien compra.
+   */
+  trato?: TratoDelHilo | null;
   /** «Pedir WhatsApp» y «Compartir mi WhatsApp» (N01). Nadie ve un número que no se aceptó. */
   whatsapp: {
     /** El número que la otra tienda te compartió en este chat, o nulo. */
@@ -352,9 +358,21 @@ export const EVENTOS = {
    * Equipo, siempre: «No molestar» calla el aviso, nunca el chat abierto (doc 19, A3).
    */
   mensajeEquipo: 'equipo:mensaje',
+  /**
+   * En el hilo de una tienda con el Equipo cambió hasta dónde llegaron o se leyeron los mensajes
+   * (✓✓, doc 19 punto 18): quien lo tiene abierto lo vuelve a pedir.
+   */
+  vistoEquipo: 'equipo:visto',
+  /** «Escribiendo…» (doc 19, punto 19): ver `EventoEscribiendo`. */
+  escribiendo: 'chat:escribiendo',
 } as const;
 
 export interface EventoMensajeEquipo {
+  tienda_id: string;
+}
+
+/** `equipo:visto`: el hilo de esa tienda cambió de ✓ a ✓✓ o a ✓✓ verde. */
+export interface EventoVistoEquipo {
   tienda_id: string;
 }
 

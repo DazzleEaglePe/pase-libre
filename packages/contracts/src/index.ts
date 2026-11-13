@@ -16,6 +16,7 @@ export * from './ofertas/ofertas.schemas.js';
 export * from './ofertas/ofertas.types.js';
 export * from './mensajes/mensajes.schemas.js';
 export * from './mensajes/mensajes.types.js';
+export * from './mensajes/chat-vivo.js';
 export * from './en-vivo/en-vivo.schemas.js';
 export * from './en-vivo/en-vivo.types.js';
 export * from './registro/registro.schemas.js';

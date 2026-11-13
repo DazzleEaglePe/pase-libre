@@ -28,7 +28,10 @@ import {
   historialSchema,
   leerAvisosSchema,
   responderPedidoWhatsappSchema,
+  responderTratoSchema,
   vendidoSchema,
+  type EstadoTrato,
+  type ResponderTrato,
   type CambiarConversacion,
   type ConsultaHistorial,
   type Contactar,
@@ -251,6 +254,21 @@ export class MensajesController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<DetalleConversacion> {
     return this.mensajes.cambiar(id, cambios, sesion.usuario);
+  }
+
+  /**
+   * «¿Lograste cerrar el trato?» (doc 19, punto 17): «Todavía no» o la X. Se guarda en la
+   * conversación, así vale en todos los equipos de quien vende.
+   */
+  @Post('conversaciones/:id/trato')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  responderTrato(
+    @Param('id', idDeConversacion) id: string,
+    @Body(new ZodValidationPipe(responderTratoSchema)) { respuesta }: ResponderTrato,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<EstadoTrato> {
+    return this.mensajes.responderTrato(id, respuesta, sesion.usuario);
   }
 
   @Post('conversaciones/:id/bloqueo')
