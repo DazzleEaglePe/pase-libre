@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter, Montserrat } from 'next/font/google';
+import localFont from 'next/font/local';
 import type { ReactNode } from 'react';
 
 import { URL_SITIO } from '@/shared/sitio';
@@ -7,16 +7,19 @@ import { URL_SITIO } from '@/shared/sitio';
 import './globals.css';
 
 // Guía del lienzo final: Inter para todo el texto y Montserrat 800 en mayúsculas para los títulos.
-const inter = Inter({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+// Las fuentes viven en el repo (variables, solo «latin», de @fontsource-variable 5.2.8, licencia
+// OFL en `fuentes/`): así la compilación no depende de bajarlas de Google Fonts, que a veces
+// falla en el CI.
+const inter = localFont({
+  src: './fuentes/inter.woff2',
+  weight: '100 900',
   variable: '--fuente-base',
   display: 'swap',
 });
 
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  weight: ['700', '800'],
+const montserrat = localFont({
+  src: './fuentes/montserrat.woff2',
+  weight: '100 900',
   variable: '--fuente-titulo',
   display: 'swap',
 });
