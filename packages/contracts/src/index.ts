@@ -24,6 +24,7 @@ export * from './registro/registro.schemas.js';
 export * from './registro/registro.types.js';
 export * from './tiendas/tiendas.schemas.js';
 export * from './tiendas/tiendas.types.js';
+export * from './tiendas/visibilidad.js';
 export * from './tiendas/reputacion.js';
 export * from './tiendas/horario.js';
 export * from './historial/historial.schemas.js';

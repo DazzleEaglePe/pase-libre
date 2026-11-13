@@ -25,7 +25,7 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { MemoriaPorClave, recordarPor } from '../../shared/memoria';
 import { portadaDe } from '../../shared/portada';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
-import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { tiendasQueNoVeo } from '../../shared/bloqueadas';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { conSesion, preciosPara, tiendaPara } from './visibilidad';
 
@@ -415,14 +415,23 @@ export class CatalogoService {
     const base = { categorias, galerias, totales };
 
     if (!conSesion(mirada)) {
-      const recienPublicado = await this.recienDeVisitantes.recordar(consulta.galeria ?? '', () =>
-        this.recienParaVisitantes(where, orderBy),
+      // Lo de las privadas y las ocultas no sale (doc 20, punto 5): es lo mismo para todo visitante.
+      const recienPublicado = await this.recienDeVisitantes.recordar(
+        consulta.galeria ?? '',
+        async () => {
+          const noVeo = await tiendasQueNoVeo(this.prisma, mirada);
+          return this.recienParaVisitantes(
+            noVeo.length > 0 ? { AND: [where, { tiendaId: { notIn: noVeo } }] } : where,
+            orderBy,
+          );
+        },
       );
       return { ...base, audiencia: 'visitante', recien_publicado: recienPublicado };
     }
 
     const [bloqueadas, destacadas, socios] = await Promise.all([
-      tiendasBloqueadasPor(this.prisma, mirada.usuarioId),
+      // Bloqueadas, ocultas y privadas que no sigue (doc 20, punto 5).
+      tiendasQueNoVeo(this.prisma, mirada),
       destacadasAhora(this.prisma),
       tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId),
     ]);
@@ -506,10 +515,15 @@ export class CatalogoService {
   /** «De tiendas que sigues» (SG_WebFeed): lo último con stock de las tiendas que sigues. */
   async deSeguidas(mirada: Mirada): Promise<RespuestaInicio['de_seguidas']> {
     if (!mirada.tiendaId) return { tiendas: [], ofertas: [] };
-    const seguidas = await this.prisma.seguimiento.findMany({
-      where: { tiendaId: mirada.tiendaId },
-      select: { seguidaId: true },
-    });
+    const [seguimientos, noVeo] = await Promise.all([
+      this.prisma.seguimiento.findMany({
+        where: { tiendaId: mirada.tiendaId },
+        select: { seguidaId: true },
+      }),
+      // Una oculta no se ve aunque la sigas (doc 20, punto 5); tampoco una bloqueada.
+      tiendasQueNoVeo(this.prisma, mirada),
+    ]);
+    const seguidas = seguimientos.filter((fila) => !noVeo.includes(fila.seguidaId));
     if (seguidas.length === 0) return { tiendas: [], ofertas: [] };
     const filas = await this.prisma.oferta.findMany({
       where: {
@@ -579,6 +593,10 @@ export class CatalogoService {
       perfil_memoria: producto.perfilMemoria,
     };
     const where: Prisma.OfertaWhereInput = { ...OFERTA_VIGENTE, productoId: producto.id };
+    // «Las tiendas que lo tienen»: sin las bloqueadas, las ocultas ni las privadas que no sigue
+    // quien mira (doc 20, punto 5), tampoco para un visitante.
+    const noVeo = await tiendasQueNoVeo(this.prisma, mirada);
+    if (noVeo.length > 0) where.tiendaId = { notIn: noVeo };
 
     if (!conSesion(mirada)) {
       // Para el visitante, de la más reciente a la más antigua: ordenar por precio lo delataría.
@@ -594,8 +612,6 @@ export class CatalogoService {
       };
     }
 
-    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
-    if (bloqueadas.length > 0) where.tiendaId = { notIn: bloqueadas };
     const ofertas = await this.prisma.oferta.findMany({
       where,
       select: SELECT_OFERTA_CON_VENDEDOR,

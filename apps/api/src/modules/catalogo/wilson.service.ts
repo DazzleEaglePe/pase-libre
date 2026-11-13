@@ -12,7 +12,7 @@ import {
 import { Prisma, type Moneda } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
-import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { tiendasQueNoVeo } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { portadaDe } from '../../shared/portada';
@@ -47,9 +47,8 @@ export class WilsonService {
   constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async wilson(consulta: WilsonConsulta, mirada: Mirada): Promise<RespuestaWilson> {
-    const bloqueadas = mirada.usuarioId
-      ? await tiendasBloqueadasPor(this.prisma, mirada.usuarioId)
-      : [];
+    // Bloqueadas, ocultas y privadas que no sigue (doc 20, punto 5), también para un visitante.
+    const bloqueadas = await tiendasQueNoVeo(this.prisma, mirada);
     const categoria = consulta.categoria
       ? await this.prisma.categoria.findUnique({
           where: { slug: consulta.categoria },
@@ -218,9 +217,7 @@ export class WilsonService {
       select: { id: true, slug: true, nombre: true },
     });
     if (!categoria) throw noEncontrada();
-    const bloqueadas = mirada.usuarioId
-      ? await tiendasBloqueadasPor(this.prisma, mirada.usuarioId)
-      : [];
+    const bloqueadas = await tiendasQueNoVeo(this.prisma, mirada);
 
     const [ofertas, galerias, enVivoHoy] = await Promise.all([
       this.prisma.oferta.findMany({

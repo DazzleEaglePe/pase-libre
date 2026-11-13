@@ -310,7 +310,7 @@ describe('Directorio de tiendas y tiendas en el buscador (N13)', () => {
       ]);
     });
 
-    it('las suspendidas y las de perfil privado no salen', async () => {
+    it('las suspendidas y las de perfil privado (buscadas a medias) no salen', async () => {
       await prisma.tienda.update({
         where: { id: ids.get('Pegaso Computer') },
         data: { estado: 'SUSPENDIDA' },
@@ -318,7 +318,7 @@ describe('Directorio de tiendas y tiendas en el buscador (N13)', () => {
       expect((await enElBuscador('tiendab', 'pega')).tiendas).toEqual([]);
       await prisma.tienda.update({
         where: { id: ids.get('Pegaso Computer') },
-        data: { estado: 'ACTIVA', perfilPrivado: true },
+        data: { estado: 'ACTIVA', visibilidad: 'PRIVADO' },
       });
       expect((await enElBuscador('tiendab', 'pega')).tiendas).toEqual([]);
       expect(nombres((await directorio('tiendab')).tiendas)).not.toContain('Pegaso Computer');

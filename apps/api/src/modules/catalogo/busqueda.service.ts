@@ -25,7 +25,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { destacadasAhora } from '../../shared/destacados';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { MemoriaPorClave } from '../../shared/memoria';
-import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { tiendasCerradas, tiendasQueNoVeo, veComoVisitante } from '../../shared/bloqueadas';
 import { INDEPENDIENTES } from './catalogo.service';
 import {
   buscarConMotor,
@@ -45,8 +45,18 @@ export const MAS_BUSCADOS = 4;
 /** «Parecidas que sí hay» cuando no se encontró nada (EV_WebRes). */
 const PARECIDAS = 3;
 
-/** La consulta con lo que agrega la API: las tiendas bloqueadas por quien mira. */
-type ConsultaInterna = BuscarConsulta & { excluirTiendas?: string[] };
+/**
+ * La consulta con lo que agrega la API: las tiendas que quien mira no ve (bloqueadas, ocultas y
+ * privadas que no sigue; `tiendasQueNoVeo`) y si eso es justo lo que no ve un visitante, para
+ * saber si sirve `producto_resumen` (que solo cuenta las tiendas públicas).
+ */
+type ConsultaInterna = BuscarConsulta & { excluirTiendas?: string[]; comoVisitante?: boolean };
+
+/** Si la búsqueda puede salir de `producto_resumen` en cuanto a las tiendas que se ven. */
+function resumenSirve(consulta: BuscarConsulta): boolean {
+  const { excluirTiendas = [], comoVisitante } = consulta as ConsultaInterna;
+  return comoVisitante ?? excluirTiendas.length === 0;
+}
 /** Cuántos de lo más buscado se prueban contra una categoría antes de rendirse. */
 const CANDIDATOS_POR_CATEGORIA = 20;
 /**
@@ -189,8 +199,14 @@ export class BusquedaService {
     // Al visitante se le ignoran el filtro y el orden por precio: si no, podría deducir
     // los precios probando rangos (docs/05 §5).
     const efectiva: ConsultaInterna = conPrecio
-      ? { ...consulta, excluirTiendas: await tiendasBloqueadasPor(this.prisma, mirada.usuarioId) }
-      : { ...consulta, precio_min: undefined, precio_max: undefined, orden: 'recientes' };
+      ? { ...consulta, ...(await this.loQueNoVe(mirada)) }
+      : {
+          ...consulta,
+          precio_min: undefined,
+          precio_max: undefined,
+          orden: 'recientes',
+          ...(await this.loQueNoVe(mirada)),
+        };
 
     const palabras = this.palabras(consulta.q);
     const { resultado, intento } = await buscarConMotor(
@@ -280,7 +296,7 @@ export class BusquedaService {
     const conPrecio = conSesion(mirada);
     const base: ConsultaInterna = {
       ...buscarSchema.parse({ q: consulta.q, categoria: consulta.categoria }),
-      excluirTiendas: conPrecio ? await tiendasBloqueadasPor(this.prisma, mirada.usuarioId) : [],
+      ...(await this.loQueNoVe(mirada)),
     };
 
     const { resultado, intento } = await buscarConMotor(
@@ -391,7 +407,21 @@ export class BusquedaService {
     return fila?.hay === true;
   }
 
-  /** Palabras normalizadas y sin repetir de lo que se escribió (para «Parecidas que sí hay»). */
+  /**
+   * Las tiendas que quien mira no ve (doc 20, punto 5), también un visitante (las privadas y las
+   * ocultas), y si es lo mismo que no ve un visitante.
+   */
+  private async loQueNoVe(
+    mirada: Mirada,
+  ): Promise<Required<Pick<ConsultaInterna, 'excluirTiendas' | 'comoVisitante'>>> {
+    const [noVeo, cerradas] = await Promise.all([
+      tiendasQueNoVeo(this.prisma, mirada),
+      tiendasCerradas(this.prisma),
+    ]);
+    return { excluirTiendas: noVeo, comoVisitante: veComoVisitante(noVeo, cerradas) };
+  }
+
+  /** Palabras normalizadas y sin repetir de lo que se escribió (también para «Ya está en PaseLibre»). */
   palabras(q: string): string[] {
     const normalizado = normalizarTexto(q);
     return normalizado ? [...new Set(normalizado.split(' '))].slice(0, 12) : [];
@@ -404,7 +434,7 @@ export class BusquedaService {
       Prisma.sql`t.estado = 'ACTIVA'`,
       Prisma.sql`p.fusionado_en_id IS NULL`,
     ];
-    // Lo de las tiendas que quien mira bloqueó no aparece (REP_WebBloqueadas).
+    // Lo de las tiendas que quien mira no ve no aparece (REP_WebBloqueadas; doc 20, punto 5).
     const excluir = (consulta as ConsultaInterna).excluirTiendas ?? [];
     if (excluir.length > 0) {
       condiciones.push(
@@ -441,14 +471,14 @@ export class BusquedaService {
 
   /**
    * Si la búsqueda sale de `producto_resumen`: cuando no filtra por algo de la oferta (galería,
-   * condición, stock o precio) ni quien mira bloqueó tiendas. Si no, se agrupan las ofertas.
+   * condición, stock o precio) y quien mira no ve justo lo que un visitante (sin bloqueadas, sin
+   * privadas que siga y sin ser el Equipo). Si no, se agrupan las ofertas.
    */
   private usaResumen(consulta: BuscarConsulta, conPrecio: boolean): boolean {
-    const excluir = (consulta as ConsultaInterna).excluirTiendas ?? [];
     const porPrecio =
       conPrecio && (consulta.precio_min !== undefined || consulta.precio_max !== undefined);
     return (
-      excluir.length === 0 &&
+      resumenSirve(consulta) &&
       consulta.galeria.length === 0 &&
       consulta.condicion.length === 0 &&
       !consulta.stock &&
@@ -870,8 +900,7 @@ export class BusquedaService {
     filtro: FiltroTexto,
     consulta: BuscarConsulta,
   ): Promise<RespuestaBuscar['facetas']> {
-    const [filas, porCategoria] = await (((consulta as ConsultaInterna).excluirTiendas ?? [])
-      .length === 0
+    const [filas, porCategoria] = await (resumenSirve(consulta)
       ? this.facetasConResumen(filtro, consulta)
       : this.facetasConOfertas(filtro, consulta));
 

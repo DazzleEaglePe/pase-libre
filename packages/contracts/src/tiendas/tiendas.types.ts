@@ -4,6 +4,7 @@ import type { VariantesOferta } from '../ofertas/ofertas.types.js';
 import type { TramoHorario } from './horario.js';
 import type { NivelReputacion } from './reputacion.js';
 import type { AVISOS_SEGUIMIENTO } from './tiendas.schemas.js';
+import type { CategoriaDelPerfil, VisibilidadPerfil } from './visibilidad.js';
 
 export type AvisosSeguimiento = (typeof AVISOS_SEGUIMIENTO)[number];
 
@@ -49,6 +50,17 @@ export interface ProductoDeTienda {
   negociable: boolean;
   /** Las pastillas del título (docs/19 §13). */
   variantes?: VariantesOferta;
+  /** «Más barato de la galería» (doc 20, punto 20): solo en «Sus mejores precios». */
+  mas_barato?: boolean;
+}
+
+/** `GET /v1/tiendas/:id/publicaciones` (doc 20, punto 20): «Todo», con sus filtros. */
+export interface RespuestaPublicacionesTienda {
+  productos: ProductoDeTienda[];
+  /** Cuántas hay con esas categorías (sin paginar). */
+  total: number;
+  pagina: number;
+  hay_mas: boolean;
 }
 
 /**
@@ -103,6 +115,36 @@ export interface PerfilTienda {
   portada: PortadaTienda | null;
   /** Lo que más publica, para la portada automática: «Tarjetas de video · Procesadores». */
   categorias_principales: string[];
+
+  // ── Doc 20, punto 5: Público / Privado / Oculto ──
+  /** Quién ve tu perfil, para el selector «Perfil: Público ▾»; nula en el perfil de otra. */
+  visibilidad: VisibilidadPerfil | null;
+  /**
+   * Perfil privado que quien mira no sigue: solo el nombre, la galería y cuántas la siguen, con el
+   * logo y la portada borrosos y «Solicitar seguir». Sin productos, stand ni datos.
+   */
+  privada: boolean;
+  /** «Cómo me ven» con el perfil oculto: ninguna otra tienda lo encuentra. */
+  oculta: boolean;
+  /** El logo y la portada chicos (`data:`) de un perfil privado: nunca la ruta de la original. */
+  logo_borroso: string | null;
+  portada_borrosa: string | null;
+  /** Pediste seguirla y espera respuesta: «Solicitud enviada» (se puede cancelar). */
+  solicitud_enviada: boolean;
+  /** «Escribir»: no aparece en un perfil privado que no sigues (los chats que ya hay siguen). */
+  puede_escribir: boolean;
+  /** «Cómo me ven»: tu perfil tal como lo ve otra tienda que no te sigue. */
+  como_me_ven: boolean;
+
+  // ── Doc 20, punto 20: la pestaña Productos en tres secciones ──
+  /** «Lo nuevo de esta semana»: los últimos 7 días, lo más nuevo primero. */
+  nuevas: ProductoDeTienda[];
+  /** «Sus mejores precios»: donde es la más barata de la galería (`mas_barato`). */
+  mejores_precios: ProductoDeTienda[];
+  /** Las burbujas de «Todo»: solo las categorías que vende, con cuántas tiene. */
+  categorias: CategoriaDelPerfil[];
+  /** Hay más que las primeras de `productos` («Ver más»). */
+  hay_mas: boolean;
 }
 
 export interface RespuestaSeguir {

@@ -177,6 +177,13 @@ export interface TiendaDelDirectorio {
   en_linea: boolean;
   /** Es la tienda de quien mira. */
   propia: boolean;
+  /**
+   * Perfil privado que quien mira no sigue (doc 20, punto 5): sale solo con su nombre exacto,
+   * como «Tienda · Cuenta privada», sin galería, stand ni datos, y con el logo borroso.
+   */
+  privada?: boolean;
+  /** El logo chico (`data:`) para mostrarlo borroso en una privada; nunca la ruta original. */
+  logo_borroso?: string | null;
 }
 
 /** `GET /v1/wilson/tiendas` (N13): solo con sesión. Sin las reservadas ni las que bloqueaste. */
@@ -202,6 +209,10 @@ export interface TiendaEnBuscador {
   stand: string | null;
   reputacion: ReputacionCorta;
   en_linea: boolean;
+  /** Perfil privado buscado con su nombre exacto (doc 20, punto 5): «Tienda · Cuenta privada». */
+  privada?: boolean;
+  /** El logo chico (`data:`) para mostrarlo borroso en una privada; nunca la ruta original. */
+  logo_borroso?: string | null;
 }
 
 /**

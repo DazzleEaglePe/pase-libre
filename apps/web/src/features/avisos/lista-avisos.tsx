@@ -17,6 +17,7 @@ import {
   IconShieldCheck,
   IconStar,
   IconCircleCheck,
+  IconUserPlus,
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
@@ -24,6 +25,8 @@ import type { ReactNode } from 'react';
 import { marcarAvisoLeido } from '@/shared/avisos-leidos';
 import { haceCuanto, haceRato, hora } from '@/shared/fechas';
 import { Miniatura } from '@/shared/ui/miniatura';
+
+import { BotonesSolicitud } from './solicitud-seguir';
 
 export const FILTROS_AVISOS: Array<[CategoriaAviso | 'TODOS', string]> = [
   ['TODOS', 'Todos'],
@@ -52,6 +55,7 @@ function Icono({ tipo }: { tipo: TipoAviso }) {
     SEGURIDAD: [<IconShieldCheck key="i" size={16} stroke={1.8} />, 'bg-pase text-white'],
     SISTEMA: [<IconBell key="i" size={16} stroke={1.8} />, 'bg-superficie text-secundario'],
     EQUIPO: [<IconBell key="i" size={16} stroke={1.8} />, 'bg-tinta text-white'],
+    SOLICITUD_SEGUIR: [<IconUserPlus key="i" size={16} stroke={1.8} />, 'bg-pase-suave text-marca'],
   };
   const [icono, clase] = iconos[tipo];
   return (
@@ -142,7 +146,11 @@ export function ListaAvisos({
                     <span className="text-apoyo text-secundario">{aviso.extracto}</span>
                   )}
                   <span className="text-nota text-detalle">{cuando(aviso.actualizado_en)}</span>
-                  {aviso.accion && (
+                  {/* «Aceptar» / «Rechazar» (doc 20, punto 5). */}
+                  {aviso.accion?.tipo === 'SOLICITUD_SEGUIR' && (
+                    <BotonesSolicitud aviso={aviso} solicitudId={aviso.accion.solicitud_id} />
+                  )}
+                  {aviso.accion && aviso.accion.tipo !== 'SOLICITUD_SEGUIR' && (
                     <Link
                       href={aviso.accion.enlace}
                       onClick={() => abrir(aviso)}

@@ -11,7 +11,10 @@ import {
   type OpinarDatos,
   type OpinionPublica,
   type PerfilTienda,
+  type PublicacionesTiendaConsulta,
   type Reputacion,
+  type ReputacionDetallada,
+  type RespuestaPublicacionesTienda,
   type RespuestaOpiniones,
   type RespuestaSeguir,
   type RespuestaSocios,
@@ -23,19 +26,31 @@ import {
 import type { LadoOpinion, Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { accesoAlPerfil, comoLaEncuentra } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { audienciaDe, type Mirada } from '../../shared/guards/sesion-opcional.guard';
-import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
-import { variantesDe } from '../catalogo/catalogo.service';
-import { preciosPara } from '../catalogo/visibilidad';
+import { MiniaturasService } from '../archivos/miniaturas.service';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { OFERTA_DEL_PERFIL, PerfilPublicacionesService } from './perfil-publicaciones';
 import { ReputacionService } from './reputacion.service';
 
-/** Productos que se muestran en el perfil (SG_Web); el resto, en la búsqueda. */
-const PRODUCTOS_EN_PERFIL = 48;
 const OPINIONES_POR_PAGINA = 50;
+
+/** El logo y la portada de una privada, en píxeles de ancho: la web los muestra borrosos. */
+const ANCHO_LOGO_BORROSO = 32;
+const ANCHO_PORTADA_BORROSA = 64;
+/** Lo que se muestra de la reputación de una privada que no sigues: nada. */
+const REPUTACION_OCULTA: ReputacionDetallada = {
+  promedio: null,
+  opiniones: 0,
+  ventas: 0,
+  nivel: null,
+  pases_60: 0,
+  responde_en: null,
+  respondidos: null,
+};
 
 /** «Lo que dicen las tiendas» (SG_WebOpiniones): cómo se lee cada cosa que se marcó al opinar. */
 const ASPECTOS_DEL_PERFIL: Array<[string, string]> = [
@@ -61,13 +76,8 @@ export function inicialesDe(nombre: string): string {
   );
 }
 
-/** Las publicaciones que se pueden mostrar en el perfil: vigentes y con el nombre a la vista. */
-export const OFERTA_DEL_PERFIL = {
-  estado: 'ACTIVA',
-  tiendaVisible: true,
-  stock: { gt: 0 },
-  producto: { fusionadoEnId: null },
-} satisfies Prisma.OfertaWhereInput;
+// Antes vivía aquí; otras partes la siguen pidiendo desde este archivo.
+export { OFERTA_DEL_PERFIL };
 
 export function miradaDe(sesion: SesionActiva): Mirada {
   return {
@@ -79,24 +89,17 @@ export function miradaDe(sesion: SesionActiva): Mirada {
 
 /**
  * Perfil de otra tienda, seguir y opiniones (SG_Web, SG_WebOpiniones, sección 15 del lienzo
- * final). Todo con sesión: un visitante no sabe qué tienda tiene qué.
+ * final). Todo con sesión: un visitante no sabe qué tienda tiene qué. Las 3 categorías que más
+ * publica (para la portada automática, COR1) salen de las burbujas de «Todo».
  */
-/** Las 3 categorías que más publica, para la portada automática (COR1). */
-function categoriasPrincipales(nombres: string[]): string[] {
-  const cuenta = new Map<string, number>();
-  for (const nombre of nombres) cuenta.set(nombre, (cuenta.get(nombre) ?? 0) + 1);
-  return [...cuenta.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([nombre]) => nombre);
-}
-
 @Injectable()
 export class TiendasService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
     @Inject(ReputacionService) private readonly reputaciones: ReputacionService,
+    @Inject(PerfilPublicacionesService) private readonly publicaciones: PerfilPublicacionesService,
+    @Inject(MiniaturasService) private readonly miniaturas: MiniaturasService,
   ) {}
 
   // ── Perfil ────────────────────────────────────────────────────────────────
@@ -111,85 +114,129 @@ export class TiendasService {
     return { nombre: tienda.nombre };
   }
 
-  async perfil(id: string, sesion: SesionActiva): Promise<PerfilTienda> {
+  /**
+   * El perfil de una tienda como lo ve quien mira (doc 20, punto 5): completo, privado (una
+   * privada que no sigue: nombre, galería y seguidoras, con el logo y la portada borrosos) u
+   * oculto (404). Con `comoMeVen`, la propia se ve como la ve otra tienda que no la sigue.
+   */
+  async perfil(id: string, sesion: SesionActiva, comoMeVen = false): Promise<PerfilTienda> {
     const tienda = await this.prisma.tienda.findFirst({
       where: { id, estado: 'ACTIVA' },
       include: { galeria: true },
     });
     if (!tienda) throw noEncontrada();
-    const mirada = miradaDe(sesion);
     const miTienda = sesion.usuario.tiendaId;
+    const propia = miTienda === id;
+    const comoOtra = comoMeVen && propia;
+    // «Cómo me ven»: como otra tienda cualquiera, sin socias ni seguimiento.
+    const mirada: Mirada = comoOtra
+      ? { audiencia: 'vendedor', tiendaId: null, usuarioId: null }
+      : miradaDe(sesion);
 
-    const bloqueada =
-      (await this.prisma.bloqueo.count({
-        where: { usuarioId: sesion.usuario.id, tiendaBloqueadaId: id },
-      })) > 0;
-    const socios = await tiendasQueMeTienenDeSocia(this.prisma, miTienda);
-    const [ofertas, total, seguidores, siguiendo, reputacion] = await Promise.all([
-      this.prisma.oferta.findMany({
-        where: { tiendaId: id, ...OFERTA_DEL_PERFIL },
-        orderBy: [{ actualizadaEn: 'desc' }, { creadaEn: 'desc' }],
-        // Bloqueada: «Ya no verás sus publicaciones».
-        take: bloqueada ? 0 : PRODUCTOS_EN_PERFIL,
-        select: {
-          id: true,
-          condicion: true,
-          stock: true,
-          precioCentimos: true,
-          precioFacturadoCentimos: true,
-          descuentoSocioCentimos: true,
-          soloSocios: true,
-          moneda: true,
-          precioVisible: true,
-          negociable: true,
-          perfilMemoria: true,
-          empaque: true,
-          oc: true,
-          tiendaId: true,
-          ...PORTADA_DE_OFERTA,
-          producto: {
-            select: {
-              slug: true,
-              titulo: true,
-              categoria: { select: { slug: true, nombre: true } },
-              ...FOTO_DEL_PRODUCTO,
-              // El respaldo de Intel / EXPO para lo publicado antes de la 1.10.0 (doc 20 · A8).
-              perfilMemoria: true,
-            },
-          },
-        },
-      }),
-      this.prisma.oferta.count({ where: { tiendaId: id, ...OFERTA_DEL_PERFIL } }),
-      this.prisma.seguimiento.count({ where: { seguidaId: id } }),
-      miTienda
+    const [siguiendo, solicitud, bloqueos, seguidores] = await Promise.all([
+      miTienda && !comoOtra
         ? this.prisma.seguimiento.findUnique({
             where: { tiendaId_seguidaId: { tiendaId: miTienda, seguidaId: id } },
             select: { avisos: true },
           })
         : null,
-      this.reputaciones.de(id),
+      miTienda && !propia
+        ? this.prisma.solicitudSeguir.count({ where: { tiendaId: miTienda, seguidaId: id } })
+        : 0,
+      comoOtra
+        ? 0
+        : this.prisma.bloqueo.count({
+            where: { usuarioId: sesion.usuario.id, tiendaBloqueadaId: id },
+          }),
+      this.prisma.seguimiento.count({ where: { seguidaId: id } }),
     ]);
-    const tramos = horarioTiendaSchema.safeParse(tienda.horarioDatos);
-
-    return {
+    const acceso = accesoAlPerfil(tienda, miradaDe(sesion), siguiendo !== null, comoMeVen);
+    // Una oculta no existe para las demás; en «Cómo me ven» se dice que nadie la ve.
+    if (acceso === 'oculto' && !comoOtra) throw noEncontrada();
+    const bloqueada = bloqueos > 0;
+    const base = {
       id: tienda.id,
       nombre: tienda.nombre,
       iniciales: inicialesDe(tienda.nombre),
       galeria: tienda.galeria?.nombre ?? null,
+      desde: tienda.creadaEn.toISOString(),
+      seguidores,
+      siguiendo: siguiendo ? { avisos: siguiendo.avisos } : null,
+      explicar_seguir: sesion.usuario.seguirExplicadoEn === null,
+      propia: propia && !comoOtra,
+      puede_seguir: !comoOtra && miTienda !== null && !propia,
+      bloqueada,
+      visibilidad: propia ? tienda.visibilidad : null,
+      solicitud_enviada: solicitud > 0,
+      como_me_ven: comoOtra,
+    };
+
+    if (acceso !== 'completo') {
+      // Privada que no sigue (o «Cómo me ven» de una privada u oculta): sin productos, stand ni
+      // datos, y el logo y la portada chicos para mostrarlos borrosos.
+      const [logoBorroso, portadaBorrosa] =
+        acceso === 'privado'
+          ? await Promise.all([
+              this.miniaturas.chica(tienda.logo, ANCHO_LOGO_BORROSO),
+              this.miniaturas.chica(tienda.portadaRuta, ANCHO_PORTADA_BORROSA),
+            ])
+          : [null, null];
+      return {
+        ...base,
+        galeria: acceso === 'privado' ? base.galeria : null,
+        seguidores: acceso === 'privado' ? seguidores : 0,
+        stand: null,
+        horario: null,
+        descripcion: null,
+        horario_tramos: null,
+        indicaciones: null,
+        logo: null,
+        reputacion: REPUTACION_OCULTA,
+        total_productos: 0,
+        productos: [],
+        portada: null,
+        categorias_principales: [],
+        privada: acceso === 'privado',
+        oculta: acceso === 'oculto',
+        logo_borroso: logoBorroso,
+        portada_borrosa: portadaBorrosa,
+        puede_escribir: false,
+        nuevas: [],
+        mejores_precios: [],
+        categorias: [],
+        hay_mas: false,
+      };
+    }
+
+    const socios = await tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId);
+    // Bloqueada: «Ya no verás sus publicaciones».
+    const [todo, total, nuevas, mejores, categorias, reputacion] = await Promise.all([
+      bloqueada
+        ? null
+        : this.publicaciones.todo(
+            id,
+            { categoria: [], orden: 'recientes', pagina: 1 },
+            mirada,
+            socios,
+          ),
+      this.publicaciones.total(id),
+      bloqueada ? [] : this.publicaciones.nuevas(id, mirada, socios),
+      bloqueada ? [] : this.publicaciones.mejoresPrecios(tienda, mirada, socios),
+      bloqueada ? [] : this.publicaciones.categorias(id),
+      this.reputaciones.de(id),
+    ]);
+    const productos = todo?.productos ?? [];
+    const tramos = horarioTiendaSchema.safeParse(tienda.horarioDatos);
+
+    return {
+      ...base,
       stand: tienda.stand,
       horario: tienda.horario,
       descripcion: tienda.descripcion,
       horario_tramos: tramos.success ? tramos.data : leerHorarioEscrito(tienda.horario),
       indicaciones: tienda.indicaciones,
       logo: tienda.logo,
-      desde: tienda.creadaEn.toISOString(),
       reputacion,
-      seguidores,
-      siguiendo: siguiendo ? { avisos: siguiendo.avisos } : null,
-      explicar_seguir: sesion.usuario.seguirExplicadoEn === null,
-      propia: miTienda === id,
-      puede_seguir: miTienda !== null && miTienda !== id,
-      bloqueada,
       total_productos: total,
       portada: tienda.portadaRuta
         ? {
@@ -201,29 +248,62 @@ export class TiendasService {
             x: tienda.portadaX,
           }
         : null,
-      categorias_principales: categoriasPrincipales(
-        ofertas.map((o) => o.producto.categoria.nombre),
-      ),
-      productos: ofertas.map((oferta) => {
-        const precios = preciosPara(oferta, mirada, socios);
-        return {
-          oferta_id: oferta.id,
-          producto: {
-            slug: oferta.producto.slug,
-            titulo: oferta.producto.titulo,
-            foto: portadaDe(oferta),
-            categoria: oferta.producto.categoria,
-          },
-          condicion: oferta.condicion,
-          stock: oferta.stock,
-          precio: precios.precio,
-          precio_socio: precios.socio,
-          // «Negociable» solo con un precio a la vista (igual que en el feed).
-          negociable: precios.precio !== null && oferta.negociable,
-          variantes: variantesDe(oferta, oferta.producto),
-        };
-      }),
+      categorias_principales: categorias.slice(0, 3).map((categoria) => categoria.nombre),
+      productos,
+      privada: false,
+      oculta: false,
+      logo_borroso: null,
+      portada_borrosa: null,
+      puede_escribir: base.puede_seguir,
+      nuevas,
+      mejores_precios: mejores,
+      categorias,
+      hay_mas: todo?.hay_mas ?? false,
     };
+  }
+
+  /**
+   * «Todo» del perfil con sus filtros (doc 20, punto 20): `?categoria=ram,teclados&orden=…`. Con
+   * los mismos permisos que el perfil: nada de una privada que no sigues, ni de una oculta, ni de
+   * una que bloqueaste.
+   */
+  async publicacionesDe(
+    id: string,
+    consulta: PublicacionesTiendaConsulta,
+    sesion: SesionActiva,
+  ): Promise<RespuestaPublicacionesTienda> {
+    const mirada = miradaDe(sesion);
+    const acceso = await this.acceso(id, sesion);
+    const vacia = { productos: [], total: 0, pagina: consulta.pagina, hay_mas: false };
+    if (acceso === 'privado') return vacia;
+    const bloqueada =
+      (await this.prisma.bloqueo.count({
+        where: { usuarioId: sesion.usuario.id, tiendaBloqueadaId: id },
+      })) > 0;
+    if (bloqueada) return vacia;
+    const socios = await tiendasQueMeTienenDeSocia(this.prisma, mirada.tiendaId);
+    return this.publicaciones.todo(id, consulta, mirada, socios);
+  }
+
+  /**
+   * Qué ve quien mira de esta tienda (`accesoAlPerfil`). Una oculta (o suspendida) no existe para
+   * las demás: 404.
+   */
+  private async acceso(id: string, sesion: SesionActiva): Promise<'completo' | 'privado'> {
+    const tienda = await this.prisma.tienda.findFirst({
+      where: { id, estado: 'ACTIVA' },
+      select: { id: true, visibilidad: true },
+    });
+    if (!tienda) throw noEncontrada();
+    const miTienda = sesion.usuario.tiendaId;
+    const sigue =
+      tienda.visibilidad === 'PRIVADO' && miTienda
+        ? (await this.prisma.seguimiento.count({ where: { tiendaId: miTienda, seguidaId: id } })) >
+          0
+        : false;
+    const acceso = accesoAlPerfil(tienda, miradaDe(sesion), sigue);
+    if (acceso === 'oculto') throw noEncontrada();
+    return acceso;
   }
 
   /** Promedio de estrellas, cuántas opiniones y cuántas ventas marcó como vendedora. */
@@ -271,8 +351,25 @@ export class TiendasService {
     sesion: SesionActiva,
   ): Promise<RespuestaSeguir> {
     const tiendaId = this.tiendaQueSigue(sesion, seguidaId);
-    const existe = await this.prisma.tienda.count({ where: { id: seguidaId, estado: 'ACTIVA' } });
-    if (!existe) throw noEncontrada();
+    const seguida = await this.prisma.tienda.findFirst({
+      where: { id: seguidaId, estado: 'ACTIVA' },
+      select: { visibilidad: true },
+    });
+    // Una oculta no existe para las demás (doc 20, punto 5).
+    if (!seguida || seguida.visibilidad === 'OCULTO') throw noEncontrada();
+    if (seguida.visibilidad === 'PRIVADO') {
+      // A una privada se le pide seguirla; quien ya la seguía solo cambia sus avisos.
+      const yaLaSigue = await this.prisma.seguimiento.count({ where: { tiendaId, seguidaId } });
+      if (!yaLaSigue) {
+        throw new ApiHttpException(
+          HttpStatus.CONFLICT,
+          'CONFLICTO',
+          'Esta cuenta es privada: pide seguirla y la tienda decide si te acepta.',
+        );
+      }
+    }
+    // Si había pedido seguirla, la solicitud ya no hace falta.
+    await this.prisma.solicitudSeguir.deleteMany({ where: { tiendaId, seguidaId } });
     const seguimiento = await this.prisma.seguimiento.upsert({
       where: { tiendaId_seguidaId: { tiendaId, seguidaId } },
       create: { tiendaId, seguidaId, usuarioId: sesion.usuario.id, avisos: datos.avisos },
@@ -324,7 +421,8 @@ export class TiendasService {
     const tiendaId = sesion.usuario.tiendaId;
     if (!tiendaId) return [];
     const filas = await this.prisma.seguimiento.findMany({
-      where: { tiendaId, seguida: { estado: 'ACTIVA' } },
+      // Una oculta no aparece a nadie, ni a quien la sigue (doc 20, punto 5).
+      where: { tiendaId, seguida: { estado: 'ACTIVA', visibilidad: { not: 'OCULTO' } } },
       orderBy: { creadoEn: 'desc' },
       select: {
         avisos: true,
@@ -483,19 +581,45 @@ export class TiendasService {
     return this.socios(sesion);
   }
 
-  /** Para agregar socias: tiendas activas por su nombre, sin la propia. */
+  /**
+   * Para agregar socias: tiendas activas por su nombre, sin la propia. Como en la búsqueda de
+   * tiendas (doc 20, punto 5): sin las ocultas, y una privada que no sigues solo con su nombre
+   * exacto y sin su galería ni su stand.
+   */
   async buscarTiendas(q: string, sesion: SesionActiva): Promise<TiendaBreve[]> {
+    const miTienda = sesion.usuario.tiendaId;
     const tiendas = await this.prisma.tienda.findMany({
       where: {
         estado: 'ACTIVA',
+        visibilidad: { not: 'OCULTO' },
         nombre: { contains: q, mode: 'insensitive' },
-        ...(sesion.usuario.tiendaId ? { id: { not: sesion.usuario.tiendaId } } : {}),
+        ...(miTienda ? { id: { not: miTienda } } : {}),
       },
       orderBy: { nombre: 'asc' },
       take: 8,
-      select: { id: true, nombre: true, stand: true, galeria: { select: { nombre: true } } },
+      select: {
+        id: true,
+        nombre: true,
+        stand: true,
+        visibilidad: true,
+        galeria: { select: { nombre: true } },
+        seguidores: miTienda ? { where: { tiendaId: miTienda }, select: { id: true } } : false,
+      },
     });
-    return tiendas.map((tienda) => this.breve(tienda));
+    return tiendas.flatMap((tienda) => {
+      const como = comoLaEncuentra(
+        tienda,
+        miradaDe(sesion),
+        (tienda.seguidores?.length ?? 0) > 0,
+        q,
+      );
+      if (!como) return [];
+      return [
+        como === 'privada'
+          ? { ...this.breve({ ...tienda, stand: null, galeria: null }) }
+          : this.breve(tienda),
+      ];
+    });
   }
 
   // ── Bloquear (REP_Web) ────────────────────────────────────────────────────
@@ -526,8 +650,14 @@ export class TiendasService {
     consulta: FiltroOpinionesConsulta,
     sesion: SesionActiva,
   ): Promise<RespuestaOpiniones> {
-    const existe = await this.prisma.tienda.count({ where: { id: tiendaId, estado: 'ACTIVA' } });
-    if (!existe) throw noEncontrada();
+    // Las de una privada que no sigues tampoco se ven (doc 20, punto 5); una oculta, 404.
+    if ((await this.acceso(tiendaId, sesion)) === 'privado') {
+      throw new ApiHttpException(
+        HttpStatus.FORBIDDEN,
+        'PROHIBIDO',
+        'Esta cuenta es privada. Pide seguirla para ver sus opiniones.',
+      );
+    }
 
     const filtro: Prisma.OpinionWhereInput =
       consulta.filtro === 'con_respuesta'

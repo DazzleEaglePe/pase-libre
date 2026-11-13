@@ -30,6 +30,7 @@ import {
   textoReputacion,
 } from '@/shared/tiendas';
 
+import { AvatarBorroso } from './avatar-borroso';
 import { AvatarTienda } from './avatar-tienda';
 import { Miniatura } from './miniatura';
 
@@ -541,26 +542,35 @@ function Formulario({
                         {...propiedades(iTiendas[n]!)}
                         className={`${claseOpcion(iTiendas[n]!)} py-2`}
                       >
-                        <AvatarTienda
-                          nombre={tienda.nombre}
-                          logo={tienda.logo}
-                          enLinea={tienda.en_linea}
-                          letra={14}
-                        />
+                        {/* Un perfil privado, buscado con su nombre exacto (doc 20, punto 5). */}
+                        {tienda.privada ? (
+                          <AvatarBorroso nombre={tienda.nombre} logo={tienda.logo_borroso} />
+                        ) : (
+                          <AvatarTienda
+                            nombre={tienda.nombre}
+                            logo={tienda.logo}
+                            enLinea={tienda.en_linea}
+                            letra={14}
+                          />
+                        )}
                         <span className="flex min-w-0 flex-1 flex-col">
                           <b className="truncate font-bold">
                             <NombreResaltado nombre={tienda.nombre} buscado={escrito} />
                           </b>
                           <span className="truncate text-nota text-detalle">
-                            {lugarDeTienda(tienda, true)}
+                            {tienda.privada
+                              ? 'Tienda · Cuenta privada'
+                              : lugarDeTienda(tienda, true)}
                           </span>
                         </span>
-                        <span
-                          className="shrink-0 text-nota text-detalle"
-                          aria-label={reputacionParaLeer(tienda.reputacion)}
-                        >
-                          {textoReputacion(tienda.reputacion, true)}
-                        </span>
+                        {!tienda.privada && (
+                          <span
+                            className="shrink-0 text-nota text-detalle"
+                            aria-label={reputacionParaLeer(tienda.reputacion)}
+                          >
+                            {textoReputacion(tienda.reputacion, true)}
+                          </span>
+                        )}
                       </OpcionLista>
                     ))}
                     {separador}
