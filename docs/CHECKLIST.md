@@ -285,3 +285,27 @@ Hecha en `main` el 13/11/2026; las pruebas pasan (API 513, web 106, contratos 68
 - [x] A3 · Evento `equipo:mensaje` a la tienda y a la sala `equipo` (todo usuario EQUIPO), aparte de los avisos: el chat se mueve aunque la tienda tenga «No molestar». El panel del Equipo monta el tiempo real.
 - [x] A4 · «Ir al inicio» del primer ingreso hace `router.refresh()`.
 - [x] `VERSION = '1.9.1'`.
+
+## 16. Versión 1.10.0 ([docs/19](19-version-1-9-1-y-1-10-0.md), parte B)
+
+Hecha el 13/11/2026 en 6 ramas paralelas, juntas en `v1-10-0` → `main`. 14 migraciones nuevas (`20261113100000` … `20261113150200`), probadas en una base nueva sin diferencias con el schema; pruebas: API 584, web 160, contratos 87.
+
+- [x] 5 · Fila iluminada en el panel oscuro.
+- [x] 6 · Crear cuenta: WhatsApp opcional (`tienda.whatsapp` nulo; «Falta WhatsApp»), persona opcional, contraseña temporal o definitiva.
+- [x] 7 · «Mi cuenta» del Equipo (`/equipo/mi-cuenta`, `GET/PATCH /v1/equipo/mi-cuenta`). No hay rol «administrador» aparte: toda cuenta EQUIPO lo es (`shared/administrador.ts`).
+- [x] 8 · `v{VERSION}` arriba con puntito (`usuario.version_vista`); Versiones con las anteriores plegadas.
+- [x] 9 · Suspender sin contraseña con motivo (`tienda.suspendida_en`); eliminar para siempre a las 24 h con tu contraseña (`DELETE /v1/equipo/panel/tiendas/:id`); los chats de la otra tienda quedan con «Tienda eliminada» (los lados de `conversacion` pasan a nulos).
+- [x] 10 · Cambio de galería o stand al instante (`APLICADO_SIN_REVISAR`), con Está bien / Corregir / Deshacer; Solicitudes los cuenta.
+- [x] 11 · Primer ingreso: contraseña → Conoce PaseLibre (4 pantallas) → acuerdos.
+- [x] 12 · Tachito y «Eliminar varias» en el propio perfil, con Deshacer de 8 s (`POST /v1/ofertas/eliminar`).
+- [x] 13 · Procesador (XMP/EXPO) y empaque al publicar, pastillas, filtro «Para Intel / Para Ryzen» y columna en la plantilla.
+- [x] 14 · Banda de invitar: inicio vuelve a los 2 días; secciones, una vez.
+- [x] 15 · Campanita: el número se va al abrirla (`usuario.avisos_vistos_en`).
+- [x] 16 · Avisos del chat con el Equipo agrupados por hilo.
+- [x] 17 · «Marcar vendido» en la cabecera del chat y «¿Lograste cerrar el trato?».
+- [x] 18 · ✓ / ✓✓ en el chat con el Equipo.
+- [x] 19 · «Escribiendo…» y animaciones de los mensajes.
+- [x] 20 · «Ajustar logo» (recortador propio, sharp arma 512×512) y zoom de la portada (2400 px).
+- [x] 21 · Pedir en vivo · Busco con buscador del catálogo, fotos (hasta 3) y sin precio.
+- [x] 22 · Saltito del ícono, aviso en la pestaña, sonidos M3 y V6 (`public/sonidos/`, interruptor «Sonido») y el pedido que entra y brilla.
+- [ ] Pendiente de Fabrizio: la versión (XMP/EXPO) de cada RAM en el catálogo y las fotos de los 135 productos.

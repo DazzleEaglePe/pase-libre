@@ -82,7 +82,7 @@ export function SeccionesDelPanel({
             key={href}
             href={href}
             aria-current={actual ? 'page' : undefined}
-            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-apoyo no-underline 2xl:px-4 ${
+            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-apoyo no-underline 2xl:px-4 ${
               actual
                 ? 'pildora-activa bg-white font-bold text-tinta'
                 : 'font-medium text-white hover:bg-white/10'
