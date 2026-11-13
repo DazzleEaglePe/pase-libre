@@ -182,6 +182,8 @@ export class TiempoRealGateway implements OnGatewayInit, OnGatewayConnection, On
       const otroId = soyComprador ? c.vendedorId : c.compradorId;
       const miTienda = soyComprador ? c.tiendaCompradoraId : c.tiendaVendedoraId;
       const suTienda = soyComprador ? c.tiendaVendedoraId : c.tiendaCompradoraId;
+      // La otra tienda se eliminó (doc 19 §9): no hay a quién avisarle.
+      if (!otroId || !miTienda || !suTienda) return;
       const bloqueos = await this.prisma.bloqueo.count({
         where: {
           OR: [
