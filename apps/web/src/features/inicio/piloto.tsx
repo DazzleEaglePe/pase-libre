@@ -5,7 +5,6 @@ import { IconBrandWhatsapp, IconCheck, IconChevronRight } from '@tabler/icons-re
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { CLAVE_INVITO, invitarPorWhatsApp } from '@/shared/ui/invitacion-pie';
 
 /**
@@ -27,63 +26,59 @@ function useInvito(): boolean {
   return invito;
 }
 
+/** El dorado de las fundadoras (doc 20, punto 7): la pastilla, la barra y el sello. */
+export const DORADO = 'bg-[linear-gradient(135deg,#F7D774,#C99A2E)] text-[#3B2A00]';
+
 /**
- * «Piloto en la galería · Eres de las primeras tiendas de PaseLibre» (N16): cuántas entraron de
- * la meta, sus logos (o sus iniciales) y el botón para invitar. Con `compacto` (primera semana)
- * se achica: sin el título ni la frase.
+ * «★ Tiendas fundadoras · 7 de 10 ya entraron» (doc 20, punto 7; antes «Piloto en la
+ * galería»): cuántas fundadoras hay de las 10, sus iniciales, la barra dorada, qué ganan y el
+ * botón para invitar. Con `compacto` (primera semana) se achica: sin la frase.
  */
 export function PilotoGaleria({
-  tiendas,
-  miTienda,
+  fundadoras,
   compacto = false,
 }: {
-  tiendas: RespuestaInicio['tiendas'];
-  miTienda: { nombre: string; logo: string | null } | null;
+  fundadoras: RespuestaInicio['fundadoras'];
   compacto?: boolean;
 }) {
-  const circulos = [miTienda, ...tiendas.visibles]
-    .filter((tienda): tienda is { nombre: string; logo: string | null } => Boolean(tienda?.nombre))
-    .slice(0, 5);
-  const avance = Math.min(100, Math.round((tiendas.activas / tiendas.meta) * 100));
+  const avance = Math.min(100, Math.round((fundadoras.entraron / fundadoras.total) * 100));
   return (
     <section
-      aria-label="Piloto en la galería"
+      aria-label="Tiendas fundadoras"
       className="flex flex-col gap-3 rounded-[18px] bg-marca p-[18px] text-white"
     >
-      <span className="self-start rounded-full bg-brasa px-2.5 py-[3px] text-[11px] font-extrabold text-tinta">
-        Piloto en la galería
+      <span
+        className={`self-start rounded-full px-2.5 py-[3px] text-[11px] font-extrabold ${DORADO}`}
+      >
+        ★ Tiendas fundadoras
       </span>
-      {!compacto && (
-        <h2 className="text-[20px] font-bold leading-[26px]">
-          Eres de las primeras tiendas de PaseLibre
-        </h2>
-      )}
       <div className="flex items-center gap-2.5">
-        <span className="flex shrink-0 pl-2">
-          {circulos.map((tienda, n) => (
-            <AvatarTienda
-              key={`${tienda.nombre}-${n}`}
-              nombre={tienda.nombre}
-              logo={tienda.logo}
-              tamano={30}
-              letra={11}
-              fondo="bg-pase-medio font-extrabold text-marca"
-              oculto
-              className="-ml-2 border-2 border-pase"
-            />
-          ))}
-        </span>
-        <span className="text-apoyo font-medium">
-          {tiendas.activas} de {tiendas.meta} tiendas ya entraron
+        {fundadoras.iniciales.length > 0 && (
+          <span aria-hidden="true" className="flex shrink-0 pl-2">
+            {fundadoras.iniciales.slice(0, 4).map((iniciales, n) => (
+              <span
+                key={`${iniciales}-${n}`}
+                className="-ml-2 flex h-[30px] w-[30px] items-center justify-center rounded-full border-2 border-pase bg-pase-medio text-[11px] font-extrabold text-marca"
+              >
+                {iniciales}
+              </span>
+            ))}
+          </span>
+        )}
+        <span className="text-apoyo font-bold">
+          {fundadoras.entraron} de {fundadoras.total} ya entraron
         </span>
       </div>
       <span className="h-2 rounded-full bg-white/20">
-        <span className="block h-full rounded-full bg-brasa" style={{ width: `${avance}%` }} />
+        <span
+          className="block h-full rounded-full bg-[linear-gradient(90deg,#F7D774,#C99A2E)]"
+          style={{ width: `${avance}%` }}
+        />
       </span>
       {!compacto && (
         <p className="m-0 text-apoyo text-white/90">
-          Con {tiendas.meta} tiendas, aquí vas a encontrar casi todo lo que buscas sin salir del
-          stand.
+          Las {fundadoras.total} primeras tienen un día a la semana en que sus publicaciones salen
+          primero.
         </p>
       )}
       <button

@@ -409,7 +409,7 @@ export function FormularioRegistro({
           <p className="text-cuerpo text-secundario">
             {corregir
               ? 'Cambia lo que te pidió el equipo y la volvemos a revisar.'
-              : 'Gratis durante el piloto. Para tiendas con stand en las galerías de Wilson. Toma unos 3 minutos.'}
+              : 'Gratis para las tiendas fundadoras. Para tiendas con stand en las galerías de Wilson. Toma unos 3 minutos.'}
           </p>
         </header>
 

@@ -856,3 +856,155 @@ body:has(.ficha-fondo) {
     opacity: 0;
   }
 }
+
+/* ── doc 20 · punto 4: el Inicio de la tienda pasa a 1440 px de ancho (antes 1216). El `main`
+   del sitio sigue en 1280 en las demás páginas; la banda de Pedidos en vivo se queda centrada
+   en 1216 (`max-w-[1216px]` en el Inicio). ─────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  main:has(> .pl-inicio-ancho) {
+    max-width: 1440px;
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+}
+
+/* ── doc 20 · puntos 4, 18 y 19: la tarjeta del Inicio. La foto de borde a borde y en blanco,
+   una línea gris de 1 px de borde a borde entre la foto y el nombre (no cambia al pasar el
+   cursor) y, al pasar el cursor, la tarjeta en menta con la foto blanca y la flechita «›» que
+   entra 4 px. Con `prefers-reduced-motion`, sin deslizamiento: solo el color. ─────────────── */
+.pl-tarjeta-inicio {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 2px solid #c6cec9;
+  border-radius: 18px;
+  background-color: #fff;
+  color: #0f1412;
+  text-decoration: none;
+  transition:
+    background-color 0.18s,
+    transform 0.18s;
+}
+
+.pl-foto-inicio {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background-color: #fff;
+}
+
+.pl-texto-inicio {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #dde4e0;
+  padding: 10px 14px 14px;
+}
+
+.pl-flechita {
+  display: inline-block;
+  margin-left: 4px;
+  color: #006b47;
+  font-weight: 800;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+
+.pl-tarjeta-inicio:hover,
+.pl-tarjeta-inicio:focus-visible {
+  background-color: #f4fbf7;
+}
+
+.pl-tarjeta-inicio:hover .pl-flechita,
+.pl-tarjeta-inicio:focus-visible .pl-flechita {
+  opacity: 1;
+  transform: none;
+}
+
+@media (max-width: 639px) {
+  .pl-texto-inicio {
+    gap: 6px;
+    padding: 8px 10px 12px;
+  }
+}
+
+/* ── doc 20 · punto 22: la chapita blanca arriba a la derecha de la foto (diseño C). Aparece al
+   pasar el cursor, subiendo 6 px con un fundido; en el celular (o sin cursor) se ve siempre,
+   más chica. ────────────────────────────────────────────────────────────────────────────── */
+.pl-chapita {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  max-width: calc(100% - 16px);
+  height: 26px;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: #fff;
+  padding: 0 10px 0 7px;
+  box-shadow: 0 4px 14px rgba(15, 20, 18, 0.14);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+}
+
+.pl-chapita svg {
+  flex: none;
+}
+
+.pl-tarjeta-inicio:hover .pl-chapita,
+.pl-tarjeta-inicio:focus-visible .pl-chapita {
+  opacity: 1;
+  transform: none;
+}
+
+@media (max-width: 639px), (hover: none) {
+  .pl-chapita {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .pl-chapita {
+    top: 6px;
+    right: 6px;
+    max-width: calc(100% - 12px);
+    height: 22px;
+    gap: 4px;
+    padding: 0 8px 0 6px;
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-tarjeta-inicio {
+    transition: background-color 0.18s;
+  }
+
+  .pl-flechita,
+  .pl-chapita {
+    transform: none;
+    transition: opacity 0.18s;
+  }
+}

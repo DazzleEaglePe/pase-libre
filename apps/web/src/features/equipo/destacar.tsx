@@ -4,6 +4,7 @@ import type {
   DestacadoActivo,
   DetalleTiendaPanel,
   DuracionDestacado,
+  FuerzaDestacado,
   RespuestaDestacados,
 } from '@paselibre/contracts';
 import { IconCheck, IconStar } from '@tabler/icons-react';
@@ -33,6 +34,47 @@ const DURACIONES: Array<[DuracionDestacado, string, number]> = [
   ['3h', '3 horas', 3],
   ['dia', 'Todo el día', 0],
 ];
+
+/**
+ * «¿Con qué fuerza?» (doc 20, punto 4b): cada opción con su mapita de la grilla del Inicio (5 por
+ * fila, 4 filas) y, en negro, los lugares donde suele caer. Solo suma puntos: nunca lugares fijos.
+ */
+const FUERZAS: Array<{
+  clave: FuerzaDestacado;
+  titulo: string;
+  texto: string;
+  lugares: readonly number[];
+}> = [
+  {
+    clave: 'SUAVE',
+    titulo: 'Suave',
+    texto: 'Sube un poco y queda repartida.',
+    lugares: [8, 10, 17],
+  },
+  { clave: 'MEDIA', titulo: 'Media', texto: 'Sale en las primeras filas.', lugares: [3, 6, 14] },
+  {
+    clave: 'FUERTE',
+    titulo: 'Fuerte',
+    texto: 'Casi seguro en la primera fila.',
+    lugares: [0, 2, 9],
+  },
+];
+
+/** El mapita de una fuerza: la grilla del Inicio con sus lugares en negro. */
+function Mapita({ lugares }: { lugares: readonly number[] }) {
+  return (
+    <span aria-hidden="true" className="grid grid-cols-5 gap-[3px] rounded-lg bg-[#EEF1EF] p-1.5">
+      {Array.from({ length: 20 }, (_, n) => (
+        <span
+          key={n}
+          className={`aspect-[1/1.2] rounded-[3px] ${
+            lugares.includes(n) ? 'bg-tinta' : 'border border-[#DDE4E0] bg-white'
+          }`}
+        />
+      ))}
+    </span>
+  );
+}
 
 const chip = (activo: boolean) =>
   `h-10 rounded-full border px-4 text-apoyo ${
@@ -71,8 +113,8 @@ export function DestacadasAhora({ recargar }: { recargar: number }) {
           <EtiquetaDestacado />
           <b>{d.tienda.nombre}</b>
           <span className="text-secundario">
-            · {d.publicaciones} {d.publicaciones === 1 ? 'publicación' : 'publicaciones'} ·{' '}
-            {terminaEn(d.hasta)} · por {d.por}
+            · {d.publicaciones} {d.publicaciones === 1 ? 'publicación' : 'publicaciones'} · fuerza{' '}
+            {d.fuerza.toLowerCase()} · {terminaEn(d.hasta)} · por {d.por}
           </span>
         </span>
       ))}
@@ -82,7 +124,7 @@ export function DestacadasAhora({ recargar }: { recargar: number }) {
 
 /**
  * «Destacar» de la ficha de tienda (COR16): por cuánto tiempo, qué publicaciones (todas o hasta
- * 3), dónde va a salir, cuántas hay destacadas y el aviso 🤫 a la tienda (opcional). Si ya está
+ * 3), con qué fuerza (doc 20, punto 4b: Suave, Media o Fuerte, con su mapita), dónde va a salir, cuántas hay destacadas y el aviso 🤫 a la tienda (opcional). Si ya está
  * destacada, «Destacado hasta las …» con «Quitar ahora».
  */
 export function Destacar({
@@ -97,6 +139,7 @@ export function Destacar({
   const [todas, setTodas] = useState(false);
   const [elegidas, setElegidas] = useState<string[]>([]);
   const [avisar, setAvisar] = useState(true);
+  const [fuerza, setFuerza] = useState<FuerzaDestacado>('MEDIA');
   const [activas, setActivas] = useState<RespuestaDestacados | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [trabajando, setTrabajando] = useState(false);
@@ -104,6 +147,7 @@ export function Destacar({
   useEffect(() => {
     if (!abierta) return;
     setElegidas(detalle.para_destacar.slice(0, 2).map((p) => p.oferta_id));
+    setFuerza('MEDIA');
     setError(null);
     void llamarApi<RespuestaDestacados>('/equipo/destacados').then(setActivas, () => undefined);
   }, [abierta, detalle.para_destacar]);
@@ -122,7 +166,7 @@ export function Destacar({
     try {
       await llamarApi(`/equipo/panel/tiendas/${detalle.id}/destacar`, {
         metodo: 'POST',
-        cuerpo: { duracion, ofertas: todas ? [] : elegidas, avisar },
+        cuerpo: { duracion, ofertas: todas ? [] : elegidas, avisar, fuerza },
       });
       setAbierta(false);
       alCambiar();
@@ -269,10 +313,46 @@ export function Destacar({
               </>
             )}
           </div>
+          <fieldset className="m-0 flex flex-col gap-2 rounded-[14px] border-[1.5px] border-dashed border-[#F97316] bg-[#FFF7ED] p-3">
+            <legend className="sr-only">¿Con qué fuerza?</legend>
+            <span aria-hidden="true" className="flex flex-wrap items-center gap-2">
+              <b className="text-apoyo">¿Con qué fuerza?</b>
+              <span className="rounded-full bg-[#F97316] px-2.5 py-0.5 text-[10.5px] font-extrabold text-tinta">
+                NUEVO
+              </span>
+              <span className="text-nota text-detalle">
+                En negro, dónde suelen caer en el Inicio
+              </span>
+            </span>
+            <div className="grid grid-cols-3 gap-2 max-sm:grid-cols-1">
+              {FUERZAS.map((opcion) => (
+                <label
+                  key={opcion.clave}
+                  className={`flex cursor-pointer flex-col gap-2 rounded-[14px] p-3 ${
+                    fuerza === opcion.clave
+                      ? 'border-2 border-pase bg-[#E9F7EF]'
+                      : 'border-[1.5px] border-[#D5DED9] bg-white'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="fuerza-destacado"
+                    value={opcion.clave}
+                    checked={fuerza === opcion.clave}
+                    onChange={() => setFuerza(opcion.clave)}
+                    className="sr-only"
+                  />
+                  <b className="text-apoyo">{opcion.titulo}</b>
+                  <Mapita lugares={opcion.lugares} />
+                  <span className="text-nota leading-4 text-detalle">{opcion.texto}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <div className="flex flex-col gap-1.5 rounded-2xl bg-superficie px-4 py-3 text-apoyo">
             <b>Dónde va a salir</b>
             {[
-              'Mezcladas entre los 4 primeros lugares del inicio (no todas juntas)',
+              'Suben en el Inicio según la fuerza; nunca salen todas juntas',
               'Más arriba en las búsquedas de su categoría',
               'Nadie más lo nota: las otras tiendas no ven ninguna etiqueta',
               'Se apaga solo al terminar el tiempo',

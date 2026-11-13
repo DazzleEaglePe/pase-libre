@@ -35,17 +35,17 @@ export class InicioController {
   constructor(@Inject(InicioService) private readonly inicio: InicioService) {}
 
   /**
-   * «Recién publicado» de a 24, sin fin: 60 por minuto, contra el scraping. El inicio ya no la
-   * usa (trae sus 72 en `GET /v1/inicio`, docs/18 §5); queda para otros usos.
+   * Una página del Inicio, de a 20 (doc 20, punto 4): `‹ 1 2 3 … 7 Siguiente ›`. La página 1
+   * llega con `GET /v1/inicio`; las demás, de aquí. 60 por minuto, contra el scraping.
    */
   @Get('inicio/recien')
   @Throttle({ [LIMITE_PERSONA]: { limit: 60, ttl: 60_000 } })
   @Header('Cache-Control', 'no-store')
   recien(
-    @Query(new ZodValidationPipe(inicioRecienSchema)) { desde }: InicioRecienConsulta,
+    @Query(new ZodValidationPipe(inicioRecienSchema)) { pagina }: InicioRecienConsulta,
     @MiradaActual() mirada: Mirada,
   ): Promise<RespuestaRecienInicio> {
-    return this.inicio.recien(mirada, desde);
+    return this.inicio.recien(mirada, pagina);
   }
 
   /** La X de «¿Conoces una tienda que debería estar aquí?» del inicio: vuelve a los 2 días. */

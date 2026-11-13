@@ -49,9 +49,9 @@ export const portadaSchema = z.object({
   galeria: slug.optional(),
 });
 
-/** `GET /v1/inicio/recien`: desde qué publicación (de a 24, N15). */
+/** `GET /v1/inicio/recien?pagina=2`: qué página del Inicio, de a 20 (doc 20, punto 4). */
 export const inicioRecienSchema = z.object({
-  desde: z.coerce.number().int().min(0).max(5000).default(0),
+  pagina: z.coerce.number().int().min(1).max(500).default(1),
 });
 
 /**

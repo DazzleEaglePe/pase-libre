@@ -202,6 +202,11 @@ export class TiendasService {
       categorias_principales: categoriasPrincipales(
         ofertas.map((o) => o.producto.categoria.nombre),
       ),
+      // El sello «★ Fundadora», solo en su perfil (doc 20, punto 7).
+      fundadora:
+        tienda.fundadoraDesde && tienda.fundadoraSello
+          ? { desde: tienda.fundadoraDesde.toISOString() }
+          : null,
       productos: ofertas.map((oferta) => {
         const precios = preciosPara(oferta, mirada, socios);
         return {

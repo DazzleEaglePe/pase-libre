@@ -13,6 +13,7 @@ export * from './equipo/equipo.schemas.js';
 export * from './equipo/equipo.types.js';
 export * from './equipo/galerias.js';
 export * from './equipo/mi-cuenta.js';
+export * from './equipo/fundadoras.js';
 export * from './ofertas/ofertas.schemas.js';
 export * from './ofertas/ofertas.types.js';
 export * from './mensajes/mensajes.schemas.js';

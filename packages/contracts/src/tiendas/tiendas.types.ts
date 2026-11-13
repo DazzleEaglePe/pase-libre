@@ -103,6 +103,11 @@ export interface PerfilTienda {
   portada: PortadaTienda | null;
   /** Lo que más publica, para la portada automática: «Tarjetas de video · Procesadores». */
   categorias_principales: string[];
+  /**
+   * El sello dorado «★ Fundadora» y «Tienda fundadora desde nov. 2026» (doc 20, punto 7): solo en
+   * su perfil. Nulo si no es fundadora o el Equipo le apagó el sello.
+   */
+  fundadora: { desde: string } | null;
 }
 
 export interface RespuestaSeguir {

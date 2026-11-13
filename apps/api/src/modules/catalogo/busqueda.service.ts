@@ -24,6 +24,7 @@ import { Prisma } from '@prisma/client';
 import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { destacadasAhora } from '../../shared/destacados';
+import { fundadorasDelDia } from '../../shared/fundadoras';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { MemoriaPorClave } from '../../shared/memoria';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
@@ -604,17 +605,21 @@ export class BusquedaService {
       WHERE ${Prisma.join(condiciones, ' AND ')}`;
   }
 
-  /** Los productos con una publicación destacada ahora. */
+  /**
+   * Los productos con una publicación destacada ahora, o de una tienda fundadora en su día
+   * destacado (doc 20, punto 7: sin ninguna marca, las demás no lo notan).
+   */
   private async productosImpulsados(): Promise<string[]> {
-    const destacadas = await destacadasAhora(this.prisma);
-    if (destacadas.tiendas.size === 0 && destacadas.ofertas.size === 0) return [];
+    const [destacadas, fundadoras] = await Promise.all([
+      destacadasAhora(this.prisma),
+      fundadorasDelDia(this.prisma),
+    ]);
+    const tiendas = [...destacadas.tiendas, ...fundadoras];
+    if (tiendas.length === 0 && destacadas.ofertas.size === 0) return [];
     const filas = await this.prisma.oferta.findMany({
       where: {
         estado: 'ACTIVA',
-        OR: [
-          { tiendaId: { in: [...destacadas.tiendas] } },
-          { id: { in: [...destacadas.ofertas] } },
-        ],
+        OR: [{ tiendaId: { in: tiendas } }, { id: { in: [...destacadas.ofertas] } }],
       },
       select: { productoId: true },
       distinct: ['productoId'],

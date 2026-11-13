@@ -15,6 +15,7 @@ import { conPlural } from '@/shared/plural';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import { DestacadasAhora, Destacar } from './destacar';
+import { FundadorasPanel, PestanasTiendas } from './fundadoras';
 import { MotivoSuspension } from './ficha/suspension';
 
 const FILTROS: Record<(typeof FILTROS_TIENDAS_PANEL)[number], string> = {
@@ -47,6 +48,10 @@ export function TiendasPanel() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recargarDestacadas, setRecargarDestacadas] = useState(0);
+  // «Todas» o «★ Fundadoras» (doc 20, punto 7); `?vista=fundadoras` abre la segunda.
+  const [vista, setVista] = useState<'todas' | 'fundadoras'>(
+    busqueda.get('vista') === 'fundadoras' ? 'fundadoras' : 'todas',
+  );
 
   useEffect(() => {
     const espera = setTimeout(() => {
@@ -102,6 +107,22 @@ export function TiendasPanel() {
     }
   }
 
+  if (vista === 'fundadoras') {
+    return (
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-titulo">Tiendas</h1>
+          <span className="text-secundario">
+            Las tiendas fundadoras: 10 como máximo, con su día destacado, el sello y la prioridad en
+            el chat.
+          </span>
+        </div>
+        <PestanasTiendas vista={vista} alCambiar={setVista} />
+        <FundadorasPanel />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -110,6 +131,7 @@ export function TiendasPanel() {
           Todas las tiendas de PaseLibre. Toca una para ver su historial y qué hacer.
         </span>
       </div>
+      <PestanasTiendas vista={vista} alCambiar={setVista} />
       <DestacadasAhora recargar={recargarDestacadas} />
       <div className="grid items-start gap-5 lg:grid-cols-[420px_minmax(0,1fr)]">
         <section className="flex flex-col gap-3 rounded-[24px] border border-linea bg-white p-4">

@@ -22,6 +22,7 @@ import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-r
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import { extractoDeMensaje } from './estado-chat';
+import { PrioridadFundadora } from './prioridad-fundadora';
 
 type Filtro = FiltroConversacion | 'compras' | 'ventas';
 
@@ -199,7 +200,7 @@ function Renglon({
   );
 }
 
-/** El chat oficial, fijado arriba (REP_WebChatEquipo). */
+/** El chat oficial, fijado arriba (REP_WebChatEquipo); con «★ Prioridad fundadora» si la tiene. */
 function RenglonEquipo({
   chat,
   activo,
@@ -212,14 +213,16 @@ function RenglonEquipo({
 }) {
   const ultimo = chat?.mensajes[chat.mensajes.length - 1];
   const sinLeer = (chat?.sin_leer ?? 0) > 0;
+  // Fundadora con prioridad (doc 20, punto 7): la raya de la izquierda va en dorado.
+  const prioridad = chat?.prioridad_fundadora === true;
   return (
     <li>
       <Link
         href="/mensajes/equipo"
         aria-current={activo ? 'page' : undefined}
         className={`flex gap-3 border-b border-l-4 border-b-linea px-4 py-3.5 no-underline ${
-          activo ? 'border-l-pase bg-pase-suave' : 'border-l-pase bg-white hover:bg-superficie'
-        }`}
+          prioridad ? 'border-l-[#E2B93B]' : 'border-l-pase'
+        } ${activo ? 'bg-pase-suave' : 'bg-white hover:bg-superficie'}`}
       >
         <span
           aria-hidden="true"
@@ -235,6 +238,7 @@ function RenglonEquipo({
                 <IconCheck size={11} stroke={3} aria-hidden="true" />
                 Oficial
               </span>
+              {prioridad && <PrioridadFundadora />}
             </span>
             {ultimo && (
               <span className="shrink-0 text-nota text-secundario">

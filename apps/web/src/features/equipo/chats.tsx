@@ -15,6 +15,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 
 import { Checks } from '@/features/mensajes/burbuja';
 import { checkDeEquipo, claseDe, useEntradas } from '@/features/mensajes/entradas';
+import { PrioridadFundadora } from '@/features/mensajes/prioridad-fundadora';
 import { Puntitos } from '@/features/mensajes/puntitos';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { useAvisarEscribiendo, useEscribiendo } from '@/shared/escribiendo';
@@ -152,7 +153,10 @@ export function ChatsEquipo() {
                 />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="flex justify-between gap-2">
-                    <b className="truncate text-apoyo font-bold">{hilo.tienda.nombre}</b>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <b className="truncate text-apoyo font-bold">{hilo.tienda.nombre}</b>
+                      {hilo.prioridad_fundadora && <PrioridadFundadora />}
+                    </span>
                     <span className="shrink-0 text-nota text-secundario">
                       {horaCorta(hilo.actualizado_en)}
                     </span>

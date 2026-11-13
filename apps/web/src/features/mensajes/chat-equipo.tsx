@@ -26,6 +26,7 @@ import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-r
 
 import { Checks } from './burbuja';
 import { checkDeEquipo, claseDe, useEntradas } from './entradas';
+import { PrioridadFundadora } from './prioridad-fundadora';
 import { Puntitos } from './puntitos';
 
 const RAPIDAS = ['Ya lo corregí', '¿Cómo lo edito?', 'Gracias'];
@@ -186,9 +187,15 @@ export function ChatEquipo() {
               <IconCheck size={11} stroke={3} aria-hidden="true" />
               Oficial
             </span>
+            {datos?.prioridad_fundadora && <PrioridadFundadora />}
           </span>
           {equipoEscribe ? (
             <i className="text-nota font-bold text-[#3BDB8A]">El equipo está escribiendo…</i>
+          ) : datos?.prioridad_fundadora ? (
+            // Doc 20, punto 7: la fundadora con prioridad va primero.
+            <span className="text-nota font-bold text-[#3BDB8A]">
+              Respondemos primero · menos de 1 h
+            </span>
           ) : (
             <span className="text-nota text-white/75">
               Te atiende el equipo · responde en máx. 3 h

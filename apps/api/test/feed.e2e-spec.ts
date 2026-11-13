@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import {
   RECIEN_INICIO,
+  RECIEN_POR_FILA,
   type OfertaPropia,
   type RespuestaInicio,
   type RespuestaRecienInicio,
@@ -46,17 +47,18 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
   });
   const tienda = (nombre: string) => prisma.tienda.findFirstOrThrow({ where: { nombre } });
 
-  /** Todo «Recién publicado», página por página, como lo trae la flechita. */
+  /** Todo el Inicio, página por página, como lo trae la paginación (doc 20, punto 4). */
   async function todoRecien(usuario: string): Promise<RespuestaRecienInicio['tarjetas']> {
     const todas: TarjetaOfertaConVendedor[] = [];
-    for (let desde = 0; ; desde += 24) {
-      const pagina = (await como(usuario).get(`/v1/inicio/recien?desde=${desde}`).expect(200))
+    for (let numero = 1; ; numero += 1) {
+      const pagina = (await como(usuario).get(`/v1/inicio/recien?pagina=${numero}`).expect(200))
         .body as RespuestaRecienInicio;
-      expect(pagina.tarjetas.length).toBeLessThanOrEqual(24);
-      todas.push(...pagina.tarjetas);
-      if (desde + 24 >= pagina.total) break;
+      expect(pagina.pagina).toBe(numero);
+      expect(pagina.tarjetas.length).toBeLessThanOrEqual(RECIEN_INICIO);
+      todas.push(...(pagina.tarjetas as TarjetaOfertaConVendedor[]));
+      if (numero >= pagina.total_paginas) break;
     }
-    return todas;
+    return todas as RespuestaRecienInicio['tarjetas'];
   }
 
   beforeAll(async () => {
@@ -94,14 +96,14 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
       await como('equipo').post('/v1/inicio/invitar-cerrado').expect(403);
     });
 
-    it('«desde» se valida', async () => {
-      await como('tiendab').get('/v1/inicio/recien?desde=-1').expect(400);
-      await como('tiendab').get('/v1/inicio/recien?desde=abc').expect(400);
+    it('«pagina» se valida', async () => {
+      await como('tiendab').get('/v1/inicio/recien?pagina=0').expect(400);
+      await como('tiendab').get('/v1/inicio/recien?pagina=abc').expect(400);
     });
   });
 
-  describe('«Recién publicado»: de a 24 por la flechita y 72 en el inicio (N15, docs/18 §5)', () => {
-    it('trae todo lo de las demás tiendas, sin lo tuyo, sin repetir y sin dos seguidas de la misma', async () => {
+  describe('el Inicio: de a 20 por página, con el tope por tienda en cada fila (doc 20, puntos 4 y 4b)', () => {
+    it('trae todo lo de las demás tiendas, sin lo tuyo, sin repetir y sin dos seguidas de la misma en una fila', async () => {
       const tiendaB = await tienda('Tienda B');
       const total = await prisma.oferta.count({
         where: {
@@ -127,14 +129,14 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
       );
       const orden = todas.map((t) => deTienda.get(t.oferta_id));
       orden.forEach((actual, i) => {
-        // Dos seguidas de la misma solo si ya no quedan de otras tiendas.
-        if (i > 0 && actual === orden[i - 1]) {
+        // Dentro de una fila de 5, dos seguidas de la misma solo si ya no quedan de otras.
+        if (i % RECIEN_POR_FILA > 0 && actual === orden[i - 1]) {
           expect(orden.slice(i).every((otra) => otra === actual)).toBe(true);
         }
       });
     });
 
-    it('con menos de 72, el inicio normal las trae todas, en el orden de la flechita', async () => {
+    it('con menos de 20, el inicio normal las trae todas, en el orden de la página 1', async () => {
       const inicio = (await como('tiendab').get('/v1/inicio').expect(200)).body as RespuestaInicio;
       expect(inicio.fase).toBe('NORMAL');
       const todas = await todoRecien('tiendab');
@@ -146,7 +148,7 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
       );
     });
 
-    it('con más de 72, el inicio manda 72 y el total de todas (docs/18 §5)', async () => {
+    it('con más de 20, el inicio manda la página 1 y el total de todas (doc 20, punto 4)', async () => {
       const tiendaA = await tienda('Tienda A');
       const responsable = await prisma.usuario.findFirstOrThrow({ where: { usuario: 'tiendaa' } });
       const categoria = await prisma.categoria.findFirstOrThrow();
@@ -181,13 +183,10 @@ describe('Feed de la tienda (N15, N16, N06, N07)', () => {
         expect(inicio.total).toBe(todas.length);
         expect(new Set(inicio.recien.map((t) => t.oferta_id)).size).toBe(RECIEN_INICIO);
         expect(inicio.recien.some((t) => t.propia)).toBe(false);
-        // Lo de relleno es de una sola tienda: la mezcla adelanta las de las demás.
-        const deOtras = new Set(
-          todas.filter((t) => t.tienda.nombre !== 'Tienda A').map((t) => t.oferta_id),
-        );
-        for (const id of deOtras) {
-          expect(inicio.recien.map((t) => t.oferta_id)).toContain(id);
-        }
+        expect(inicio.total_paginas).toBe(Math.ceil(todas.length / RECIEN_INICIO));
+        // Lo de relleno es de una sola tienda: el tope por fila deja lugar a las demás.
+        const deA = inicio.recien.filter((t) => t.tienda.nombre === 'Tienda A').length;
+        expect(deA).toBeLessThan(RECIEN_INICIO);
       } finally {
         const ids = productos.map((producto) => producto.id);
         await prisma.oferta.deleteMany({ where: { productoId: { in: ids } } });
