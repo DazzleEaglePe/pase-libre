@@ -80,6 +80,7 @@ function perfilDe(extra: Partial<PerfilTienda> = {}): PerfilTienda {
     solicitud_enviada: false,
     puede_escribir: true,
     como_me_ven: false,
+    fundadora: null,
     nuevas: [producto('a', 'ram')],
     mejores_precios: [producto('b', 'ram', { mas_barato: true })],
     categorias: [

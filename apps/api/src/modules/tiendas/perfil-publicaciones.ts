@@ -13,9 +13,9 @@ import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
-import { OFERTA_VIGENTE, variantesDe } from '../catalogo/catalogo.service';
+import { variantesDe } from '../catalogo/catalogo.service';
+import { ofertasMasBaratasDeLaGaleria } from '../catalogo/mas-barato';
 import { preciosPara } from '../catalogo/visibilidad';
-import { masBaratasDeLaGaleria } from './mas-barato';
 
 /** Productos por página en «Todo» (SG_Web); «Ver más» trae los siguientes. */
 export const PRODUCTOS_EN_PERFIL = 48;
@@ -171,7 +171,7 @@ export class PerfilPublicacionesService {
 
   /**
    * «Sus mejores precios»: sus publicaciones que son las más baratas de su galería
-   * (`masBaratasDeLaGaleria`), comparadas con las vigentes y con stock de las demás tiendas de la
+   * (`ofertasMasBaratasDeLaGaleria`), comparadas con las vigentes y con stock de las demás tiendas de la
    * misma galería. Primero la más nueva.
    */
   async mejoresPrecios(
@@ -192,34 +192,10 @@ export class PerfilPublicacionesService {
       select: SELECT_DEL_PERFIL,
     });
     if (propias.length === 0) return [];
-    const enLaGaleria = await this.prisma.oferta.findMany({
-      where: {
-        AND: [
-          OFERTA_VIGENTE,
-          { stock: { gt: 0 } },
-          { productoId: { in: [...new Set(propias.map((o) => o.productoId))] } },
-          { tienda: { galeriaId: tienda.galeriaId } },
-        ],
-      },
-      select: {
-        id: true,
-        productoId: true,
-        precioCentimos: true,
-        precioVisible: true,
-        moneda: true,
-      },
+    // La misma regla que la chapita del Inicio (doc 20, punto 22): una sola para todo el sitio.
+    const baratas = await ofertasMasBaratasDeLaGaleria(this.prisma, this.tipoCambio, {
+      tiendaId: tienda.id,
     });
-    const baratas = masBaratasDeLaGaleria(
-      enLaGaleria.map((oferta) => ({
-        id: oferta.id,
-        productoId: oferta.productoId,
-        galeriaId: tienda.galeriaId,
-        // Solo se comparan los precios a la vista.
-        precioCentimos: oferta.precioVisible ? oferta.precioCentimos : null,
-        moneda: oferta.moneda,
-      })),
-      this.tipoCambio,
-    );
     return propias
       .filter((oferta) => baratas.has(oferta.id))
       .slice(0, EN_UNA_FILA)

@@ -205,6 +205,8 @@ export class TiendasService {
         mejores_precios: [],
         categorias: [],
         hay_mas: false,
+        // Restringido: ni el sello de fundadora (solo se ve el nombre).
+        fundadora: null,
       };
     }
 
