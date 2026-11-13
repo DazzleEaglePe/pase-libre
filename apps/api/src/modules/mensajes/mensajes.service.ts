@@ -30,6 +30,7 @@ import {
   type RespuestaPedidoWhatsapp,
   type RespuestaVendido,
   precioDe,
+  RAZON_SEPARADA,
   TIENDA_ELIMINADA,
   TIENDA_RESERVADA,
 } from '@paselibre/contracts';
@@ -102,6 +103,8 @@ const SELECT_CONVERSACION = {
       condicion: true,
       stock: true,
       estado: true,
+      // «Separada» o «No disponible» junto al producto (doc 20, punto 16).
+      razonPausa: true,
       tiendaId: true,
       precioCentimos: true,
       moneda: true,
@@ -610,6 +613,7 @@ export class MensajesService implements OnModuleInit {
             ...base.oferta,
             stock: oferta.stock,
             estado: oferta.estado,
+            separada: oferta.estado === 'PAUSADA' && oferta.razonPausa === RAZON_SEPARADA,
             precio: precioPara(oferta, {
               audiencia: 'vendedor',
               tiendaId: usuario.tiendaId,
@@ -617,7 +621,14 @@ export class MensajesService implements OnModuleInit {
             }),
             precio_visible: oferta.precioVisible,
           }
-        : { ...base.oferta, stock: 0, estado: 'ELIMINADA', precio: null, precio_visible: false },
+        : {
+            ...base.oferta,
+            stock: 0,
+            estado: 'ELIMINADA',
+            separada: false,
+            precio: null,
+            precio_visible: false,
+          },
       bloqueaste: Boolean(bloqueo),
       puede_vender: puedeVender,
       en_vivo: conversacion.enVivoId

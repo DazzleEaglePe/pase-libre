@@ -274,25 +274,28 @@ export function PerfilDeTienda({
     if (conId) marcar(conId);
   }
 
-  /** «Si solo no tienes stock, mejor Pausar»: se pausan y salen del perfil. */
+  /**
+   * «Si solo no tienes stock, mejor «No disponible»» (doc 20, punto 16): es «Se me acabó», así que
+   * quedan con stock 0, salen del perfil y vuelven solas cuando se sube la cantidad.
+   */
   async function pausarMarcadas() {
     const ids = [...marcadas];
     setPausando(true);
     setError(null);
     try {
       await Promise.all(
-        ids.map((id) =>
-          llamarApi(`/ofertas/${id}`, { metodo: 'PATCH', cuerpo: { estado: 'PAUSADA' } }),
-        ),
+        ids.map((id) => llamarApi(`/ofertas/${id}`, { metodo: 'PATCH', cuerpo: { stock: 0 } })),
       );
       salirDeVarias();
       acomodar();
       setOcultas((actuales) => new Set([...actuales, ...ids]));
       setAviso(
-        `Pausaste ${conPlural(ids.length, 'publicación', 'publicaciones')}. Las reactivas desde Mis publicaciones.`,
+        `${conPlural(ids.length, 'publicación quedó', 'publicaciones quedaron')} sin stock. Vuelven solas cuando subes la cantidad en Mis publicaciones.`,
       );
     } catch (falla) {
-      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos pausarlas.');
+      setError(
+        falla instanceof ErrorApi ? falla.message : 'No pudimos marcarlas como no disponibles.',
+      );
     } finally {
       setPausando(false);
     }

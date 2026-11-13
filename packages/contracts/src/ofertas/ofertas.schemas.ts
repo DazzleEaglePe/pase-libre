@@ -251,7 +251,10 @@ export const editarOfertaSchema = z
     fotos: fotosSchema.optional(),
     portada: portadaSchema.optional(),
     estado: z.enum(['ACTIVA', 'PAUSADA']).optional(),
-    /** «¿Por qué la pausas?» (MP_Web): va con `estado: 'PAUSADA'`. */
+    /**
+     * «¿Por qué no está disponible?» (doc 20, punto 16): va con `estado: 'PAUSADA'`. Con «Se me
+     * acabó» no se pausa: el stock queda en 0.
+     */
     razon_pausa: z.string().trim().max(60, 'Escribe hasta 60 caracteres.').optional(),
   })
   .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.')
@@ -263,15 +266,36 @@ export const editarOfertaSchema = z
     },
   );
 
-/** Las razones que ofrece «¿Por qué la pausas?» (MP_Web). */
-export const RAZONES_PAUSA = [
-  'Se me acabó, espero mercadería',
-  'La separé para un cliente',
-  'Otro motivo',
-] as const;
+/**
+ * «¿Por qué no está disponible?» (doc 20, punto 16). «Se me acabó» ya no pausa: pone el stock en
+ * 0 y vuelve sola cuando sube la cantidad. Las otras dos pausan, con su razón.
+ */
+export const RAZONES_PAUSA = ['Se me acabó', 'La separé para un cliente', 'Otro motivo'] as const;
 
+/** «La separé para un cliente»: en el chat, junto al producto, dice «Separada». */
+export const RAZON_SEPARADA = 'La separé para un cliente';
+
+/** La razón de antes de la 1.11.0: se lee igual que «Se me acabó». */
+const RAZON_SE_ME_ACABO_ANTES = 'Se me acabó, espero mercadería';
+
+/** La razón como se lee hoy: la vieja «Se me acabó, espero mercadería» pasa a «Se me acabó». */
+export function razonDePausa(razon: string | null): string | null {
+  return razon === RAZON_SE_ME_ACABO_ANTES ? 'Se me acabó' : razon;
+}
+
+/** «Se me acabó» (o la de antes, «… espero mercadería»): es falta de stock, no una pausa. */
+export function esSeMeAcabo(razon: string | null | undefined): boolean {
+  return razonDePausa(razon ?? null) === 'Se me acabó';
+}
+
+/**
+ * `estado` de `GET /v1/mis-ofertas`. `no_disponibles` junta las sin stock y las pausadas (doc 20,
+ * punto 16); `pausadas` queda como alias suyo un tiempo, por los enlaces guardados.
+ */
 export const misOfertasSchema = z.object({
-  estado: z.enum(['activas', 'vigentes', 'sin_stock', 'pausadas', 'todas']).default('activas'),
+  estado: z
+    .enum(['activas', 'vigentes', 'sin_stock', 'no_disponibles', 'pausadas', 'todas'])
+    .default('activas'),
   q: z.string().trim().max(80).default(''),
   pagina: z.coerce.number().int().min(1).max(200).default(1),
 });

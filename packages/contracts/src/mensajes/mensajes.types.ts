@@ -120,6 +120,11 @@ export interface DetalleConversacion extends Omit<ConversacionEnLista, 'otro' | 
   oferta: OfertaDeConversacion & {
     stock: number;
     estado: 'ACTIVA' | 'PAUSADA' | 'ELIMINADA';
+    /**
+     * Pausada con «La separé para un cliente» (doc 20, punto 16): el chat dice «Separada» en vez
+     * de «No disponible». Solo eso: la razón no se muestra.
+     */
+    separada: boolean;
     /** Como lo ve quien mira: nulo si está al interno para él. */
     precio: Precio | null;
     precio_visible: boolean;

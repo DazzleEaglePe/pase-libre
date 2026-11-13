@@ -5,7 +5,6 @@ import {
   EVENTOS,
   formatearPrecio,
   portadaDeOferta,
-  RAZONES_PAUSA,
   TEXTO_MODO_VENTA,
   type EditarOfertaEntrada,
   type OfertaPropia,
@@ -20,7 +19,6 @@ import {
   IconEye,
   IconInfoCircle,
   IconPencil,
-  IconPlayerPauseFilled,
   IconPlus,
   IconSearch,
   IconStar,
@@ -38,13 +36,28 @@ import { botonPeligro, botonSecundario } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { Ventana } from '@/shared/ui/ventana';
 
-type Pestana = 'activas' | 'pausadas' | 'vendidos';
+import {
+  BotonEditar,
+  MenuNoDisponible,
+  motivoNoDisponible,
+  type RazonNoDisponible,
+} from './no-disponible';
+
+/** «No disponibles» junta las sin stock y las pausadas (doc 20, punto 16). */
+type Pestana = 'activas' | 'no_disponibles' | 'vendidos';
 
 const PESTANAS: Array<[Pestana, string]> = [
   ['activas', 'Activas'],
-  ['pausadas', 'Pausadas'],
+  ['no_disponibles', 'No disponibles'],
   ['vendidos', 'Vendidos'],
 ];
+
+/**
+ * Cada fila se ilumina en verde suave al pasar el cursor (doc 20, punto 14). En la computadora la
+ * lista es una sola caja: la primera y la última fila llevan su esquina redonda.
+ */
+const filaLista =
+  'rounded-2xl border border-linea bg-white transition-colors duration-150 hover:bg-[#F4FBF7] lg:rounded-none lg:border-0 lg:border-b lg:first:rounded-t-[20px] lg:last:rounded-b-[20px] lg:last:border-b-0';
 
 const pildora =
   'flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[13px] font-bold';
@@ -147,25 +160,30 @@ function EditarPrecio({
   );
 }
 
-/** Una publicación activa (MP_Web, MP_Cel): precio, stock y pausa en la misma fila. */
+/**
+ * Una publicación activa (MP_Web, MP_Cel): precio, stock, «Editar» y «No disponible ▾» en la misma
+ * fila (doc 20, puntos 14 y 16).
+ */
 function Fila({
   oferta,
   usuarioId,
   editando,
-  pausando,
+  menuAbierto,
   ok,
   alEditar,
-  alPausar,
+  alAbrirMenu,
+  alNoDisponible,
   alCambiar,
   alConfirmar,
 }: {
   oferta: OfertaPropia;
   usuarioId: string;
   editando: boolean;
-  pausando: boolean;
+  menuAbierto: boolean;
   ok: string | undefined;
   alEditar: (abrir: boolean) => void;
-  alPausar: (abrir: boolean) => void;
+  alAbrirMenu: (abrir: boolean) => void;
+  alNoDisponible: (razon: RazonNoDisponible) => void;
   alCambiar: (cambios: EditarOfertaEntrada, aviso?: string) => void;
   alConfirmar: () => void;
 }) {
@@ -174,7 +192,7 @@ function Fila({
   const campoPrecio = oferta.modo_venta === 'FACTURADO' ? 'precio_facturado' : 'precio';
 
   return (
-    <li className="flex flex-col gap-4 rounded-2xl border border-linea bg-white p-4 lg:rounded-none lg:border-0 lg:border-b lg:px-5 lg:py-5 lg:last:border-b-0">
+    <li className={`flex flex-col gap-4 p-4 lg:px-5 lg:py-5 ${filaLista}`}>
       {oferta.revisar && !editando && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-xl bg-aviso-fondo px-3.5 py-3 text-apoyo text-aviso">
           <span className="min-w-0 flex-[1_1_260px]">
@@ -200,7 +218,7 @@ function Fila({
         </div>
       )}
 
-      <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-4 gap-y-3 lg:grid-cols-[64px_minmax(0,1fr)_200px_220px_104px] lg:items-center lg:gap-x-6">
+      <div className="grid grid-cols-[72px_minmax(0,1fr)] items-start gap-x-4 gap-y-3 lg:grid-cols-[64px_minmax(0,1fr)_auto_auto_auto] lg:items-center lg:gap-x-5">
         <Miniatura
           ruta={portadaDeOferta(oferta)}
           categoria={oferta.producto.categoria.slug}
@@ -275,7 +293,7 @@ function Fila({
           )}
         </span>
 
-        <span className="col-span-2 flex items-center justify-between gap-3 lg:col-span-1 lg:contents">
+        <span className="col-span-2 flex flex-wrap items-center justify-between gap-3 lg:col-span-1 lg:contents">
           <span className="flex items-center gap-2.5">
             <Contador
               valor={oferta.stock}
@@ -288,16 +306,17 @@ function Fila({
               {oferta.stock === 1 ? 'disponible' : 'disponibles'}
             </span>
           </span>
-          {!pausando && (
-            <button
-              type="button"
-              onClick={() => alPausar(true)}
-              className="flex h-10 shrink-0 items-center gap-1.5 justify-self-end rounded-full border border-borde bg-white px-4 text-apoyo font-bold hover:bg-superficie"
-            >
-              <IconPlayerPauseFilled size={12} aria-hidden="true" />
-              Pausar
-            </button>
-          )}
+          {/* «Editar» al lado del control de disponibilidad (doc 20, puntos 14 y 16). */}
+          <span className="flex gap-2 justify-self-end max-sm:w-full">
+            <BotonEditar oferta={oferta} className="max-sm:flex-1" />
+            <MenuNoDisponible
+              titulo={titulo}
+              abierto={menuAbierto}
+              alAbrir={alAbrirMenu}
+              alElegir={alNoDisponible}
+              className="max-sm:flex-[1.6]"
+            />
+          </span>
         </span>
         <span className="col-span-2 flex items-center gap-1.5 text-nota text-secundario lg:hidden">
           <IconEye size={15} stroke={1.8} aria-hidden="true" />
@@ -320,35 +339,6 @@ function Fila({
         />
       )}
 
-      {pausando && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-borde bg-superficie p-4">
-          <b className="text-cuerpo font-bold">¿Por qué la pausas?</b>
-          <span className="text-apoyo text-secundario">
-            Mientras esté pausada no sale en búsquedas y nadie te escribe por ella. La reactivas con
-            un toque.
-          </span>
-          <span className="flex flex-wrap gap-2">
-            {RAZONES_PAUSA.map((razon) => (
-              <button
-                key={razon}
-                type="button"
-                onClick={() => alCambiar({ estado: 'PAUSADA', razon_pausa: razon })}
-                className={`${pildora} border border-borde bg-white text-tinta`}
-              >
-                {razon}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => alPausar(false)}
-              className={`${pildora} text-secundario underline`}
-            >
-              Mejor no
-            </button>
-          </span>
-        </div>
-      )}
-
       {ok && (
         <span role="status" className="flex items-center gap-1.5 text-apoyo font-bold text-ok">
           <IconCheck size={16} stroke={2.2} aria-hidden="true" />
@@ -358,58 +348,85 @@ function Fila({
       {oferta.stock === 0 && (
         <span className="flex max-w-[560px] items-center gap-2 rounded-xl bg-error-fondo px-3.5 py-2.5 text-apoyo text-error">
           <IconInfoCircle size={16} stroke={1.8} aria-hidden="true" />
-          Sin stock: no sale en búsquedas hasta que subas al menos 1.
+          Sin stock: no sale en búsquedas hasta que subas al menos 1. Queda en «No disponibles».
         </span>
       )}
     </li>
   );
 }
 
-/** Una pausada: con su razón, «Reactivar» y, si ya no va, «Eliminar». */
-function FilaPausada({
+/**
+ * Una de «No disponibles» (doc 20, punto 16): sin stock, con el − n + para subir la cantidad y que
+ * vuelva sola; o pausada, con su razón y «Volver a mostrar». Las dos con «Editar» y «Eliminar».
+ */
+function FilaNoDisponible({
   oferta,
-  alReactivar,
+  ok,
+  alVolver,
+  alSubirStock,
   alEliminar,
 }: {
   oferta: OfertaPropia;
-  alReactivar: () => void;
+  ok: string | undefined;
+  alVolver: () => void;
+  alSubirStock: (stock: number) => void;
   alEliminar: () => void;
 }) {
   const precio = precioDeFila(oferta);
+  const sinStock = oferta.estado === 'ACTIVA';
   return (
-    <li className="flex flex-wrap items-center gap-4 rounded-2xl border border-linea bg-white p-4 lg:rounded-none lg:border-0 lg:border-b lg:px-5 lg:last:border-b-0">
-      <Miniatura
-        ruta={portadaDeOferta(oferta)}
-        categoria={oferta.producto.categoria.slug}
-        className="h-16 w-16 rounded-xl opacity-70"
-        glifo={40}
-      />
-      <span className="flex min-w-0 flex-[1_1_240px] flex-col gap-0.5">
-        <b className="text-[15px] font-bold leading-5">{oferta.producto.titulo}</b>
-        <span className="text-apoyo text-secundario">
-          {precio ? formatearPrecio(precio) : 'Sin precio'} · {oferta.stock}{' '}
-          {oferta.stock === 1 ? 'disponible' : 'disponibles'}
+    <li className={`flex flex-col gap-3 p-4 lg:px-5 ${filaLista}`}>
+      <div className="flex flex-wrap items-center gap-4">
+        <Miniatura
+          ruta={portadaDeOferta(oferta)}
+          categoria={oferta.producto.categoria.slug}
+          className="h-16 w-16 rounded-xl opacity-70"
+          glifo={40}
+        />
+        <span className="flex min-w-0 flex-[1_1_240px] flex-col gap-0.5">
+          <b className="text-[15px] font-bold leading-5">{oferta.producto.titulo}</b>
+          <span className="text-apoyo text-secundario">
+            {precio ? formatearPrecio(precio) : 'Sin precio'} · {oferta.stock}{' '}
+            {oferta.stock === 1 ? 'disponible' : 'disponibles'}
+          </span>
+          <span className="text-nota font-bold text-aviso">
+            {sinStock
+              ? 'Sin stock: vuelve sola cuando subes la cantidad'
+              : `No disponible: ${motivoNoDisponible(oferta)}`}
+          </span>
         </span>
-        <span className="text-nota font-bold text-aviso">
-          Pausada{oferta.razon_pausa ? `: ${oferta.razon_pausa}` : ''}
+        <span className="flex flex-wrap items-center gap-2 max-sm:w-full">
+          <button
+            type="button"
+            onClick={alEliminar}
+            className="h-10 rounded-full px-3 text-apoyo font-medium text-error underline"
+          >
+            Eliminar
+          </button>
+          <BotonEditar oferta={oferta} />
+          {sinStock ? (
+            <Contador
+              valor={oferta.stock}
+              nombre={oferta.producto.titulo}
+              alCambiar={alSubirStock}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={alVolver}
+              className="h-10 rounded-full bg-pase px-5 text-apoyo font-bold text-white"
+            >
+              Volver a mostrar
+            </button>
+          )}
         </span>
-      </span>
-      <span className="flex gap-2">
-        <button
-          type="button"
-          onClick={alEliminar}
-          className="h-10 rounded-full px-3 text-apoyo font-medium text-error underline"
-        >
-          Eliminar
-        </button>
-        <button
-          type="button"
-          onClick={alReactivar}
-          className="h-10 rounded-full bg-pase px-5 text-apoyo font-bold text-white"
-        >
-          Reactivar
-        </button>
-      </span>
+      </div>
+      {ok && (
+        <span role="status" className="flex items-center gap-1.5 text-apoyo font-bold text-ok">
+          <IconCheck size={16} stroke={2.2} aria-hidden="true" />
+          {ok}
+        </span>
+      )}
     </li>
   );
 }
@@ -491,11 +508,14 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
   const [q, setQ] = useState('');
   const [datos, setDatos] = useState<RespuestaMisOfertas | null>(null);
   const [ofertas, setOfertas] = useState<OfertaPropia[]>([]);
+  /** De qué pestaña son las filas: al cambiar, no se dibujan con la forma de la otra. */
+  const [deLaPestana, setDeLaPestana] = useState<Pestana>('activas');
   const [historial, setHistorial] = useState<RespuestaHistorial | null>(null);
   const [pagina, setPagina] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [editando, setEditando] = useState<string | null>(null);
-  const [pausando, setPausando] = useState<string | null>(null);
+  /** La fila con el menú «¿Por qué no está disponible?» abierto. */
+  const [menu, setMenu] = useState<string | null>(null);
   const [oks, setOks] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const [borrar, setBorrar] = useState<OfertaPropia | null>(null);
@@ -510,7 +530,8 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
     async (hasta = 1) => {
       if (pestana === 'vendidos') return;
       const numero = ++ultima.current;
-      const estado = pestana === 'activas' ? 'vigentes' : 'pausadas';
+      // «Activas» son las que tienen stock; las sin stock van a «No disponibles» (doc 20, punto 16).
+      const estado = pestana === 'activas' ? 'activas' : 'no_disponibles';
       try {
         const paginas = await Promise.all(
           Array.from({ length: hasta }, (_, i) =>
@@ -522,6 +543,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
         if (numero !== ultima.current) return;
         setDatos(paginas[paginas.length - 1] ?? null);
         setOfertas(paginas.flatMap((p) => p.ofertas));
+        setDeLaPestana(pestana);
         setPagina(hasta);
         setError(null);
       } catch (e) {
@@ -547,9 +569,17 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
     cargarVendidos();
   });
 
-  async function cambiar(oferta: OfertaPropia, cambios: EditarOfertaEntrada, ok?: string) {
+  /**
+   * Guarda un cambio de una fila. `aviso` sale abajo, en negro; `recargar` vuelve a pedir la lista
+   * porque la fila cambia de pestaña (pausar, volver a mostrar, «Se me acabó»).
+   */
+  async function cambiar(
+    oferta: OfertaPropia,
+    cambios: EditarOfertaEntrada,
+    { ok, aviso, recargar = false }: { ok?: string; aviso?: string; recargar?: boolean } = {},
+  ) {
     setEditando(null);
-    setPausando(null);
+    setMenu(null);
     // Se ve al instante; si la API no acepta el cambio, vuelve a como estaba.
     setOfertas((lista) =>
       lista.map((o) =>
@@ -572,15 +602,35 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
         ),
       );
       setOks((antes) => ({ ...antes, [oferta.id]: ok ?? '' }));
-      if (cambios.estado === 'PAUSADA') setAviso('Pausada. La encuentras en «Pausadas».');
-      if (cambios.estado === 'ACTIVA') setAviso('Activa de nuevo. Ya sale en las búsquedas.');
+      if (aviso) setAviso(aviso);
       setError(null);
     } catch (e) {
       setOfertas((lista) => lista.map((o) => (o.id === oferta.id ? oferta : o)));
       setError(e instanceof ErrorApi ? e.message : 'No pudimos guardar el cambio.');
     }
-    // Pausar o reactivar la saca de esta pestaña; los conteos cambian.
-    if (cambios.estado) void cargar(pagina);
+    // La saca de esta pestaña; los conteos cambian.
+    if (recargar || cambios.estado) void cargar(pagina);
+  }
+
+  /** «¿Por qué no está disponible?» (doc 20, punto 16). */
+  function noDisponible(oferta: OfertaPropia, razon: RazonNoDisponible) {
+    if (razon === 'Se me acabó') {
+      // No pausa: deja el stock en 0 y vuelve sola cuando subes la cantidad.
+      void cambiar(
+        oferta,
+        { stock: 0 },
+        {
+          recargar: true,
+          aviso: 'Sin stock. Está en «No disponibles» y vuelve sola cuando subes la cantidad.',
+        },
+      );
+      return;
+    }
+    void cambiar(
+      oferta,
+      { estado: 'PAUSADA', razon_pausa: razon },
+      { aviso: 'No disponible. La encuentras en «No disponibles».' },
+    );
   }
 
   async function confirmar(oferta: OfertaPropia) {
@@ -618,7 +668,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
   }
 
   const tienda = datos?.tienda;
-  const activas = datos?.conteos.vigentes ?? 0;
+  const activas = datos?.conteos.activas ?? 0;
   const resumen = datos
     ? `${conPlural(activas, 'activa', 'activas')} · ${conPlural(datos.vistas_semana, 'vista', 'vistas')} esta semana`
     : '';
@@ -628,8 +678,8 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
         .join(' · ')
     : '';
   const conteo: Record<Pestana, number | undefined> = {
-    activas: datos?.conteos.vigentes,
-    pausadas: datos?.conteos.pausadas,
+    activas: datos?.conteos.activas,
+    no_disponibles: datos?.conteos.no_disponibles,
     vendidos: historial?.conteos.ventas,
   };
   const sinNada = datos?.conteos.todas === 0;
@@ -682,7 +732,7 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
               onClick={() => {
                 setPestana(valor);
                 setEditando(null);
-                setPausando(null);
+                setMenu(null);
                 setAviso(null);
               }}
               className={`h-[38px] whitespace-nowrap rounded-full px-3 text-apoyo sm:px-4 ${
@@ -719,8 +769,10 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
 
       {pestana === 'vendidos' ? (
         <Vendidos historial={historial} />
-      ) : datos === null && !error ? (
-        <p className="py-8 text-secundario">Cargando…</p>
+      ) : datos === null || deLaPestana !== pestana ? (
+        error ? null : (
+          <p className="py-8 text-secundario">Cargando…</p>
+        )
       ) : sinNada ? (
         // EV_WebProd: la vitrina vacía.
         <div className="flex flex-col items-center gap-4 rounded-3xl border border-linea px-6 py-12 text-center">
@@ -753,21 +805,37 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
         <p className="m-0 rounded-2xl border border-linea px-5 py-8 text-center text-secundario">
           {q
             ? `Ninguna publicación coincide con «${q}».`
-            : pestana === 'pausadas'
-              ? 'No tienes publicaciones pausadas.'
+            : pestana === 'no_disponibles'
+              ? 'Todas tus publicaciones están disponibles.'
               : 'No tienes publicaciones activas.'}
         </p>
       ) : (
         <ul
           aria-label="Publicaciones"
-          className="m-0 flex list-none flex-col gap-3 p-0 lg:gap-0 lg:overflow-hidden lg:rounded-[20px] lg:border lg:border-linea"
+          className="m-0 flex list-none flex-col gap-3 p-0 lg:gap-0 lg:rounded-[20px] lg:border lg:border-linea"
         >
           {ofertas.map((oferta) =>
-            pestana === 'pausadas' ? (
-              <FilaPausada
+            pestana === 'no_disponibles' ? (
+              <FilaNoDisponible
                 key={oferta.id}
                 oferta={oferta}
-                alReactivar={() => void cambiar(oferta, { estado: 'ACTIVA' })}
+                ok={oks[oferta.id] || undefined}
+                alVolver={() =>
+                  void cambiar(
+                    oferta,
+                    { estado: 'ACTIVA' },
+                    { aviso: 'Disponible de nuevo. Ya sale en las búsquedas.' },
+                  )
+                }
+                alSubirStock={(stock) =>
+                  void cambiar(
+                    oferta,
+                    { stock },
+                    stock > 0
+                      ? { recargar: true, aviso: 'Disponible de nuevo. Ya sale en las búsquedas.' }
+                      : {},
+                  )
+                }
                 alEliminar={() => setBorrar(oferta)}
               />
             ) : (
@@ -776,17 +844,18 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
                 oferta={oferta}
                 usuarioId={usuarioId}
                 editando={editando === oferta.id}
-                pausando={pausando === oferta.id}
+                menuAbierto={menu === oferta.id}
                 ok={oks[oferta.id] || undefined}
                 alEditar={(abrir) => {
-                  setPausando(null);
+                  setMenu(null);
                   setEditando(abrir ? oferta.id : null);
                 }}
-                alPausar={(abrir) => {
+                alAbrirMenu={(abrir) => {
                   setEditando(null);
-                  setPausando(abrir ? oferta.id : null);
+                  setMenu((actual) => (abrir ? oferta.id : actual === oferta.id ? null : actual));
                 }}
-                alCambiar={(cambios, ok) => void cambiar(oferta, cambios, ok)}
+                alNoDisponible={(razon) => noDisponible(oferta, razon)}
+                alCambiar={(cambios, ok) => void cambiar(oferta, cambios, { ok })}
                 alConfirmar={() => void confirmar(oferta)}
               />
             ),

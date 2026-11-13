@@ -463,7 +463,9 @@ describe('Publicar, fotos y Mis publicaciones (RF-05 a RF-10, RF-53)', () => {
         activas: 5,
         vigentes: 6,
         sin_stock: 1,
-        pausadas: 1,
+        // «No disponibles» junta la sin stock y la pausada; `pausadas` es su alias (doc 20, punto 16).
+        no_disponibles: 2,
+        pausadas: 2,
         todas: 7,
       });
       expect(lista.por_revisar).toBe(2);

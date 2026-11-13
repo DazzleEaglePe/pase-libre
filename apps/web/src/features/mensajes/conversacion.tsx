@@ -75,7 +75,11 @@ function useAhora(cadaMs = 30_000): Date {
   return ahora;
 }
 
-function lineaDeOferta(d: DetalleConversacion): string {
+/**
+ * «US$ 455 · 2 en stock», junto al producto de arriba. Pausada, dice «Separada» si la separaron
+ * para un cliente y si no «No disponible» (doc 20, punto 16).
+ */
+export function lineaDeOferta(d: Pick<DetalleConversacion, 'oferta'>): string {
   const { oferta } = d;
   if (oferta.estado === 'ELIMINADA') return 'Ya no está publicada';
   const precio = oferta.precio ? formatearPrecio(oferta.precio) : 'Al interno';
@@ -85,7 +89,8 @@ function lineaDeOferta(d: DetalleConversacion): string {
       : oferta.stock === 1
         ? '1 en stock'
         : `${oferta.stock} en stock`;
-  return [precio, stock, oferta.estado === 'PAUSADA' && 'Pausada'].filter(Boolean).join(' · ');
+  const pausa = oferta.estado === 'PAUSADA' && (oferta.separada ? 'Separada' : 'No disponible');
+  return [precio, stock, pausa].filter(Boolean).join(' · ');
 }
 
 type SobreTienda = NonNullable<DetalleConversacion['sobre_tienda']>;

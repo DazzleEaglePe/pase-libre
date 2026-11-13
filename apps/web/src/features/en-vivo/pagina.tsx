@@ -1,10 +1,12 @@
 'use client';
 
+import { urlFoto } from '@paselibre/contracts';
 import { IconClock } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { PuntoQueLate } from '@/shared/ui/brasa';
+import { GlifoCategoria } from '@/shared/ui/glifo-categoria';
 import { Segmentado } from '@/shared/ui/segmentado';
 
 import { useEnVivoMontado } from './contexto';
@@ -27,6 +29,45 @@ export type Tipo = 'todo' | 'busco' | 'flash';
 const botonNaranja =
   'inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline hover:brightness-95';
 
+/**
+ * La foto de la tarjeta de la página (doc 20, A3 y punto 8): la del producto del catálogo; si no
+ * hay, la primera de las fotos propias del pedido (1.10.0); si tampoco, nula (va el dibujo).
+ */
+export function fotoDeTarjeta(item: Pick<ItemEnVivo, 'producto' | 'fotos'>): string | null {
+  return item.producto?.foto ?? item.fotos[0] ?? null;
+}
+
+/**
+ * La foto alta a la izquierda (diseño C): 120 px de ancho, todo el alto de la tarjeta, sobre
+ * blanco y entera (`object-fit: contain`). Sin foto, el dibujo de su categoría sobre blanco.
+ */
+export function FotoEnVivo({
+  item,
+}: {
+  item: Pick<ItemEnVivo, 'producto' | 'fotos' | 'categoria'>;
+}) {
+  const ruta = fotoDeTarjeta(item);
+  return (
+    <span
+      data-foto-en-vivo=""
+      className="relative flex w-[120px] shrink-0 items-center justify-center self-stretch overflow-hidden rounded-xl border border-linea bg-white"
+    >
+      {ruta ? (
+        // Las fotos ya llegan en WebP y reducidas desde la API.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={urlFoto(ruta)}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full bg-white object-contain p-1.5"
+        />
+      ) : (
+        <GlifoCategoria categoria={item.categoria.slug} ancho={72} grosor={4} />
+      )}
+    </span>
+  );
+}
+
 function Tarjeta({
   item,
   ahora,
@@ -48,37 +89,42 @@ function Tarjeta({
   return (
     <article
       id={`en-vivo-${item.id}`}
-      className={`flex scroll-mt-40 flex-col gap-2 rounded-[20px] border bg-white p-4 sm:p-5 ${
+      className={`flex scroll-mt-40 gap-3.5 rounded-[20px] border bg-white p-4 sm:gap-4 sm:p-5 ${
         resaltada ? 'border-tinta ring-2 ring-pase-suave' : 'border-linea'
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <EtiquetaTipo tipo={item.tipo} />
-        <span className="flex items-center gap-1 text-nota font-bold text-aviso">
-          <IconClock size={14} stroke={2} aria-hidden="true" />
-          {terminaEn(item.vence_en, ahora)}
-        </span>
-      </div>
-      {item.producto ? (
-        <Link
-          href={`/p/${item.producto.slug}`}
-          className="text-[19px] font-bold leading-6 text-tinta no-underline hover:underline"
-        >
-          {item.titulo}
-        </Link>
-      ) : (
-        <b className="text-[19px] font-bold leading-6">{item.titulo}</b>
-      )}
-      {conVendedor(item) && item.nota && <p className="m-0 text-cuerpo text-tinta">{item.nota}</p>}
-      <span className="text-apoyo text-secundario">{detalle}</span>
-      <div className="mt-auto flex items-center justify-between gap-3 border-t border-linea pt-3">
-        {/* El busco va sin precio (doc 19, punto 21): el botón queda a la derecha igual. */}
-        <b className="text-cuerpo font-bold">{lineaPrecio(item) ?? ''}</b>
-        {conVendedor(item) && item.propio ? (
-          <span className="text-nota font-bold text-detalle">Es tuyo</span>
+      <FotoEnVivo item={item} />
+      <div className="flex min-w-0 flex-1 flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <EtiquetaTipo tipo={item.tipo} />
+          <span className="flex items-center gap-1 text-nota font-bold text-aviso">
+            <IconClock size={14} stroke={2} aria-hidden="true" />
+            {terminaEn(item.vence_en, ahora)}
+          </span>
+        </div>
+        {item.producto ? (
+          <Link
+            href={`/p/${item.producto.slug}`}
+            className="text-[19px] font-bold leading-6 text-tinta no-underline hover:underline"
+          >
+            {item.titulo}
+          </Link>
         ) : (
-          <BotonResponder item={item} className={botonNaranja} />
+          <b className="text-[19px] font-bold leading-6">{item.titulo}</b>
         )}
+        {conVendedor(item) && item.nota && (
+          <p className="m-0 text-cuerpo text-tinta">{item.nota}</p>
+        )}
+        <span className="text-apoyo text-secundario">{detalle}</span>
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-linea pt-3">
+          {/* El busco va sin precio (doc 19, punto 21): el botón queda a la derecha igual. */}
+          <b className="text-cuerpo font-bold">{lineaPrecio(item) ?? ''}</b>
+          {conVendedor(item) && item.propio ? (
+            <span className="text-nota font-bold text-detalle">Es tuyo</span>
+          ) : (
+            <BotonResponder item={item} className={botonNaranja} />
+          )}
+        </div>
       </div>
     </article>
   );
