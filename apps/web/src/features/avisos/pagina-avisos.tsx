@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
-import { conAvisoLeido, useAvisoLeido } from '@/shared/avisos-leidos';
+import { conAvisoLeido, marcarAvisosVistos, useAvisoLeido } from '@/shared/avisos-leidos';
 import { useEvento } from '@/shared/tiempo-real';
 
 import { ConfigurarAvisos } from './configurar';
@@ -34,6 +34,8 @@ export function PaginaAvisos() {
 
   useEffect(() => {
     if (window.location.hash === '#configurar') setConfigurar(true);
+    // En el celular la campanita lleva aquí: abrir la página cuenta como abrirla (doc 19, 15).
+    marcarAvisosVistos();
   }, []);
 
   async function marcarTodo() {

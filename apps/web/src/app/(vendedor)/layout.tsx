@@ -31,7 +31,7 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
           <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
             {children}
           </main>
-          <Pie conSesion />
+          <Pie conSesion invitarCerrada={sesion.usuario.invitar_secciones_cerrado} />
           <BarraInferior conTienda sinPublicar={!sesionPuede(sesion, 'PUBLICAR')} />
           {sesion.usuario.ver_bienvenida && <Bienvenida />}
         </div>

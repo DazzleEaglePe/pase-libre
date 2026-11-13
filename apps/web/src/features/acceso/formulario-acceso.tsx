@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type ReactNode } from 'react';
 
+import { avisarClaveGuardada } from '@/features/bienvenida/bienvenida';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { iniciales } from '@/shared/iniciales';
 import { Marca } from '@/shared/ui/marca';
@@ -35,11 +36,14 @@ const botonSecundario =
 function Encabezado({
   titulo,
   bajada,
+  paso,
   antes,
   compartida,
 }: {
   titulo: string;
   bajada?: ReactNode;
+  /** El paso del primer ingreso, en verde arriba de todo («Paso 1 de 3»). */
+  paso?: string;
   /** Una línea chica arriba del título («Primer ingreso · tiendab»). */
   antes?: string;
   /** El nombre de la tienda del enlace compartido. */
@@ -74,6 +78,11 @@ function Encabezado({
         </div>
       )}
       <div className="flex flex-col gap-2">
+        {paso && (
+          <span className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-marca">
+            {paso}
+          </span>
+        )}
         {antes && <span className="text-nota text-detalle">{antes}</span>}
         <h1 className="text-[30px] leading-9">{titulo}</h1>
         {bajada && <p className="m-0 text-apoyo text-secundario">{bajada}</p>}
@@ -89,6 +98,7 @@ function Encabezado({
  */
 export function FormularioAcceso({
   primerIngreso,
+  bienvenidaPendiente = false,
   pestanaInicial,
   registroActivo = false,
   volver = null,
@@ -96,6 +106,8 @@ export function FormularioAcceso({
 }: {
   /** Usuario con la clave temporal todavía activa, o nulo. */
   primerIngreso: string | null;
+  /** Después de la contraseña le toca la bienvenida (`ver_bienvenida`): «Paso 1 de 3». */
+  bienvenidaPendiente?: boolean;
   pestanaInicial: Pestana;
   /** Con el registro propio encendido, «Crear cuenta» lleva al formulario en vez de al aviso. */
   registroActivo?: boolean;
@@ -105,43 +117,25 @@ export function FormularioAcceso({
   compartida?: string | null;
 }) {
   const router = useRouter();
-  const [paso, setPaso] = useState<'login' | 'primer' | 'listo'>(
-    primerIngreso ? 'primer' : 'login',
-  );
+  const [paso, setPaso] = useState<'login' | 'primer'>(primerIngreso ? 'primer' : 'login');
   const [usuarioPrimer, setUsuarioPrimer] = useState(primerIngreso ?? '');
-  const [destino, setDestino] = useState('/');
+  const [conBienvenida, setConBienvenida] = useState(bienvenidaPendiente);
 
   if (paso === 'primer') {
     return (
       <CrearClave
         usuario={usuarioPrimer}
+        conBienvenida={conBienvenida}
         alTerminar={(yo) => {
-          setDestino(volver ?? inicioPara(yo));
-          setPaso('listo');
+          // Sin «Listo, ya entraste» (doc 19, punto 11): directo al inicio, donde sigue la
+          // bienvenida con el aviso verde de «Tu contraseña quedó guardada».
+          if (yo.usuario.ver_bienvenida) avisarClaveGuardada();
+          // Sin el refresh, Next reusa la cabecera de antes (sin sesión) y no monta el tiempo
+          // real hasta F5 (doc 19, A4).
+          router.replace(volver ?? inicioPara(yo));
+          router.refresh();
         }}
       />
-    );
-  }
-  if (paso === 'listo') {
-    return (
-      <div className="flex flex-col gap-4">
-        <Encabezado
-          titulo="Listo, ya entraste"
-          bajada="Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración › Seguridad."
-        />
-        <button
-          type="button"
-          className={botonPrincipal}
-          onClick={() => {
-            // Sin el refresh, Next reusa la cabecera de antes (sin sesión) y no monta el tiempo
-            // real hasta F5 (doc 19, A4).
-            router.replace(destino);
-            router.refresh();
-          }}
-        >
-          {volver ? 'Seguir' : 'Ir al inicio'}
-        </button>
-      </div>
     );
   }
   return (
@@ -152,6 +146,7 @@ export function FormularioAcceso({
       alIngresar={(yo) => {
         if (yo.usuario.debe_cambiar_clave) {
           setUsuarioPrimer(yo.usuario.usuario);
+          setConBienvenida(yo.usuario.ver_bienvenida);
           setPaso('primer');
         } else {
           router.replace(volver ?? inicioPara(yo));
@@ -365,11 +360,18 @@ function Ingreso({
   );
 }
 
+/**
+ * «Crea tu contraseña», paso 1 de 3 del primer ingreso (doc 19, punto 11): «Guardar y seguir»
+ * lleva directo a «Conoce PaseLibre» y a los acuerdos. Sin bienvenida pendiente (el equipo, o
+ * una contraseña que el equipo volvió a dar), no hay pasos que contar.
+ */
 function CrearClave({
   usuario,
+  conBienvenida,
   alTerminar,
 }: {
   usuario: string;
+  conBienvenida: boolean;
   alTerminar: (yo: RespuestaYo) => void;
 }) {
   const [nueva, setNueva] = useState('');
@@ -408,6 +410,7 @@ function CrearClave({
   return (
     <form onSubmit={guardar} className="flex flex-col gap-[18px]">
       <Encabezado
+        paso={conBienvenida ? 'Paso 1 de 3' : undefined}
         antes={`Primer ingreso · ${usuario}`}
         titulo="Crea tu contraseña"
         bajada="La que te dio el equipo es temporal. Cámbiala por una que solo tú sepas."
@@ -457,7 +460,7 @@ function CrearClave({
         </p>
       )}
       <button type="submit" disabled={!valida || enviando} className={botonPrincipal}>
-        {enviando ? 'Guardando…' : 'Guardar y entrar'}
+        {enviando ? 'Guardando…' : 'Guardar y seguir'}
       </button>
     </form>
   );

@@ -168,3 +168,32 @@ body:has(.ficha-fondo) {
     transform: translateX(95%);
   }
 }
+
+/* doc 19 · punto 11: el aviso verde «Tu contraseña quedó guardada» en la primera pantalla de
+   «Conoce PaseLibre». Baja un poco al aparecer y se apaga solo antes de irse (3 s en total);
+   con «reducir movimiento», solo aparece y se va. */
+@keyframes aviso-clave-guardada {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  10%,
+  85% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+}
+
+.aviso-clave-guardada {
+  animation: aviso-clave-guardada 3s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso-clave-guardada {
+    animation: none;
+  }
+}

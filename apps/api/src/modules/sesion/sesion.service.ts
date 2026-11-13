@@ -78,6 +78,7 @@ export function respuestaYo(usuario: UsuarioConTienda, soporte?: SoporteActivo):
       debe_cambiar_clave: !soporte && usuario.debeCambiarClave,
       ver_bienvenida: !soporte && Boolean(tienda) && usuario.bienvenidaVistaEn === null,
       tema_oscuro: usuario.temaOscuro,
+      invitar_secciones_cerrado: usuario.invitarSeccionesCerradoEn !== null,
       permisos: permisosDe(usuario),
     },
     tienda: tienda ? tiendaDeSesion(tienda) : null,

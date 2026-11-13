@@ -66,6 +66,11 @@ export interface RespuestaYo {
     ver_bienvenida: boolean;
     /** El panel del equipo en oscuro (COR18). */
     tema_oscuro: boolean;
+    /**
+     * Cerró con la X la banda «¿Conoces una tienda…?» de las secciones de la barra negra (doc
+     * 19, punto 14): ahí ya no sale. La del inicio va aparte, en `RespuestaInicio`.
+     */
+    invitar_secciones_cerrado: boolean;
     /** Lo que puede hacer en su tienda (N12): el dueño, todo; el asesor, lo que le dieron. */
     permisos: PermisoAsesor[];
   };

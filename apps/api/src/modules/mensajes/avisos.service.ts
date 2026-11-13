@@ -238,6 +238,43 @@ export class AvisosService {
     });
   }
 
+  /**
+   * Abrió la campanita (doc 19, punto 15): el número naranja vuelve a 0 y desde ahora cuenta
+   * solo lo que llegue después. El puntito de cada aviso sigue hasta tocarlo (`leidoEn`). Avisa
+   * a sus otras pestañas para que también lo bajen.
+   */
+  async vistos(usuarioId: string): Promise<Contadores> {
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
+      data: { avisosVistosEn: new Date() },
+    });
+    this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.contadores);
+    return this.contadores(usuarioId);
+  }
+
+  /**
+   * El número naranja de la campanita (doc 19, punto 15): los avisos sin leer que llegaron
+   * desde la última vez que la abrió. «Llegó» es cuando se pudo ver: al crearse o
+   * actualizarse (otro mensaje del mismo chat), o al terminar «No molestar».
+   */
+  private async avisosNuevos(usuarioId: string): Promise<number> {
+    const ahora = new Date();
+    const { avisosVistosEn: vistos } = await this.prisma.usuario.findUniqueOrThrow({
+      where: { id: usuarioId },
+      select: { avisosVistosEn: true },
+    });
+    return this.prisma.aviso.count({
+      where: {
+        usuarioId,
+        leidoEn: null,
+        visibleDesde: { lte: ahora },
+        ...(vistos
+          ? { OR: [{ actualizadoEn: { gt: vistos } }, { visibleDesde: { gt: vistos } }] }
+          : {}),
+      },
+    });
+  }
+
   async contadores(usuarioId: string): Promise<Contadores> {
     const [noLeidos, manuales, avisos] = await Promise.all([
       noLeidosPorConversacion(this.prisma, usuarioId),
@@ -245,9 +282,7 @@ export class AvisosService {
         where: { usuarioId, noLeidaManual: true, archivada: false },
         select: { conversacionId: true },
       }),
-      this.prisma.aviso.count({
-        where: { usuarioId, leidoEn: null, visibleDesde: { lte: new Date() } },
-      }),
+      this.avisosNuevos(usuarioId),
     ]);
     const archivadas = new Set(
       (
