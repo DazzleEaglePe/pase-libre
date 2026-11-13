@@ -354,11 +354,14 @@ function AccionesTienda({
   tienda,
   contadores,
   permisos,
+  soporte,
 }: {
   tienda: TiendaDeSesion;
   contadores: Contadores;
   /** Lo que puede el asesor (N12): sin «Publicar», no se muestra el botón. */
   permisos?: readonly PermisoAsesor[];
+  /** «Ayudar como la tienda»: la campanita solo deja mirar (doc 20, A1). */
+  soporte: boolean;
 }) {
   const ruta = usePathname();
   const enMensajes = ruta.startsWith('/mensajes');
@@ -436,9 +439,15 @@ function AccionesTienda({
           <Insignia cantidad={contadores.mensajes} />
         </span>
       </Link>
-      <Campanita sinLeer={contadores.avisos} sobreMarca />
+      <Campanita sinLeer={contadores.avisos} soporte={soporte} tienda={tienda.nombre} sobreMarca />
       <div className="max-md:hidden">
-        <MenuCuenta tienda={tienda} lugar={lugar} permisos={permisos} sobreMarca />
+        <MenuCuenta
+          tienda={tienda}
+          lugar={lugar}
+          permisos={permisos}
+          soporte={soporte}
+          sobreMarca
+        />
       </div>
     </div>
   );
@@ -447,14 +456,23 @@ function AccionesTienda({
 function ConTienda({
   tienda,
   permisos,
+  soporte,
   children,
 }: {
   tienda: TiendaDeSesion;
   permisos?: readonly PermisoAsesor[];
+  soporte: boolean;
   children: (acciones: ReactNode) => ReactNode;
 }) {
-  const contadores = useContadores();
-  return children(<AccionesTienda tienda={tienda} contadores={contadores} permisos={permisos} />);
+  const contadores = useContadores({ soporte });
+  return children(
+    <AccionesTienda
+      tienda={tienda}
+      contadores={contadores}
+      permisos={permisos}
+      soporte={soporte}
+    />,
+  );
 }
 
 /**
@@ -530,7 +548,11 @@ export function Cabecera({
   );
 
   return tienda ? (
-    <ConTienda tienda={tienda} permisos={sesion?.usuario.permisos}>
+    <ConTienda
+      tienda={tienda}
+      permisos={sesion?.usuario.permisos}
+      soporte={Boolean(sesion?.soporte)}
+    >
       {armar}
     </ConTienda>
   ) : (

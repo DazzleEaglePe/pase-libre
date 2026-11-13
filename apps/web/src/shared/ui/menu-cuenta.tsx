@@ -103,16 +103,19 @@ export function ContenidoMenuCuenta({
   lugar,
   alElegir,
   permisos,
+  soporte = false,
 }: {
   tienda: TiendaDeSesion;
   lugar: string;
   alElegir?: () => void;
   /** Lo que puede el asesor (N12): sin «Historial», no sale. */
   permisos?: readonly PermisoAsesor[];
+  /** «Ayudar como la tienda»: los avisos se miran sin número (doc 20, A1). */
+  soporte?: boolean;
 }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
-  const { avisos } = useContadores();
+  const { avisos } = useContadores({ soporte });
   const enVivo = useDetalleEnVivo();
 
   async function salir() {
@@ -207,12 +210,15 @@ export function MenuCuenta({
   lugar,
   permisos,
   sobreMarca = false,
+  soporte = false,
 }: {
   tienda: TiendaDeSesion;
   lugar: string;
   permisos?: readonly PermisoAsesor[];
   /** En la fila verde de la barra: el nombre de la tienda en blanco (D_Barra). */
   sobreMarca?: boolean;
+  /** «Ayudar como la tienda»: los avisos se miran sin número (doc 20, A1). */
+  soporte?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
@@ -288,6 +294,7 @@ export function MenuCuenta({
             tienda={tienda}
             lugar={lugar}
             permisos={permisos}
+            soporte={soporte}
             alElegir={() => setAbierto(false)}
           />
         </div>

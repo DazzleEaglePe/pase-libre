@@ -356,6 +356,7 @@ describe('Catálogo: plantilla en Excel y filas que dicen qué pasa (docs/18)', 
         sin_categoria: 1,
         sin_marca: 1,
         sin_modelo: 1,
+        sinonimo_largo: 0,
         repetida: 1,
       });
 

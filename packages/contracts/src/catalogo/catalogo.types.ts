@@ -339,8 +339,8 @@ export interface RespuestaInicio {
     meta: number;
   };
   /**
-   * «Primeros pasos»: perfil con portada, horario y descripción, cuántas publicaste y si pediste
-   * en vivo.
+   * «Primeros pasos»: perfil con portada y horario («Sobre la tienda» es opcional, doc 20, A4),
+   * cuántas publicaste y si pediste en vivo.
    */
   pasos: { perfil: boolean; publicadas: number; en_vivo: boolean };
   /** Publicaciones vigentes de otras tiendas (sin las bloqueadas): «Van 3 de 12». */

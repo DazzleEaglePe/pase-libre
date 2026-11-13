@@ -309,9 +309,9 @@ function EntrarComoLaTienda({ ficha, alCancelar }: { ficha: FichaTienda; alCance
   return (
     <div className="flex flex-col gap-3.5">
       <p className="m-0 text-secundario">
-        Vas a ver PaseLibre como el dueño durante {MINUTOS_SOPORTE} minutos para acomodar su portada
-        o sus datos. No puedes chatear ni cerrar ventas. Todo queda registrado y la tienda recibe
-        aviso de cada cambio.
+        Vas a ver PaseLibre como el dueño durante {MINUTOS_SOPORTE} minutos para acomodar su perfil
+        o publicar por ella. No puedes chatear ni cerrar ventas. Todo queda registrado y la tienda
+        recibe aviso de cada cambio.
       </p>
       <p
         className={`m-0 rounded-xl px-3.5 py-3 text-apoyo font-semibold ${

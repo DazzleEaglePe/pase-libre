@@ -56,7 +56,7 @@ const enSoporte = () =>
   new ApiHttpException(
     HttpStatus.FORBIDDEN,
     'MODO_SOPORTE',
-    'En modo soporte puedes acomodar la portada y los datos de la tienda, pero no chatear ni cerrar ventas.',
+    'En modo soporte puedes acomodar el perfil y publicar por la tienda, pero no chatear ni cerrar ventas.',
   );
 
 export const SesionActual = createParamDecorator(

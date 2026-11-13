@@ -977,6 +977,8 @@ model Aviso {
   leidoEn        DateTime? @map("leido_en") @db.Timestamptz(6)
   creadoEn       DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
   actualizadoEn  DateTime  @default(now()) @updatedAt @map("actualizado_en") @db.Timestamptz(6)
+  /// Cuándo llegó de verdad (se creó o trajo otro mensaje). No lo mueven ediciones ni borrados.
+  llegadoEn      DateTime  @default(now()) @map("llegado_en") @db.Timestamptz(6)
 
   usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   conversacion Conversacion? @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
@@ -986,6 +988,7 @@ model Aviso {
   @@unique([usuarioId, hiloEquipoId])
   @@index([usuarioId, leidoEn, visibleDesde])
   @@index([usuarioId, actualizadoEn])
+  @@index([usuarioId, llegadoEn])
   @@map("aviso")
 }
 

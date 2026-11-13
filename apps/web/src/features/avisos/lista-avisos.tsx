@@ -94,15 +94,22 @@ function agrupar(avisos: AvisoCampanita[]): Array<[string, AvisoCampanita[]]> {
 /**
  * La lista de avisos (AV_Web, AV_WebPanel): por grupos, cada uno con su ícono, el punto
  * naranja si está sin leer y su botón. Tocar el aviso (o su botón) lo marca leído en todos
- * lados al toque (N07, error 36) y abre a donde lleva.
+ * lados al toque (N07, error 36) y abre a donde lleva. Con `soloMirar` (modo soporte, doc 20,
+ * A1) solo abre: los avisos siguen sin leer para la tienda.
  */
 export function ListaAvisos({
   avisos,
   alAbrir,
+  soloMirar = false,
 }: {
   avisos: AvisoCampanita[];
   alAbrir?: () => void;
+  soloMirar?: boolean;
 }) {
+  const abrir = (aviso: AvisoCampanita) => {
+    if (!soloMirar) marcarAvisoLeido(aviso);
+    alAbrir?.();
+  };
   return (
     <div className="flex flex-col">
       {agrupar(avisos).map(([grupo, lista]) => (
@@ -125,10 +132,7 @@ export function ListaAvisos({
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <Link
                     href={aviso.enlace ?? '/avisos'}
-                    onClick={() => {
-                      marcarAvisoLeido(aviso);
-                      alAbrir?.();
-                    }}
+                    onClick={() => abrir(aviso)}
                     className="text-cuerpo text-tinta no-underline after:absolute after:inset-0 hover:underline"
                   >
                     {aviso.titulo}
@@ -141,10 +145,7 @@ export function ListaAvisos({
                   {aviso.accion && (
                     <Link
                       href={aviso.accion.enlace}
-                      onClick={() => {
-                        marcarAvisoLeido(aviso);
-                        alAbrir?.();
-                      }}
+                      onClick={() => abrir(aviso)}
                       className={`relative z-10 mt-2 flex h-9 items-center self-start rounded-full px-3.5 text-apoyo font-bold no-underline ${
                         aviso.accion.tipo === 'LO_TENGO'
                           ? 'bg-contador text-tinta'

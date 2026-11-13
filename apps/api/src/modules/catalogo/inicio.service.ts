@@ -381,18 +381,21 @@ export class InicioService {
     };
   }
 
-  /** «Primeros pasos»: «Completa tu perfil» pide portada, horario y qué vendes (N16). */
+  /**
+   * «Primeros pasos»: «Completa tu perfil» pide portada y horario (N16). «Sobre la tienda» es
+   * opcional y ya no cuenta (doc 20, A4).
+   */
   private async pasos(tiendaId: string): Promise<RespuestaInicio['pasos']> {
     const [tienda, publicadas, enVivo] = await Promise.all([
       this.prisma.tienda.findUnique({
         where: { id: tiendaId },
-        select: { horario: true, descripcion: true, portadaRuta: true },
+        select: { horario: true, portadaRuta: true },
       }),
       this.prisma.oferta.count({ where: { tiendaId, estado: { not: 'ELIMINADA' } } }),
       this.prisma.enVivo.count({ where: { tiendaId } }),
     ]);
     return {
-      perfil: Boolean(tienda?.horario && tienda.descripcion && tienda.portadaRuta),
+      perfil: Boolean(tienda?.horario && tienda.portadaRuta),
       publicadas,
       en_vivo: enVivo > 0,
     };

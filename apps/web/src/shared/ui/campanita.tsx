@@ -14,10 +14,14 @@ import { FiltrosAvisos, ListaAvisos } from '@/features/avisos/lista-avisos';
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
 import {
+  TEXTO_FALLO_AL_MARCAR,
   conAvisoLeido,
   marcarAvisosVistos,
+  siFalla,
   useAvisoLeido,
   useAvisosVistos,
+  useFalloAlMarcar,
+  useRecargarContadores,
 } from '@/shared/avisos-leidos';
 import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 
@@ -25,9 +29,12 @@ import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-r
  * Los contadores de Mensajes y la campanita. Se piden al entrar, al reconectar el socket y
  * cada vez que llega algo que los mueve. Tocar un aviso baja el de la campanita al toque
  * (N07, error 36), antes de que conteste la API, y abrir la campanita lo deja en 0 (doc 19,
- * punto 15): el número cuenta lo que llegó desde la última vez que se abrió.
+ * punto 15): el número cuenta lo que llegó desde la última vez que se abrió. Si la API no lo
+ * guarda, se vuelven a pedir (doc 20, A1): nunca queda un 0 falso que vuelve con F5.
+ *
+ * En modo soporte (`soporte`) el Equipo solo mira los avisos de la tienda: no hay número.
  */
-export function useContadores(): Contadores {
+export function useContadores({ soporte = false }: { soporte?: boolean } = {}): Contadores {
   const conexion = useConexionTiempoReal();
   const [contadores, setContadores] = useState<Contadores>({ mensajes: 0, avisos: 0 });
   const pedir = useCallback(() => {
@@ -36,6 +43,7 @@ export function useContadores(): Contadores {
 
   useEffect(pedir, [pedir, conexion]);
   useRespaldo(pedir);
+  useRecargarContadores(pedir);
   // Un mensaje dispara hasta tres eventos seguidos: una sola consulta.
   const agrupado = useAgrupado(pedir);
   useEvento(EVENTOS.mensajeNuevo, agrupado);
@@ -50,7 +58,7 @@ export function useContadores(): Contadores {
     ),
   );
   useAvisosVistos(useCallback(() => setContadores((actuales) => ({ ...actuales, avisos: 0 })), []));
-  return contadores;
+  return soporte ? { ...contadores, avisos: 0 } : contadores;
 }
 
 /** Insignia naranja del contador; «9+» para no romper el círculo. */
@@ -71,15 +79,24 @@ export function Insignia({ cantidad }: { cantidad: number }) {
  * nuevos arriba con su botón y, abajo, «Marcar todo como leído» y «Ver todos los avisos»; en
  * el celular lleva a /avisos. Su número cuenta lo llegado desde la última vez que se abrió y
  * se va al abrirla; el puntito y la negrita de cada aviso, al tocarlo (doc 19, punto 15).
+ *
+ * En modo soporte (doc 20, A1) es «solo mirar»: sin número, abrirla no los da por vistos y
+ * tocar un aviso no lo marca leído. Así la dueña no pierde avisos que no vio.
  */
 export function Campanita({
   sinLeer,
   sobreMarca = false,
+  soporte = false,
+  tienda,
 }: {
   /** Los avisos que llegaron desde la última vez que se abrió (el número naranja). */
   sinLeer: number;
   /** En la fila verde de la barra (D_Barra): la campana en blanco. */
   sobreMarca?: boolean;
+  /** «Ayudar como la tienda»: el Equipo mira los avisos sin tocarlos. */
+  soporte?: boolean;
+  /** El nombre de la tienda, para «Estás viendo los avisos de…» en soporte. */
+  tienda?: string;
 }) {
   const router = useRouter();
   const [abierta, setAbierta] = useState(false);
@@ -95,11 +112,13 @@ export function Campanita({
   useEffect(() => {
     if (abierta) cargar();
   }, [abierta, cargar, sinLeer]);
-  // Abierta, lo que llega ya se está viendo: el número no vuelve a subir.
+  // Abierta, lo que llega ya se está viendo: el número no vuelve a subir (en soporte, nunca).
   useEffect(() => {
-    if (abierta && sinLeer > 0) marcarAvisosVistos();
-  }, [abierta, sinLeer]);
+    if (abierta && sinLeer > 0 && !soporte) marcarAvisosVistos();
+  }, [abierta, sinLeer, soporte]);
   useAvisoLeido(useCallback((leido) => setDatos((actuales) => conAvisoLeido(actuales, leido)), []));
+  // Si la API no guardó lo marcado, vuelve el puntito real y se avisa abajo (doc 20, A1).
+  const fallo = useFalloAlMarcar(cargar);
 
   useEffect(() => {
     if (!abierta) return;
@@ -129,7 +148,7 @@ export function Campanita({
           // En el celular los avisos son una pantalla (AV_Cel), no una ventanita.
           if (window.matchMedia('(max-width: 767px)').matches) router.push('/avisos');
           else {
-            if (!abierta) marcarAvisosVistos();
+            if (!abierta && !soporte) marcarAvisosVistos();
             setAbierta(!abierta);
           }
         }}
@@ -155,7 +174,7 @@ export function Campanita({
           <path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" />
           <path d="M10 20a2 2 0 0 0 4 0" />
         </svg>
-        <Insignia cantidad={sinLeer} />
+        {!soporte && <Insignia cantidad={sinLeer} />}
       </button>
 
       {abierta && (
@@ -190,6 +209,11 @@ export function Campanita({
                 </Link>
               </span>
             </div>
+            {soporte && (
+              <p className="m-0 text-nota text-secundario">
+                Estás viendo los avisos de {tienda ?? 'la tienda'}. Para ella siguen sin leer.
+              </p>
+            )}
             <FiltrosAvisos datos={datos} elegido={filtro} alElegir={setFiltro} todos={false} />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -201,18 +225,25 @@ export function Campanita({
                 avisamos aquí.
               </p>
             ) : (
-              <ListaAvisos avisos={datos.avisos} alAbrir={() => setAbierta(false)} />
+              <ListaAvisos
+                avisos={datos.avisos}
+                alAbrir={() => setAbierta(false)}
+                soloMirar={soporte}
+              />
             )}
           </div>
+          <p aria-live="polite" className="m-0 empty:hidden px-4 pb-2 text-nota text-error">
+            {fallo ? TEXTO_FALLO_AL_MARCAR : ''}
+          </p>
           <div className="flex items-center justify-between gap-3 border-t border-linea px-4 py-2">
-            {(datos?.sin_leer ?? 0) > 0 ? (
+            {(datos?.sin_leer ?? 0) > 0 && !soporte ? (
               <button
                 type="button"
                 onClick={() =>
                   void llamarApi<RespuestaAvisos>('/avisos/leidos', {
                     metodo: 'POST',
                     cuerpo: {},
-                  }).then(cargar, () => undefined)
+                  }).then(cargar, siFalla)
                 }
                 className="flex min-h-10 items-center text-apoyo font-semibold text-tinta underline"
               >

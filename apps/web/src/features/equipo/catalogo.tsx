@@ -36,6 +36,7 @@ import { campo, etiqueta } from '@/shared/ui/estilos';
 import { Miniatura } from '@/shared/ui/miniatura';
 import { Ventana } from '@/shared/ui/ventana';
 
+import { NombreComparado, compararNombres } from './diferencias';
 import { avisoDePeso, faltanUnos, lineasDeMotivos, peso, porcentaje } from './subida-catalogo';
 
 type Pestana = 'productos' | 'revisar' | 'excel' | 'agregar';
@@ -588,120 +589,135 @@ function PorRevisar({
           Nada por revisar: todo lo que publicaron a mano ya está en el catálogo.
         </p>
       )}
-      {datos.productos.map((p: ProductoPorRevisar) => (
-        <article
-          key={p.id}
-          className="flex flex-col gap-3 rounded-[20px] border border-linea bg-white p-4"
-        >
-          <span className="text-nota text-secundario">
-            Publicado a mano por <b className="text-tinta">{p.tienda ?? 'una tienda'}</b> ·{' '}
-            {haceRato(p.creado_en).toLowerCase()}
-          </span>
-          <div className="grid items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-            <div className="flex flex-col gap-0.5 rounded-xl bg-superficie px-3.5 py-3">
-              <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-secundario">
-                Lo que escribió
-              </span>
-              <b className="text-cuerpo">«{p.titulo}»</b>
-            </div>
-            <IconArrowRight
-              size={18}
-              stroke={1.8}
-              aria-hidden="true"
-              className="justify-self-center text-secundario max-md:rotate-90"
-            />
-            {p.sugerido ? (
-              <div className="flex flex-col gap-0.5 rounded-xl border border-[#A7E3C3] bg-pase-suave px-3.5 py-3">
-                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-pase-texto">
-                  ¿Es este? ·{' '}
-                  {p.sugerido.razon === 'MISMO_CODIGO' ? 'mismo código' : 'muy parecido'}
+      {datos.productos.map((p: ProductoPorRevisar) => {
+        // Los dos nombres se ven casi iguales: lo que cambia va en negrita (doc 20, A9).
+        const [escrito, sugerido] = compararNombres(p.titulo, p.sugerido?.titulo ?? '');
+        return (
+          <article
+            key={p.id}
+            className="flex flex-col gap-3 rounded-[20px] border border-linea bg-white p-4"
+          >
+            <span className="text-nota text-secundario">
+              Publicado a mano por <b className="text-tinta">{p.tienda ?? 'una tienda'}</b> ·{' '}
+              {haceRato(p.creado_en).toLowerCase()}
+            </span>
+            <div className="grid items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+              <div className="flex flex-col gap-0.5 rounded-xl bg-superficie px-3.5 py-3">
+                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-secundario">
+                  Lo que escribió
                 </span>
-                <b className="text-cuerpo">{p.sugerido.titulo}</b>
-                {p.sugerido.codigo_parte && (
-                  <span className="font-mono text-nota text-secundario">
-                    {p.sugerido.codigo_parte}
+                <span className="text-cuerpo font-normal">
+                  «<NombreComparado palabras={escrito} />»
+                </span>
+              </div>
+              <IconArrowRight
+                size={18}
+                stroke={1.8}
+                aria-hidden="true"
+                className="justify-self-center text-secundario max-md:rotate-90"
+              />
+              {p.sugerido ? (
+                <div className="flex flex-col gap-0.5 rounded-xl border border-[#A7E3C3] bg-pase-suave px-3.5 py-3">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-pase-texto">
+                    ¿Es este? ·{' '}
+                    {p.sugerido.razon === 'MISMO_CODIGO' ? 'mismo código' : 'muy parecido'}
                   </span>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-borde px-3.5 py-3 text-apoyo text-secundario">
-                No se parece a nada del catálogo: parece nuevo.
-              </div>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {p.sugerido && (
+                  <span className="text-cuerpo font-normal">
+                    <NombreComparado palabras={sugerido} />
+                  </span>
+                  {p.sugerido.codigo_parte && (
+                    <span className="font-mono text-nota text-secundario">
+                      {p.sugerido.codigo_parte}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-borde px-3.5 py-3 text-apoyo text-secundario">
+                  No se parece a nada del catálogo: parece nuevo.
+                </div>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {p.sugerido && (
+                <button
+                  type="button"
+                  disabled={trabajando === p.id}
+                  onClick={() =>
+                    p.sugerido &&
+                    void hacer(p.id, `/equipo/catalogo/${p.id}/unir`, { con: p.sugerido.id })
+                  }
+                  className={botonVerde}
+                >
+                  <IconCornerDownRight size={16} stroke={2} aria-hidden="true" />
+                  Unir con este
+                </button>
+              )}
               <button
                 type="button"
                 disabled={trabajando === p.id}
-                onClick={() =>
-                  p.sugerido &&
-                  void hacer(p.id, `/equipo/catalogo/${p.id}/unir`, { con: p.sugerido.id })
-                }
-                className={botonVerde}
+                onClick={() => void hacer(p.id, `/equipo/catalogo/${p.id}/aprobar`)}
+                className={botonBorde}
               >
-                <IconCornerDownRight size={16} stroke={2} aria-hidden="true" />
-                Unir con este
+                Es nuevo: agregarlo
               </button>
-            )}
-            <button
-              type="button"
-              disabled={trabajando === p.id}
-              onClick={() => void hacer(p.id, `/equipo/catalogo/${p.id}/aprobar`)}
-              className={botonBorde}
-            >
-              Es nuevo: agregarlo
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                alEditar({
-                  id: p.id,
-                  titulo: p.titulo,
-                  categoria: p.categoria.slug,
-                  marca: p.marca ?? '',
-                  modelo: p.modelo ?? '',
-                  version: p.version ?? '',
-                  codigo_parte: p.codigo_parte ?? '',
-                  sinonimos: '',
-                  fotos: null,
-                  publicaciones: 0,
-                  porRevisar: true,
-                })
-              }
-              className="h-11 px-3 text-apoyo font-bold text-secundario"
-            >
-              Corregir y agregar
-            </button>
-          </div>
-        </article>
-      ))}
+              <button
+                type="button"
+                onClick={() =>
+                  alEditar({
+                    id: p.id,
+                    titulo: p.titulo,
+                    categoria: p.categoria.slug,
+                    marca: p.marca ?? '',
+                    modelo: p.modelo ?? '',
+                    version: p.version ?? '',
+                    codigo_parte: p.codigo_parte ?? '',
+                    sinonimos: '',
+                    fotos: null,
+                    publicaciones: 0,
+                    porRevisar: true,
+                  })
+                }
+                className="h-11 px-3 text-apoyo font-bold text-secundario"
+              >
+                Corregir y agregar
+              </button>
+            </div>
+          </article>
+        );
+      })}
       {datos.duplicados.length > 0 && (
         <section className="flex flex-col gap-3 rounded-[20px] border border-linea bg-white p-4">
           <span className="text-nota text-secundario">
             Posibles duplicados · el sistema nunca une productos con códigos distintos
           </span>
-          {datos.duplicados.map((par) => (
-            <div key={`${par.a.titulo}-${par.b.titulo}`} className="flex flex-col gap-2">
-              <div className="grid items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-                {[par.a, par.b].map((lado, i) => (
-                  <div
-                    key={i}
-                    className={`flex flex-col rounded-xl bg-superficie px-3.5 py-2.5 ${i === 1 ? 'md:order-3' : ''}`}
-                  >
-                    <b className="text-apoyo">{lado.titulo}</b>
-                    <span className="font-mono text-nota text-secundario">{lado.codigo_parte}</span>
-                  </div>
-                ))}
-                <span aria-hidden="true" className="justify-self-center font-bold md:order-2">
-                  ≠
+          {datos.duplicados.map((par) => {
+            const nombres = compararNombres(par.a.titulo, par.b.titulo);
+            return (
+              <div key={`${par.a.titulo}-${par.b.titulo}`} className="flex flex-col gap-2">
+                <div className="grid items-center gap-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+                  {[par.a, par.b].map((lado, i) => (
+                    <div
+                      key={i}
+                      className={`flex flex-col rounded-xl bg-superficie px-3.5 py-2.5 ${i === 1 ? 'md:order-3' : ''}`}
+                    >
+                      <span className="text-apoyo font-normal">
+                        <NombreComparado palabras={nombres[i] ?? []} />
+                      </span>
+                      <span className="font-mono text-nota text-secundario">
+                        {lado.codigo_parte}
+                      </span>
+                    </div>
+                  ))}
+                  <span aria-hidden="true" className="justify-self-center font-bold md:order-2">
+                    ≠
+                  </span>
+                </div>
+                <span className="self-start rounded-full bg-ambar px-2.5 py-1 text-nota font-bold text-ambar-texto">
+                  Códigos distintos: son versiones distintas, se quedan separadas
                 </span>
               </div>
-              <span className="self-start rounded-full bg-ambar px-2.5 py-1 text-nota font-bold text-ambar-texto">
-                Códigos distintos: son versiones distintas, se quedan separadas
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </section>
       )}
     </div>

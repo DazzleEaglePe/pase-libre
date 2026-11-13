@@ -3,7 +3,7 @@
 import { IconMoon, IconSun } from '@tabler/icons-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 
@@ -41,8 +41,11 @@ export function BotonTema({ oscuro }: { oscuro: boolean }) {
 }
 
 /**
- * La barra negra del panel del equipo (ADM_Web): Inicio, Solicitudes, Reportes, Tiendas,
- * Galerías (docs/18 §3), Chats, Comunicados y Cuentas, con los numeritos de lo que espera.
+ * Las pestañas del panel del equipo (ADM_Web): Inicio, Solicitudes, Reportes, Tiendas,
+ * Galerías (docs/18 §3), Chats, Comunicados, Cuentas y Catálogo, con los numeritos de lo que
+ * espera. Van en el segundo piso de la barra, en una fila de todo el ancho (doc 20, punto 6).
+ * En pantallas angostas la fila se desliza de costado y frena al borde de una pestaña: ninguna
+ * queda cortada a la mitad sin poder llegar a ella. La pestaña abierta se muestra entera.
  */
 export function SeccionesDelPanel({
   solicitudes,
@@ -59,6 +62,7 @@ export function SeccionesDelPanel({
   galerias: number;
 }) {
   const ruta = usePathname();
+  const fila = useRef<HTMLElement>(null);
   const secciones = [
     { href: '/equipo', texto: 'Inicio', cuenta: 0 },
     { href: '/equipo/solicitudes', texto: 'Solicitudes', cuenta: solicitudes },
@@ -70,10 +74,24 @@ export function SeccionesDelPanel({
     { href: '/equipo/cuentas', texto: 'Cuentas', cuenta: 0 },
     { href: '/equipo/catalogo', texto: 'Catálogo', cuenta: catalogo },
   ];
+
+  // En el celular, la pestaña abierta (por ejemplo «Catálogo», la última) queda a la vista.
+  useEffect(() => {
+    const nav = fila.current;
+    const actual = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!nav || !actual || nav.scrollWidth <= nav.clientWidth) return;
+    const caja = nav.getBoundingClientRect();
+    const pestana = actual.getBoundingClientRect();
+    if (pestana.left < caja.left || pestana.right > caja.right) {
+      nav.scrollLeft += pestana.left - caja.left - 16;
+    }
+  }, [ruta]);
+
   return (
     <nav
+      ref={fila}
       aria-label="Panel del equipo"
-      className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]"
+      className="-mx-4 flex snap-x gap-1 overflow-x-auto scroll-px-4 px-4 py-2 sm:-mx-8 sm:scroll-px-8 sm:px-8 [scrollbar-width:none]"
     >
       {secciones.map(({ href, texto, cuenta }) => {
         const actual = href === '/equipo' ? ruta === '/equipo' : ruta.startsWith(href);
@@ -82,7 +100,7 @@ export function SeccionesDelPanel({
             key={href}
             href={href}
             aria-current={actual ? 'page' : undefined}
-            className={`flex h-10 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-apoyo no-underline 2xl:px-4 ${
+            className={`flex h-10 shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-apoyo no-underline md:px-4 ${
               actual
                 ? 'pildora-activa bg-white font-bold text-tinta'
                 : 'font-medium text-white hover:bg-white/10'

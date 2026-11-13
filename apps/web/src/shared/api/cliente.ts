@@ -28,6 +28,11 @@ export async function llamarApi<T>(
     cuerpo?: unknown;
     /** Para subir archivos: el navegador pone el `Content-Type` con su separador. */
     formulario?: FormData;
+    /**
+     * Que el pedido siga aunque la página se cierre o navegue (doc 20, A1): tocar un aviso
+     * lo marca y abre su enlace en el mismo clic; en el celular la pestaña se puede congelar.
+     */
+    keepalive?: boolean;
   } = {},
 ): Promise<T> {
   let respuesta: Response;
@@ -35,6 +40,7 @@ export async function llamarApi<T>(
     respuesta = await fetch(`/v1${ruta}`, {
       method: opciones.metodo ?? 'GET',
       credentials: 'same-origin',
+      keepalive: opciones.keepalive ?? false,
       headers: {
         [CABECERA_PASELIBRE]: '1',
         ...(opciones.cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }),

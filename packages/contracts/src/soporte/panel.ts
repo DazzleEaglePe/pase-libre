@@ -313,6 +313,9 @@ export const versionCatalogoSchema = z.strictObject({
   codigo_parte: textoCatalogo(60, 'El código llega hasta 60 letras.'),
 });
 
+/** El largo máximo de un sinónimo, en el formulario y al importar (doc 20, A7). */
+export const MAX_SINONIMO = 40;
+
 /**
  * `POST /v1/equipo/catalogo` («Agregar uno»): un producto por cada versión, o uno solo si no hay
  * versiones. Chip, memoria y lo demás van en `caracteristicas`.
@@ -324,7 +327,7 @@ export const agregarCatalogoSchema = z.strictObject({
   versiones: z.array(versionCatalogoSchema).max(8, 'Hasta 8 versiones.').default([]),
   codigo_parte: textoCatalogo(60, 'El código llega hasta 60 letras.').default(''),
   caracteristicas: z.record(z.string().trim().max(40), z.string().trim().max(120)).default({}),
-  sinonimos: z.array(z.string().trim().min(1).max(40)).max(12).default([]),
+  sinonimos: z.array(z.string().trim().min(1).max(MAX_SINONIMO)).max(12).default([]),
   fotos: z.array(z.string().max(300)).max(8).default([]),
 });
 export type AgregarCatalogoDatos = z.output<typeof agregarCatalogoSchema>;
@@ -340,7 +343,7 @@ export const editarCatalogoSchema = z.strictObject({
   modelo: z.string().trim().min(2).max(120).optional(),
   version: textoCatalogo(40, 'La versión llega hasta 40 letras.').optional(),
   codigo_parte: textoCatalogo(60, 'El código llega hasta 60 letras.').optional(),
-  sinonimos: z.array(z.string().trim().min(1).max(40)).max(12).optional(),
+  sinonimos: z.array(z.string().trim().min(1).max(MAX_SINONIMO)).max(12).optional(),
   fotos: z.array(z.string().trim().min(1).max(300)).max(8, 'Hasta 8 fotos.').optional(),
 });
 export type EditarCatalogoDatos = z.output<typeof editarCatalogoSchema>;
@@ -358,6 +361,8 @@ export const MOTIVOS_FILA = [
   'SIN_MARCA',
   'SIN_MODELO',
   'REPETIDA',
+  /** Un sinónimo de más de `MAX_SINONIMO` letras (doc 20, A7). */
+  'SINONIMO_LARGO',
 ] as const;
 export type MotivoFila = (typeof MOTIVOS_FILA)[number];
 
@@ -387,6 +392,7 @@ export interface MotivosImportacion {
   sin_categoria: number;
   sin_marca: number;
   sin_modelo: number;
+  sinonimo_largo: number;
   repetida: number;
 }
 
