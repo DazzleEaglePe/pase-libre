@@ -309,3 +309,19 @@ Hecha el 13/11/2026 en 6 ramas paralelas, juntas en `v1-10-0` → `main`. 14 mig
 - [x] 21 · Pedir en vivo · Busco con buscador del catálogo, fotos (hasta 3) y sin precio.
 - [x] 22 · Saltito del ícono, aviso en la pestaña, sonidos M3 y V6 (`public/sonidos/`, interruptor «Sonido») y el pedido que entra y brilla.
 - [ ] Pendiente de Fabrizio: la versión (XMP/EXPO) de cada RAM en el catálogo y las fotos de los 135 productos.
+
+## 17. Versión 1.11.0 ([docs/20](20-version-1-11-0.md))
+
+Hecha el 13/11/2026 en 6 ramas paralelas, juntas en `v1-11-0` → `main`. 5 migraciones nuevas (`20261114100000` … `20261114130100`), probadas en una base nueva y en la local con datos; pruebas: API 674, web 193, contratos 103.
+
+- [x] A1 · Campanita: `aviso.llegado_en` (ediciones y borrados ya no reviven el número), fallas que se notan («No pudimos marcar el aviso»), `keepalive`, y en soporte solo mirar. Las 11 pruebas a mano del doc pasaron en local.
+- [x] A2 · Publicar y editar en modo soporte (borrar sigue cerrado). A4, A5, A6, A7 (`SINONIMO_LARGO`), A8 (Intel/EXPO del producto), A9 (negritas en «muy parecido»).
+- [x] 3, 18, 19 · Fondo blanco, línea gris y menta al pasar el cursor. 21 · revisado, ya agrupaba por producto.
+- [x] 4, 22 · Inicio a 1440, 5 × 4 con paginación y chapitas. 4b · Orden por puntos (`puntos-inicio.ts`), tope por tienda en cada fila y «Destacar» con fuerza (`destacado.fuerza`).
+- [x] 7 · «Tiendas fundadoras» (máx. 10, `tienda.fundadora_*`): día destacado, sello en su perfil y prioridad en el chat; «piloto» ya no se ve.
+- [x] 5 · Perfil Público / Privado / Oculto (`tienda.visibilidad` reemplaza `perfil_privado`), `solicitud_seguir`, «Cómo me ven»; el filtro vive en `tiendasQueNoVeo` (`shared/bloqueadas.ts`).
+- [x] 20 · Perfil: «Lo nuevo de esta semana», «Sus mejores precios», «Todo» con burbujas y orden. Una sola regla de «Más barato de la galería» (`catalogo/mas-barato.ts`).
+- [x] 11 · Un solo buscador (`motor-busqueda.ts`) en la barra, Publicar, Pedir en vivo, Mis publicaciones y Catálogo.
+- [x] 14, 16, A3/8 · «Editar» siempre, «No disponible ▾» con motivo, Pedidos en vivo con foto.
+- [x] 6 · Menú del panel en dos pisos.
+- [ ] Pendiente de Fabrizio: foto del AK820 Max, 135 productos sin foto, Intel/EXPO de cada RAM, fotos horizontales con el importador.

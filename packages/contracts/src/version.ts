@@ -28,6 +28,51 @@ export interface Novedad {
 /** De la más nueva a la más antigua. */
 export const NOVEDADES: readonly Novedad[] = [
   {
+    version: '1.11.0',
+    fecha: '2026-11-13',
+    publico: [
+      'Fotos más grandes y en blanco.',
+      'El buscador ahora entiende «ram kingston», «m.2 1tb», «case» y más.',
+      'Edita tus publicaciones con un toque.',
+      'Elige quién ve tu perfil: público, privado u oculto.',
+      'Marca una publicación como «No disponible» y di por qué.',
+    ],
+    equipo: {
+      nuevo: [
+        'Tiendas fundadoras (máximo 10): día destacado, sello en su perfil y prioridad en el chat.',
+        '«Destacar» con fuerza: suave, media o fuerte.',
+        'Perfil público, privado u oculto, con solicitudes para seguir en la campanita.',
+        'Botón «Editar» en cada publicación.',
+        'En modo soporte se puede publicar y editar por la tienda.',
+      ],
+      cambia: [
+        'Inicio: 5 por fila, 4 filas, paginación y sin títulos; el orden es por puntos y con tope por tienda.',
+        'Chapitas al pasar el cursor: Recién publicado, Más barato de la galería, Muy buscado hoy y Bajó de precio.',
+        'Fondo blanco en fotos y tarjetas, con una línea entre la foto y el nombre.',
+        'Un solo buscador en todo el sitio (arriba, Publicar, Pedir en vivo, Mis publicaciones y Catálogo).',
+        '«Pausar» pasa a «No disponible» con su motivo.',
+        'Perfil de tienda: Lo nuevo de esta semana, Sus mejores precios y Todo, con filtros.',
+        'Ficha del producto con miniaturas; la primera es la portada de la tienda.',
+        'Pedidos en vivo con foto.',
+        'Menú del panel en dos pisos.',
+        '«Piloto» pasa a «Tiendas fundadoras».',
+        '«Cómo llegar» y «Sobre la tienda» son opcionales.',
+      ],
+      arregla: [
+        'Campanita: el número ya no vuelve con F5 y tocar un aviso lo apaga.',
+        'Publicar en modo soporte daba error.',
+        '«Catálogo» se cortaba en el menú del panel.',
+        'Importar un sinónimo largo daba error 500.',
+        'La RAM publicada antes de la 1.10.0 ahora muestra Intel / EXPO.',
+        'Al editar decía «¡Listo! Ya puedes publicar».',
+      ],
+      datos: [
+        'Fotos horizontales para RAM, teclados, mouse pads, fuentes, refrigeración líquida, monitores y procesadores.',
+        'Intel / EXPO de cada RAM del catálogo.',
+      ],
+    },
+  },
+  {
     version: '1.10.0',
     fecha: '2026-11-13',
     publico: [
@@ -111,7 +156,7 @@ export const NOVEDADES: readonly Novedad[] = [
 ];
 
 /** La versión que está corriendo: siempre la primera de `NOVEDADES` (lo revisa una prueba). */
-export const VERSION = '1.10.0';
+export const VERSION = '1.11.0';
 
 /** Lo que sale en el pie de las tiendas: solo los dos primeros números («1.9»). */
 export function versionCorta(version: string = VERSION): string {
