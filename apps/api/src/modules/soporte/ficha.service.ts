@@ -264,8 +264,15 @@ export class FichaService {
       where: { id },
       data:
         cual === 'logo'
-          ? { logo: null }
-          : { portadaRuta: null, portadaAncho: null, portadaAlto: null, portadaPosicion: 50 },
+          ? { logo: null, logoOriginal: null, logoAjuste: Prisma.DbNull }
+          : {
+              portadaRuta: null,
+              portadaAncho: null,
+              portadaAlto: null,
+              portadaPosicion: 50,
+              portadaZoom: 1,
+              portadaX: 50,
+            },
     });
     const que = cual === 'logo' ? 'el logo' : 'la portada';
     await this.cambio(sesion, id, `quitó ${que} de ${tienda.nombre}`, {

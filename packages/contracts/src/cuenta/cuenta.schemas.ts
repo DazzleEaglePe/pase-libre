@@ -4,6 +4,10 @@ import { whatsappSchema } from '../equipo/equipo.schemas.js';
 import { rutaFotoSchema } from '../ofertas/ofertas.schemas.js';
 import { horarioTiendaSchema } from '../tiendas/horario.js';
 
+/** El zoom de la portada y del logo (docs/19 §20): la barrita va de 1× a 4×. */
+export const ZOOM_MINIMO = 1;
+export const ZOOM_MAXIMO = 4;
+
 /** Por papel: «4 de 6» en «Cuando te escriben» y en «Cuando tú preguntas» (N11). */
 export const MAX_RESPUESTAS_RAPIDAS = 6;
 
@@ -137,11 +141,51 @@ export const portadaTiendaSchema = z
   .strictObject({
     ruta: rutaFotoSchema.optional(),
     posicion: z.number().int().min(0).max(100).optional(),
+    /** El zoom (docs/19 §20), de 1 a 4. */
+    zoom: z.number().min(ZOOM_MINIMO).max(ZOOM_MAXIMO).optional(),
+    /** Qué parte se ve a lo ancho (docs/19 §20), de la izquierda (0) a la derecha (100). */
+    x: z.number().int().min(0).max(100).optional(),
   })
-  .refine((datos) => datos.ruta !== undefined || datos.posicion !== undefined, {
-    message: 'Sube una foto o acomoda la que tienes.',
-  });
+  .refine(
+    (datos) =>
+      datos.ruta !== undefined ||
+      datos.posicion !== undefined ||
+      datos.zoom !== undefined ||
+      datos.x !== undefined,
+    { message: 'Sube una foto o acomoda la que tienes.' },
+  );
 export type PortadaDatos = z.output<typeof portadaTiendaSchema>;
+
+/**
+ * «Ajustar logo» (docs/19 §20): cómo se acomodó la foto original en el círculo.
+ * - `x`, `y`: dónde cae el centro del círculo en la foto ya girada, de 0 a 1 (puede salirse un
+ *   poco si se alejó con «Que entre entero»).
+ * - `zoom`: 1 es el círculo del alto (o del ancho) de la foto; hasta 4. Menos de 1 aleja: lo usa
+ *   «Que entre entero».
+ * - `rotacion`: 0, 90, 180 o 270 grados («↺ Girar»).
+ * - `fondo`: lo que queda fuera de la foto, `#rrggbb` o `transparente`.
+ */
+export const ajusteLogoSchema = z.strictObject({
+  x: z.number().min(-1).max(2),
+  y: z.number().min(-1).max(2),
+  zoom: z.number().min(0.1).max(ZOOM_MAXIMO),
+  rotacion: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  fondo: z
+    .string()
+    .regex(/^(#[0-9a-f]{6}|transparente)$/i, 'Elige el color de fondo.')
+    .transform((fondo) => fondo.toLowerCase()),
+});
+export type AjusteLogo = z.output<typeof ajusteLogoSchema>;
+
+/**
+ * `PUT /v1/cuenta/logo` (docs/19 §20): «Guardar» de «Ajustar logo». Con `ruta`, una foto nueva de
+ * `POST /v1/archivos`; sin ella, se reacomoda la original que ya tiene («Ajustar»).
+ */
+export const logoTiendaSchema = z.strictObject({
+  ruta: rutaFotoSchema.optional(),
+  ajuste: ajusteLogoSchema,
+});
+export type LogoDatos = z.output<typeof logoTiendaSchema>;
 
 export const avisosCuentaSchema = z.strictObject({
   campanita: z.strictObject({

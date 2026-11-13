@@ -15,6 +15,7 @@ import type {
   RespuestaRedireccion,
   TarjetaOferta,
   TarjetaOfertaConVendedor,
+  VariantesOferta,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -58,6 +59,9 @@ export const SELECT_OFERTA_PUBLICA = {
   estadoOtro: true,
   garantiaOtra: true,
   enAlmacen: true,
+  perfilMemoria: true,
+  empaque: true,
+  oc: true,
   stock: true,
   descripcion: true,
   actualizadaEn: true,
@@ -139,6 +143,7 @@ export function tarjetaConVendedor(
     propia: o.tiendaId === mirada.tiendaId,
     precio_socio: deSocio,
     negociable: o.negociable && precios.precio !== null,
+    variantes: variantesDe(o),
   };
 }
 
@@ -188,6 +193,9 @@ export function detalleDe(o: {
   estadoOtro: string | null;
   garantiaOtra: string | null;
   enAlmacen: boolean;
+  perfilMemoria: DetalleOferta['perfil_memoria'];
+  empaque: DetalleOferta['empaque'];
+  oc: boolean | null;
 }): DetalleOferta {
   return {
     estado: o.estadoDetalle ?? (o.condicion === 'NUEVO' ? 'SELLADO' : 'USADO'),
@@ -198,7 +206,17 @@ export function detalleDe(o: {
     estado_otro: o.estadoDetalle === 'OTRO' ? o.estadoOtro : null,
     garantia_otra: o.garantia === 'OTRA' ? o.garantiaOtra : null,
     en_almacen: o.enAlmacen,
+    ...variantesDe(o),
   };
+}
+
+/** Las pastillas del título (docs/19 §13): para qué procesador es, el empaque y si es OC. */
+export function variantesDe(o: {
+  perfilMemoria: VariantesOferta['perfil_memoria'];
+  empaque: VariantesOferta['empaque'];
+  oc: boolean | null;
+}): VariantesOferta {
+  return { perfil_memoria: o.perfilMemoria, empaque: o.empaque, oc: o.oc };
 }
 
 function ofertaPublica(o: OfertaPublicaFila): OfertaPublica {
@@ -453,6 +471,7 @@ export class CatalogoService {
       stock: o.stock,
       galeria: o.tienda.galeria?.nombre ?? null,
       actualizada_en: o.actualizadaEn.toISOString(),
+      variantes: variantesDe(o),
     }));
   }
 
@@ -529,6 +548,7 @@ export class CatalogoService {
       etiquetas: producto.etiquetas.map((e) => e.etiqueta.nombre),
       caracteristicas: this.caracteristicas(producto.caracteristicas),
       fotos: producto.fotos.map(aFoto),
+      perfil_memoria: producto.perfilMemoria,
     };
     const where: Prisma.OfertaWhereInput = { ...OFERTA_VIGENTE, productoId: producto.id };
 

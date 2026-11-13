@@ -6,8 +6,10 @@ import {
   textoHorario,
   urlFoto,
   type DiaDeAtencion,
+  type AjusteLogo,
   type GaleriaParaElegir,
   type RespuestaCuenta,
+  type RespuestaLogo,
   type TramoHorario,
 } from '@paselibre/contracts';
 import { IconBuildingStore, IconClock, IconStar } from '@tabler/icons-react';
@@ -15,6 +17,8 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
 import { botonPrincipal, campo, etiqueta } from '@/shared/ui/estilos';
+
+import { AjustarLogo, leerImagen, medirImagen, type ImagenLogo } from './ajustar-logo';
 
 const LETRA: Record<DiaDeAtencion, [string, string]> = {
   lun: ['L', 'Lunes'],
@@ -106,6 +110,16 @@ export function SeccionDatos({
   const tienda = cuenta.tienda;
   const pendiente = tienda?.lugar_pendiente ?? null;
   const [logo, setLogo] = useState(tienda?.logo ?? null);
+  /** «Ajustar logo» (docs/19 §20): la original guardada y cómo se acomodó. */
+  const [logoOriginal, setLogoOriginal] = useState(tienda?.logo_original ?? null);
+  const [logoAjuste, setLogoAjuste] = useState<AjusteLogo | null>(tienda?.logo_ajuste ?? null);
+  /** La ventana «Ajustar logo» abierta: con una imagen recién elegida (`archivo`) o la original. */
+  const [ajustando, setAjustando] = useState<{
+    imagen: ImagenLogo;
+    archivo: File | null;
+    ajuste: AjusteLogo | null;
+  } | null>(null);
+  const [errorLogo, setErrorLogo] = useState<string | null>(null);
   const [nombreTienda, setNombreTienda] = useState(tienda?.nombre ?? '');
   const [whatsappTienda, setWhatsappTienda] = useState(tienda?.whatsapp ?? '');
   // Si hay un cambio esperando al Equipo («Otra galería»), se ve lo que se pidió.
@@ -180,14 +194,70 @@ export function SeccionDatos({
     });
   }
 
+  /** Al elegir la imagen se abre «Ajustar logo» (docs/19 §20); se sube recién al guardar. */
   async function cambiarLogo(archivo: File | undefined) {
     if (!archivo) return;
-    setSubiendo(true);
     setError(null);
+    setErrorLogo(null);
     try {
-      setLogo((await subirFoto(archivo)).ruta);
+      cerrarAjuste();
+      setAjustando({ imagen: await leerImagen(archivo), archivo, ajuste: null });
+    } catch {
+      setError('No pudimos abrir esa imagen. Sube una JPG, PNG o WebP.');
+    }
+  }
+
+  /** «Ajustar»: reacomodar el logo sin volver a subirlo, desde la original. */
+  async function ajustarLogo() {
+    const original = logoOriginal ?? logo;
+    if (!original) return;
+    setError(null);
+    setErrorLogo(null);
+    try {
+      setAjustando({
+        imagen: await medirImagen(urlFoto(original)),
+        archivo: null,
+        ajuste: logoAjuste,
+      });
+    } catch {
+      setError('No pudimos abrir tu logo. Súbelo de nuevo.');
+    }
+  }
+
+  function cerrarAjuste() {
+    if (ajustando?.imagen.src.startsWith('blob:')) URL.revokeObjectURL(ajustando.imagen.src);
+    setAjustando(null);
+  }
+
+  /** «Guardar»: sube la imagen nueva (si la hay) y la API arma el logo de 512 × 512. */
+  async function guardarLogo(ajuste: AjusteLogo) {
+    if (!ajustando || !tienda) return;
+    setSubiendo(true);
+    setErrorLogo(null);
+    try {
+      const ruta = ajustando.archivo ? (await subirFoto(ajustando.archivo)).ruta : undefined;
+      const nuevo = await llamarApi<RespuestaLogo>('/cuenta/logo', {
+        metodo: 'PUT',
+        cuerpo: { ...(ruta ? { ruta } : {}), ajuste },
+      });
+      setLogo(nuevo.logo);
+      setLogoOriginal(nuevo.original);
+      setLogoAjuste(nuevo.ajuste);
+      cerrarAjuste();
+      alGuardar(
+        {
+          ...cuenta,
+          tienda: {
+            ...tienda,
+            logo: nuevo.logo,
+            logo_original: nuevo.original,
+            logo_ajuste: nuevo.ajuste,
+          },
+        },
+        'Listo: tu logo quedó ajustado.',
+      );
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No pudimos subir el logo.');
+      setErrorLogo(e instanceof ErrorApi ? e.message : 'No pudimos guardar el logo.');
     } finally {
       setSubiendo(false);
     }
@@ -309,13 +379,43 @@ export function SeccionDatos({
           {logo && (
             <button
               type="button"
-              onClick={() => setLogo(null)}
+              disabled={subiendo}
+              onClick={() => void ajustarLogo()}
+              className="h-10 rounded-full border-[1.5px] border-borde bg-white px-4 text-apoyo font-bold"
+            >
+              Ajustar
+            </button>
+          )}
+          {logo && (
+            <button
+              type="button"
+              onClick={() => {
+                setLogo(null);
+                setLogoOriginal(null);
+                setLogoAjuste(null);
+              }}
               className="h-10 text-apoyo font-medium underline"
             >
               Quitar
             </button>
           )}
         </div>
+        {ajustando && (
+          <AjustarLogo
+            key={ajustando.imagen.src}
+            imagen={ajustando.imagen}
+            ajusteInicial={ajustando.ajuste}
+            nombre={nombreTienda || tienda.nombre}
+            lugar={[tienda.galeria ?? 'Independiente', tienda.stand && `Stand ${tienda.stand}`]
+              .filter(Boolean)
+              .join(' · ')}
+            guardando={subiendo}
+            error={errorLogo}
+            alGuardar={(ajuste) => void guardarLogo(ajuste)}
+            alElegirOtra={() => entradaLogo.current?.click()}
+            alCerrar={cerrarAjuste}
+          />
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label htmlFor={`${id}-tienda`} className={etiqueta}>

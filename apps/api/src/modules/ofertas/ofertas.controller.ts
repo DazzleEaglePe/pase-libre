@@ -16,15 +16,18 @@ import {
 import {
   confirmarOfertasSchema,
   editarOfertaSchema,
+  eliminarOfertasSchema,
   misOfertasSchema,
   publicarSchema,
   sugerenciasSchema,
   type ConfirmarOfertas,
   type EditarOfertaDatos,
+  type EliminarOfertasDatos,
   type MisOfertasConsulta,
   type OfertaPropia,
   type PublicarDatos,
   type RespuestaConfirmar,
+  type RespuestaEliminarOfertas,
   type RespuestaMisOfertas,
   type RespuestaPublicar,
   type RespuestaSugerencias,
@@ -91,6 +94,21 @@ export class OfertasController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<RespuestaConfirmar> {
     return this.ofertas.confirmar(datos, tiendaDe(sesion));
+  }
+
+  /**
+   * «Eliminar varias» desde tu perfil (docs/19 §12): hasta 50 de tu tienda, con el mismo permiso
+   * que `DELETE /ofertas/:id`. Va antes de `ofertas/:id` para que «eliminar» no se lea como id.
+   */
+  @Post('ofertas/eliminar')
+  @Permiso('PUBLICAR')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  eliminarVarias(
+    @Body(new ZodValidationPipe(eliminarOfertasSchema)) datos: EliminarOfertasDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaEliminarOfertas> {
+    return this.ofertas.eliminarVarias(datos, tiendaDe(sesion));
   }
 
   @Get('ofertas/:id')

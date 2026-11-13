@@ -16,9 +16,12 @@ import {
   leerHorarioEscrito,
   normalizarTexto,
   textoHorario,
+  ajusteLogoSchema,
   TIENDA_RESERVADA,
+  type LogoDatos,
   type PortadaDatos,
   type PortadaTienda,
+  type RespuestaLogo,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
 
@@ -103,12 +106,24 @@ export function respuestaCuenta(usuario: UsuarioConTienda): RespuestaCuenta {
           indicaciones: tienda.indicaciones,
           descripcion: tienda.descripcion,
           logo: tienda.logo,
+          // Un logo de antes (o subido sin ajustar) es su propia original.
+          logo_original: tienda.logo ? (tienda.logoOriginal ?? tienda.logo) : null,
+          logo_ajuste: tienda.logo ? ajusteDe(tienda.logoAjuste) : null,
           precio_visible_defecto: tienda.precioVisibleDefecto,
           moneda_defecto: tienda.monedaDefecto,
         }
       : null,
   };
 }
+
+/** El ajuste guardado del logo (docs/19 §20), o nulo si no hay o no se entiende. */
+function ajusteDe(valor: Prisma.JsonValue | null): RespuestaLogo['ajuste'] | null {
+  const leido = ajusteLogoSchema.safeParse(valor);
+  return leido.success ? leido.data : null;
+}
+
+/** El zoom se guarda con dos decimales: 1.2345 → 1.23. */
+const zoomRedondeado = (zoom: number) => Math.round(zoom * 100) / 100;
 
 /**
  * Configuración (C_Configuracion; RF-48, RF-56, RF-58 a RF-60). En el MVP el dueño y el
@@ -160,19 +175,34 @@ export class CuentaService {
                 portadaRuta: datos.ruta,
                 portadaAncho: medidas.ancho,
                 portadaAlto: medidas.alto,
-                // Una foto nueva arranca al centro.
+                // Una foto nueva arranca al centro y sin zoom.
                 portadaPosicion: datos.posicion ?? 50,
+                portadaX: datos.x ?? 50,
+                portadaZoom: zoomRedondeado(datos.zoom ?? 1),
               }
             : {}),
           ...(!medidas && datos.posicion !== undefined ? { portadaPosicion: datos.posicion } : {}),
+          ...(!medidas && datos.x !== undefined ? { portadaX: datos.x } : {}),
+          ...(!medidas && datos.zoom !== undefined
+            ? { portadaZoom: zoomRedondeado(datos.zoom) }
+            : {}),
         },
-        select: { portadaRuta: true, portadaAncho: true, portadaAlto: true, portadaPosicion: true },
+        select: {
+          portadaRuta: true,
+          portadaAncho: true,
+          portadaAlto: true,
+          portadaPosicion: true,
+          portadaZoom: true,
+          portadaX: true,
+        },
       });
       return {
         ruta: nueva.portadaRuta ?? '',
         ancho: nueva.portadaAncho,
         alto: nueva.portadaAlto,
         posicion: nueva.portadaPosicion,
+        zoom: nueva.portadaZoom,
+        x: nueva.portadaX,
       };
     });
   }
@@ -185,8 +215,77 @@ export class CuentaService {
     if (!tiendaId) return;
     await this.prisma.tienda.update({
       where: { id: tiendaId },
-      data: { portadaRuta: null, portadaAncho: null, portadaAlto: null, portadaPosicion: 50 },
+      data: {
+        portadaRuta: null,
+        portadaAncho: null,
+        portadaAlto: null,
+        portadaPosicion: 50,
+        portadaZoom: 1,
+        portadaX: 50,
+      },
     });
+  }
+
+  /**
+   * «Guardar» de «Ajustar logo» (docs/19 §20). La original es la foto nueva (`ruta`, que tiene que
+   * ser de la tienda y sin usar) o la que ya tenía; con un logo de antes, ese mismo logo. Con ella
+   * y el ajuste, `ArchivosService` arma el logo de 512 × 512, que queda como `logo`. El logo
+   * armado de antes se borra si ya nadie lo usa.
+   */
+  async logo(usuarioId: string, datos: LogoDatos): Promise<RespuestaLogo> {
+    const { tiendaId, tienda } = await this.prisma.usuario.findUniqueOrThrow({
+      where: { id: usuarioId },
+      select: { tiendaId: true, tienda: { select: { logo: true, logoOriginal: true } } },
+    });
+    if (!tiendaId || !tienda) {
+      throw new ApiHttpException(HttpStatus.FORBIDDEN, 'PROHIBIDO', 'Tu cuenta no tiene tienda.');
+    }
+    const original = datos.ruta ?? tienda.logoOriginal ?? tienda.logo;
+    if (!original) {
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'Primero elige la imagen de tu logo.',
+      );
+    }
+    const nueva = datos.ruta !== undefined && datos.ruta !== tienda.logoOriginal;
+    if (nueva) {
+      // Antes de armar nada: la foto tiene que ser de la tienda y estar sin usar.
+      const subida = await this.prisma.archivo.findFirst({
+        where: { ruta: original, tiendaId, usadoEn: null },
+        select: { id: true },
+      });
+      if (!subida) {
+        throw new ApiHttpException(
+          HttpStatus.BAD_REQUEST,
+          'DATOS_INVALIDOS',
+          'Una de las fotos no es válida; súbela de nuevo.',
+        );
+      }
+    }
+    const armado = await this.archivos.armarLogo(original, datos.ajuste, {
+      id: usuarioId,
+      tiendaId,
+    });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (nueva) await this.archivos.reclamar(tx, [original], tiendaId);
+        await tx.tienda.update({
+          where: { id: tiendaId },
+          data: { logo: armado.ruta, logoOriginal: original, logoAjuste: datos.ajuste },
+        });
+      });
+    } catch (error) {
+      await this.archivos.borrarSinUso([armado.ruta]);
+      throw error;
+    }
+    // El armado de antes (y la original de antes, si cambió) ya no los usa nadie.
+    await this.archivos.borrarSinUso(
+      [tienda.logo, tienda.logoOriginal].filter(
+        (ruta): ruta is string => ruta !== null && ruta !== original,
+      ),
+    );
+    return { logo: armado.ruta, original, ajuste: datos.ajuste };
   }
 
   async actualizar(usuarioId: string, cambios: ActualizarCuentaDatos): Promise<RespuestaCuenta> {
@@ -205,7 +304,8 @@ export class CuentaService {
               'Tu cuenta no tiene tienda.',
             );
           }
-          if (tienda.logo && tienda.logo !== actual.tienda?.logo) {
+          const logoCambia = tienda.logo !== undefined && tienda.logo !== actual.tienda?.logo;
+          if (tienda.logo && logoCambia) {
             await this.archivos.reclamar(tx, [tienda.logo], actual.tiendaId);
           }
           // Con el horario por días (N09), el texto se escribe solo.
@@ -228,6 +328,8 @@ export class CuentaService {
               indicaciones: tienda.indicaciones,
               descripcion: tienda.descripcion,
               logo: tienda.logo,
+              // Un logo puesto sin «Ajustar» (o quitado) no tiene original ni ajuste aparte.
+              ...(logoCambia ? { logoOriginal: null, logoAjuste: Prisma.DbNull } : {}),
               precioVisibleDefecto: tienda.precio_visible_defecto,
               monedaDefecto: tienda.moneda_defecto,
             },

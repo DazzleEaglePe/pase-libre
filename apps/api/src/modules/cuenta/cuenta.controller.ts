@@ -18,6 +18,7 @@ import {
   alertaBusquedaSchema,
   avisosCuentaSchema,
   cambioLugarSchema,
+  logoTiendaSchema,
   portadaTiendaSchema,
   respuestasRapidasSchema,
   type ActualizarCuentaDatos,
@@ -26,11 +27,13 @@ import {
   type AvisosCuentaDatos,
   type CambioLugarDatos,
   type GaleriaParaElegir,
+  type LogoDatos,
   type MiReporte,
   type PortadaDatos,
   type PortadaTienda,
   type RespuestaAvisosCuenta,
   type RespuestaCuenta,
+  type RespuestaLogo,
   type ResumenCuenta,
   type RespuestaRapida,
   type RespuestasRapidasDatos,
@@ -127,6 +130,22 @@ export class CuentaController {
     @SesionActual() { usuario }: SesionActiva,
   ): Promise<PortadaTienda> {
     return this.cuentas.portada(usuario.id, datos);
+  }
+
+  /**
+   * «Guardar» de «Ajustar logo» (docs/19 §20): con `ruta`, una foto nueva; sin ella, se reacomoda
+   * la original. La API arma el logo de 512 × 512 y lo deja puesto.
+   */
+  @Put('logo')
+  @Roles('DUENO', 'ASESOR')
+  @Permiso('DATOS_TIENDA')
+  @PermitirEnSoporte('ajustó tu logo')
+  @Header('Cache-Control', 'no-store')
+  logo(
+    @Body(new ZodValidationPipe(logoTiendaSchema)) datos: LogoDatos,
+    @SesionActual() { usuario }: SesionActiva,
+  ): Promise<RespuestaLogo> {
+    return this.cuentas.logo(usuario.id, datos);
   }
 
   /** «Quitar portada»: queda la automática. */

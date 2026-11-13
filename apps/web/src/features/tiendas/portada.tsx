@@ -1,6 +1,12 @@
 'use client';
 
-import { urlFoto, type PerfilTienda, type PortadaTienda } from '@paselibre/contracts';
+import {
+  urlFoto,
+  ZOOM_MAXIMO,
+  ZOOM_MINIMO,
+  type PerfilTienda,
+  type PortadaTienda,
+} from '@paselibre/contracts';
 import {
   IconArrowsMove,
   IconBolt,
@@ -99,11 +105,33 @@ function PortadaAutomatica({
   );
 }
 
-/** Una foto subida: a lo largo, recortada según «Acomodar»; vertical, entera con los costados difuminados. */
-function PortadaFoto({ portada, posicion }: { portada: PortadaTienda; posicion: number }) {
+/** Cómo se acomodó la portada (docs/19 §20): qué parte se ve a lo ancho y a lo alto, y el zoom. */
+interface Acomodo {
+  /** De la izquierda (0) a la derecha (100). */
+  x: number;
+  /** De arriba (0) a abajo (100). */
+  posicion: number;
+  /** De 1 a 4. */
+  zoom: number;
+}
+
+const acomodoDe = (portada: PortadaTienda | null): Acomodo => ({
+  x: portada?.x ?? 50,
+  posicion: portada?.posicion ?? 50,
+  zoom: portada?.zoom ?? 1,
+});
+
+/** Más alta que ancha (o casi): va entera, con los costados difuminados. */
+const esVertical = (ancho: number | null, alto: number | null) => (alto ?? 0) > (ancho ?? 1) * 0.9;
+
+/**
+ * Una foto subida: a lo largo, recortada y con zoom según «Acomodar»; vertical, entera con los
+ * costados difuminados (con zoom y movida a los costados, si se acomodó).
+ */
+function PortadaFoto({ portada, acomodo }: { portada: PortadaTienda; acomodo: Acomodo }) {
   const src = urlFoto(portada.ruta);
-  const vertical = (portada.alto ?? 0) > (portada.ancho ?? 1) * 0.9;
-  if (vertical) {
+  const origen = `${acomodo.x}% ${acomodo.posicion}%`;
+  if (esVertical(portada.ancho, portada.alto)) {
     return (
       <>
         <span aria-hidden="true" className="absolute inset-0 overflow-hidden">
@@ -118,7 +146,13 @@ function PortadaFoto({ portada, posicion }: { portada: PortadaTienda; posicion: 
         <img
           src={src}
           alt=""
-          className="absolute left-1/2 top-0 h-full w-auto -translate-x-1/2 object-cover shadow-[0_0_30px_rgba(0,0,0,0.35)]"
+          draggable={false}
+          className="absolute top-0 h-full w-auto max-w-none select-none object-cover shadow-[0_0_30px_rgba(0,0,0,0.35)]"
+          style={{
+            left: `${acomodo.x}%`,
+            transform: `translateX(-${acomodo.x}%) scale(${acomodo.zoom})`,
+            transformOrigin: origen,
+          }}
         />
       </>
     );
@@ -130,8 +164,44 @@ function PortadaFoto({ portada, posicion }: { portada: PortadaTienda; posicion: 
       alt=""
       draggable={false}
       className="absolute inset-0 h-full w-full select-none object-cover"
-      style={{ objectPosition: `center ${posicion}%` }}
+      style={{
+        objectPosition: origen,
+        transform: acomodo.zoom > 1 ? `scale(${acomodo.zoom})` : undefined,
+        transformOrigin: origen,
+      }}
     />
+  );
+}
+
+/** Desde qué ancho la portada se ve nítida (docs/19 §20). */
+const ANCHO_MINIMO_PORTADA = 1600;
+
+/** Las medidas de la foto elegida, antes de subirla. Nulas si no se pueden leer. */
+function medirFoto(archivo: File): Promise<{ ancho: number; alto: number } | null> {
+  return new Promise((resolver) => {
+    const src = URL.createObjectURL(archivo);
+    const imagen = new Image();
+    imagen.onload = () => {
+      resolver({ ancho: imagen.naturalWidth, alto: imagen.naturalHeight });
+      URL.revokeObjectURL(src);
+    };
+    imagen.onerror = () => {
+      resolver(null);
+      URL.revokeObjectURL(src);
+    };
+    imagen.src = src;
+  });
+}
+
+/** El dibujito del recuadro: una portada a lo ancho con lo importante al centro. */
+function DibujoPortada() {
+  return (
+    <svg width="54" height="34" viewBox="0 0 54 34" aria-hidden="true" className="shrink-0">
+      <rect x="1" y="7" width="52" height="20" rx="4" fill="#D5F5E3" stroke="#006B47" />
+      <rect x="15" y="7" width="24" height="20" fill="#22D37A" opacity="0.45" />
+      <path d="M15 7v20M39 7v20" stroke="#006B47" strokeDasharray="2 2" />
+      <circle cx="27" cy="17" r="4" fill="#006B47" />
+    </svg>
   );
 }
 
@@ -229,13 +299,31 @@ export function MenuPortada({
   }, [abierto]);
 
   async function subir(foto: File) {
+    setDudosa(null);
     await hacer(async () => {
-      const subida = await subirFoto(foto);
+      // Las portadas se guardan de hasta 2400 px (docs/19 §20).
+      const subida = await subirFoto(foto, 'portada');
       await llamarApi('/cuenta/portada', { metodo: 'PUT', cuerpo: { ruta: subida.ruta } });
     });
   }
 
-  const vertical = perfil.portada && (perfil.portada.alto ?? 0) > (perfil.portada.ancho ?? 1) * 0.9;
+  /** Antes de subirla: si es chica o vertical, se avisa y se pregunta (docs/19 §20). */
+  async function elegida(foto: File) {
+    const medidas = await medirFoto(foto);
+    const avisos: string[] = [];
+    if (medidas && medidas.ancho < ANCHO_MINIMO_PORTADA) {
+      avisos.push(
+        `Tu foto mide ${medidas.ancho} × ${medidas.alto}: se va a ver borrosa. ¿Subirla igual?`,
+      );
+    }
+    if (medidas && esVertical(medidas.ancho, medidas.alto)) {
+      avisos.push('Es vertical: se verá con los costados borrosos. Mejor una horizontal.');
+    }
+    if (avisos.length === 0) void subir(foto);
+    else setDudosa({ foto, avisos });
+  }
+
+  const [dudosa, setDudosa] = useState<{ foto: File; avisos: string[] } | null>(null);
 
   return (
     <div ref={caja} className={`relative ${className}`}>
@@ -264,35 +352,43 @@ export function MenuPortada({
         onChange={(evento) => {
           const foto = evento.target.files?.[0];
           evento.target.value = '';
-          if (foto) void subir(foto);
+          if (foto) void elegida(foto);
         }}
       />
       {abierto && (
         <div
           role="menu"
           aria-label="Portada de tu tienda"
-          className={`absolute right-0 z-30 flex w-[280px] flex-col rounded-2xl border border-linea bg-white p-1.5 shadow-[0_18px_40px_rgba(20,22,26,0.18)] ${
+          className={`absolute right-0 z-30 flex w-[300px] flex-col rounded-2xl border border-linea bg-white p-1.5 shadow-[0_18px_40px_rgba(20,22,26,0.18)] ${
             sobreFoto ? 'top-12' : 'top-14'
           }`}
         >
           <Opcion
             icono={IconPhoto}
             titulo="Subir una foto"
-            detalle="Mejor horizontal · 1600 × 400 · JPG, PNG o iPhone"
+            detalle="JPG, PNG o iPhone"
             alElegir={() => {
               setAbierto(false);
               archivo.current?.click();
             }}
           />
+          {/* Antes de subir (docs/19 §20): qué foto conviene, con un dibujito. */}
+          <span className="mx-1.5 mb-1.5 flex items-center gap-2.5 rounded-xl bg-[#EEF7F2] px-3 py-2.5 text-[12px] leading-[1.45] text-[#2E3833]">
+            <DibujoPortada />
+            <span>
+              <b className="font-bold">Recomendado:</b> foto horizontal de 2400 × 600 o más. Pon lo
+              importante al centro: en el celular se cortan los costados.
+            </span>
+          </span>
           <Opcion
             icono={IconArrowsMove}
             titulo="Acomodar"
             detalle={
-              perfil.portada && !vertical
-                ? 'Arrastra para elegir qué parte se ve'
-                : 'Con una foto horizontal subida'
+              perfil.portada
+                ? 'Arrastra para elegir qué parte se ve, y acerca o aleja'
+                : 'Con una foto subida'
             }
-            deshabilitada={!perfil.portada || Boolean(vertical)}
+            deshabilitada={!perfil.portada}
             alElegir={() => {
               setAbierto(false);
               alAcomodar();
@@ -327,6 +423,38 @@ export function MenuPortada({
               }}
             />
           )}
+        </div>
+      )}
+      {dudosa && (
+        <div
+          role="alertdialog"
+          aria-label="Antes de subir la portada"
+          className="absolute right-0 top-full z-30 mt-2 flex w-[300px] flex-col gap-2.5 rounded-2xl border border-linea bg-white p-3.5 text-apoyo shadow-[0_18px_40px_rgba(20,22,26,0.18)]"
+        >
+          {dudosa.avisos.map((aviso) => (
+            <span key={aviso} className="text-tinta">
+              {aviso}
+            </span>
+          ))}
+          <span className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void subir(dudosa.foto)}
+              className="h-9 rounded-full bg-tinta px-4 text-nota font-bold text-white"
+            >
+              Subirla igual
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDudosa(null);
+                archivo.current?.click();
+              }}
+              className="h-9 rounded-full border-[1.5px] border-borde px-4 text-nota font-bold"
+            >
+              Elegir otra
+            </button>
+          </span>
         </div>
       )}
       {error && (
@@ -373,11 +501,15 @@ export function Portada({
 }) {
   const [acomodandoAqui, setAcomodandoAqui] = useState(false);
   const acomodando = acomodandoDesdeFuera ?? acomodandoAqui;
-  const [posicion, setPosicion] = useState(perfil.portada?.posicion ?? 50);
+  const [acomodo, setAcomodo] = useState<Acomodo>(() => acomodoDe(perfil.portada));
   const { trabajando, error, hacer } = useAccionPortada();
-  const arrastre = useRef<{ y: number; desde: number } | null>(null);
+  const arrastre = useRef<{ x: number; y: number; desde: Acomodo } | null>(null);
+  const guardado = acomodoDe(perfil.portada);
 
-  useEffect(() => setPosicion(perfil.portada?.posicion ?? 50), [perfil.portada?.posicion]);
+  useEffect(
+    () => setAcomodo({ x: guardado.x, posicion: guardado.posicion, zoom: guardado.zoom }),
+    [guardado.x, guardado.posicion, guardado.zoom],
+  );
 
   function terminar() {
     setAcomodandoAqui(false);
@@ -401,21 +533,29 @@ export function Portada({
         style={desvanecer}
         onPointerDown={(evento) => {
           if (!acomodando) return;
-          arrastre.current = { y: evento.clientY, desde: posicion };
+          arrastre.current = { x: evento.clientX, y: evento.clientY, desde: acomodo };
           (evento.currentTarget as HTMLElement).setPointerCapture(evento.pointerId);
         }}
         onPointerMove={(evento) => {
-          if (!acomodando || !arrastre.current) return;
-          const alto = (evento.currentTarget as HTMLElement).clientHeight || 1;
-          const delta = ((evento.clientY - arrastre.current.y) / alto) * 100;
-          setPosicion(Math.min(100, Math.max(0, Math.round(arrastre.current.desde - delta))));
+          const inicio = arrastre.current;
+          if (!acomodando || !inicio) return;
+          const caja = evento.currentTarget as HTMLElement;
+          // Con zoom, la misma arrastrada mueve menos: la foto se ve más grande.
+          const enX = ((evento.clientX - inicio.x) / (caja.clientWidth || 1)) * 100;
+          const enY = ((evento.clientY - inicio.y) / (caja.clientHeight || 1)) * 100;
+          const limitar = (valor: number) => Math.min(100, Math.max(0, Math.round(valor)));
+          setAcomodo({
+            ...inicio.desde,
+            x: limitar(inicio.desde.x - enX / inicio.desde.zoom),
+            posicion: limitar(inicio.desde.posicion - enY / inicio.desde.zoom),
+          });
         }}
         onPointerUp={() => {
           arrastre.current = null;
         }}
       >
         {perfil.portada ? (
-          <PortadaFoto portada={perfil.portada} posicion={posicion} />
+          <PortadaFoto portada={perfil.portada} acomodo={acomodo} />
         ) : (
           <PortadaAutomatica
             nombre={perfil.nombre}
@@ -433,13 +573,54 @@ export function Portada({
         >
           <span className="flex items-center gap-2 text-apoyo">
             <IconArrowsMove size={18} stroke={1.8} aria-hidden="true" />
-            Arrastra arriba o abajo para elegir qué parte se ve
+            Arrastra para acomodar
+          </span>
+          {/* La barrita de zoom − ● + (docs/19 §20), de 1× a 4×. */}
+          <span className="flex min-w-[160px] flex-1 items-center gap-2 text-[18px] font-bold sm:max-w-[240px]">
+            <button
+              type="button"
+              aria-label="Alejar"
+              onClick={() =>
+                setAcomodo((actual) => ({
+                  ...actual,
+                  zoom: Math.max(ZOOM_MINIMO, actual.zoom - 0.25),
+                }))
+              }
+              className="px-1"
+            >
+              −
+            </button>
+            <input
+              type="range"
+              aria-label="Zoom de la portada"
+              min={ZOOM_MINIMO}
+              max={ZOOM_MAXIMO}
+              step={0.01}
+              value={acomodo.zoom}
+              onChange={(evento) =>
+                setAcomodo((actual) => ({ ...actual, zoom: Number(evento.target.value) }))
+              }
+              className="h-[5px] flex-1 accent-white"
+            />
+            <button
+              type="button"
+              aria-label="Acercar"
+              onClick={() =>
+                setAcomodo((actual) => ({
+                  ...actual,
+                  zoom: Math.min(ZOOM_MAXIMO, actual.zoom + 0.25),
+                }))
+              }
+              className="px-1"
+            >
+              +
+            </button>
           </span>
           <span className="flex gap-2">
             <button
               type="button"
               onClick={() => {
-                setPosicion(perfil.portada?.posicion ?? 50);
+                setAcomodo(acomodoDe(perfil.portada));
                 terminar();
               }}
               className="h-9 rounded-full border border-white/60 px-4 text-apoyo font-bold"
@@ -451,7 +632,14 @@ export function Portada({
               disabled={trabajando}
               onClick={() =>
                 void hacer(() =>
-                  llamarApi('/cuenta/portada', { metodo: 'PUT', cuerpo: { posicion } }),
+                  llamarApi('/cuenta/portada', {
+                    metodo: 'PUT',
+                    cuerpo: {
+                      posicion: acomodo.posicion,
+                      x: acomodo.x,
+                      zoom: Math.round(acomodo.zoom * 100) / 100,
+                    },
+                  }),
                 ).then(terminar)
               }
               className="h-9 rounded-full bg-white px-4 text-apoyo font-bold text-tinta"

@@ -399,7 +399,8 @@ export interface CambioDeDato {
     | 'Versión'
     | 'Código de parte'
     | 'Sinónimos'
-    | 'Características';
+    | 'Características'
+    | 'Perfil de memoria';
   antes: string;
   despues: string;
 }

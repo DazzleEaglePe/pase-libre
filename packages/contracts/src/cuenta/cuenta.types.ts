@@ -1,4 +1,5 @@
 import type { Moneda } from '../comun/dinero.js';
+import type { AjusteLogo } from './cuenta.schemas.js';
 import type { Rol, TipoTienda } from '../sesion/sesion.types.js';
 import type { TramoHorario } from '../tiendas/horario.js';
 
@@ -51,6 +52,12 @@ export interface RespuestaCuenta {
     descripcion: string | null;
     /** Ruta del logo (`/media/<ruta>`), o nulo. */
     logo: string | null;
+    /**
+     * «Ajustar logo» (docs/19 §20): la foto original y cómo se acomodó, para volver a abrirla. Con
+     * un logo de antes (o subido sin ajustar), la original es el mismo logo y el ajuste es nulo.
+     */
+    logo_original: string | null;
+    logo_ajuste: AjusteLogo | null;
     precio_visible_defecto: boolean;
     moneda_defecto: Moneda;
   } | null;
@@ -162,4 +169,11 @@ export interface CambioDeLugar {
   /** Quién lo pidió: «Luis P.». */
   pedido_por: string;
   pedido_en: string;
+}
+
+/** `PUT /v1/cuenta/logo` (docs/19 §20): el logo de 512 × 512 que se armó y cómo se hizo. */
+export interface RespuestaLogo {
+  logo: string;
+  original: string;
+  ajuste: AjusteLogo;
 }

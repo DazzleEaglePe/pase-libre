@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, unlink, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
+import { dirname, join, resolve, sep } from 'node:path';
 
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { ArchivoSubido } from '@paselibre/contracts';
+import type { AjusteLogo, ArchivoSubido } from '@paselibre/contracts';
 import type { Prisma } from '@prisma/client';
-import sharp from 'sharp';
+import sharp, { type OverlayOptions } from 'sharp';
 
 import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
@@ -17,6 +17,16 @@ const FORMATOS = new Set(['jpeg', 'png', 'webp']);
 export const MAX_BYTES_FOTO = 8 * 1024 * 1024;
 /** Lado mayor de la foto guardada: alcanza para la ficha en pantallas grandes. */
 const LADO_MAXIMO = 1600;
+/**
+ * Las portadas del perfil (docs/19 §20) se guardan más grandes: a lo ancho de una pantalla buena,
+ * con 1600 se ven borrosas.
+ */
+const LADO_MAXIMO_PORTADA = 2400;
+/** El logo que arma «Ajustar logo» (docs/19 §20): cuadrado, el mismo en todos lados. */
+export const LADO_LOGO = 512;
+
+/** Para qué se sube la foto: las portadas pueden ser más grandes. */
+export type UsoDeFoto = 'foto' | 'portada';
 /**
  * Evita que una imagen pequeña en bytes pero enorme en píxeles agote la memoria: 24 MP ya
  * pasan los ~100 MB al decodificarse, y la API corre con 512 MB. Una foto de celular tiene 12.
@@ -46,9 +56,22 @@ export class ArchivosService {
   async subir(
     contenido: Buffer,
     usuario: { id: string; tiendaId: string | null },
+    uso: UsoDeFoto = 'foto',
   ): Promise<ArchivoSubido> {
-    const { data, info } = await this.procesar(contenido);
+    const { data, info } = await this.procesar(
+      contenido,
+      uso === 'portada' ? LADO_MAXIMO_PORTADA : LADO_MAXIMO,
+    );
+    return this.guardar(data, info, usuario);
+  }
 
+  /** Escribe la foto ya procesada en la carpeta del mes y la anota como subida por `usuario`. */
+  private async guardar(
+    data: Buffer,
+    info: { width: number; height: number; size: number },
+    usuario: { id: string; tiendaId: string | null },
+    usadoEn: Date | null = null,
+  ): Promise<ArchivoSubido> {
     const ahora = new Date();
     const carpetaMes = `${ahora.getUTCFullYear()}/${String(ahora.getUTCMonth() + 1).padStart(2, '0')}`;
     const ruta = `${carpetaMes}/${randomUUID()}.webp`;
@@ -64,9 +87,103 @@ export class ArchivosService {
         ancho: info.width,
         alto: info.height,
         bytes: info.size,
+        usadoEn,
       },
     });
     return { ruta, ancho: info.width, alto: info.height };
+  }
+
+  /**
+   * «Ajustar logo» (docs/19 §20): arma el logo cuadrado de 512 × 512 desde la foto original y cómo
+   * se acomodó. Se gira la original; el círculo mide `min(ancho, alto) / zoom` de la foto girada y
+   * su centro cae en (`x`, `y`) de ella. Lo que queda fuera de la foto se rellena con `fondo`. La
+   * web dibuja la vista previa con la misma cuenta. El logo nuevo queda anotado como ya usado.
+   */
+  async armarLogo(
+    original: string,
+    ajuste: AjusteLogo,
+    usuario: { id: string; tiendaId: string | null },
+  ): Promise<ArchivoSubido> {
+    let contenido: Buffer;
+    try {
+      contenido = await readFile(this.rutaEnCarpeta(original));
+    } catch {
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'No encontramos la imagen de tu logo. Súbela de nuevo.',
+      );
+    }
+    try {
+      const girada = await sharp(contenido, { limitInputPixels: MAX_PIXELES })
+        .rotate(ajuste.rotacion)
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const ancho = girada.info.width;
+      const alto = girada.info.height;
+      const lado = Math.min(ancho, alto) / ajuste.zoom;
+      const izquierda = ajuste.x * ancho - lado / 2;
+      const arriba = ajuste.y * alto - lado / 2;
+      const escala = LADO_LOGO / lado;
+
+      // La parte de la foto que cae dentro del cuadrado, en píxeles de la foto girada.
+      const x0 = Math.max(0, Math.floor(izquierda));
+      const y0 = Math.max(0, Math.floor(arriba));
+      const x1 = Math.min(ancho, Math.ceil(izquierda + lado));
+      const y1 = Math.min(alto, Math.ceil(arriba + lado));
+      const capas: OverlayOptions[] = [];
+      if (x1 > x0 && y1 > y0) {
+        const destinoX = Math.max(0, Math.round((x0 - izquierda) * escala));
+        const destinoY = Math.max(0, Math.round((y0 - arriba) * escala));
+        const anchoFinal = Math.max(
+          1,
+          Math.min(LADO_LOGO - destinoX, Math.round((x1 - x0) * escala)),
+        );
+        const altoFinal = Math.max(
+          1,
+          Math.min(LADO_LOGO - destinoY, Math.round((y1 - y0) * escala)),
+        );
+        const recorte = await sharp(girada.data, {
+          raw: { width: ancho, height: alto, channels: 4 },
+        })
+          .extract({ left: x0, top: y0, width: x1 - x0, height: y1 - y0 })
+          .resize(anchoFinal, altoFinal, { fit: 'fill' })
+          .png()
+          .toBuffer();
+        capas.push({ input: recorte, left: destinoX, top: destinoY });
+      }
+      const fondo =
+        ajuste.fondo === 'transparente'
+          ? { r: 0, g: 0, b: 0, alpha: 0 }
+          : {
+              r: Number.parseInt(ajuste.fondo.slice(1, 3), 16),
+              g: Number.parseInt(ajuste.fondo.slice(3, 5), 16),
+              b: Number.parseInt(ajuste.fondo.slice(5, 7), 16),
+              alpha: 1,
+            };
+      const { data, info } = await sharp({
+        create: { width: LADO_LOGO, height: LADO_LOGO, channels: 4, background: fondo },
+      })
+        .composite(capas)
+        .webp({ quality: 88 })
+        .toBuffer({ resolveWithObject: true });
+      return await this.guardar(data, info, usuario, new Date());
+    } catch (error) {
+      if (error instanceof ApiHttpException) throw error;
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'No pudimos ajustar tu logo. Prueba con otra imagen.',
+      );
+    }
+  }
+
+  /** La ruta de un archivo dentro de la carpeta de fotos; nunca fuera de ella. */
+  private rutaEnCarpeta(ruta: string): string {
+    const completa = resolve(this.carpeta, ruta);
+    if (!completa.startsWith(this.carpeta + sep)) throw new Error('Ruta fuera de la carpeta.');
+    return completa;
   }
 
   /**
@@ -113,6 +230,7 @@ export class ArchivosService {
       UNION SELECT foto FROM mensaje WHERE foto = ANY(${unicas})
       UNION SELECT foto FROM mensaje_version WHERE foto = ANY(${unicas})
       UNION SELECT logo FROM tienda WHERE logo = ANY(${unicas})
+      UNION SELECT logo_original FROM tienda WHERE logo_original = ANY(${unicas})
       UNION SELECT portada_ruta FROM tienda WHERE portada_ruta = ANY(${unicas})
       UNION SELECT unnest(fotos)::text FROM en_vivo WHERE fotos::text[] && ${unicas}::text[]
       UNION SELECT foto FROM aviso WHERE foto = ANY(${unicas})`;
@@ -132,15 +250,15 @@ export class ArchivosService {
     return borradas;
   }
 
-  private async procesar(contenido: Buffer) {
+  private async procesar(contenido: Buffer, ladoMaximo: number) {
     try {
       const { format } = await sharp(contenido, { limitInputPixels: MAX_PIXELES }).metadata();
       if (!format || !FORMATOS.has(format)) throw new Error(`Formato no permitido: ${format}`);
       return await sharp(contenido, { limitInputPixels: MAX_PIXELES })
         .rotate()
         .resize({
-          width: LADO_MAXIMO,
-          height: LADO_MAXIMO,
+          width: ladoMaximo,
+          height: ladoMaximo,
           fit: 'inside',
           withoutEnlargement: true,
         })

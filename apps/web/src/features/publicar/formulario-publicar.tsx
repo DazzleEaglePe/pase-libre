@@ -7,6 +7,7 @@ import {
   MAX_TEXTO_OTRO,
   montoParaCampo,
   precioDe,
+  preguntasDeCategoria,
   TEXTO_ESTADO_DETALLE,
   tituloDeProducto,
   type ArchivoSubido,
@@ -17,11 +18,14 @@ import {
   type QuienVePrecio,
   type RespuestaSocios,
   type OfertaPropia,
+  type PerfilMemoria,
   type ProductoResumen,
   type RespuestaPublicar,
   type RespuestaSugerencias,
   type SugerenciaProducto,
   type TiendaDeSesion,
+  type VariantesOferta,
+  variantesDeCategoria,
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -38,9 +42,12 @@ import { alternarEnTexto, DETALLES_EN_TEXTO, tieneEnTexto } from './detalles';
 import { FotosPublicacion, portadaElegida, portadaQueSeVe } from './fotos-publicacion';
 import { BuscadorProducto, ProductoElegido } from './producto-catalogo';
 import { PRODUCTO_NUEVO_VACIO, ProductoNuevo, type DatosProductoNuevo } from './producto-nuevo';
+import { PreguntasVariantes } from './variantes';
 import { VistaPrevia } from './vista-previa';
 
 type Modo = 'buscar' | 'igual' | 'nuevo';
+
+const SIN_VARIANTES: VariantesOferta = { perfil_memoria: null, empaque: null, oc: null };
 
 /** «Estado» (COR9): con «Otro» se escribe. Reacondicionado sigue si una oferta ya lo tenía. */
 const ESTADOS: Array<[EstadoDetalle, string]> = [
@@ -348,6 +355,10 @@ export function FormularioPublicar({
   const [fotosProducto, setFotosProducto] = useState<ArchivoSubido[]>([]);
   const [estado, setEstado] = useState<EstadoDetalle>('SELLADO');
   const [conCaja, setConCaja] = useState(true);
+  /** «¿Para qué procesador es?», empaque y OC (docs/19 §13): nada marcado de entrada. */
+  const [variantes, setVariantes] = useState<VariantesOferta>(SIN_VARIANTES);
+  /** Lo que dijo el catálogo cuando vino marcado solo: «✦ Ya viene marcado…». */
+  const [delCatalogo, setDelCatalogo] = useState<PerfilMemoria | null>(null);
   const [conFactura, setConFactura] = useState(false);
   const [probado, setProbado] = useState(false);
   const [garantia, setGarantia] = useState<Garantia | null>(null);
@@ -382,6 +393,13 @@ export function FormularioPublicar({
   const [editando, setEditando] = useState<OfertaPropia | null>(null);
   const [cargando, setCargando] = useState(Boolean(igual || editar));
 
+  /** Al elegir un producto: si el catálogo sabe para qué procesador es, viene marcado. */
+  function marcarDelCatalogo(producto: ProductoResumen | null) {
+    const perfil = producto?.perfil_memoria ?? null;
+    setDelCatalogo(perfil);
+    setVariantes({ ...SIN_VARIANTES, perfil_memoria: perfil });
+  }
+
   async function elegirPorSlug(slug: string) {
     try {
       const { productos } = await llamarApi<RespuestaSugerencias>(
@@ -390,6 +408,7 @@ export function FormularioPublicar({
       const [producto] = productos;
       if (producto) {
         setElegido(producto);
+        marcarDelCatalogo(producto);
         setModo('igual');
         setError(null);
       }
@@ -422,6 +441,17 @@ export function FormularioPublicar({
           setEditando(oferta);
           setEstado(oferta.detalle.estado);
           setConCaja(oferta.detalle.con_caja);
+          // Una publicación de antes, «Con caja» y sin empaque: queda marcado «Con caja».
+          setVariantes({
+            perfil_memoria: oferta.detalle.perfil_memoria,
+            oc: oferta.detalle.oc,
+            empaque:
+              oferta.detalle.empaque ??
+              (preguntasDeCategoria(oferta.producto.categoria.slug).empaque &&
+              oferta.detalle.con_caja
+                ? 'CAJA'
+                : null),
+          });
           setConFactura(oferta.detalle.con_factura);
           setProbado(oferta.detalle.probado);
           setGarantia(oferta.detalle.garantia);
@@ -486,6 +516,9 @@ export function FormularioPublicar({
   const fotoPrevia = portadaQueSeVe(portada, fotoCatalogo, fotos);
   const categoriaPrevia =
     (modo === 'nuevo' ? nuevo.categoria : producto?.categoria.slug) || 'graficas';
+  /** La categoría de verdad (sin la del dibujo): decide qué se pregunta (docs/19 §13). */
+  const categoriaElegida =
+    (!editando && modo === 'nuevo' ? nuevo.categoria : producto?.categoria.slug) || null;
   const listo = Boolean(editando) || modo !== 'buscar';
   const subiendo = subiendoProducto || subiendoPropias;
 
@@ -496,6 +529,8 @@ export function FormularioPublicar({
     setElegido(null);
     setNuevo(PRODUCTO_NUEVO_VACIO);
     setFotosProducto([]);
+    setVariantes(SIN_VARIANTES);
+    setDelCatalogo(null);
     setEstadoOtro('');
     setGarantiaOtra('');
     setStock(1);
@@ -525,9 +560,12 @@ export function FormularioPublicar({
     }
     setEnviando(true);
     setError(null);
+    const preguntas = preguntasDeCategoria(categoriaElegida);
     const oferta = {
       estado_detalle: estado,
-      con_caja: conCaja,
+      // Donde se pregunta el empaque, «Con caja» sale de ahí.
+      con_caja: preguntas.empaque ? variantes.empaque === 'CAJA' : conCaja,
+      ...variantesDeCategoria(categoriaElegida, variantes),
       con_factura: conFactura,
       probado,
       garantia,
@@ -663,7 +701,10 @@ export function FormularioPublicar({
    * completos» y «Entrega inmediata» se escriben en el texto.
    */
   const marcas: Array<[string, boolean, (valor: boolean) => void]> = [
-    ['Con caja', conCaja, setConCaja],
+    // Donde se pregunta el empaque (docs/19 §13), «Con caja» ya está arriba.
+    ...(preguntasDeCategoria(categoriaElegida).empaque
+      ? []
+      : [['Con caja', conCaja, setConCaja] as [string, boolean, (valor: boolean) => void]]),
     ['Probada', probado, setProbado],
     ['Con comprobante', conFactura, setConFactura],
     ...DETALLES_EN_TEXTO.map((frase): [string, boolean, (valor: boolean) => void] => [
@@ -672,6 +713,16 @@ export function FormularioPublicar({
       () => setDescripcion((actual) => alternarEnTexto(actual, frase)),
     ]),
   ];
+
+  const preguntasVariantes = (
+    <PreguntasVariantes
+      categoria={categoriaElegida}
+      titulo={titulo}
+      variantes={variantes}
+      alCambiar={setVariantes}
+      delCatalogo={editando ? null : delCatalogo}
+    />
+  );
 
   function cambiarMoneda() {
     const otra: Moneda = moneda === 'PEN' ? 'USD' : 'PEN';
@@ -801,20 +852,27 @@ export function FormularioPublicar({
                 alCambiarFotos={setFotosProducto}
                 alCargarFotos={setSubiendoProducto}
               />
+              {preguntasVariantes}
             </Seccion>
           ) : (
             <Seccion numero={1} titulo="Producto">
               {cargando ? (
                 <p className="text-secundario">Cargando…</p>
               ) : editando ? (
-                <ProductoElegido producto={editando.producto} condicion={condicionPrevia} />
+                <>
+                  <ProductoElegido producto={editando.producto} condicion={condicionPrevia} />
+                  {preguntasVariantes}
+                </>
               ) : modo === 'igual' && elegido ? (
-                <ProductoElegido
-                  producto={elegido}
-                  propias={elegido.propias}
-                  condicion={condicionPrevia}
-                  alCambiar={() => setModo('buscar')}
-                />
+                <>
+                  <ProductoElegido
+                    producto={elegido}
+                    propias={elegido.propias}
+                    condicion={condicionPrevia}
+                    alCambiar={() => setModo('buscar')}
+                  />
+                  {preguntasVariantes}
+                </>
               ) : (
                 <div className="flex flex-col gap-3">
                   <BuscadorProducto
@@ -822,6 +880,7 @@ export function FormularioPublicar({
                     alEscribir={setQ}
                     alElegir={(p) => {
                       setElegido(p);
+                      marcarDelCatalogo(p);
                       setModo('igual');
                       setError(null);
                     }}
@@ -1254,6 +1313,7 @@ export function FormularioPublicar({
           tienda={tienda}
           socio={quienVe !== 'NADIE' ? precioSocioTexto : null}
           enAlmacen={enAlmacen}
+          variantes={variantesDeCategoria(categoriaElegida, variantes)}
         >
           <div className="flex flex-col gap-2.5 rounded-2xl border border-linea bg-white p-4">
             <span className="flex items-center justify-between gap-2">

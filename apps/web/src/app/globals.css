@@ -323,6 +323,82 @@ body:has(.ficha-fondo) {
 @keyframes chat-rebote {
   0% {
     transform: scale(1.4);
+/* ── doc 19 · punto 12: borrar publicaciones desde el propio perfil ──────────────────────────
+   El tachito B (rojo suave, entra deslizándose 7 px al pasar el mouse; en el celular se ve
+   siempre), su tapa que se abre, la cajita «¿Eliminar esta publicación?», la tarjeta que se achica
+   girando, «Eliminar varias» (tachitos que aparecen uno tras otro, saltito al marcar, barra negra
+   con el contador que brinca, las marcadas que salen volando) y «Deshacer» con su barrita de 8 s.
+   Con «reducir movimiento», nada se mueve: solo aparece y desaparece. */
+.pl-tarjeta {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+  -webkit-touch-callout: none;
+}
+
+.pl-tachito {
+  position: relative;
+  display: flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid #f6c6c0;
+  background: #fdecea;
+  color: #b42318;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .pl-tarjeta:hover,
+  .pl-tarjeta:focus-within {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 22px rgba(15, 20, 18, 0.16);
+  }
+
+  .pl-tarjeta .pl-tachito:not([data-visible]) {
+    opacity: 0;
+    transform: translateX(7px);
+  }
+
+  .pl-tarjeta:hover .pl-tachito,
+  .pl-tarjeta:focus-within .pl-tachito {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-tachito[data-lleno] {
+  border-color: #b42318;
+  background: #b42318;
+  color: #ffffff;
+}
+
+.pl-tachito[data-marcado] {
+  box-shadow: 0 3px 8px rgba(180, 35, 24, 0.35);
+}
+
+.pl-tapa {
+  transform-box: fill-box;
+  transform-origin: 100% 100%;
+  transition: transform 0.25s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.pl-tachito[data-abierto] .pl-tapa {
+  transform: rotate(-22deg) translateY(-1px);
+}
+
+@keyframes pl-hundir {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.8);
   }
   100% {
     transform: scale(1);
@@ -385,6 +461,37 @@ body:has(.ficha-fondo) {
     transform: scale(1.15);
   }
   100% {
+.pl-tachito[data-abierto] {
+  animation: pl-hundir 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pl-onda {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.pl-onda {
+  pointer-events: none;
+  position: absolute;
+  inset: -1px;
+  border-radius: 8px;
+  border: 2px solid #b42318;
+  opacity: 0;
+  animation: pl-onda 0.45s ease-out;
+}
+
+@keyframes pl-cajita {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
     opacity: 1;
     transform: none;
   }
@@ -395,6 +502,131 @@ body:has(.ficha-fondo) {
     transform: translateY(6px);
   }
   45% {
+.pl-cajita {
+  transform-origin: 100% 100%;
+  animation: pl-cajita 0.2s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+
+@keyframes pl-salir {
+  to {
+    opacity: 0;
+    transform: scale(0.78) rotate(-5deg);
+  }
+}
+
+.pl-salir {
+  pointer-events: none;
+  animation: pl-salir 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes pl-volar {
+  to {
+    opacity: 0;
+    transform: scale(0.75) rotate(var(--pl-giro, -6deg)) translateY(-10px);
+  }
+}
+
+.pl-volar {
+  pointer-events: none;
+  animation: pl-volar 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes pl-volver {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-volver {
+  animation: pl-volver 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pl-aparece {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-aparece {
+  animation: pl-aparece 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+@keyframes pl-salto {
+  0% {
+    transform: none;
+  }
+  40% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.pl-salto {
+  animation: pl-salto 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes pl-asoma {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-asoma {
+  animation: pl-asoma 0.2s ease-out;
+}
+
+@keyframes pl-tinte {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.pl-tinte {
+  animation: pl-tinte 0.2s ease-out;
+}
+
+@keyframes pl-sube {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-sube {
+  animation: pl-sube 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pl-brinco {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  50% {
+    opacity: 1;
     transform: scale(1.35);
   }
   100% {
@@ -486,5 +718,105 @@ body:has(.ficha-fondo) {
   .chat-punto {
     animation: none;
     opacity: 0.6;
+.pl-brinco {
+  animation: pl-brinco 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes pl-aviso {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-aviso {
+  animation: pl-aviso 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pl-barrita {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0;
+  }
+}
+
+.pl-barrita {
+  animation: pl-barrita 8s linear forwards;
+}
+
+@keyframes pl-ventana {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pl-ventana {
+  animation: pl-ventana 0.2s cubic-bezier(0.2, 1.2, 0.4, 1);
+}
+
+@keyframes pl-hundir-boton {
+  0% {
+    transform: none;
+  }
+  40% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.pl-hundir {
+  animation: pl-hundir-boton 0.2s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pl-tarjeta,
+  .pl-tachito,
+  .pl-tapa {
+    transition: none;
+  }
+
+  .pl-tarjeta:hover,
+  .pl-tarjeta:focus-within,
+  .pl-tachito[data-abierto] .pl-tapa {
+    transform: none;
+  }
+
+  .pl-onda {
+    display: none;
+  }
+
+  .pl-tachito[data-abierto],
+  .pl-cajita,
+  .pl-volver,
+  .pl-aparece,
+  .pl-salto,
+  .pl-asoma,
+  .pl-tinte,
+  .pl-sube,
+  .pl-brinco,
+  .pl-aviso,
+  .pl-ventana,
+  .pl-hundir,
+  .pl-barrita {
+    animation: none;
+  }
+
+  .pl-salir,
+  .pl-volar {
+    animation: none;
+    opacity: 0;
   }
 }

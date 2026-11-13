@@ -8,14 +8,17 @@ import {
   type Audiencia,
   type Precio,
   type ProductoDetalle,
+  type PerfilMemoria,
   type RespuestaContacto,
+  textoEmpaque,
   textoEstadoDetalle,
   textoGarantia,
+  textoPerfilMemoria,
 } from '@paselibre/contracts';
 import { IconBrandWhatsapp, IconChevronRight, IconMessageCircle } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
@@ -26,11 +29,18 @@ import { BotonCompartir } from '@/shared/ui/boton-compartir';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { MenuOpciones } from '@/features/reportes/menu-opciones';
 import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
-import { BurbujaNegociable, BurbujaSocio } from '@/shared/ui/tarjeta-producto';
+import { BurbujaNegociable, BurbujaSocio, PastillasTitulo } from '@/shared/ui/tarjeta-producto';
 
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoStock } from './textos';
+
+/** «Perfil de memoria» en Características (docs/19 §13): Intel en azul, EXPO en naranja. */
+const COLOR_PERFIL: Record<PerfilMemoria, string> = {
+  XMP: 'text-[#1d5fd1]',
+  EXPO: 'text-[#e8590c]',
+  AMBOS: 'text-tinta',
+};
 
 /** «responde en ~10 min» o «~2 h», redondeado: es una idea, no un reloj. */
 const respondeEn = (minutos: number): string =>
@@ -133,7 +143,25 @@ export function FichaProducto({
   const fotos = oferta && oferta.fotos.length > 0 ? oferta.fotos : producto.fotos;
   const fotoActual = fotos[Math.min(foto, fotos.length - 1)] ?? null;
 
-  const caracteristicas = Object.entries(producto.caracteristicas);
+  const caracteristicas: Array<readonly [string, ReactNode]> = Object.entries(
+    producto.caracteristicas,
+  );
+  // La memoria de la oferta que estás viendo; si no lo marcó, lo que dice el catálogo.
+  const perfil = oferta?.detalle.perfil_memoria ?? producto.perfil_memoria;
+  if (perfil) {
+    caracteristicas.push([
+      'Perfil de memoria',
+      <b key="perfil" className={`font-bold ${COLOR_PERFIL[perfil]}`}>
+        {textoPerfilMemoria(perfil, producto.titulo)}
+      </b>,
+    ]);
+  }
+  if (oferta?.detalle.empaque) {
+    caracteristicas.push([
+      'Empaque',
+      textoEmpaque(oferta.detalle.empaque, producto.categoria.slug),
+    ]);
+  }
 
   const mejor = masBarata(ofertas);
   function elegir(id: string) {
@@ -406,6 +434,7 @@ export function FichaProducto({
           )}
           <h1 className="font-sans text-[30px] font-bold normal-case leading-[38px] tracking-[-0.01em] max-md:text-[24px] max-md:leading-8">
             {producto.titulo}
+            <PastillasTitulo variantes={oferta?.detalle} titulo={producto.titulo} grande />
           </h1>
           {producto.etiquetas.length > 0 && (
             <ul

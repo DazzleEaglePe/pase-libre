@@ -14,7 +14,7 @@ import { diaCorto, haceCuanto, haceRato, hora } from '@/shared/fechas';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Miniatura } from '@/shared/ui/miniatura';
-import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
+import { PastillasTitulo, PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 import { BotonSeguir } from './boton-seguir';
 
@@ -94,7 +94,10 @@ function Producto({
         grosor={3}
       />
       <span className="flex min-w-0 flex-col gap-1">
-        <b className="text-cuerpo font-bold hover:underline">{oferta.producto.titulo}</b>
+        <b className="text-cuerpo font-bold hover:underline">
+          {oferta.producto.titulo}
+          <PastillasTitulo variantes={oferta.detalle} titulo={oferta.producto.titulo} />
+        </b>
         <span className="text-apoyo text-secundario">
           {textoEstadoDetalle(oferta.detalle)} ·{' '}
           {oferta.stock === 1 ? '1 disponible' : `${oferta.stock} disponibles`}

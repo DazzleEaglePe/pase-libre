@@ -167,6 +167,22 @@ export function BarraFiltros({
         >
           Usado
         </Atajo>
+        {/* En Memoria RAM (docs/19 §13): las marcadas así o «Sirve para los dos» al publicar. */}
+        {filtros.categoria === 'ram' &&
+          (
+            [
+              ['intel', 'Para Intel'],
+              ['ryzen', 'Para Ryzen'],
+            ] as const
+          ).map(([valor, texto]) => (
+            <Atajo
+              key={valor}
+              href={hrefBuscar(con(filtros, { perfil: filtros.perfil === valor ? null : valor }))}
+              activo={filtros.perfil === valor}
+            >
+              {texto}
+            </Atajo>
+          ))}
         <button
           type="button"
           onClick={() => setAbierta(true)}

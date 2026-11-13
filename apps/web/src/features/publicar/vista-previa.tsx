@@ -1,10 +1,15 @@
 'use client';
 
-import { TIENDA_RESERVADA, type Precio, type TiendaDeSesion } from '@paselibre/contracts';
+import {
+  TIENDA_RESERVADA,
+  type Precio,
+  type TiendaDeSesion,
+  type VariantesOferta,
+} from '@paselibre/contracts';
 import { useState, type ReactNode } from 'react';
 
 import { Miniatura } from '@/shared/ui/miniatura';
-import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
+import { PastillasTitulo, PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 /**
  * «Así lo verán» (F_Publicar, N06): la tarjeta como la ve otra tienda con sesión, con la
@@ -25,6 +30,7 @@ export function VistaPrevia({
   enAlmacen = false,
   soloSocios = false,
   negociable = false,
+  variantes = null,
   children,
 }: {
   titulo: string;
@@ -45,6 +51,8 @@ export function VistaPrevia({
   /** «Tus socios: US$ 237 pase» (PS_Precio). */
   socio?: string | null;
   enAlmacen?: boolean;
+  /** Las pastillas del título (docs/19 §13). */
+  variantes?: VariantesOferta | null;
   /** Lo que va debajo de la tarjeta: «Antes de publicar». */
   children?: ReactNode;
 }) {
@@ -108,7 +116,10 @@ export function VistaPrevia({
           glifo={160}
           grosor={1.12}
         />
-        <span className="font-bold">{titulo}</span>
+        <span className="font-bold">
+          {titulo}
+          <PastillasTitulo variantes={variantes} titulo={titulo} />
+        </span>
         <span className="text-nota text-secundario">{estado}</span>
         {conSesion ? (
           <span className="flex flex-col gap-1.5">

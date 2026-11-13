@@ -27,6 +27,11 @@ export interface ProductoResumen {
   foto: string | null;
   /** Cuántas fotos base tiene: «Usas sus 4 fotos». */
   fotos: number;
+  /**
+   * Lo que dice el catálogo de una memoria RAM (docs/19 §13): con él, «¿Para qué procesador es?»
+   * viene marcado al publicar. Nulo si no se sabe.
+   */
+  perfil_memoria: PerfilMemoria | null;
 }
 
 export type EstadoOfertaPropia = 'ACTIVA' | 'PAUSADA';
@@ -130,6 +135,11 @@ export interface RespuestaConfirmar {
   confirmadas: number;
 }
 
+/** `POST /v1/ofertas/eliminar` (docs/19 §12). */
+export interface RespuestaEliminarOfertas {
+  eliminadas: number;
+}
+
 export type EstadoDetalle = 'SELLADO' | 'OPEN_BOX' | 'USADO' | 'REACONDICIONADO' | 'OTRO';
 export type Garantia =
   'SIN' | 'UN_MES' | 'TRES_MESES' | 'SEIS_MESES' | 'UN_ANIO' | 'FABRICA' | 'OTRA';
@@ -143,8 +153,21 @@ export const TEXTO_MODO_VENTA: Record<ModoVenta, string> = {
 };
 export type QuienVePrecio = 'TODOS' | 'SOCIOS' | 'NADIE';
 
+export type PerfilMemoria = 'XMP' | 'EXPO' | 'AMBOS';
+export type Empaque = 'CAJA' | 'OEM';
+
+/**
+ * Lo que se marca al publicar según la categoría (docs/19 §13): para qué procesador es una RAM,
+ * el empaque y si una tarjeta de video es OC. Nulo, sin marcar. Lo ve cualquiera.
+ */
+export interface VariantesOferta {
+  perfil_memoria: PerfilMemoria | null;
+  empaque: Empaque | null;
+  oc: boolean | null;
+}
+
 /** Lo que cuenta cómo está el producto (PUB_WebProducto): lo ve cualquiera, no es privado. */
-export interface DetalleOferta {
+export interface DetalleOferta extends VariantesOferta {
   estado: EstadoDetalle;
   con_caja: boolean;
   con_factura: boolean;
@@ -191,4 +214,100 @@ export function textoGarantia(
   return detalle.garantia === 'OTRA' && detalle.garantia_otra
     ? `Garantía ${detalle.garantia_otra}`
     : TEXTO_GARANTIA[detalle.garantia];
+}
+
+// ── Para qué procesador es y el empaque (docs/19 §13) ──────────────────────
+
+/**
+ * Qué se pregunta al publicar en cada categoría (docs/19 §13): RAM, para qué procesador es y el
+ * empaque; tarjetas de video, OC o normal y el empaque; almacenamiento, el empaque; procesadores,
+ * Box o Tray. Las demás categorías no preguntan nada.
+ */
+export interface PreguntasDeCategoria {
+  procesador: boolean;
+  oc: boolean;
+  /** `BOX_TRAY` en los procesadores: «Box (con caja)» o «Tray (OEM)». */
+  empaque: 'CAJA_OEM' | 'BOX_TRAY' | null;
+}
+
+export function preguntasDeCategoria(categoria: string | null | undefined): PreguntasDeCategoria {
+  switch (categoria) {
+    case 'ram':
+      return { procesador: true, oc: false, empaque: 'CAJA_OEM' };
+    case 'graficas':
+      return { procesador: false, oc: true, empaque: 'CAJA_OEM' };
+    case 'almacenamiento':
+      return { procesador: false, oc: false, empaque: 'CAJA_OEM' };
+    case 'procesadores':
+      return { procesador: false, oc: false, empaque: 'BOX_TRAY' };
+    default:
+      return { procesador: false, oc: false, empaque: null };
+  }
+}
+
+/** Lo que una categoría no pregunta queda nulo: así una RAM no guarda «OC» por error. */
+export function variantesDeCategoria(
+  categoria: string | null | undefined,
+  variantes: VariantesOferta,
+): VariantesOferta {
+  const preguntas = preguntasDeCategoria(categoria);
+  return {
+    perfil_memoria: preguntas.procesador ? variantes.perfil_memoria : null,
+    empaque: preguntas.empaque ? variantes.empaque : null,
+    oc: preguntas.oc ? variantes.oc : null,
+  };
+}
+
+/**
+ * El color de cada pastilla del título: Intel XMP en azul `#1d5fd1`, EXPO Ryzen en naranja
+ * `#e8590c` (el color de AMD), OEM sin caja en gris `#6b7872`. Lo demás (OC) va solo en negrita.
+ */
+export type TonoPastilla = 'intel' | 'ryzen' | 'oem' | 'negrita';
+
+export interface PastillaVariante {
+  texto: string;
+  tono: TonoPastilla;
+}
+
+/**
+ * Las pastillas que van pegadas al final del título (docs/19 §13), en la tarjeta, la ficha y la
+ * vista previa. «Sirve para los dos» lleva las dos. «OC» no se repite si el título ya lo dice.
+ */
+export function pastillasDeVariantes(
+  variantes: Partial<VariantesOferta> | null | undefined,
+  titulo = '',
+): PastillaVariante[] {
+  if (!variantes) return [];
+  const pastillas: PastillaVariante[] = [];
+  const perfil = variantes.perfil_memoria;
+  if (perfil === 'XMP' || perfil === 'AMBOS') pastillas.push({ texto: 'Intel XMP', tono: 'intel' });
+  if (perfil === 'EXPO' || perfil === 'AMBOS') {
+    pastillas.push({ texto: 'EXPO Ryzen', tono: 'ryzen' });
+  }
+  if (variantes.oc === true && !/(^|[^a-z0-9])oc($|[^a-z0-9])/i.test(titulo)) {
+    pastillas.push({ texto: 'OC', tono: 'negrita' });
+  }
+  if (variantes.empaque === 'OEM') pastillas.push({ texto: 'OEM sin caja', tono: 'oem' });
+  return pastillas;
+}
+
+/**
+ * «Perfil de memoria» en Características (docs/19 §13): «Intel XMP 2.0 · para placas Intel». Las
+ * DDR5 usan XMP 3.0.
+ */
+export function textoPerfilMemoria(perfil: PerfilMemoria, titulo = ''): string {
+  switch (perfil) {
+    case 'XMP':
+      return `Intel XMP ${/ddr\s*5/i.test(titulo) ? '3.0' : '2.0'} · para placas Intel`;
+    case 'EXPO':
+      return 'AMD EXPO · para placas AMD Ryzen';
+    case 'AMBOS':
+      return 'Intel XMP y AMD EXPO · sirve para los dos';
+  }
+}
+
+/** «Empaque» en Características: «Con caja», «OEM · sin caja»; en procesadores, Box o Tray. */
+export function textoEmpaque(empaque: Empaque, categoria: string | null | undefined): string {
+  if (categoria === 'procesadores') return empaque === 'CAJA' ? 'Box (con caja)' : 'Tray (OEM)';
+  return empaque === 'CAJA' ? 'Con caja' : 'OEM · sin caja';
 }

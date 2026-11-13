@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { textoEstado } from '@/features/catalogo/textos';
 import { haceRato } from '@/shared/fechas';
 import { Miniatura } from '@/shared/ui/miniatura';
-import { PrecioBurbuja, TarjetaProducto } from '@/shared/ui/tarjeta-producto';
+import { PastillasTitulo, PrecioBurbuja, TarjetaProducto } from '@/shared/ui/tarjeta-producto';
 
 const enlace = (tarjeta: TarjetaOfertaConVendedor) =>
   `/p/${tarjeta.producto.slug}?oferta=${tarjeta.oferta_id}`;
@@ -35,6 +35,7 @@ export function TarjetaInicio({
       negociable={tarjeta.negociable}
       etiqueta={haceRato(tarjeta.actualizada_en)}
       linea={lineaDe(tarjeta)}
+      variantes={tarjeta.variantes}
       prioridad={prioridad}
     />
   );
@@ -61,6 +62,7 @@ export function FilaNueva({ tarjeta }: { tarjeta: TarjetaOfertaConVendedor }) {
           className="line-clamp-2 text-[16px] font-bold leading-[22px] text-tinta no-underline after:absolute after:inset-0 hover:underline"
         >
           {tarjeta.producto.titulo}
+          <PastillasTitulo variantes={tarjeta.variantes} titulo={tarjeta.producto.titulo} />
         </Link>
         <PrecioBurbuja
           precio={tarjeta.precio}
