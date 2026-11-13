@@ -6,7 +6,14 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
-import { conAvisoLeido, marcarAvisosVistos, useAvisoLeido } from '@/shared/avisos-leidos';
+import {
+  TEXTO_FALLO_AL_MARCAR,
+  conAvisoLeido,
+  marcarAvisosVistos,
+  siFalla,
+  useAvisoLeido,
+  useFalloAlMarcar,
+} from '@/shared/avisos-leidos';
 import { useEvento } from '@/shared/tiempo-real';
 
 import { ConfigurarAvisos } from './configurar';
@@ -15,8 +22,19 @@ import { FiltrosAvisos, ListaAvisos } from './lista-avisos';
 /**
  * «Avisos» (AV_Web, AV_Cel): todos los avisos con sus filtros y, a la derecha (en el celular,
  * abajo con «Configurar»), qué te avisamos y cuándo. Se actualiza solo cuando llega algo.
+ *
+ * En modo soporte (doc 20, A1) solo se mira: abrirla no los da por vistos, tocar un aviso no lo
+ * marca leído y no hay «Marcar todo como leído».
  */
-export function PaginaAvisos() {
+export function PaginaAvisos({
+  soporte = false,
+  tienda,
+}: {
+  /** «Ayudar como la tienda»: el Equipo mira los avisos sin tocarlos. */
+  soporte?: boolean;
+  /** El nombre de la tienda, para «Estás viendo los avisos de…». */
+  tienda?: string;
+} = {}) {
   const [filtro, setFiltro] = useState<CategoriaAviso | 'TODOS'>('TODOS');
   const [datos, setDatos] = useState<RespuestaAvisos | null>(null);
   const [configurar, setConfigurar] = useState(false);
@@ -31,16 +49,23 @@ export function PaginaAvisos() {
   // Abrir un chat en otra pestaña (o tocar un aviso allá) también lo marca leído aquí.
   useEvento(EVENTOS.contadores, agrupado);
   useAvisoLeido(useCallback((leido) => setDatos((actuales) => conAvisoLeido(actuales, leido)), []));
+  // Si la API no guardó lo marcado, vuelve el puntito real y se avisa abajo (doc 20, A1).
+  const fallo = useFalloAlMarcar(cargar);
 
   useEffect(() => {
     if (window.location.hash === '#configurar') setConfigurar(true);
     // En el celular la campanita lleva aquí: abrir la página cuenta como abrirla (doc 19, 15).
-    marcarAvisosVistos();
-  }, []);
+    // En modo soporte, no: la dueña no los vio (doc 20, A1).
+    if (!soporte) marcarAvisosVistos();
+  }, [soporte]);
 
   async function marcarTodo() {
-    await llamarApi('/avisos/leidos', { metodo: 'POST', cuerpo: {} });
-    cargar();
+    try {
+      await llamarApi('/avisos/leidos', { metodo: 'POST', cuerpo: {} });
+      cargar();
+    } catch (error) {
+      siFalla(error);
+    }
   }
 
   return (
@@ -61,7 +86,7 @@ export function PaginaAvisos() {
           >
             Configurar
           </button>
-          {(datos?.sin_leer ?? 0) > 0 && (
+          {(datos?.sin_leer ?? 0) > 0 && !soporte && (
             <button
               type="button"
               onClick={() => void marcarTodo()}
@@ -75,6 +100,11 @@ export function PaginaAvisos() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="flex min-w-0 flex-col gap-4">
+          {soporte && (
+            <p className="m-0 text-apoyo text-secundario">
+              Estás viendo los avisos de {tienda ?? 'la tienda'}. Para ella siguen sin leer.
+            </p>
+          )}
           <FiltrosAvisos datos={datos} elegido={filtro} alElegir={setFiltro} />
           <div className="overflow-hidden rounded-[20px] border border-linea">
             {datos === null ? (
@@ -88,9 +118,12 @@ export function PaginaAvisos() {
                 </span>
               </div>
             ) : (
-              <ListaAvisos avisos={datos.avisos} />
+              <ListaAvisos avisos={datos.avisos} soloMirar={soporte} />
             )}
           </div>
+          <p aria-live="polite" className="m-0 text-nota text-error empty:hidden">
+            {fallo ? TEXTO_FALLO_AL_MARCAR : ''}
+          </p>
         </div>
 
         <aside

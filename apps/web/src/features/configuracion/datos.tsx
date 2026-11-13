@@ -169,15 +169,14 @@ export function SeccionDatos({
   const usados = new Set(tramos.flatMap((tramo) => tramo.dias));
   const vistaPrevia = tramosConDias.length > 0 ? textoHorario(tramosConDias, 'largo') : null;
 
-  // «Perfil al N %»: logo, portada, horario, cómo llegar y sobre la tienda, 20 % cada uno.
+  // «Perfil al N %»: logo, portada y horario. «Cómo llegar» y «Sobre la tienda» son opcionales
+  // (no cuentan; doc 20, A4).
   const completos = [
     Boolean(logo),
     Boolean(tienda.portada),
     tramosConDias.length > 0 || (!horarioTocado && Boolean(tienda.horario)),
-    indicaciones.trim().length > 0,
-    descripcion.trim().length > 0,
   ].filter(Boolean).length;
-  const porcentaje = completos * 20;
+  const porcentaje = Math.round((completos / 3) * 100);
 
   function cambiarTramo(indice: number, cambio: Partial<TramoHorario>) {
     setHorarioTocado(true);
@@ -677,7 +676,9 @@ export function SeccionDatos({
         </fieldset>
 
         <label htmlFor={`${id}-indicaciones`} className={etiqueta}>
-          Cómo llegar a tu stand
+          <span>
+            Cómo llegar a tu stand <span className="font-normal text-detalle">(opcional)</span>
+          </span>
           <input
             id={`${id}-indicaciones`}
             maxLength={240}
@@ -691,7 +692,9 @@ export function SeccionDatos({
           </span>
         </label>
         <label htmlFor={`${id}-descripcion`} className={etiqueta}>
-          Sobre la tienda
+          <span>
+            Sobre la tienda <span className="font-normal text-detalle">(opcional)</span>
+          </span>
           <textarea
             id={`${id}-descripcion`}
             rows={3}

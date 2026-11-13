@@ -157,6 +157,7 @@ describe('Catálogo: fotos, ZIP que actualiza y «Eliminar todos» (docs/17)', (
         sin_categoria: 0,
         sin_marca: 0,
         sin_modelo: 0,
+        sinonimo_largo: 0,
         repetida: 1,
       });
       expect(revision.parecidos).toEqual([

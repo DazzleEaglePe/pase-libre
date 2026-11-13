@@ -39,7 +39,8 @@ export function avisoCampanita(aviso: Aviso): AvisoCampanita {
     accion: (aviso.accion as AccionAviso | null) ?? null,
     foto: aviso.foto,
     leido: aviso.leidoEn !== null,
-    actualizado_en: aviso.actualizadoEn.toISOString(),
+    // Cuándo llegó (doc 20, A1): editar o borrar un mensaje no lo vuelve «de hace 1 min».
+    actualizado_en: aviso.llegadoEn.toISOString(),
   };
 }
 
@@ -128,6 +129,8 @@ export class AvisosService {
       enlace: `/mensajes/${datos.conversacionId}`,
       leidoEn: null,
       visibleDesde: desde,
+      // Llegó otro mensaje: vuelve a contar en la campanita y sube arriba (doc 20, A1).
+      llegadoEn: ahora,
     };
     const aviso = await tx.aviso.upsert({
       where: {
@@ -221,8 +224,9 @@ export class AvisosService {
         accion: nuevo.accion ?? Prisma.DbNull,
         leidoEn: null,
         visibleDesde: visibleDesde(persona.noMolestarDesde, persona.noMolestarHasta, ahora),
-        // Sube arriba aunque el contenido no cambie.
+        // Sube arriba aunque el contenido no cambie: llegó otro mensaje (doc 20, A1).
         actualizadoEn: ahora,
+        llegadoEn: ahora,
       };
       const aviso = await this.prisma.aviso.upsert({
         where: { usuarioId_hiloEquipoId: { usuarioId: persona.id, hiloEquipoId } },
@@ -250,7 +254,8 @@ export class AvisosService {
     const [avisos, porTipo] = await Promise.all([
       this.prisma.aviso.findMany({
         where: { ...visibles, ...filtro },
-        orderBy: { actualizadoEn: 'desc' },
+        // Por cuándo llegó, no por el último cambio: editar un mensaje no lo sube (doc 20, A1).
+        orderBy: [{ llegadoEn: 'desc' }, { id: 'desc' }],
         take: consulta.limite ?? AVISOS_EN_LA_CAMPANITA,
       }),
       this.prisma.aviso.groupBy({
@@ -315,8 +320,10 @@ export class AvisosService {
 
   /**
    * El número naranja de la campanita (doc 19, punto 15): los avisos sin leer que llegaron
-   * desde la última vez que la abrió. «Llegó» es cuando se pudo ver: al crearse o
-   * actualizarse (otro mensaje del mismo chat), o al terminar «No molestar».
+   * desde la última vez que la abrió. «Llegó» es cuando se pudo ver: al crearse o traer otro
+   * mensaje del mismo chat (`llegadoEn`), o al terminar «No molestar» (`visibleDesde`). No
+   * cuenta `actualizadoEn`: lo mueve cualquier cambio, como editar o borrar un mensaje, y el
+   * número volvía solo (doc 20, A1).
    */
   private async avisosNuevos(usuarioId: string): Promise<number> {
     const ahora = new Date();
@@ -330,7 +337,7 @@ export class AvisosService {
         leidoEn: null,
         visibleDesde: { lte: ahora },
         ...(vistos
-          ? { OR: [{ actualizadoEn: { gt: vistos } }, { visibleDesde: { gt: vistos } }] }
+          ? { OR: [{ llegadoEn: { gt: vistos } }, { visibleDesde: { gt: vistos } }] }
           : {}),
       },
     });

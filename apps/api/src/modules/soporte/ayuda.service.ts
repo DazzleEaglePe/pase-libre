@@ -131,8 +131,8 @@ export class AyudaService {
         ? 'El Equipo PaseLibre ya está ayudándote'
         : 'El Equipo PaseLibre entró a tu cuenta para ayudarte',
       extracto: pedido
-        ? 'Por 1 hora puede acomodar tu portada y tus datos. No puede chatear ni cerrar ventas.'
-        : 'Por 1 hora puede acomodar tu portada y tus datos. No puede chatear ni cerrar ventas. Si no lo pediste, escríbenos.',
+        ? 'Por 1 hora puede acomodar tu perfil y publicar por tu tienda. No puede chatear ni cerrar ventas.'
+        : 'Por 1 hora puede acomodar tu perfil y publicar por tu tienda. No puede chatear ni cerrar ventas. Si no lo pediste, escríbenos.',
       enlace: '/mensajes/equipo',
     });
     return { vence_en: venceEn.toISOString() };

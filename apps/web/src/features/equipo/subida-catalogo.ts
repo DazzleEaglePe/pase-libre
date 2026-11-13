@@ -47,6 +47,7 @@ export function lineasDeMotivos(motivos: MotivosImportacion): string[] {
     [motivos.sin_categoria, 'sin categoría', 'sin categoría'],
     [motivos.sin_marca, 'sin marca', 'sin marca'],
     [motivos.sin_modelo, 'sin modelo', 'sin modelo'],
+    [motivos.sinonimo_largo, 'con un sinónimo largo', 'con un sinónimo largo'],
     [motivos.repetida, 'código repetido', 'códigos repetidos'],
   ];
   return lineas.filter(([n]) => n > 0).map(([n, uno, varios]) => `${n} ${n === 1 ? uno : varios}`);

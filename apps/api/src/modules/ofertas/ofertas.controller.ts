@@ -35,7 +35,13 @@ import {
 } from '@paselibre/contracts';
 import { z } from 'zod';
 
-import { Permiso, Roles, SesionActual, SesionGuard } from '../../shared/guards/sesion.guard';
+import {
+  Permiso,
+  PermitirEnSoporte,
+  Roles,
+  SesionActual,
+  SesionGuard,
+} from '../../shared/guards/sesion.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { OfertasService } from './ofertas.service';
@@ -65,8 +71,10 @@ export class OfertasController {
     return this.ofertas.sugerencias(consulta, tiendaDe(sesion));
   }
 
+  /** En modo soporte el Equipo puede publicar por la tienda; queda anotado y se le avisa (doc 20, A2). */
   @Post('ofertas')
   @Permiso('PUBLICAR')
+  @PermitirEnSoporte('publicó por tu tienda')
   @Header('Cache-Control', 'no-store')
   publicar(
     @Body(new ZodValidationPipe(publicarSchema)) datos: PublicarDatos,
@@ -87,6 +95,7 @@ export class OfertasController {
   /** «Siguen igual»: va antes de `ofertas/:id` para que «confirmar» no se lea como id. */
   @Post('ofertas/confirmar')
   @Permiso('PUBLICAR')
+  @PermitirEnSoporte('publicó por tu tienda')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
   confirmar(
@@ -120,8 +129,10 @@ export class OfertasController {
     return this.ofertas.una(id, tiendaDe(sesion));
   }
 
+  /** También «No disponible» (punto 16): acomodar la vitrina se puede en soporte (doc 20, A2). */
   @Patch('ofertas/:id')
   @Permiso('PUBLICAR')
+  @PermitirEnSoporte('editó una de tus publicaciones')
   @Header('Cache-Control', 'no-store')
   editar(
     @Param('id', idDeOferta) id: string,
@@ -131,6 +142,7 @@ export class OfertasController {
     return this.ofertas.editar(id, cambios, tiendaDe(sesion));
   }
 
+  /** Borrar sigue cerrado en modo soporte (doc 20, A2): no lleva `@PermitirEnSoporte`. */
   @Delete('ofertas/:id')
   @Permiso('PUBLICAR')
   @HttpCode(HttpStatus.NO_CONTENT)

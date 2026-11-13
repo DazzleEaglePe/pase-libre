@@ -45,10 +45,24 @@ describe('Subir el ZIP del catálogo (docs/18 §7 y §8)', () => {
 
   it('una línea por motivo, en singular o plural', () => {
     expect(
-      lineasDeMotivos({ sin_foto: 28, sin_categoria: 2, sin_marca: 0, sin_modelo: 0, repetida: 1 }),
+      lineasDeMotivos({
+        sin_foto: 28,
+        sin_categoria: 2,
+        sin_marca: 0,
+        sin_modelo: 0,
+        sinonimo_largo: 0,
+        repetida: 1,
+      }),
     ).toEqual(['28 sin foto', '2 sin categoría', '1 código repetido']);
     expect(
-      lineasDeMotivos({ sin_foto: 0, sin_categoria: 0, sin_marca: 1, sin_modelo: 3, repetida: 2 }),
+      lineasDeMotivos({
+        sin_foto: 0,
+        sin_categoria: 0,
+        sin_marca: 1,
+        sin_modelo: 3,
+        sinonimo_largo: 0,
+        repetida: 2,
+      }),
     ).toEqual(['1 sin marca', '3 sin modelo', '2 códigos repetidos']);
   });
 });

@@ -104,7 +104,7 @@ export function PrimerosPasos({ pasos }: { pasos: RespuestaInicio['pasos'] }) {
   const lista: Array<{ titulo: string; detalle: string; hecho: boolean; href?: string }> = [
     {
       titulo: 'Completa tu perfil',
-      detalle: 'Portada, horario y qué vendes',
+      detalle: 'Portada y horario',
       hecho: pasos.perfil,
       href: '/cuenta/configuracion',
     },

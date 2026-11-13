@@ -1291,7 +1291,8 @@ export function FormularioPublicar({
               </span>
             ) : (
               <span className="text-apoyo font-bold text-pase-texto">
-                ¡Listo! Ya puedes publicar
+                {/* Al editar no se publica: se guarda (doc 20, A5). */}
+                {editando ? 'Listo para guardar' : '¡Listo! Ya puedes publicar'}
               </span>
             )}
             <Link href="/mis-publicaciones" className="text-apoyo font-medium">

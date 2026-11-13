@@ -51,7 +51,7 @@ export function PedirAyudaEquipo() {
         </b>
         <p className="m-0 text-apoyo text-secundario">
           Autoriza que alguien del Equipo PaseLibre entre como tu tienda por 1 hora para acomodar tu
-          portada o tus datos. No puede chatear ni cerrar ventas, y te avisamos de cada cambio.
+          perfil o publicar por ti. No puede chatear ni cerrar ventas, y te avisamos de cada cambio.
         </p>
         {estado.activo ? (
           <p

@@ -1,5 +1,6 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
+  MAX_SINONIMO,
   normalizarTexto,
   slugDe,
   textoPerfilMemoria,
@@ -349,6 +350,7 @@ const TEXTO_MOTIVO: Record<Exclude<MotivoFila, 'REPETIDA'>, string> = {
   SIN_CATEGORIA: 'Categoría vacía o mal escrita',
   SIN_MARCA: 'Falta la marca',
   SIN_MODELO: 'Falta el modelo',
+  SINONIMO_LARGO: `Un sinónimo pasa de ${MAX_SINONIMO} letras`,
 };
 
 function anotarError(fila: FilaLeida, error: ErrorDeFila) {
@@ -385,6 +387,7 @@ function contarMotivos(motivos: MotivoFila[]): MotivosImportacion {
     sin_categoria: 0,
     sin_marca: 0,
     sin_modelo: 0,
+    sinonimo_largo: 0,
     repetida: 0,
   };
   for (const motivo of motivos) {
@@ -393,6 +396,7 @@ function contarMotivos(motivos: MotivoFila[]): MotivosImportacion {
     else if (motivo === 'SIN_CATEGORIA') cuenta.sin_categoria++;
     else if (motivo === 'SIN_MARCA') cuenta.sin_marca++;
     else if (motivo === 'SIN_MODELO') cuenta.sin_modelo++;
+    else if (motivo === 'SINONIMO_LARGO') cuenta.sinonimo_largo++;
     else cuenta.repetida++;
   }
   return cuenta;
@@ -1095,6 +1099,15 @@ export class CatalogoEquipoService {
         if (!fila.marca) anotarError(fila, { motivo: 'SIN_MARCA', texto: TEXTO_MOTIVO.SIN_MARCA });
         if (!fila.modelo) {
           anotarError(fila, { motivo: 'SIN_MODELO', texto: TEXTO_MOTIVO.SIN_MODELO });
+        }
+        // Un sinónimo pasa del tope del formulario (40): esa fila no se importa, el resto sigue.
+        // Antes llegaba entero a `Etiqueta.nombre` (60) y daba error 500 (doc 20, A7).
+        const largo = fila.sinonimos.find((sinonimo) => sinonimo.length > MAX_SINONIMO);
+        if (largo) {
+          anotarError(fila, {
+            motivo: 'SINONIMO_LARGO',
+            texto: `${TEXTO_MOTIVO.SINONIMO_LARGO}: «${largo.slice(0, MAX_SINONIMO)}…». Sepáralos con coma.`,
+          });
         }
         fila.datosIncompletos = fila.falta.length > 0;
         if (!fila.datosIncompletos) {

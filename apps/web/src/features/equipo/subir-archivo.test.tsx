@@ -74,7 +74,14 @@ const REVISION: RevisionImportacion = {
       foto_buscada: null,
     })),
   ],
-  motivos: { sin_foto: 31, sin_categoria: 0, sin_marca: 0, sin_modelo: 0, repetida: 0 },
+  motivos: {
+    sin_foto: 31,
+    sin_categoria: 0,
+    sin_marca: 0,
+    sin_modelo: 0,
+    sinonimo_largo: 0,
+    repetida: 0,
+  },
   ya_estan: [],
   parecidos: [],
 };
@@ -185,7 +192,14 @@ describe('Subir el archivo del catálogo: avance y motivos (docs/18 §7 y §8)',
             foto_buscada: null,
           },
         ],
-        motivos: { sin_foto: 0, sin_categoria: 0, sin_marca: 1, sin_modelo: 0, repetida: 0 },
+        motivos: {
+          sin_foto: 0,
+          sin_categoria: 0,
+          sin_marca: 1,
+          sin_modelo: 0,
+          sinonimo_largo: 0,
+          repetida: 0,
+        },
       }),
     );
     expect(screen.getByTestId('no-se-crean')).toHaveTextContent('1no se crea1 sin marca');

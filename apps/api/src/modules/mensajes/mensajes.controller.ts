@@ -342,6 +342,11 @@ export class MensajesController {
     return this.avisos.lista(sesion.usuario.id, consulta);
   }
 
+  /**
+   * Sin `@PermitirEnSoporte`, a propósito (doc 20, A1): en «Ayudar como la tienda» el Equipo
+   * solo mira la campanita. Si marcara, la dueña perdería sus avisos sin haberlos visto. La web
+   * ya no lo pide en soporte; si llega igual, responde 403 `MODO_SOPORTE`. Lo mismo `vistos`.
+   */
   @Post('avisos/leidos')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
@@ -352,7 +357,10 @@ export class MensajesController {
     return this.avisos.leer(sesion.usuario.id, ids);
   }
 
-  /** Abrió la campanita (doc 19, punto 15): su número vuelve a 0. */
+  /**
+   * Abrió la campanita (doc 19, punto 15): su número vuelve a 0. Sin `@PermitirEnSoporte`, a
+   * propósito: ver `leerAvisos` (doc 20, A1).
+   */
   @Post('avisos/vistos')
   @HttpCode(HttpStatus.OK)
   @Header('Cache-Control', 'no-store')
