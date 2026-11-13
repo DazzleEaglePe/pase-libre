@@ -835,7 +835,7 @@ export function FormularioEnVivo({
                 <Miniatura
                   ruta={fotoVista}
                   categoria={delCatalogo?.categoria.slug ?? categoria}
-                  className="h-[130px] w-full"
+                  className="h-[130px] w-full border-b-[1px] border-[#DDE4E0]"
                 />
               )}
               <div className="flex flex-col gap-1.5 p-3.5">

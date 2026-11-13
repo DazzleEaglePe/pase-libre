@@ -40,6 +40,7 @@ export function TarjetaOfertaPortada({
         className="aspect-square w-full rounded-xl"
         glifo={96}
         grosor={2}
+        marco={false}
       />
       {/* Como D_Portada: el producto, luego estado · lugar · cuándo, y el precio. */}
       <span className="flex min-w-0 flex-1 flex-col gap-1">

@@ -441,9 +441,10 @@ export function FormularioPublicar({
           setEditando(oferta);
           setEstado(oferta.detalle.estado);
           setConCaja(oferta.detalle.con_caja);
-          // Una publicación de antes, «Con caja» y sin empaque: queda marcado «Con caja».
+          // Una publicación de antes, «Con caja» y sin empaque: queda marcado «Con caja». Una RAM
+          // de antes de la 1.10.0, sin Intel / EXPO: el del producto (doc 20 · A8).
           setVariantes({
-            perfil_memoria: oferta.detalle.perfil_memoria,
+            perfil_memoria: oferta.detalle.perfil_memoria ?? oferta.producto.perfil_memoria ?? null,
             oc: oferta.detalle.oc,
             empaque:
               oferta.detalle.empaque ??

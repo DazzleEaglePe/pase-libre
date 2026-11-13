@@ -108,7 +108,7 @@ export function TarjetaTrato({
         <Miniatura
           ruta={oferta.producto.foto}
           categoria={oferta.producto.categoria.slug}
-          className="h-10 w-10 shrink-0 rounded-[10px] bg-[#f1f4f2]"
+          className="h-10 w-10 shrink-0 rounded-[10px]"
           glifo={28}
           grosor={4}
         />

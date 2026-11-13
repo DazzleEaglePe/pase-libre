@@ -39,10 +39,12 @@ export const color = {
   fondo: '#EEF2F0',
   superficie: '#F6F8F7',
   /**
-   * Detrás de cada foto de producto (docs/17 §1): la foto va encima con `mix-blend-multiply`,
-   * así su blanco se vuelve este gris y todas parecen del mismo estudio. Igual en oscuro.
+   * Detrás de cada foto de producto: blanco (doc 20 · punto 3), como las fotos del catálogo. Va
+   * en todas las tarjetas de publicación, la ficha, Mis publicaciones, la vista previa y el chat;
+   * el fondo de la página sigue gris (`fondo`). Antes era gris y la foto se fundía con
+   * `mix-blend-multiply` (docs/17 §1); sobre blanco ya no hace falta.
    */
-  'foto-fondo': '#F1F4F2',
+  'foto-fondo': '#FFFFFF',
   /** Bordes de tarjetas y separadores, de 1,5 px (la guía los pidió más gruesos). */
   linea: '#D5DCD8',
   borde: '#C6CEC9',

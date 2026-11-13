@@ -176,7 +176,7 @@ export class WilsonService {
           stock: o.stock,
           galeria: o.tienda.galeria?.nombre ?? null,
           actualizada_en: o.actualizadaEn.toISOString(),
-          detalle: detalleDe(o),
+          detalle: detalleDe(o, o.producto),
         })),
       };
     }
@@ -192,7 +192,10 @@ export class WilsonService {
     return {
       ...base,
       audiencia: mirada.audiencia === 'equipo' ? 'equipo' : 'vendedor',
-      ofertas: filas.map((o) => ({ ...tarjetaConVendedor(o, mirada), detalle: detalleDe(o) })),
+      ofertas: filas.map((o) => ({
+        ...tarjetaConVendedor(o, mirada),
+        detalle: detalleDe(o, o.producto),
+      })),
     };
   }
 

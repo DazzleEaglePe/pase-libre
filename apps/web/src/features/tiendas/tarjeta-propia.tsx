@@ -197,7 +197,7 @@ export function TarjetaPropia({
           marcada ? (
             <span
               aria-hidden="true"
-              className="pl-tinte absolute inset-0 rounded-xl bg-[rgba(180,35,24,0.11)]"
+              className="pl-tinte absolute inset-0 bg-[rgba(180,35,24,0.11)]"
             />
           ) : null
         }

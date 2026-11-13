@@ -4,7 +4,6 @@ import {
   formatearPrecio,
   precioDe,
   TIENDA_RESERVADA,
-  urlFoto,
   type Audiencia,
   type Precio,
   type ProductoDetalle,
@@ -24,13 +23,14 @@ import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { haceCuanto } from '@/shared/fechas';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { botonPrincipal, botonSecundario } from '@/shared/ui/estilos';
-import { Miniatura } from '@/shared/ui/miniatura';
 import { BotonCompartir } from '@/shared/ui/boton-compartir';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { MenuOpciones } from '@/features/reportes/menu-opciones';
 import { useReservarAbajo } from '@/shared/ui/reservar-abajo';
 import { BurbujaNegociable, BurbujaSocio, PastillasTitulo } from '@/shared/ui/tarjeta-producto';
 
+import { fotosDeFicha } from './fotos-ficha';
+import { GaleriaFicha } from './galeria-ficha';
 import type { OfertaVista } from './ofertas';
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoStock } from './textos';
@@ -140,8 +140,8 @@ export function FichaProducto({
   const [error, setError] = useState<string | null>(null);
 
   const oferta = ofertas.find((candidata) => candidata.id === elegida) ?? null;
-  const fotos = oferta && oferta.fotos.length > 0 ? oferta.fotos : producto.fotos;
-  const fotoActual = fotos[Math.min(foto, fotos.length - 1)] ?? null;
+  // La portada que eligió la tienda primero, después el catálogo y sus demás fotos (doc 20 · 23).
+  const fotos = fotosDeFicha(producto.fotos, oferta);
 
   const caracteristicas: Array<readonly [string, ReactNode]> = Object.entries(
     producto.caracteristicas,
@@ -344,62 +344,14 @@ export function FichaProducto({
       </CabeceraMovil>
 
       <div className="grid items-start gap-x-10 gap-y-6 lg:grid-cols-[minmax(0,1fr)_480px]">
-        {/* Fotos: las miniaturas a la izquierda y la foto grande (D_Ficha). */}
-        <section aria-label="Fotos" className="flex min-w-0 gap-3">
-          {fotos.length > 1 && (
-            <div
-              role="tablist"
-              aria-label="Fotos"
-              aria-orientation="vertical"
-              className="flex flex-col gap-2 max-md:hidden"
-            >
-              {fotos.map((miniatura, indice) => (
-                <button
-                  key={miniatura.ruta}
-                  type="button"
-                  role="tab"
-                  aria-selected={indice === foto}
-                  aria-label={`Foto ${indice + 1} de ${fotos.length}`}
-                  onClick={() => setFoto(indice)}
-                  className={`flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-foto-fondo p-0 ${
-                    indice === foto ? 'border-2 border-tinta' : 'border border-linea'
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={urlFoto(miniatura.ruta)}
-                    alt=""
-                    className="h-[86%] w-[86%] object-contain mix-blend-multiply"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-          <div className="relative min-w-0 flex-1">
-            <Miniatura
-              ruta={fotoActual?.ruta ?? null}
-              categoria={producto.categoria.slug}
-              className="aspect-[4/3] w-full rounded-[20px] border-[1.5px] border-borde max-md:aspect-[358/240]"
-              glifo={240}
-              grosor={0.8}
-              prioridad
-            />
-            {fotos.length > 1 && (
-              <>
-                <span className="absolute bottom-4 left-4 text-nota text-secundario max-md:hidden">
-                  Foto {Math.min(foto, fotos.length - 1) + 1} de {fotos.length}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`Foto ${Math.min(foto, fotos.length - 1) + 1} de ${fotos.length}, ver la siguiente`}
-                  onClick={() => setFoto((foto + 1) % fotos.length)}
-                  className="absolute bottom-3 right-3 rounded-full bg-white px-2.5 text-nota font-semibold leading-6 text-tinta md:hidden"
-                >
-                  {Math.min(foto, fotos.length - 1) + 1} / {fotos.length}
-                </button>
-              </>
-            )}
-          </div>
+        {/* Fotos: la foto grande en blanco y sus miniaturas debajo (doc 20 · punto 23). */}
+        <section aria-label="Fotos" className="min-w-0">
+          <GaleriaFicha
+            fotos={fotos}
+            categoria={producto.categoria.slug}
+            actual={foto}
+            alCambiar={setFoto}
+          />
         </section>
 
         <section aria-label="Producto" className="flex min-w-0 flex-col gap-4">
@@ -436,21 +388,8 @@ export function FichaProducto({
             {producto.titulo}
             <PastillasTitulo variantes={oferta?.detalle} titulo={producto.titulo} grande />
           </h1>
-          {producto.etiquetas.length > 0 && (
-            <ul
-              aria-label="Etiquetas"
-              className="flex list-none flex-wrap gap-1.5 p-0 max-md:order-last"
-            >
-              {producto.etiquetas.map((etiqueta) => (
-                <li
-                  key={etiqueta}
-                  className="rounded-full bg-white px-2.5 text-nota leading-6 text-secundario"
-                >
-                  {etiqueta}
-                </li>
-              ))}
-            </ul>
-          )}
+          {/* Los sinónimos (`producto.etiquetas`) ya no se muestran: siguen sirviendo para
+              buscar (doc 20 · A6). */}
 
           {oferta ? (
             <div className="flex flex-col gap-4 rounded-[20px] border border-borde bg-white p-[22px] max-md:p-4">

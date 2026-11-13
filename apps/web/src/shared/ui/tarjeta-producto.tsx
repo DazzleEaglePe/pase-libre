@@ -175,10 +175,16 @@ export function PrecioBurbuja({
 }
 
 /**
- * La tarjeta de producto de todo el sitio (N04 B, N06, N15): blanca con borde de 2 px para que
- * se separe aunque cada foto traiga su propio fondo, la foto, el producto en dos líneas, el
- * precio con su burbujita, «Nuevo · Pegasus5000» y, en su propia línea, «Hace 5 min». La usan el
- * feed, el perfil de la tienda y los demás listados tal cual.
+ * La tarjeta de producto de todo el sitio (N04 B, N06, N15): blanca con borde de 2 px, la foto
+ * en blanco de borde a borde (doc 20 · punto 3), una línea gris de 1 px de borde a borde entre la
+ * foto y el nombre (punto 18), el producto en dos líneas, el precio con su burbujita, «Nuevo ·
+ * Pegasus5000» y, en su propia línea, «Hace 5 min». La usan el feed, el perfil de la tienda y los
+ * demás listados tal cual.
+ *
+ * Al pasar el cursor (punto 19, la «L» sin la línea verde): la tarjeta se pinta menta, la foto
+ * sigue blanca, la línea sigue gris y aparece la flechita «›» verde al lado del nombre (entra
+ * 4 px). Las clases `tarjeta-menta` y `tarjeta-titulo` están en globals.css: la flechita es un
+ * `::after` del nombre, así no se lee ni cambia el texto del título.
  */
 export function TarjetaProducto({
   href,
@@ -237,62 +243,70 @@ export function TarjetaProducto({
 }) {
   const contenido = (
     <>
-      <span className="relative block">
+      {/* La foto de borde a borde: el margen negativo deshace el relleno de la tarjeta. */}
+      <span className="relative -mx-2.5 -mt-2.5 block overflow-hidden rounded-t-2xl">
         <Miniatura
           ruta={foto}
           categoria={categoria}
-          className="aspect-square w-full rounded-xl"
+          className="aspect-square w-full"
           glifo={84}
           grosor={2}
           prioridad={prioridad}
+          marco={false}
         />
         {sobreFoto}
       </span>
-      <b className="line-clamp-2 min-h-9 text-[13px] font-bold leading-[18px] group-hover:underline">
-        {accion ? (
-          <Link
-            href={href}
-            onClick={
-              alTocar
-                ? (evento) => {
-                    evento.preventDefault();
-                    alTocar();
-                  }
-                : undefined
-            }
-            className="text-tinta no-underline after:absolute after:inset-0 after:rounded-[18px] after:content-['']"
-          >
-            {titulo}
-          </Link>
-        ) : (
-          titulo
-        )}
-        <PastillasTitulo variantes={variantes} titulo={titulo} />
-      </b>
-      {accion ? (
-        <span className="flex min-h-[26px] items-center justify-between gap-2">
-          {enVezDelPrecio ?? (
-            <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />
+      {/* La línea gris de 1 px, de borde a borde, arriba del bloque de texto (punto 18). */}
+      <span className="-mx-2.5 flex flex-1 flex-col gap-1.5 border-t-[1px] border-[#DDE4E0] px-2.5 pt-2">
+        <b className="tarjeta-titulo line-clamp-2 min-h-9 text-[13px] font-bold leading-[18px]">
+          {accion ? (
+            <Link
+              href={href}
+              onClick={
+                alTocar
+                  ? (evento) => {
+                      evento.preventDefault();
+                      alTocar();
+                    }
+                  : undefined
+              }
+              className="text-tinta no-underline after:absolute after:inset-0 after:rounded-[18px] after:content-['']"
+            >
+              {titulo}
+            </Link>
+          ) : (
+            titulo
           )}
-          <span className="relative z-10 flex shrink-0">{accion}</span>
-        </span>
-      ) : (
-        (enVezDelPrecio ?? <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />)
-      )}
-      {linea && <span className="truncate text-[12px] leading-4 text-detalle">{linea}</span>}
-      {etiqueta && (
-        // «Hace 5 min» puede cambiar entre el servidor y el navegador.
-        <span
-          suppressHydrationWarning
-          className={`truncate text-[12px] font-bold leading-4 text-secundario ${linea ? '-mt-1.5' : ''}`}
-        >
-          {etiqueta}
-        </span>
-      )}
-      {pie}
+          <PastillasTitulo variantes={variantes} titulo={titulo} />
+        </b>
+        {accion ? (
+          <span className="flex min-h-[26px] items-center justify-between gap-2">
+            {enVezDelPrecio ?? (
+              <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />
+            )}
+            <span className="relative z-10 flex shrink-0">{accion}</span>
+          </span>
+        ) : (
+          (enVezDelPrecio ?? (
+            <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />
+          ))
+        )}
+        {linea && <span className="truncate text-[12px] leading-4 text-detalle">{linea}</span>}
+        {etiqueta && (
+          // «Hace 5 min» puede cambiar entre el servidor y el navegador.
+          <span
+            suppressHydrationWarning
+            className={`truncate text-[12px] font-bold leading-4 text-secundario ${linea ? '-mt-1.5' : ''}`}
+          >
+            {etiqueta}
+          </span>
+        )}
+        {pie}
+      </span>
     </>
   );
-  const clases = `group flex h-full min-w-0 flex-col gap-1.5 rounded-[18px] border-2 border-borde bg-white p-2.5 text-tinta no-underline hover:border-borde-control ${className}`;
+  // Sin `gap` entre la foto y el texto: la línea gris va pegada a la foto (punto 18).
+  const clases = `tarjeta-menta group flex h-full min-w-0 flex-col rounded-[18px] border-2 border-borde bg-white p-2.5 text-tinta no-underline ${className}`;
   if (accion) return <div className={`relative ${clases}`}>{contenido}</div>;
   return (
     <Link

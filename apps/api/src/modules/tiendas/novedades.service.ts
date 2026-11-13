@@ -55,6 +55,8 @@ const SELECT_OFERTA = {
       titulo: true,
       categoria: { select: { slug: true } },
       ...FOTO_DEL_PRODUCTO,
+      // El respaldo de Intel / EXPO para lo publicado antes de la 1.10.0 (doc 20 · A8).
+      perfilMemoria: true,
     },
   },
 } satisfies Prisma.OfertaSelect;
@@ -175,7 +177,7 @@ export class NovedadesService {
           foto: portadaDe(o),
           categoria: o.producto.categoria,
         },
-        detalle: detalleDe(o),
+        detalle: detalleDe(o, o.producto),
         stock: o.stock,
         precio: general.precio ?? conSocio.precio,
         precio_socio: conSocio.socio ? conSocio.precio : null,

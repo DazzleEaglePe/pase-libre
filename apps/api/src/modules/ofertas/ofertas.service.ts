@@ -940,7 +940,8 @@ export class OfertasService {
       moneda: o.moneda,
       precio_visible: o.precioVisible,
       tienda_visible: o.tiendaVisible,
-      detalle: detalleDe(o),
+      // Sin Intel / EXPO marcado (antes de la 1.10.0), el del producto (doc 20 · A8).
+      detalle: detalleDe(o, o.producto),
       modo_venta: o.modoVenta,
       precio_facturado:
         o.precioFacturadoCentimos === null

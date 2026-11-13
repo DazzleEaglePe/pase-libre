@@ -121,6 +121,7 @@ export function FotosPublicacion({
                   categoria={categoria}
                   className="h-[104px] w-[104px]"
                   glifo={56}
+                  marco={false}
                 />
                 {esPortada && (
                   <span className="absolute left-1.5 top-1.5 rounded-full bg-pase px-2 text-[12px] font-bold leading-5 text-white">
