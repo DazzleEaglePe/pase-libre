@@ -378,7 +378,7 @@ export class InicioService {
     return new Set(filas.map((fila) => fila.producto_id));
   }
 
-  /** «★ Tiendas fundadoras · 7 de 10 ya entraron» (doc 20, punto 7). */
+  /** «★ Tiendas fundadoras · 7 de 15 ya entraron» (doc 20, punto 7). */
   private async fundadoras(): Promise<RespuestaInicio['fundadoras']> {
     const filas = await this.prisma.tienda.findMany({
       where: { fundadoraDesde: { not: null }, estado: 'ACTIVA' },

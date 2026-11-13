@@ -15,11 +15,11 @@ import { enPlural } from '@/shared/plural';
 import { Interruptor } from '@/shared/ui/interruptor';
 import { Ventana } from '@/shared/ui/ventana';
 
-/** Al cambiar las fundadoras, la pestaña «★ Fundadoras 7 de 10» se pone al día. */
+/** Al cambiar las fundadoras, la pestaña «★ Fundadoras 7 de 15» se pone al día. */
 const EVENTO_FUNDADORAS = 'paselibre:fundadoras';
 
 /**
- * Las pestañas de Equipo › Tiendas (doc 20, punto 7): «Todas» y «★ Fundadoras 7 de 10», con la
+ * Las pestañas de Equipo › Tiendas (doc 20, punto 7): «Todas» y «★ Fundadoras 7 de 15», con la
  * raya dorada debajo de la elegida.
  */
 export function PestanasTiendas({
@@ -146,7 +146,7 @@ function AgregarFundadora({
 }
 
 /**
- * Equipo › Tiendas › Fundadoras (doc 20, punto 7): «★ Fundadoras · 7 de 10», agregar (máximo 10)
+ * Equipo › Tiendas › Fundadoras (doc 20, punto 7): «★ Fundadoras · 7 de 15», agregar (máximo 15)
  * o quitar, y en cada fila su día destacado (de lunes a sábado, uno solo), «Sello en su perfil»
  * y «Prioridad en el chat».
  */

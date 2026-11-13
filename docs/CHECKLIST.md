@@ -325,3 +325,11 @@ Hecha el 13/11/2026 en 6 ramas paralelas, juntas en `v1-11-0` → `main`. 5 migr
 - [x] 14, 16, A3/8 · «Editar» siempre, «No disponible ▾» con motivo, Pedidos en vivo con foto.
 - [x] 6 · Menú del panel en dos pisos.
 - [ ] Pendiente de Fabrizio: foto del AK820 Max, 135 productos sin foto, Intel/EXPO de cada RAM, fotos horizontales con el importador.
+
+## 18. Versión 1.11.1 · fundadoras ([docs/20b](20b-fundadoras-15-y-las-que-ya-estan.md))
+
+- [x] `MAX_FUNDADORAS = 15` (comentarios y pruebas al día).
+- [x] Migración `20261114150000_fundadoras_las_que_ya_estaban`: las activas sin fundadora entran de la más antigua a la más nueva hasta 15, con «desde» = su registro y días de lunes a sábado.
+- [x] `entrarSiHayLugar` (`shared/fundadoras.ts`) en el registro y en «Crear cuenta», con el candado `pg_advisory_xact_lock(hashtext('fundadoras'))`, que también usa «+ Agregar fundadora».
+- [x] Pruebas: la migración, la 15.ª y la 16.ª, y dos altas a la vez (`fundadoras-1-11-1.e2e-spec.ts`).
+- [ ] Revisar con Fabrizio la lista en Equipo › Tiendas › Fundadoras y quitar las de prueba.

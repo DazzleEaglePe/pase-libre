@@ -418,7 +418,7 @@ describe('Inicio 1.11.0 (doc 20, puntos 4, 22, 4b y 7)', () => {
       await http().get('/v1/equipo/fundadoras').expect(401);
     });
 
-    it('máximo 10: la 11.ª da 409 y al quitar una se libera el lugar', async () => {
+    it(`máximo ${MAX_FUNDADORAS}: la siguiente da 409 y al quitar una se libera el lugar`, async () => {
       const tiendas = await prisma.tienda.findMany({
         where: { estado: 'ACTIVA' },
         orderBy: { creadaEn: 'asc' },
@@ -432,26 +432,26 @@ describe('Inicio 1.11.0 (doc 20, puntos 4, 22, 4b y 7)', () => {
       }
       const once = await agregar(tiendas[MAX_FUNDADORAS]!.id);
       expect(once.status).toBe(409);
-      expect(once.body.error.mensaje).toContain('Ya están las 10');
+      expect(once.body.error.mensaje).toContain(`Ya están las ${MAX_FUNDADORAS}`);
       // Una que ya es fundadora tampoco entra dos veces.
       expect((await agregar(tiendas[0]!.id)).status).toBe(409);
 
       const lista = (await get('equipo', '/v1/equipo/fundadoras', CLAVE_DEMO))
         .body as RespuestaFundadoras;
-      expect(lista.maximo).toBe(10);
-      expect(lista.fundadoras).toHaveLength(10);
-      // Sin día elegido se reparten: ningún día con más de 2.
+      expect(lista.maximo).toBe(MAX_FUNDADORAS);
+      expect(lista.fundadoras).toHaveLength(MAX_FUNDADORAS);
+      // Sin día elegido se reparten: ningún día con más de 3 (15 en 6 días).
       const porDia = new Map<number | null, number>();
       for (const f of lista.fundadoras) porDia.set(f.dia, (porDia.get(f.dia) ?? 0) + 1);
-      expect(Math.max(...porDia.values())).toBeLessThanOrEqual(2);
+      expect(Math.max(...porDia.values())).toBeLessThanOrEqual(3);
 
       await enviar('delete', 'equipo', `/v1/equipo/fundadoras/${tiendas[0]!.id}`, {}, CLAVE_DEMO);
       expect((await agregar(tiendas[MAX_FUNDADORAS]!.id, 3)).status).toBe(201);
 
       const inicio = (await get('mirona', '/v1/inicio')).body as RespuestaInicio;
-      expect(inicio.fundadoras.entraron).toBe(10);
-      expect(inicio.fundadoras.total).toBe(10);
-      expect(inicio.fundadoras.iniciales).toHaveLength(10);
+      expect(inicio.fundadoras.entraron).toBe(MAX_FUNDADORAS);
+      expect(inicio.fundadoras.total).toBe(MAX_FUNDADORAS);
+      expect(inicio.fundadoras.iniciales).toHaveLength(MAX_FUNDADORAS);
     });
 
     it('su día, el sello y la prioridad se cambian; el sello sale solo en su perfil', async () => {

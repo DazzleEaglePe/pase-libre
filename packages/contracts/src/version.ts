@@ -28,6 +28,20 @@ export interface Novedad {
 /** De la más nueva a la más antigua. */
 export const NOVEDADES: readonly Novedad[] = [
   {
+    version: '1.11.1',
+    fecha: '2026-11-13',
+    publico: ['Ahora son 15 tiendas fundadoras.'],
+    equipo: {
+      nuevo: [],
+      cambia: [
+        'Tiendas fundadoras: 15 lugares.',
+        'Las tiendas registradas entran como fundadoras, de la más antigua a la más nueva; las nuevas entran solas mientras haya lugar.',
+      ],
+      arregla: ['La tarjeta del Inicio decía «0 de 10» aunque ya había tiendas registradas.'],
+      datos: [],
+    },
+  },
+  {
     version: '1.11.0',
     fecha: '2026-11-13',
     publico: [
@@ -39,7 +53,7 @@ export const NOVEDADES: readonly Novedad[] = [
     ],
     equipo: {
       nuevo: [
-        'Tiendas fundadoras (máximo 10): día destacado, sello en su perfil y prioridad en el chat.',
+        'Tiendas fundadoras (máximo 10; desde la 1.11.1, 15): día destacado, sello en su perfil y prioridad en el chat.',
         '«Destacar» con fuerza: suave, media o fuerte.',
         'Perfil público, privado u oculto, con solicitudes para seguir en la campanita.',
         'Botón «Editar» en cada publicación.',
@@ -156,7 +170,7 @@ export const NOVEDADES: readonly Novedad[] = [
 ];
 
 /** La versión que está corriendo: siempre la primera de `NOVEDADES` (lo revisa una prueba). */
-export const VERSION = '1.11.0';
+export const VERSION = '1.11.1';
 
 /** Lo que sale en el pie de las tiendas: solo los dos primeros números («1.9»). */
 export function versionCorta(version: string = VERSION): string {

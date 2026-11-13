@@ -22,6 +22,7 @@ import { Prisma, type Solicitud } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { entrarSiHayLugar } from '../../shared/fundadoras';
 import { RESPUESTAS_RAPIDAS_INICIALES } from '../cuenta/respuestas-rapidas';
 import { cifrarClave, esClaveComprometida } from '../sesion/clave';
 import { INTERRUPTOR_REGISTRO, type InterruptorRegistro } from './interruptor';
@@ -498,6 +499,8 @@ export class RegistroService {
         indicaciones: solicitud.referencia,
       },
     });
+    // Entra como fundadora si quedan lugares (doc 20b).
+    await entrarSiHayLugar(tx, tienda.id);
     const usuario = await tx.usuario.create({
       data: {
         tiendaId: tienda.id,

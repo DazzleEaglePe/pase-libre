@@ -42,7 +42,7 @@ export class FundadorasController {
     return this.fundadoras.lista();
   }
 
-  /** «+ Agregar fundadora»: con 10 responde 409 «Ya están las 10». */
+  /** «+ Agregar fundadora»: con 15 responde 409 «Ya están las 15». */
   @Post()
   @Header('Cache-Control', 'no-store')
   agregar(

@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { candadoDeFundadoras, lugaresDeFundadoras } from '../../shared/fundadoras';
 import type { SesionActiva } from '../sesion/sesion.types';
 
 const SELECT_FUNDADORA = {
@@ -44,7 +45,7 @@ function aFundadora(fila: FilaFundadora): FundadoraEnPanel {
 const nombreDelDia = (dia: number) => DIAS_FUNDADORA.find((d) => d.dia === dia)?.nombre ?? '';
 
 /**
- * Equipo › Tiendas › Fundadoras (doc 20, punto 7): agregar o quitar fundadoras (10 como máximo),
+ * Equipo › Tiendas › Fundadoras (doc 20, punto 7): agregar o quitar fundadoras (15 como máximo),
  * su día destacado, el sello en su perfil y la prioridad en el chat. Cada cambio queda en el
  * registro del Equipo.
  */
@@ -62,8 +63,9 @@ export class FundadorasService {
   }
 
   /**
-   * «+ Agregar fundadora». El tope de 10 se cuenta dentro de una transacción serializable: dos
-   * personas del Equipo agregando a la vez no pasan de 10. Sin día, le toca el que tenga menos.
+   * «+ Agregar fundadora». El tope de 15 se cuenta dentro de una transacción serializable y con el
+   * candado de las fundadoras: ni dos personas del Equipo a la vez ni una tienda que se registra en
+   * ese momento pasan de 15. Sin día, le toca el que tenga menos.
    */
   async agregar(datos: AgregarFundadoraDatos, sesion: SesionActiva): Promise<FundadoraEnPanel> {
     try {
@@ -87,6 +89,7 @@ export class FundadorasService {
   ): Promise<FilaFundadora> {
     return this.prisma.$transaction(
       async (tx) => {
+        await candadoDeFundadoras(tx);
         const tienda = await tx.tienda.findFirst({
           where: { id: datos.tienda_id, estado: 'ACTIVA' },
           select: { nombre: true, fundadoraDesde: true },
@@ -105,12 +108,7 @@ export class FundadorasService {
             `${tienda.nombre} ya es fundadora.`,
           );
         }
-        const dias = await tx.tienda.groupBy({
-          by: ['fundadoraDia'],
-          where: ES_FUNDADORA,
-          _count: { _all: true },
-        });
-        const yaSon = dias.reduce((total, fila) => total + fila._count._all, 0);
+        const { yaSon, diaConMenos } = await lugaresDeFundadoras(tx);
         if (yaSon >= MAX_FUNDADORAS) {
           throw new ApiHttpException(
             HttpStatus.CONFLICT,
@@ -118,12 +116,7 @@ export class FundadorasService {
             `Ya están las ${MAX_FUNDADORAS}. Quita una para agregar otra.`,
           );
         }
-        const usados = new Map(dias.map((fila) => [fila.fundadoraDia, fila._count._all]));
-        const dia =
-          datos.dia ??
-          [...DIAS_FUNDADORA].sort((a, b) => (usados.get(a.dia) ?? 0) - (usados.get(b.dia) ?? 0))[0]
-            ?.dia ??
-          1;
+        const dia = datos.dia ?? diaConMenos;
         const creada = await tx.tienda.update({
           where: { id: datos.tienda_id },
           data: {

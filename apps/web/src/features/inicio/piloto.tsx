@@ -30,8 +30,8 @@ function useInvito(): boolean {
 export const DORADO = 'bg-[linear-gradient(135deg,#F7D774,#C99A2E)] text-[#3B2A00]';
 
 /**
- * «★ Tiendas fundadoras · 7 de 10 ya entraron» (doc 20, punto 7; antes «Piloto en la
- * galería»): cuántas fundadoras hay de las 10, sus iniciales, la barra dorada, qué ganan y el
+ * «★ Tiendas fundadoras · 7 de 15 ya entraron» (doc 20, punto 7; antes «Piloto en la
+ * galería»): cuántas fundadoras hay de las 15, sus iniciales, la barra dorada, qué ganan y el
  * botón para invitar. Con `compacto` (primera semana) se achica: sin la frase.
  */
 export function PilotoGaleria({

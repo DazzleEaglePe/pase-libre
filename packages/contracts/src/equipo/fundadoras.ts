@@ -1,10 +1,10 @@
 import { z } from 'zod';
 
 /**
- * «Tiendas fundadoras» (doc 20, punto 7): reemplaza al «piloto». Son 10 como máximo y cada una
+ * «Tiendas fundadoras» (doc 20, punto 7): reemplaza al «piloto». Son 15 como máximo (doc 20b) y cada una
  * tiene su día destacado (de lunes a sábado), el sello en su perfil y la prioridad en el chat.
  */
-export const MAX_FUNDADORAS = 10;
+export const MAX_FUNDADORAS = 15;
 
 /** Su día destacado: 1 = lunes … 6 = sábado (hora de Lima). El domingo no hay. */
 export const DIAS_FUNDADORA = [
@@ -35,7 +35,7 @@ export interface FundadoraEnPanel {
   desde: string;
 }
 
-/** `GET /v1/equipo/fundadoras`: «★ Fundadoras · 7 de 10». */
+/** `GET /v1/equipo/fundadoras`: «★ Fundadoras · 7 de 15». */
 export interface RespuestaFundadoras {
   maximo: number;
   fundadoras: FundadoraEnPanel[];

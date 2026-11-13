@@ -16,6 +16,7 @@ import { Prisma } from '@prisma/client';
 import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
+import { entrarSiHayLugar } from '../../shared/fundadoras';
 import { RESPUESTAS_RAPIDAS_INICIALES } from '../cuenta/respuestas-rapidas';
 import { cifrarClave, esClaveComprometida, generarClaveTemporal } from '../sesion/clave';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
@@ -217,6 +218,8 @@ export class EquipoService {
             },
           });
           tiendaId = tienda.id;
+          // Entra como fundadora si quedan lugares (doc 20b).
+          await entrarSiHayLugar(tx, tienda.id);
           whatsapp ??= datos.whatsapp ?? null;
         }
 

@@ -370,7 +370,7 @@ export interface RespuestaInicio {
     meta: number;
   };
   /**
-   * La tarjeta verde «★ Tiendas fundadoras · 7 de 10 ya entraron» (doc 20, punto 7): cuántas
+   * La tarjeta verde «★ Tiendas fundadoras · 7 de 15 ya entraron» (doc 20, punto 7): cuántas
    * hay, el máximo y sus iniciales.
    */
   fundadoras: { entraron: number; total: number; iniciales: string[] };
