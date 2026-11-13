@@ -717,6 +717,20 @@ export function PanelPublicaciones({ usuarioId }: { usuarioId: string }) {
         </p>
       )}
 
+      {/* Doc 20 §11: el mismo buscador de arriba, con lo que entendió o corrigió. */}
+      {pestana !== 'vendidos' && q && ofertas.length > 0 && datos?.lo_mas_parecido && (
+        <p className="m-0 font-semibold">No hay uno igual. Lo más parecido:</p>
+      )}
+      {pestana !== 'vendidos' &&
+        q &&
+        ofertas.length > 0 &&
+        !datos?.lo_mas_parecido &&
+        datos?.correccion && (
+          <p className="m-0 text-apoyo text-secundario">
+            Mostramos resultados para «{datos.correccion.mostramos}».
+          </p>
+        )}
+
       {pestana === 'vendidos' ? (
         <Vendidos historial={historial} />
       ) : datos === null && !error ? (

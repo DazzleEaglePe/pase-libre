@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { Correccion } from '../catalogo/catalogo.types.js';
+
 /** «¿Qué hacemos?» con un reporte (REP_WebEquipo). */
 export const ACCIONES_REPORTE = ['ESCRIBIR', 'ADVERTIR', 'SUSPENDER', 'NADA'] as const;
 export type AccionReporte = (typeof ACCIONES_REPORTE)[number];
@@ -271,6 +273,10 @@ export interface RespuestaCatalogoEquipo {
   pagina: number;
   paginas: number;
   por_revisar: number;
+  /** Con texto: lo entendido o corregido (doc 20 §11: un solo buscador). */
+  correccion: Correccion | null;
+  /** «No hay uno igual. Lo más parecido:». */
+  lo_mas_parecido: boolean;
   productos: ProductoDelCatalogo[];
 }
 

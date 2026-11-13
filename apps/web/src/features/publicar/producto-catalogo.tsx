@@ -94,7 +94,10 @@ export function BuscadorProducto({
       {productos.length > 0 && (
         <div className="flex flex-col rounded-xl border border-linea">
           <span className="px-4 pb-1 pt-3 text-etiqueta uppercase text-detalle">
-            Ya está en PaseLibre
+            {/* Doc 20 §11: sin uno con todas las palabras, los que tienen al menos el 60 %. */}
+            {resultado?.lo_mas_parecido
+              ? 'No hay uno igual. Lo más parecido:'
+              : 'Ya está en PaseLibre'}
           </span>
           {resultado?.correccion && (
             <span className="px-4 pb-1 text-nota text-secundario">

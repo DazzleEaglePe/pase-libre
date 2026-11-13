@@ -1,5 +1,5 @@
 import type { Precio } from '../comun/dinero.js';
-import type { Condicion, Foto } from '../catalogo/catalogo.types.js';
+import type { Condicion, Correccion, Foto } from '../catalogo/catalogo.types.js';
 import type { TiendaDeSesion } from '../sesion/sesion.types.js';
 
 /** Las fotos se sirven en `/media/<ruta>` (nginx en producción, la API en local). */
@@ -45,7 +45,10 @@ export interface SugerenciaProducto extends ProductoResumen {
 }
 
 export interface RespuestaSugerencias {
-  correccion: { buscaste: string; mostramos: string } | null;
+  /** Lo entendido o corregido, como en la barra de arriba (doc 20 §11: un solo buscador). */
+  correccion: Correccion | null;
+  /** «No hay uno igual. Lo más parecido:». */
+  lo_mas_parecido: boolean;
   productos: SugerenciaProducto[];
 }
 
@@ -121,6 +124,10 @@ export interface RespuestaMisOfertas {
   ofertas: OfertaPropia[];
   pagina: number;
   paginas: number;
+  /** Con texto: lo entendido o corregido (doc 20 §11: un solo buscador). */
+  correccion: Correccion | null;
+  /** «No hay uno igual. Lo más parecido:». */
+  lo_mas_parecido: boolean;
 }
 
 /** `POST /v1/ofertas`. */

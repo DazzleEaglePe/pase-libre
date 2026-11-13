@@ -168,6 +168,10 @@ export default async function Resultados({ searchParams }: { searchParams: Param
           <h1 className="text-titulo">{titulo}</h1>
           <span className="text-cuerpo text-secundario">{cuenta}</span>
         </div>
+        {resultado.lo_mas_parecido && (
+          // Doc 20 §11: nada tiene todas las palabras; salen los que tienen al menos el 60 %.
+          <p className="m-0 font-semibold text-tinta">No hay uno igual. Lo más parecido:</p>
+        )}
         {resultado.correccion && (
           // BUS_Web: lo que se entendió y cómo buscar lo escrito tal cual.
           <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-secundario">
