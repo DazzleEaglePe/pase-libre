@@ -28,6 +28,7 @@ function yo(sobre: Partial<RespuestaYo['usuario']> = {}): RespuestaYo {
       correo: null,
       rol: 'DUENO',
       debe_cambiar_clave: false,
+      version_vista: null,
       ver_bienvenida: true,
       tema_oscuro: false,
       invitar_secciones_cerrado: false,

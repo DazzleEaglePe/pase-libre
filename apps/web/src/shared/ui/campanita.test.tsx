@@ -26,6 +26,7 @@ function aviso(id: string, titulo: string): AvisoCampanita {
     categoria: 'CUENTA',
     titulo,
     extracto: null,
+    foto: null,
     enlace: null,
     accion: null,
     leido: false,
