@@ -345,7 +345,10 @@ export interface RespuestaInicio {
    * «Ver todas las publicaciones (N)» y la tarjeta del final de cada fila llena.
    */
   total: number;
-  /** Tocaste la X del banner «¿Conoces una tienda…?» (N07): ya no sale. */
+  /**
+   * Tocaste la X de la banda «¿Conoces una tienda…?» hace menos de 2 días (N07, doc 19 punto
+   * 14): por ahora no sale. Pasados los 2 días vuelve, sin ningún aviso.
+   */
   invitar_cerrado: boolean;
 }
 

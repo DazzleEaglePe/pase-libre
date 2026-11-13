@@ -8,7 +8,8 @@ import { InvitacionPie } from '@/shared/ui/invitacion-pie';
 /**
  * «¿Conoces una tienda que debería estar aquí?» al bajar hasta el final del inicio (N07, N15):
  * sobre el negro del pie, con «Invitar por WhatsApp», «Copiar enlace» y la X. La X se guarda en
- * la cuenta (no vuelve a salir en ningún dispositivo); en las demás páginas no sale.
+ * la cuenta y la banda vuelve a salir a los 2 días, sin ningún aviso de que vuelve (doc 19,
+ * punto 14). Las secciones de la barra negra llevan la suya en el pie (`InvitacionSecciones`).
  */
 export function BannerInvitar({ cerrado }: { cerrado: boolean }) {
   const [oculto, setOculto] = useState(cerrado);
@@ -25,7 +26,7 @@ export function BannerInvitar({ cerrado }: { cerrado: boolean }) {
   return (
     // El negro llega de lado a lado y se junta con el pie, sin barra de desplazamiento.
     <div className="-mb-16 mt-2 bg-tinta pt-9 text-white shadow-[0_0_0_100vmax_#0F1412] [clip-path:inset(0_-100vmax)]">
-      <InvitacionPie conSesion alCerrar={cerrar} />
+      <InvitacionPie conSesion alCerrar={cerrar} etiquetaCerrar="Cerrar" />
     </div>
   );
 }

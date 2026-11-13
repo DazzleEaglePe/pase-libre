@@ -30,6 +30,27 @@ export function useAvisoLeido(alLeer: (aviso: AvisoCampanita) => void): void {
   }, [alLeer]);
 }
 
+/** Evento de la pestaña: se abrió la campanita o la página Avisos (doc 19, punto 15). */
+const EVENTO_VISTOS = 'paselibre:avisos-vistos';
+
+/**
+ * Abrir la campanita (o, en el celular, la página Avisos) borra su número naranja al toque y
+ * la API guarda desde cuándo contar (`POST /v1/avisos/vistos`), que avisa a las demás
+ * pestañas. El puntito de cada aviso no cambia: sigue hasta tocarlo.
+ */
+export function marcarAvisosVistos(): void {
+  window.dispatchEvent(new Event(EVENTO_VISTOS));
+  void llamarApi('/avisos/vistos', { metodo: 'POST', cuerpo: {} }).catch(() => undefined);
+}
+
+/** Escucha cuando se abre la campanita en esta pestaña. */
+export function useAvisosVistos(alVer: () => void): void {
+  useEffect(() => {
+    window.addEventListener(EVENTO_VISTOS, alVer);
+    return () => window.removeEventListener(EVENTO_VISTOS, alVer);
+  }, [alVer]);
+}
+
 /** La lista de avisos con uno ya leído: sin su punto y un sin leer menos en su filtro. */
 export function conAvisoLeido(
   datos: RespuestaAvisos | null,

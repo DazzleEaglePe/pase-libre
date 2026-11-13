@@ -334,6 +334,14 @@ export class MensajesController {
     return this.avisos.leer(sesion.usuario.id, ids);
   }
 
+  /** Abrió la campanita (doc 19, punto 15): su número vuelve a 0. */
+  @Post('avisos/vistos')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  avisosVistos(@SesionActual() sesion: SesionActiva): Promise<Contadores> {
+    return this.avisos.vistos(sesion.usuario.id);
+  }
+
   /** Las insignias de Mensajes y la campanita. */
   @Get('contadores')
   @Header('Cache-Control', 'no-store')

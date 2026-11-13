@@ -71,6 +71,11 @@ export interface RespuestaYo {
      * la pastilla de la versión lleva el puntito verde.
      */
     version_vista: string | null;
+    /**
+     * Cerró con la X la banda «¿Conoces una tienda…?» de las secciones de la barra negra (doc
+     * 19, punto 14): ahí ya no sale. La del inicio va aparte, en `RespuestaInicio`.
+     */
+    invitar_secciones_cerrado: boolean;
     /** Lo que puede hacer en su tienda (N12): el dueño, todo; el asesor, lo que le dieron. */
     permisos: PermisoAsesor[];
   };

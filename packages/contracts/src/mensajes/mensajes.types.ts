@@ -271,6 +271,11 @@ export interface RespuestaAvisos {
 export interface Contadores {
   /** Conversaciones con algo sin leer. */
   mensajes: number;
+  /**
+   * El número naranja de la campanita (doc 19, punto 15): los avisos sin leer que llegaron
+   * desde la última vez que se abrió (`POST /v1/avisos/vistos`). Los sin leer de verdad, con
+   * su puntito, están en `RespuestaAvisos.sin_leer`.
+   */
   avisos: number;
 }
 

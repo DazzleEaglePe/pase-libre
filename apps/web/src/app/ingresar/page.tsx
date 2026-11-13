@@ -87,6 +87,7 @@ export default async function PaginaIngresar({
         <div className="w-full max-w-[380px]">
           <FormularioAcceso
             primerIngreso={sesion?.usuario.debe_cambiar_clave ? sesion.usuario.usuario : null}
+            bienvenidaPendiente={sesion?.usuario.ver_bienvenida ?? false}
             pestanaInicial={pestana === 'crear' ? 'crear' : 'ingresar'}
             registroActivo={registro?.activo === true}
             volver={volver}

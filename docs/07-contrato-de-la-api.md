@@ -136,7 +136,8 @@ Cuando corrige, la respuesta trae `{ "correccion": { "buscaste": "rtx 3370", "mo
 | `POST /ofertas/:id/vendido` | Vendedor | Resta 1 al stock y deja el aviso en el chat | 47 |
 | `GET /avisos` | Vendedor | La campanita | 40 |
 | `POST /avisos/leidos` | Vendedor | Marcar avisos como leídos | 40 |
-| `GET /contadores` | Vendedor | Las insignias de Mensajes y de la campanita | 40, 55 |
+| `POST /avisos/vistos` | Vendedor | Abrió la campanita: el número naranja vuelve a 0 y cuenta desde ahora (doc 19, punto 15) | 40 |
+| `GET /contadores` | Vendedor | Las insignias de Mensajes y de la campanita (avisos sin leer que llegaron desde la última vez que se abrió) | 40, 55 |
 
 ### 2.5 Configuración
 

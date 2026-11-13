@@ -48,11 +48,18 @@ export class InicioController {
     return this.inicio.recien(mirada, desde);
   }
 
-  /** La X de «¿Conoces una tienda que debería estar aquí?»: se guarda en la cuenta. */
+  /** La X de «¿Conoces una tienda que debería estar aquí?» del inicio: vuelve a los 2 días. */
   @Post('inicio/invitar-cerrado')
   @HttpCode(HttpStatus.NO_CONTENT)
   cerrarInvitar(@MiradaActual() mirada: Mirada): Promise<void> {
     return this.inicio.cerrarInvitar(mirada);
+  }
+
+  /** La X de esa banda en las secciones de la barra negra (doc 19, 14): no vuelve más. */
+  @Post('secciones/invitar-cerrado')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  cerrarInvitarSecciones(@MiradaActual() mirada: Mirada): Promise<void> {
+    return this.inicio.cerrarInvitarSecciones(mirada);
   }
 
   @Get('recien-llegados')

@@ -5,6 +5,7 @@ import { CONTACTO, REDES, VISITANOS } from '@/shared/contacto';
 
 import { SiHayPasesDelDia } from './beneficio-pases';
 import { InvitacionPie } from './invitacion-pie';
+import { InvitacionSecciones } from './invitacion-secciones';
 import { VersionDelPie } from './novedades';
 
 const ENLACES: Array<{ href: string; texto: string }> = [
@@ -26,17 +27,29 @@ function Ventaja({ titulo, children }: { titulo: string; children: ReactNode }) 
 /**
  * Pie de página (D_Pie, elegido A en N07): fondo tinta, las cuatro ventajas en texto («Tu venta
  * es tuya» cierra) y una línea con la dirección y los enlaces. Sin sesión, arriba va la banda
- * verde para pedir la cuenta; con sesión, invitar a otra tienda sale solo al final del inicio
- * (`BannerInvitar`), no aquí. Lo que falta del equipo (WhatsApp, redes, razón social) no sale
- * en producción.
+ * verde para pedir la cuenta. Con sesión, invitar a otra tienda sale al final del inicio
+ * (`BannerInvitar`) y aquí, solo en las secciones de la barra negra y hasta que la cierren
+ * (doc 19, punto 14): una sola banda por página. Lo que falta del equipo (WhatsApp, redes,
+ * razón social) no sale en producción.
  */
-export function PiePagina({ conSesion = false }: { conSesion?: boolean }) {
+export function PiePagina({
+  conSesion = false,
+  invitarCerrada = false,
+}: {
+  conSesion?: boolean;
+  /** Cerró con la X la banda de las secciones (`invitar_secciones_cerrado`): ya no sale. */
+  invitarCerrada?: boolean;
+}) {
   const { whatsapp, legal } = CONTACTO;
   const redes = REDES.filter((red) => red.url);
   return (
     <footer className="bg-tinta text-white">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-9 px-4 pb-7 pt-10 sm:px-8 sm:pt-12">
-        {!conSesion && <InvitacionPie conSesion={false} />}
+        {conSesion ? (
+          <InvitacionSecciones cerrada={invitarCerrada} />
+        ) : (
+          <InvitacionPie conSesion={false} />
+        )}
 
         <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           <SiHayPasesDelDia>

@@ -33,6 +33,8 @@ export const PUBLICACIONES_NORMAL = PUBLICACIONES_INICIO_NORMAL;
 const MAS_PEDIDO = 4;
 /** «Recién llegados» cuenta como máximo lo de las últimas 24 h (N07, mejora 20). */
 const RECIEN_LLEGADOS_MS = 24 * 60 * 60 * 1000;
+/** La banda «¿Conoces una tienda…?» del inicio vuelve a salir a los 2 días de su X (doc 19, 14). */
+export const INVITAR_VUELVE_MS = 2 * 24 * 60 * 60 * 1000;
 /** Cuántas de más se miran para mezclar sin dejar dos seguidas de la misma tienda. */
 const HOLGURA_MEZCLA = 2 * RECIEN_POR_PAGINA;
 
@@ -145,7 +147,9 @@ export class InicioService {
       recien,
       // Es el mismo conteo que `publicaciones`: lo vigente de las demás, sin las bloqueadas.
       total: publicaciones,
-      invitar_cerrado: usuario.invitarCerradoEn !== null,
+      invitar_cerrado:
+        usuario.invitarCerradoEn !== null &&
+        Date.now() - usuario.invitarCerradoEn.getTime() < INVITAR_VUELVE_MS,
     };
   }
 
@@ -226,12 +230,27 @@ export class InicioService {
     };
   }
 
-  /** La X del banner «¿Conoces una tienda…?» (N07): se guarda en la cuenta. */
+  /**
+   * La X de la banda «¿Conoces una tienda…?» del inicio (N07): se guarda en la cuenta, siempre
+   * con la fecha de la última vez, porque la banda vuelve a salir a los 2 días (doc 19, 14).
+   */
   async cerrarInvitar(mirada: Mirada): Promise<void> {
     const { usuarioId } = this.deTienda(mirada);
-    await this.prisma.usuario.updateMany({
-      where: { id: usuarioId, invitarCerradoEn: null },
+    await this.prisma.usuario.update({
+      where: { id: usuarioId },
       data: { invitarCerradoEn: new Date() },
+    });
+  }
+
+  /**
+   * La X de la misma banda en las secciones de la barra negra (doc 19, 14): no vuelve más, así
+   * que se queda la primera fecha.
+   */
+  async cerrarInvitarSecciones(mirada: Mirada): Promise<void> {
+    const { usuarioId } = this.deTienda(mirada);
+    await this.prisma.usuario.updateMany({
+      where: { id: usuarioId, invitarSeccionesCerradoEn: null },
+      data: { invitarSeccionesCerradoEn: new Date() },
     });
   }
 

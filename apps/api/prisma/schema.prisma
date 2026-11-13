@@ -337,9 +337,15 @@ model Usuario {
   bienvenidaVistaEn DateTime?       @map("bienvenida_vista_en") @db.Timestamptz(6)
   /// «¿Quieres seguir a…?» sale solo la primera vez que sigue a una tienda (SG_WebConfirmar).
   seguirExplicadoEn DateTime?       @map("seguir_explicado_en") @db.Timestamptz(6)
-  /// Tocó la X de «¿Conoces una tienda que debería estar aquí?» (N07): el banner del inicio no
-  /// vuelve a salir en ningún dispositivo.
+  /// La última X de «¿Conoces una tienda que debería estar aquí?» en el inicio (N07): la banda
+  /// vuelve a salir a los 2 días (doc 19, punto 14).
   invitarCerradoEn  DateTime?       @map("invitar_cerrado_en") @db.Timestamptz(6)
+  /// La X de esa misma banda en las secciones de la barra negra (doc 19, punto 14): ahí no
+  /// vuelve más.
+  invitarSeccionesCerradoEn DateTime? @map("invitar_secciones_cerrado_en") @db.Timestamptz(6)
+  /// La última vez que abrió la campanita (doc 19, punto 15): el número naranja cuenta lo que
+  /// llegó después.
+  avisosVistosEn    DateTime?       @map("avisos_vistos_en") @db.Timestamptz(6)
   /// La última vez que entró a «Recién llegados» (N07): el «+N nuevo» cuenta desde ahí.
   recienVistoEn     DateTime?       @map("recien_visto_en") @db.Timestamptz(6)
   /// Última vez que tuvo el chat abierto (se conectó o se desconectó del tiempo real), para

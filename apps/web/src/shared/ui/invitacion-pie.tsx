@@ -30,14 +30,18 @@ export function invitarPorWhatsApp() {
 
 /**
  * La banda verde (D_Pie, N07): quien no tiene cuenta la pide; quien la tiene invita a una
- * tienda vecina con el enlace del sitio. Con `alCerrar` lleva la X (el banner del inicio).
+ * tienda vecina con el enlace del sitio. Con `alCerrar` lleva la X: en el inicio
+ * (`BannerInvitar`) y al final de las secciones de la barra negra (`InvitacionSecciones`).
  */
 export function InvitacionPie({
   conSesion,
   alCerrar,
+  etiquetaCerrar = 'Cerrar: no volver a mostrar',
 }: {
   conSesion: boolean;
   alCerrar?: () => void;
+  /** Lo que lee el lector de pantalla en la X. */
+  etiquetaCerrar?: string;
 }) {
   const [copiado, setCopiado] = useState(false);
 
@@ -62,7 +66,7 @@ export function InvitacionPie({
         <button
           type="button"
           onClick={alCerrar}
-          aria-label="Cerrar: no volver a mostrar"
+          aria-label={etiquetaCerrar}
           className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25 sm:right-4 sm:top-1/2 sm:-translate-y-1/2"
         >
           <IconX size={16} stroke={2.2} aria-hidden="true" />

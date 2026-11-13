@@ -29,7 +29,10 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
         <main className="mx-auto w-full max-w-[1280px] flex-1 px-4 pb-16 pt-5 sm:px-8">
           {children}
         </main>
-        <PiePagina conSesion={Boolean(sesion?.tienda)} />
+        <PiePagina
+          conSesion={Boolean(sesion?.tienda)}
+          invitarCerrada={sesion?.usuario.invitar_secciones_cerrado ?? false}
+        />
         {/* En vivo (D-53): aparece al entrar y sigue al usuario al bajar. */}
         <EnVivoFlotante conSesion={Boolean(sesion?.tienda)} />
         <BarraInferior

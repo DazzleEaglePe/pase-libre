@@ -79,6 +79,7 @@ export function respuestaYo(usuario: UsuarioConTienda, soporte?: SoporteActivo):
       ver_bienvenida: !soporte && Boolean(tienda) && usuario.bienvenidaVistaEn === null,
       tema_oscuro: usuario.temaOscuro,
       version_vista: usuario.versionVista,
+      invitar_secciones_cerrado: usuario.invitarSeccionesCerradoEn !== null,
       permisos: permisosDe(usuario),
     },
     tienda: tienda ? tiendaDeSesion(tienda) : null,

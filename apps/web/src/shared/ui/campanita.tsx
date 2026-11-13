@@ -13,13 +13,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FiltrosAvisos, ListaAvisos } from '@/features/avisos/lista-avisos';
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
-import { conAvisoLeido, useAvisoLeido } from '@/shared/avisos-leidos';
+import {
+  conAvisoLeido,
+  marcarAvisosVistos,
+  useAvisoLeido,
+  useAvisosVistos,
+} from '@/shared/avisos-leidos';
 import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 
 /**
  * Los contadores de Mensajes y la campanita. Se piden al entrar, al reconectar el socket y
  * cada vez que llega algo que los mueve. Tocar un aviso baja el de la campanita al toque
- * (N07, error 36), antes de que conteste la API.
+ * (N07, error 36), antes de que conteste la API, y abrir la campanita lo deja en 0 (doc 19,
+ * punto 15): el número cuenta lo que llegó desde la última vez que se abrió.
  */
 export function useContadores(): Contadores {
   const conexion = useConexionTiempoReal();
@@ -43,6 +49,7 @@ export function useContadores(): Contadores {
       [],
     ),
   );
+  useAvisosVistos(useCallback(() => setContadores((actuales) => ({ ...actuales, avisos: 0 })), []));
   return contadores;
 }
 
@@ -61,12 +68,15 @@ export function Insignia({ cantidad }: { cantidad: number }) {
 
 /**
  * La campanita (AV_WebPanel): en la computadora abre los avisos con sus filtros, los
- * nuevos arriba con su botón y «Ver todos los avisos»; en el celular lleva a /avisos.
+ * nuevos arriba con su botón y, abajo, «Marcar todo como leído» y «Ver todos los avisos»; en
+ * el celular lleva a /avisos. Su número cuenta lo llegado desde la última vez que se abrió y
+ * se va al abrirla; el puntito y la negrita de cada aviso, al tocarlo (doc 19, punto 15).
  */
 export function Campanita({
   sinLeer,
   sobreMarca = false,
 }: {
+  /** Los avisos que llegaron desde la última vez que se abrió (el número naranja). */
   sinLeer: number;
   /** En la fila verde de la barra (D_Barra): la campana en blanco. */
   sobreMarca?: boolean;
@@ -85,6 +95,10 @@ export function Campanita({
   useEffect(() => {
     if (abierta) cargar();
   }, [abierta, cargar, sinLeer]);
+  // Abierta, lo que llega ya se está viendo: el número no vuelve a subir.
+  useEffect(() => {
+    if (abierta && sinLeer > 0) marcarAvisosVistos();
+  }, [abierta, sinLeer]);
   useAvisoLeido(useCallback((leido) => setDatos((actuales) => conAvisoLeido(actuales, leido)), []));
 
   useEffect(() => {
@@ -107,12 +121,17 @@ export function Campanita({
     <div ref={caja} className="relative">
       <button
         type="button"
-        aria-label={sinLeer > 0 ? `Avisos, ${sinLeer} sin leer` : 'Avisos'}
+        aria-label={
+          sinLeer > 0 ? `Avisos, ${sinLeer} ${sinLeer === 1 ? 'nuevo' : 'nuevos'}` : 'Avisos'
+        }
         aria-expanded={abierta}
         onClick={() => {
           // En el celular los avisos son una pantalla (AV_Cel), no una ventanita.
           if (window.matchMedia('(max-width: 767px)').matches) router.push('/avisos');
-          else setAbierta(!abierta);
+          else {
+            if (!abierta) marcarAvisosVistos();
+            setAbierta(!abierta);
+          }
         }}
         className={`relative flex h-11 w-11 items-center justify-center rounded-full ${
           sobreMarca
@@ -149,20 +168,6 @@ export function Campanita({
             <div className="flex items-center justify-between gap-3">
               <b className="text-seccion">Avisos</b>
               <span className="flex items-center gap-2">
-                {(datos?.sin_leer ?? 0) > 0 && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      llamarApi<RespuestaAvisos>('/avisos/leidos', {
-                        metodo: 'POST',
-                        cuerpo: {},
-                      }).then(() => cargar())
-                    }
-                    className="h-9 rounded-full border border-borde px-3 text-nota font-semibold"
-                  >
-                    Marcar leídos
-                  </button>
-                )}
                 <Link
                   href="/avisos#configurar"
                   aria-label="Configurar avisos"
@@ -199,13 +204,31 @@ export function Campanita({
               <ListaAvisos avisos={datos.avisos} alAbrir={() => setAbierta(false)} />
             )}
           </div>
-          <Link
-            href="/avisos"
-            onClick={() => setAbierta(false)}
-            className="border-t border-linea py-3.5 text-center text-apoyo font-bold text-pase-texto"
-          >
-            Ver todos los avisos
-          </Link>
+          <div className="flex items-center justify-between gap-3 border-t border-linea px-4 py-2">
+            {(datos?.sin_leer ?? 0) > 0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void llamarApi<RespuestaAvisos>('/avisos/leidos', {
+                    metodo: 'POST',
+                    cuerpo: {},
+                  }).then(cargar, () => undefined)
+                }
+                className="flex min-h-10 items-center text-apoyo font-semibold text-tinta underline"
+              >
+                Marcar todo como leído
+              </button>
+            ) : (
+              <span />
+            )}
+            <Link
+              href="/avisos"
+              onClick={() => setAbierta(false)}
+              className="flex min-h-10 items-center text-apoyo font-bold text-pase-texto"
+            >
+              Ver todos los avisos
+            </Link>
+          </div>
         </div>
       )}
     </div>
