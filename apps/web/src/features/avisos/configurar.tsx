@@ -1,11 +1,12 @@
 'use client';
 
 import type { RespuestaAvisosCuenta } from '@paselibre/contracts';
-import { IconMoon } from '@tabler/icons-react';
+import { IconMoon, IconVolume } from '@tabler/icons-react';
 import { useEffect, useId, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { Interruptor } from '@/shared/ui/interruptor';
+import { EVENTO_AVISOS_GUARDADOS } from '@/shared/ui/que-no-se-pierda';
 
 type Clave = keyof RespuestaAvisosCuenta['campanita'];
 
@@ -43,8 +44,8 @@ const legible = (valor: string) => {
 };
 
 /**
- * «Configurar avisos» (AV_Web, AV_CelAjustes): qué te avisamos, el horario silencioso y por
- * dónde llegan. Cada cambio se guarda al momento. Apagar un aviso no apaga el chat.
+ * «Configurar avisos» (AV_Web, AV_CelAjustes): qué te avisamos, el sonido, el horario silencioso
+ * y por dónde llegan. Cada cambio se guarda al momento. Apagar un aviso no apaga el chat.
  */
 export function ConfigurarAvisos({ alAvisar }: { alAvisar?: (mensaje: string) => void }) {
   const id = useId();
@@ -67,9 +68,13 @@ export function ConfigurarAvisos({ alAvisar }: { alAvisar?: (mensaje: string) =>
     setDatos(nuevos);
     setError(null);
     try {
-      setDatos(
-        await llamarApi<RespuestaAvisosCuenta>('/cuenta/avisos', { metodo: 'PUT', cuerpo: nuevos }),
-      );
+      const guardados = await llamarApi<RespuestaAvisosCuenta>('/cuenta/avisos', {
+        metodo: 'PUT',
+        cuerpo: nuevos,
+      });
+      setDatos(guardados);
+      // El sonido y «No molestar» valen al toque en esta pestaña (doc 19, punto 22).
+      window.dispatchEvent(new CustomEvent(EVENTO_AVISOS_GUARDADOS, { detail: guardados }));
       alAvisar?.('Avisos guardados.');
     } catch (falla) {
       setDatos(anteriores);
@@ -110,6 +115,26 @@ export function ConfigurarAvisos({ alAvisar }: { alAvisar?: (mensaje: string) =>
           ),
         )}
       </ul>
+
+      {/* doc 19, punto 22: los dos sonidos, prendidos de entrada. */}
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-linea px-4 py-3">
+        <span className="flex items-start gap-3">
+          <IconVolume size={20} stroke={1.8} className="mt-0.5 shrink-0" aria-hidden="true" />
+          <span className="flex flex-col">
+            <b className="text-apoyo font-bold">Sonido</b>
+            <span className="text-nota text-secundario">
+              {datos.sonido
+                ? 'Suena al llegar un mensaje o un pedido en vivo. Nunca con ese chat abierto.'
+                : 'Apagado: los mensajes y los pedidos en vivo llegan sin sonar.'}
+            </span>
+          </span>
+        </span>
+        <Interruptor
+          etiqueta="Sonido"
+          activo={datos.sonido}
+          alCambiar={(activo) => void guardar({ ...datos, sonido: activo })}
+        />
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl bg-tinta px-4 py-4 text-white">
         <div className="flex items-center justify-between gap-4">

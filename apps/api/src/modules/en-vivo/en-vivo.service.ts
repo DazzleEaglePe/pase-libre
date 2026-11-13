@@ -28,6 +28,7 @@ import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
+import { ArchivosService } from '../archivos/archivos.service';
 import { conSesion, precioPara } from '../catalogo/visibilidad';
 import { avisoCampanita, AvisosService } from '../mensajes/avisos.service';
 import { MensajesService } from '../mensajes/mensajes.service';
@@ -54,6 +55,7 @@ const SELECT_PUBLICO = {
   estado: true,
   cerradoEn: true,
   creadoEn: true,
+  fotos: true,
   categoria: { select: { slug: true, nombre: true } },
   galeria: { select: { nombre: true } },
   producto: { select: { slug: true, ...FOTO_DEL_PRODUCTO } },
@@ -77,6 +79,29 @@ const SELECT_CON_VENDEDOR = {
 } satisfies Prisma.EnVivoSelect;
 
 type FilaPublica = Prisma.EnVivoGetPayload<{ select: typeof SELECT_PUBLICO }>;
+
+/** Lo que hace falta para saber con qué foto sale (`fotoDe`). */
+const SELECT_FOTO = {
+  fotos: true,
+  producto: { select: FOTO_DEL_PRODUCTO },
+  oferta: { select: PORTADA_DE_OFERTA },
+} satisfies Prisma.EnVivoSelect;
+
+/** La foto del producto: en el remate, la portada de su publicación (docs/17 §5). */
+function fotoDelProducto(f: Prisma.EnVivoGetPayload<{ select: typeof SELECT_FOTO }>) {
+  if (!f.producto) return null;
+  return f.oferta
+    ? portadaDe({ ...f.oferta, producto: f.producto })
+    : (f.producto.fotos[0]?.ruta ?? null);
+}
+
+/**
+ * Con qué foto sale en la banda, la tarjeta mini y el aviso (doc 19, punto 21): la primera de
+ * las suyas o, si no puso, la del producto. Nula sin ninguna: la web dibuja la categoría.
+ */
+function fotoDe(f: Prisma.EnVivoGetPayload<{ select: typeof SELECT_FOTO }>): string | null {
+  return f.fotos[0] ?? fotoDelProducto(f);
+}
 type FilaConVendedor = Prisma.EnVivoGetPayload<{ select: typeof SELECT_CON_VENDEDOR }>;
 
 const noExiste = () =>
@@ -134,6 +159,7 @@ export class EnVivoService {
     @Inject(MensajesService) private readonly mensajes: MensajesService,
     @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
+    @Inject(ArchivosService) private readonly archivos: ArchivosService,
   ) {}
 
   // ── Lista (RF-25, RF-75, RF-77) ───────────────────────────────────────────
@@ -287,9 +313,12 @@ export class EnVivoService {
           `Ya tienes ${MAX_EN_VIVO_POR_CUENTA} pedidos en vivo publicados. Cierra uno o espera a que venza.`,
         );
       }
+      // Las fotos que subió la tienda quedan usadas aquí; las del catálogo ya son del producto.
+      const { fotosSubidas, ...guardar } = contenido;
+      await this.archivos.reclamar(tx, fotosSubidas, tiendaId);
       return tx.enVivo.create({
         data: {
-          ...contenido,
+          ...guardar,
           autorId: usuario.id,
           tiendaId,
           galeriaId: tienda.galeriaId,
@@ -308,20 +337,26 @@ export class EnVivoService {
     return propio as EnVivoPropio;
   }
 
+  /**
+   * El busco va sin precio (doc 19, punto 21): aunque llegue un presupuesto de una pestaña con la
+   * versión anterior, se guarda nulo. Las fotos del producto elegido se usan tal cual; las demás
+   * tienen que ser subidas de la tienda (se reclaman al guardar).
+   */
   private async contenidoBusco(datos: Extract<PublicarEnVivoDatos, { tipo: 'BUSCO' }>) {
     const comun = {
       tipo: 'BUSCO' as const,
       cantidad: datos.cantidad,
       condicion: datos.condicion,
-      mostrarPrecio: datos.mostrar_precio,
-      precioCentimos: datos.presupuesto === null ? null : BigInt(datos.presupuesto),
+      mostrarPrecio: true,
+      precioCentimos: null,
       moneda: datos.moneda,
       ofertaId: null,
+      fotos: datos.fotos,
     };
     if (datos.producto) {
       const producto = await this.prisma.producto.findFirst({
         where: { id: datos.producto, fusionadoEnId: null },
-        select: { id: true, titulo: true, categoriaId: true },
+        select: { id: true, titulo: true, categoriaId: true, fotos: { select: { ruta: true } } },
       });
       if (!producto) {
         throw new ApiHttpException(
@@ -330,8 +365,10 @@ export class EnVivoService {
           'Ese producto ya no está en PaseLibre.',
         );
       }
+      const delCatalogo = new Set(producto.fotos.map((foto) => foto.ruta));
       return {
         ...comun,
+        fotosSubidas: datos.fotos.filter((ruta) => !delCatalogo.has(ruta)),
         productoId: producto.id,
         titulo: producto.titulo,
         categoriaId: producto.categoriaId,
@@ -346,6 +383,7 @@ export class EnVivoService {
     }
     return {
       ...comun,
+      fotosSubidas: datos.fotos,
       productoId: null,
       titulo: datos.titulo ?? '',
       categoriaId: categoria.id,
@@ -413,6 +451,8 @@ export class EnVivoService {
     }
     return {
       tipo: 'FLASH' as const,
+      fotos: [],
+      fotosSubidas: [],
       productoId: oferta.productoId,
       ofertaId: oferta.id,
       titulo: oferta.producto.titulo,
@@ -833,6 +873,7 @@ export class EnVivoService {
         precioCentimos: true,
         moneda: true,
         mostrarPrecio: true,
+        ...SELECT_FOTO,
       },
     });
     const destinatarios = await this.destinatarios(busco, usuario.tiendaId ?? '');
@@ -874,6 +915,7 @@ export class EnVivoService {
         extracto,
         enlace: `/pedidos-en-vivo?id=${id}`,
         accion: { tipo: 'LO_TENGO', enlace: `/pedidos-en-vivo?id=${id}` },
+        foto: fotoDe(busco),
         visibleDesde: visibleDesde(p.noMolestarDesde, p.noMolestarHasta, ahora),
       })),
     });
@@ -916,6 +958,7 @@ export class EnVivoService {
         precioCentimos: true,
         moneda: true,
         mostrarPrecio: true,
+        ...SELECT_FOTO,
       },
     });
     const quien = usuario.tienda?.nombre ?? usuario.nombre;
@@ -936,6 +979,7 @@ export class EnVivoService {
         .filter(Boolean)
         .join(' · '),
       enlace: `/pedidos-en-vivo?id=${id}`,
+      foto: fotoDe(enVivo),
       accion:
         enVivo.tipo === 'BUSCO'
           ? { tipo: 'LO_TENGO', enlace: `/pedidos-en-vivo?id=${id}` }
@@ -951,14 +995,9 @@ export class EnVivoService {
       tipo: f.tipo,
       titulo: f.titulo,
       categoria: f.categoria,
-      producto: f.producto
-        ? {
-            slug: f.producto.slug,
-            foto: f.oferta
-              ? portadaDe({ ...f.oferta, producto: f.producto })
-              : (f.producto.fotos[0]?.ruta ?? null),
-          }
-        : null,
+      producto: f.producto ? { slug: f.producto.slug, foto: fotoDelProducto(f) } : null,
+      foto: fotoDe(f),
+      fotos: f.fotos,
       cantidad: f.cantidad,
       condicion: f.condicion,
       galeria: f.galeria?.nombre ?? null,

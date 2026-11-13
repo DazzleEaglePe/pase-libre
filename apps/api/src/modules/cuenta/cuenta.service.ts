@@ -262,7 +262,7 @@ export class CuentaService {
     const [usuario, preferencias] = await Promise.all([
       this.prisma.usuario.findUniqueOrThrow({
         where: { id: usuarioId },
-        select: { noMolestarDesde: true, noMolestarHasta: true },
+        select: { noMolestarDesde: true, noMolestarHasta: true, sonido: true },
       }),
       this.prisma.preferenciaAviso.findMany({ where: { usuarioId } }),
     ]);
@@ -285,6 +285,7 @@ export class CuentaService {
         usuario.noMolestarDesde !== null && usuario.noMolestarHasta !== null
           ? { desde: aHora(usuario.noMolestarDesde), hasta: aHora(usuario.noMolestarHasta) }
           : null,
+      sonido: usuario.sonido,
     };
   }
 
@@ -315,6 +316,7 @@ export class CuentaService {
         data: {
           noMolestarDesde: datos.no_molestar?.desde ?? null,
           noMolestarHasta: datos.no_molestar?.hasta ?? null,
+          ...(datos.sonido === undefined ? {} : { sonido: datos.sonido }),
         },
       }),
     ]);

@@ -2,14 +2,25 @@
 
 import type { RespuestaYo } from '@paselibre/contracts';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
-import { useEnVivoMontado } from '@/features/en-vivo/contexto';
+import { useEnVivoMontado, usePedidosNuevos } from '@/features/en-vivo/contexto';
 import { useAhora } from '@/features/en-vivo/datos';
+import { conLosNuevosPrimero } from '@/features/en-vivo/nuevos';
+import { EtiquetaNuevo } from '@/features/en-vivo/piezas';
 import { BotonResponder } from '@/features/en-vivo/responder';
 import { conVendedor, cuantoQueda, etiquetaTipo, type ItemEnVivo } from '@/features/en-vivo/textos';
 import { haceRato } from '@/shared/fechas';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { BotonBrasa } from '@/shared/ui/brasa';
+import { Miniatura } from '@/shared/ui/miniatura';
+
+/**
+ * El ancho de cada tarjeta desde la tableta: dos o tres por fila. Va en `cqw` (el ancho de la
+ * lista) para que el contenido no se reacomode mientras la tarjeta nueva crece desde 0
+ * (doc 19, punto 22). En el celular van una debajo de otra.
+ */
+const ANCHO_TARJETA = 'sm:w-[calc((100cqw-12px)/2)] lg:w-[calc((100cqw-24px)/3)]';
 
 /** Lo que piden o rematan las demás tiendas ahora (sin lo tuyo). */
 function useAjenosEnVivo(): { lista: ItemEnVivo[]; listo: boolean; activo: boolean } {
@@ -84,13 +95,20 @@ function Queda({ venceEn, ahora }: { venceEn: string; ahora: number }) {
   );
 }
 
+/**
+ * Una tarjeta de la banda, con su foto (doc 19, punto 21). La que acaba de entrar (punto 22)
+ * crece desde la izquierda, su borde late naranja dos veces y lleva «NUEVO» 10 s; `espera` la
+ * hace entrar detrás de otra que llegó junto con ella.
+ */
 function TarjetaEnVivo({
   item,
   ahora,
+  nueva,
   className = '',
 }: {
   item: ItemEnVivo;
   ahora: number;
+  nueva: { espera: number } | null;
   className?: string;
 }) {
   const quien = [
@@ -101,33 +119,50 @@ function TarjetaEnVivo({
     .join(' · ');
   return (
     <li
-      className={`flex min-w-0 flex-col gap-1.5 rounded-[14px] bg-white p-3.5 text-tinta ${className}`}
+      className={`relative min-w-0 overflow-hidden rounded-[14px] bg-white sm:shrink-0 ${ANCHO_TARJETA} ${
+        nueva ? 'entra-en-vivo' : ''
+      } ${className}`}
+      style={nueva ? ({ '--espera': `${nueva.espera}ms` } as CSSProperties) : undefined}
     >
-      <span className="flex items-center justify-between gap-2">
-        <span
-          className={`rounded-full px-2.5 py-0.5 text-[12px] font-extrabold ${
-            item.tipo === 'BUSCO' ? 'bg-pase-medio text-marca' : 'bg-[#FFEDD5] text-aviso'
-          }`}
-        >
-          {etiquetaTipo(item.tipo)}
+      <div className={`flex h-full flex-col gap-1.5 p-3.5 text-tinta ${ANCHO_TARJETA}`}>
+        <span className="flex items-center justify-between gap-2 whitespace-nowrap">
+          <span className="flex items-center gap-1.5">
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-[12px] font-extrabold ${
+                item.tipo === 'BUSCO' ? 'bg-pase-medio text-marca' : 'bg-[#FFEDD5] text-aviso'
+              }`}
+            >
+              {etiquetaTipo(item.tipo)}
+            </span>
+            {nueva && <EtiquetaNuevo espera={nueva.espera + 200} />}
+          </span>
+          <Queda venceEn={item.vence_en} ahora={ahora} />
         </span>
-        <Queda venceEn={item.vence_en} ahora={ahora} />
-      </span>
-      <Link
-        href={`/pedidos-en-vivo?id=${item.id}`}
-        className="line-clamp-2 text-[16px] font-bold leading-6 text-tinta no-underline hover:underline"
-      >
-        {item.titulo}
-      </Link>
-      <span className="mt-auto flex items-center justify-between gap-2 pt-1">
-        <span className="min-w-0 truncate text-[12px] text-detalle">{quien}</span>
-        {/* «¡Lo tengo!» abre el chat directo (N16): si hay una sola publicación que calce. */}
-        <BotonResponder
-          item={item}
-          directo
-          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-contador px-3.5 text-[13px] font-extrabold text-tinta no-underline"
-        />
-      </span>
+        <span className="flex items-center gap-2.5">
+          <Miniatura
+            ruta={item.foto}
+            categoria={item.categoria.slug}
+            className="h-[46px] w-[46px] rounded-[10px]"
+            glifo={30}
+            grosor={5}
+          />
+          <Link
+            href={`/pedidos-en-vivo?id=${item.id}`}
+            className="line-clamp-2 min-w-0 text-[16px] font-bold leading-6 text-tinta no-underline hover:underline"
+          >
+            {item.titulo}
+          </Link>
+        </span>
+        <span className="mt-auto flex items-center justify-between gap-2 pt-1">
+          <span className="min-w-0 truncate text-[12px] text-detalle">{quien}</span>
+          {/* «¡Lo tengo!» abre el chat directo (N16): si hay una sola publicación que calce. */}
+          <BotonResponder
+            item={item}
+            directo
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full bg-contador px-3.5 text-[13px] font-extrabold text-tinta no-underline"
+          />
+        </span>
+      </div>
     </li>
   );
 }
@@ -138,11 +173,15 @@ function TarjetaEnVivo({
  * Sé el primero…»; con menos de 3, al lado invita a pedir. Nunca queda vacío.
  */
 export function PedidosEnVivo() {
-  const { lista, listo, activo } = useAjenosEnVivo();
+  const { lista: ajenos, listo, activo } = useAjenosEnVivo();
+  const nuevos = usePedidosNuevos();
   const ahora = useAhora();
   if (!activo) return null;
-  const visibles = lista.slice(0, 3);
-  const libres = 3 - visibles.length;
+  // Los que entraron mientras miras van primero: entran por la izquierda y empujan a las demás,
+  // que siguen en la fila mientras brillan y salen por la derecha (doc 19, punto 22).
+  const lista = conLosNuevosPrimero(ajenos, nuevos.entrados);
+  const visibles = lista.slice(0, 3 + nuevos.marcados.size);
+  const libres = Math.max(0, 3 - lista.length);
   return (
     <section
       aria-labelledby="pedidos-en-vivo"
@@ -157,7 +196,25 @@ export function PedidosEnVivo() {
             aria-hidden="true"
             className="h-[9px] w-[9px] shrink-0 animate-latido rounded-full bg-[#E11D2E]"
           />
-          Pedidos en vivo{lista.length > 0 ? ` · ${lista.length}` : ''}
+          <span>
+            Pedidos en vivo
+            {lista.length > 0 && (
+              <>
+                {' · '}
+                {/* El número sube con un saltito cuando entra uno (doc 19, punto 22). */}
+                <span
+                  key={nuevos.lote}
+                  className={
+                    nuevos.lote > 0
+                      ? 'inline-block motion-safe:animate-[sube-numero-en-vivo_450ms_cubic-bezier(.2,1.6,.4,1)]'
+                      : undefined
+                  }
+                >
+                  {lista.length}
+                </span>
+              </>
+            )}
+          </span>
         </h2>
         {lista.length > 0 && (
           <Link
@@ -185,21 +242,19 @@ export function PedidosEnVivo() {
           </BotonBrasa>
         </div>
       ) : (
-        <ul className="m-0 grid list-none gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3">
+        // Alrededor hay aire para el brillo naranja de la que entra.
+        <ul className="en-columna -mx-3 -my-3 flex list-none flex-col gap-3 px-3 py-3 [container-type:inline-size] sm:flex-row sm:overflow-hidden">
           {visibles.map((item, n) => (
             <TarjetaEnVivo
               key={item.id}
               item={item}
               ahora={ahora}
-              className={n === 2 ? 'max-lg:hidden' : ''}
+              nueva={nuevos.marcados.get(item.id) ?? null}
+              className={n >= 2 ? 'max-lg:hidden' : ''}
             />
           ))}
           {libres > 0 && (
-            <li
-              className={`flex items-center justify-between gap-3 rounded-[14px] border-[1.5px] border-dashed border-detalle px-[18px] py-3.5 max-lg:hidden ${
-                libres === 2 ? 'lg:col-span-2' : ''
-              }`}
-            >
+            <li className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-[14px] border-[1.5px] border-dashed border-detalle px-[18px] py-3.5 max-lg:hidden">
               <span className="flex flex-col gap-0.5">
                 <b className="text-[15px] font-bold">¿Te falta algo para un cliente?</b>
                 <span className="text-nota text-[#B9C4BE]">

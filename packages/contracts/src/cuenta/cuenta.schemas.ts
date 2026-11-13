@@ -131,6 +131,8 @@ export const avisosCuentaSchema = z.strictObject({
       'El horario debe empezar y terminar a horas distintas.',
     )
     .nullable(),
+  /** «Sonido» (doc 19, punto 22). Opcional: sin él, queda como estaba. */
+  sonido: z.boolean().optional(),
 });
 
 /**

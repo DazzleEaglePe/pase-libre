@@ -11,6 +11,7 @@ import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { BarraInferior } from '@/shared/ui/barra-inferior';
 import { BarraDelSitio } from '@/shared/ui/barra-del-sitio';
 import { PiePagina } from '@/shared/ui/pie-pagina';
+import { QueNoSePierda } from '@/shared/ui/que-no-se-pierda';
 
 /**
  * El catálogo: portada, resultados y ficha. Lo ve cualquiera; con sesión, la barra suma la
@@ -37,6 +38,8 @@ export default async function LayoutPublico({ children }: { children: ReactNode 
           sinPublicar={!sesionPuede(sesion, 'PUBLICAR')}
         />
         {sesion?.usuario.ver_bienvenida && <Bienvenida />}
+        {/* Sonidos y aviso en la pestaña (doc 19, punto 22): solo la tienda, no el equipo ayudando. */}
+        {sesion?.tienda && !sesion.soporte && <QueNoSePierda />}
       </div>
     </ProveedorEnVivo>
   );

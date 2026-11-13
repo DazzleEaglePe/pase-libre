@@ -6,6 +6,7 @@ import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 
 import { BarraDelSitio } from './barra-del-sitio';
 import { PiePagina } from './pie-pagina';
+import { QueNoSePierda } from './que-no-se-pierda';
 
 /**
  * La barra y el pie de siempre, para las páginas que no cuelgan de los layouts del catálogo
@@ -26,6 +27,8 @@ export async function MarcoPagina({
         <BarraDelSitio sesion={sesion} />
         {children}
         <PiePagina conSesion={Boolean(sesion?.tienda)} />
+        {/* Sonidos y aviso en la pestaña (doc 19, punto 22). */}
+        {sesion?.tienda && !sesion.soporte && <QueNoSePierda />}
       </div>
     </ProveedorEnVivo>
   );

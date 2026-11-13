@@ -10,6 +10,7 @@ import { ProveedorTiempoReal } from '@/shared/tiempo-real';
 import { BarraDelSitio } from '@/shared/ui/barra-del-sitio';
 import { BarraInferior } from '@/shared/ui/barra-inferior';
 import { Pie } from '@/shared/ui/pie';
+import { QueNoSePierda } from '@/shared/ui/que-no-se-pierda';
 
 /**
  * Páginas del vendedor: Publicar, Mis publicaciones y Mensajes, con el socket del tiempo
@@ -34,6 +35,8 @@ export default async function LayoutVendedor({ children }: { children: ReactNode
           <Pie conSesion />
           <BarraInferior conTienda sinPublicar={!sesionPuede(sesion, 'PUBLICAR')} />
           {sesion.usuario.ver_bienvenida && <Bienvenida />}
+          {/* Sonidos y aviso en la pestaña (doc 19, punto 22); no con el equipo ayudando. */}
+          {!sesion.soporte && <QueNoSePierda />}
         </div>
       </ProveedorEnVivo>
     </ProveedorTiempoReal>

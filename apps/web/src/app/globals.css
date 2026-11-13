@@ -168,3 +168,137 @@ body:has(.ficha-fondo) {
     transform: translateX(95%);
   }
 }
+
+/*
+ * doc 19 · punto 22: que no se pierda nada.
+ * - El globito de Mensajes da un saltito (−7 px y −8°, con rebote) y su número naranja aparece
+ *   con un rebote (0 → 1,4 → 1). Una vez por mensaje.
+ * - El pedido en vivo que entra en la banda del inicio: crece desde 0 por la izquierda en 300 ms
+ *   y empuja a las demás; su borde se prende naranja y late dos veces (unos 2 s); «NUEVO» aparece
+ *   con un rebote y el número del título sube con un saltito. `--espera` lo hace entrar detrás
+ *   de otro que llegó junto con él. La tarjeta mini lo hace con la Web Animations API
+ *   (`brillarMini` en flotante.tsx).
+ * - Con «reducir movimiento», sin movimiento: solo el borde naranja quieto 2 s.
+ */
+@keyframes saltito-chat {
+  0% {
+    transform: none;
+  }
+  28% {
+    transform: translateY(-7px) rotate(-8deg);
+  }
+  57% {
+    transform: translateY(0) rotate(0);
+  }
+  78% {
+    transform: translateY(-3px);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes rebote-insignia {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes entra-en-vivo {
+  from {
+    max-width: 0;
+    margin-right: -12px;
+    opacity: 0;
+  }
+  to {
+    max-width: 480px;
+    margin-right: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes brilla-en-vivo {
+  0% {
+    box-shadow:
+      inset 0 0 0 3px #f97316,
+      0 0 24px rgba(249, 115, 22, 0.75);
+  }
+  25% {
+    box-shadow:
+      inset 0 0 0 3px rgba(249, 115, 22, 0.85),
+      0 0 10px rgba(249, 115, 22, 0.3);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 3px #f97316,
+      0 0 24px rgba(249, 115, 22, 0.7);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 0 rgba(249, 115, 22, 0),
+      0 0 0 rgba(249, 115, 22, 0);
+  }
+}
+
+@keyframes borde-en-vivo {
+  0%,
+  99% {
+    box-shadow: inset 0 0 0 3px #f97316;
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+@keyframes nuevo-en-vivo {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sube-numero-en-vivo {
+  0% {
+    transform: translateY(6px);
+  }
+  45% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.entra-en-vivo {
+  animation:
+    entra-en-vivo 300ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--espera, 0ms) both,
+    brilla-en-vivo 2s ease-out calc(var(--espera, 0ms) + 300ms) both;
+}
+
+/* En el celular la banda de la tienda va en columna: ahí no crece de costado, solo brilla. */
+@media (max-width: 639px) {
+  .en-columna .entra-en-vivo {
+    animation: brilla-en-vivo 2s ease-out var(--espera, 0ms) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entra-en-vivo,
+  .en-columna .entra-en-vivo {
+    animation: borde-en-vivo 2s linear var(--espera, 0ms) both;
+  }
+}

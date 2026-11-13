@@ -1061,7 +1061,14 @@ export class MensajesService implements OnModuleInit {
       : new Set<string>();
     const sinNombres = conversacion.vendedorId === usuario.id && !conversacion.oferta.tiendaVisible;
     this.emitirNuevo(conversacion.id, mensaje, usuario.id);
-    this.emitirNuevo(conversacion.id, mensaje, otroId, { conAsesores, sinNombres });
+    // A quien lo recibe, con quién le escribió: la pestaña dice «💬 {tienda} te escribió».
+    this.emitirNuevo(
+      conversacion.id,
+      mensaje,
+      otroId,
+      { conAsesores, sinNombres },
+      this.remitente(conversacion, usuario),
+    );
     if (leLlega) {
       const evento: EventoMensajeRecibido = {
         conversacion_id: conversacion.id,
@@ -1076,10 +1083,12 @@ export class MensajesService implements OnModuleInit {
     mensaje: MensajeFila,
     usuarioId: string,
     contexto: ContextoMensajes = {},
+    remitente?: string,
   ): void {
     const evento: EventoMensajeNuevo = {
       conversacion_id: conversacionId,
       mensaje: mensajeChat(mensaje, usuarioId, contexto),
+      ...(remitente ? { remitente } : {}),
     };
     this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.mensajeNuevo, evento);
     this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.contadores);

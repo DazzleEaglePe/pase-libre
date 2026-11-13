@@ -27,22 +27,21 @@ export function cuantoQueda(venceEn: string, ahora: number, corto = false): stri
 }
 
 /**
- * El dato de la línea de abajo: el presupuesto del busco o el precio de la oferta flash.
- * Sin sesión, lo que se ve al iniciarla (RF-77).
+ * El dato de la línea de abajo: el precio de la oferta flash. Sin sesión, lo que se ve al
+ * iniciarla (RF-77). El busco va sin precio (doc 19, punto 21): nulo, salvo los publicados antes
+ * de la 1.10.0 con presupuesto («Paga hasta US$ 300»).
  */
-export function datoPrecio(item: ItemEnVivo): string {
-  if (!conVendedor(item)) {
-    return item.tipo === 'BUSCO' ? 'Presupuesto con sesión' : 'Precio con sesión';
-  }
-  if (!item.precio) return 'Sin presupuesto';
+export function datoPrecio(item: ItemEnVivo): string | null {
+  if (!conVendedor(item)) return item.tipo === 'BUSCO' ? null : 'Precio con sesión';
+  if (!item.precio) return null;
   const precio = formatearPrecio(item.precio);
   return item.tipo === 'BUSCO' ? `Paga hasta ${precio}` : precio;
 }
 
-/** «Maxiplaza · Paga hasta US$ 300», con la tienda cuando hay sesión. */
+/** «Maxiplaza · US$ 289», con la tienda cuando hay sesión; el busco, sin precio. */
 export function lineaLugar(item: ItemEnVivo): string {
   const lugar = conVendedor(item) ? item.tienda.nombre : (item.galeria ?? 'Independiente');
-  return `${lugar} · ${datoPrecio(item)}`;
+  return [lugar, datoPrecio(item)].filter(Boolean).join(' · ');
 }
 
 /** «2 unidades · Nuevo» para la ficha completa; vacío si es 1 y acepta cualquiera. */
@@ -86,13 +85,14 @@ export function terminaEn(venceEn: string, ahora: number): string {
 }
 
 /**
- * La línea de abajo de una tarjeta (D_Pases): «Paga hasta US$ 300», «Presupuesto: consultar»
- * o «US$ 289 · 3 disponibles». Sin sesión, lo que se ve al iniciarla.
+ * La línea de abajo de una tarjeta (D_Pases): «US$ 289 · 3 disponibles». Sin sesión, lo que se
+ * ve al iniciarla. El busco va sin precio (doc 19, punto 21): nulo, ya no «Presupuesto:
+ * consultar».
  */
-export function lineaPrecio(item: ItemEnVivo): string {
+export function lineaPrecio(item: ItemEnVivo): string | null {
   if (!conVendedor(item)) return datoPrecio(item);
   if (item.tipo === 'BUSCO') {
-    return item.precio ? `Paga hasta ${formatearPrecio(item.precio)}` : 'Presupuesto: consultar';
+    return item.precio ? `Paga hasta ${formatearPrecio(item.precio)}` : null;
   }
   const disponibles = item.cantidad === 1 ? '1 disponible' : `${item.cantidad} disponibles`;
   return item.precio ? `${formatearPrecio(item.precio)} · ${disponibles}` : disponibles;

@@ -101,8 +101,8 @@ export class ArchivosService {
   /**
    * Borra las fotos que ya nadie usa: el archivo y su fila (docs/17: al reemplazar o eliminar
    * productos del catálogo). Se llama **después** de la transacción que las dejó sin uso; si esa
-   * falla, las fotos siguen ahí. Una ruta que todavía usa un producto, una oferta, un mensaje o
-   * una tienda no se toca.
+   * falla, las fotos siguen ahí. Una ruta que todavía usa un producto, una oferta, un mensaje,
+   * una tienda o un pedido en vivo (doc 19, punto 21) no se toca.
    */
   async borrarSinUso(rutas: readonly string[]): Promise<number> {
     const unicas = [...new Set(rutas)].filter((ruta) => RUTA_SUBIDA.test(ruta));
@@ -113,7 +113,9 @@ export class ArchivosService {
       UNION SELECT foto FROM mensaje WHERE foto = ANY(${unicas})
       UNION SELECT foto FROM mensaje_version WHERE foto = ANY(${unicas})
       UNION SELECT logo FROM tienda WHERE logo = ANY(${unicas})
-      UNION SELECT portada_ruta FROM tienda WHERE portada_ruta = ANY(${unicas})`;
+      UNION SELECT portada_ruta FROM tienda WHERE portada_ruta = ANY(${unicas})
+      UNION SELECT unnest(fotos)::text FROM en_vivo WHERE fotos::text[] && ${unicas}::text[]
+      UNION SELECT foto FROM aviso WHERE foto = ANY(${unicas})`;
     const enUso = new Set(usadas.map((fila) => fila.ruta));
     const libres = unicas.filter((ruta) => !enUso.has(ruta));
     if (libres.length === 0) return 0;

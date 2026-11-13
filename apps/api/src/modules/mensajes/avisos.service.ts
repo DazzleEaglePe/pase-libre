@@ -37,6 +37,7 @@ export function avisoCampanita(aviso: Aviso): AvisoCampanita {
     extracto: aviso.extracto,
     enlace: aviso.enlace,
     accion: (aviso.accion as AccionAviso | null) ?? null,
+    foto: aviso.foto,
     leido: aviso.leidoEn !== null,
     actualizado_en: aviso.actualizadoEn.toISOString(),
   };
@@ -49,6 +50,8 @@ export interface AvisoNuevo {
   extracto?: string | null;
   enlace?: string | null;
   accion?: AccionAviso | null;
+  /** La foto del pedido en vivo (doc 19, punto 21). */
+  foto?: string | null;
 }
 
 /** Conversaciones con algo sin leer para una persona: las cuentan Mensajes y la lista. */
@@ -173,6 +176,7 @@ export class AvisosService {
           extracto: nuevo.extracto?.slice(0, 240) ?? null,
           enlace: nuevo.enlace ?? null,
           accion: nuevo.accion ?? Prisma.DbNull,
+          foto: nuevo.foto ?? null,
           visibleDesde: visibleDesde(persona.noMolestarDesde, persona.noMolestarHasta, ahora),
         })),
     });
