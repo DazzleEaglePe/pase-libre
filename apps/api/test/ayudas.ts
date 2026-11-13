@@ -110,3 +110,20 @@ export function cookieDe(respuesta: Response): string {
   if (!sesion) throw new Error('La respuesta no trae la cookie de sesión.');
   return sesion.split(';')[0] as string;
 }
+
+/**
+ * Reintenta `consulta` cada 50 ms hasta que no falle (o hasta `tope`): para lo que la API anota
+ * después de responder (el registro del Equipo, los avisos). Una espera fija de 100 ms alcanza en
+ * la Mac pero no siempre en el CI, que es más lento.
+ */
+export async function hastaQue<T>(consulta: () => Promise<T>, tope = 3000): Promise<T> {
+  const limite = Date.now() + tope;
+  for (;;) {
+    try {
+      return await consulta();
+    } catch (error) {
+      if (Date.now() > limite) throw error;
+      await new Promise((listo) => setTimeout(listo, 50));
+    }
+  }
+}

@@ -5,7 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { CLAVE_DEMO, sembrarBase, sembrarDemo } from '../prisma/semilla';
-import { CABECERAS, cookieDe, crearApp, usarBaseDePruebas, vaciarBase } from './ayudas';
+import { CABECERAS, cookieDe, crearApp, usarBaseDePruebas, vaciarBase, hastaQue } from './ayudas';
 
 const url = usarBaseDePruebas();
 const prisma = new PrismaClient({ datasources: { db: { url } } });
@@ -88,15 +88,19 @@ describe('Arreglos de la 1.11.0 (doc 20: A2, A4 y A7)', () => {
       expect(oferta.tiendaId).toBe(tiendaA);
 
       await esperarAnotacion();
-      await prisma.registroEquipo.findFirstOrThrow({
-        where: { tiendaId: tiendaA, accion: 'en modo soporte, publicó por tu tienda' },
-      });
-      await prisma.aviso.findFirstOrThrow({
-        where: {
-          usuario: { usuario: 'tiendaa' },
-          titulo: 'El Equipo PaseLibre publicó por tu tienda',
-        },
-      });
+      await hastaQue(() =>
+        prisma.registroEquipo.findFirstOrThrow({
+          where: { tiendaId: tiendaA, accion: 'en modo soporte, publicó por tu tienda' },
+        }),
+      );
+      await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: {
+            usuario: { usuario: 'tiendaa' },
+            titulo: 'El Equipo PaseLibre publicó por tu tienda',
+          },
+        }),
+      );
     });
 
     it('edita una publicación y confirma que siguen igual', async () => {
@@ -106,12 +110,14 @@ describe('Arreglos de la 1.11.0 (doc 20: A2, A4 y A7)', () => {
         .send('post', '/v1/ofertas/confirmar', { ids: [publicada] })
         .expect(200);
       await esperarAnotacion();
-      await prisma.aviso.findFirstOrThrow({
-        where: {
-          usuario: { usuario: 'tiendaa' },
-          titulo: 'El Equipo PaseLibre editó una de tus publicaciones',
-        },
-      });
+      await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: {
+            usuario: { usuario: 'tiendaa' },
+            titulo: 'El Equipo PaseLibre editó una de tus publicaciones',
+          },
+        }),
+      );
     });
 
     it('borrar sigue cerrado, con el texto nuevo del error', async () => {

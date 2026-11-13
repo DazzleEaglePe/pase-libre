@@ -10,7 +10,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { CLAVE_DEMO, sembrarBase, sembrarDemo } from '../prisma/semilla';
-import { CABECERAS, cookieDe, crearApp, usarBaseDePruebas, vaciarBase } from './ayudas';
+import { CABECERAS, cookieDe, crearApp, usarBaseDePruebas, vaciarBase, hastaQue } from './ayudas';
 
 const url = usarBaseDePruebas();
 const prisma = new PrismaClient({ datasources: { db: { url } } });
@@ -63,9 +63,11 @@ describe('Modo soporte y chat del equipo (N14)', () => {
       await como('tiendaa.kevin').send('post', '/v1/cuenta/soporte').expect(403);
       const pedido = await como('tiendaa').send('post', '/v1/cuenta/soporte').expect(200);
       expect((pedido.body as EstadoSoporteTienda).pedido_en).not.toBeNull();
-      const aviso = await prisma.aviso.findFirstOrThrow({
-        where: { usuario: { usuario: 'equipo' }, titulo: 'Tienda A pidió ayuda al Equipo' },
-      });
+      const aviso = await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: { usuario: { usuario: 'equipo' }, titulo: 'Tienda A pidió ayuda al Equipo' },
+        }),
+      );
       expect(aviso.enlace).toBe(`/equipo/tiendas/${tiendaA}`);
       const ficha = await como('equipo')
         .get(`/v1/equipo/panel/tiendas/${tiendaA}/ficha`)
@@ -88,12 +90,14 @@ describe('Modo soporte y chat del equipo (N14)', () => {
       expect(yo.usuario.usuario).toBe('tiendaa');
       expect(yo.usuario.rol).toBe('DUENO');
       expect(yo.soporte).toMatchObject({ tienda_id: tiendaA, tienda: 'Tienda A' });
-      const aviso = await prisma.aviso.findFirstOrThrow({
-        where: {
-          usuario: { usuario: 'tiendaa' },
-          titulo: 'El Equipo PaseLibre ya está ayudándote',
-        },
-      });
+      const aviso = await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: {
+            usuario: { usuario: 'tiendaa' },
+            titulo: 'El Equipo PaseLibre ya está ayudándote',
+          },
+        }),
+      );
       expect(aviso.extracto).toContain('No puede chatear ni cerrar ventas');
     });
 
@@ -105,18 +109,22 @@ describe('Modo soporte y chat del equipo (N14)', () => {
       expect(tienda.horario).toBe('Lun a sáb 10:00–20:00');
       // El interceptor anota después de responder.
       await new Promise((listo) => setTimeout(listo, 100));
-      const registro = await prisma.registroEquipo.findFirstOrThrow({
-        where: { tiendaId: tiendaA, accion: 'en modo soporte, actualizó los datos de tu tienda' },
-      });
+      const registro = await hastaQue(() =>
+        prisma.registroEquipo.findFirstOrThrow({
+          where: { tiendaId: tiendaA, accion: 'en modo soporte, actualizó los datos de tu tienda' },
+        }),
+      );
       expect(registro.autorId).toBe(
         (await prisma.usuario.findUniqueOrThrow({ where: { usuario: 'equipo' } })).id,
       );
-      await prisma.aviso.findFirstOrThrow({
-        where: {
-          usuario: { usuario: 'tiendaa' },
-          titulo: 'El Equipo PaseLibre actualizó los datos de tu tienda',
-        },
-      });
+      await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: {
+            usuario: { usuario: 'tiendaa' },
+            titulo: 'El Equipo PaseLibre actualizó los datos de tu tienda',
+          },
+        }),
+      );
     });
 
     it('no puede chatear, cerrar ventas, ni tocar la seguridad o los datos de la persona', async () => {
@@ -162,12 +170,14 @@ describe('Modo soporte y chat del equipo (N14)', () => {
 
     it('si lo activa el equipo sin pedido, a la tienda le avisa igual; a la hora se termina solo', async () => {
       await como('equipo').send('post', `/v1/equipo/panel/tiendas/${tiendaA}/soporte`).expect(200);
-      await prisma.aviso.findFirstOrThrow({
-        where: {
-          usuario: { usuario: 'tiendaa' },
-          titulo: 'El Equipo PaseLibre entró a tu cuenta para ayudarte',
-        },
-      });
+      await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: {
+            usuario: { usuario: 'tiendaa' },
+            titulo: 'El Equipo PaseLibre entró a tu cuenta para ayudarte',
+          },
+        }),
+      );
       await prisma.modoSoporte.updateMany({
         where: { terminadoEn: null, venceEn: { not: null } },
         data: { venceEn: new Date(Date.now() - 1000) },
@@ -247,9 +257,11 @@ describe('Modo soporte y chat del equipo (N14)', () => {
         maximo: 3,
         ultima: { motivo: 'Un producto no era como se describió' },
       });
-      const aviso = await prisma.aviso.findFirstOrThrow({
-        where: { usuario: { usuario: 'tiendab' }, titulo: 'Recibiste 1 advertencia de 3' },
-      });
+      const aviso = await hastaQue(() =>
+        prisma.aviso.findFirstOrThrow({
+          where: { usuario: { usuario: 'tiendab' }, titulo: 'Recibiste 1 advertencia de 3' },
+        }),
+      );
       expect(aviso.extracto).toContain('Si llegas a 3, tu cuenta puede suspenderse.');
     });
   });
