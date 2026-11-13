@@ -856,3 +856,66 @@ body:has(.ficha-fondo) {
     opacity: 0;
   }
 }
+
+/* ── doc 20 · punto 19: al pasar el cursor por una tarjeta de producto ───────────────────────
+   La «L» sin la línea verde (tablero P60): la tarjeta entera se pinta menta, la foto sigue blanca
+   (tiene su propio fondo), la línea gris de abajo de la foto no cambia y la flechita «›» verde
+   entra deslizándose 4 px al lado del nombre. Solo con un mouse (en el celular no queda pegada)
+   o con el foco del teclado. Con «reducir movimiento», sin deslizamiento: solo el color. */
+.tarjeta-menta {
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+/* La del perfil propio también se levanta (doc 19 · punto 12): se suman las dos transiciones. */
+.tarjeta-menta.pl-tarjeta {
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* La flechita «›» al final del nombre: generada por CSS, no cambia el texto ni se lee. */
+.tarjeta-titulo::after {
+  content: '›';
+  content: '›' / '';
+  display: inline-block;
+  margin-left: 4px;
+  color: #006b47;
+  font-weight: 800;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.tarjeta-menta:focus-visible,
+.tarjeta-menta:has(:focus-visible) {
+  background-color: #f4fbf7;
+}
+
+.tarjeta-menta:focus-visible .tarjeta-titulo::after,
+.tarjeta-menta:has(:focus-visible) .tarjeta-titulo::after {
+  opacity: 1;
+  transform: none;
+}
+
+@media (hover: hover) {
+  .tarjeta-menta:hover {
+    background-color: #f4fbf7;
+  }
+
+  .tarjeta-menta:hover .tarjeta-titulo::after {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tarjeta-titulo::after {
+    transform: none;
+    transition: opacity 0.18s ease;
+  }
+}

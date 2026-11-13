@@ -101,6 +101,8 @@ export const PRODUCTO_TARJETA = {
     titulo: true,
     categoria: { select: { slug: true, nombre: true } },
     fotos: { ...FOTOS, take: 1 },
+    // El respaldo de Intel / EXPO para lo publicado antes de la 1.10.0 (doc 20 · A8).
+    perfilMemoria: true,
   },
 } as const;
 
@@ -143,7 +145,7 @@ export function tarjetaConVendedor(
     propia: o.tiendaId === mirada.tiendaId,
     precio_socio: deSocio,
     negociable: o.negociable && precios.precio !== null,
-    variantes: variantesDe(o),
+    variantes: variantesDe(o, o.producto),
   };
 }
 
@@ -182,21 +184,33 @@ function aFoto(foto: { ruta: string; ancho: number | null; alto: number | null }
   return { ruta: foto.ruta, ancho: foto.ancho, alto: foto.alto };
 }
 
-/** El detalle de una oferta; lo publicado antes del lienzo final no tiene estado propio. */
-export function detalleDe(o: {
-  condicion: 'NUEVO' | 'USADO';
-  estadoDetalle: DetalleOferta['estado'] | null;
-  conCaja: boolean;
-  conFactura: boolean;
-  probado: boolean;
-  garantia: DetalleOferta['garantia'];
-  estadoOtro: string | null;
-  garantiaOtra: string | null;
-  enAlmacen: boolean;
-  perfilMemoria: DetalleOferta['perfil_memoria'];
-  empaque: DetalleOferta['empaque'];
-  oc: boolean | null;
-}): DetalleOferta {
+/**
+ * Lo que dice el catálogo de una memoria RAM: el respaldo de las ofertas que no lo tienen
+ * marcado (doc 20 · A8).
+ */
+export type PerfilDelProducto = { perfilMemoria: VariantesOferta['perfil_memoria'] } | null;
+
+/**
+ * El detalle de una oferta; lo publicado antes del lienzo final no tiene estado propio. Con
+ * `producto`, la RAM publicada antes de la 1.10.0 (sin «Intel / EXPO») toma el del catálogo.
+ */
+export function detalleDe(
+  o: {
+    condicion: 'NUEVO' | 'USADO';
+    estadoDetalle: DetalleOferta['estado'] | null;
+    conCaja: boolean;
+    conFactura: boolean;
+    probado: boolean;
+    garantia: DetalleOferta['garantia'];
+    estadoOtro: string | null;
+    garantiaOtra: string | null;
+    enAlmacen: boolean;
+    perfilMemoria: DetalleOferta['perfil_memoria'];
+    empaque: DetalleOferta['empaque'];
+    oc: boolean | null;
+  },
+  producto?: PerfilDelProducto,
+): DetalleOferta {
   return {
     estado: o.estadoDetalle ?? (o.condicion === 'NUEVO' ? 'SELLADO' : 'USADO'),
     con_caja: o.conCaja,
@@ -206,35 +220,49 @@ export function detalleDe(o: {
     estado_otro: o.estadoDetalle === 'OTRO' ? o.estadoOtro : null,
     garantia_otra: o.garantia === 'OTRA' ? o.garantiaOtra : null,
     en_almacen: o.enAlmacen,
-    ...variantesDe(o),
+    ...variantesDe(o, producto),
   };
 }
 
-/** Las pastillas del título (docs/19 §13): para qué procesador es, el empaque y si es OC. */
-export function variantesDe(o: {
-  perfilMemoria: VariantesOferta['perfil_memoria'];
-  empaque: VariantesOferta['empaque'];
-  oc: boolean | null;
-}): VariantesOferta {
-  return { perfil_memoria: o.perfilMemoria, empaque: o.empaque, oc: o.oc };
+/**
+ * Las pastillas del título (docs/19 §13): para qué procesador es, el empaque y si es OC. Lo
+ * publicado antes de la 1.10.0 tiene `perfil_memoria` nulo: si la oferta no lo marcó, va el del
+ * producto (doc 20 · A8). No se guarda nada: solo se muestra.
+ */
+export function variantesDe(
+  o: {
+    perfilMemoria: VariantesOferta['perfil_memoria'];
+    empaque: VariantesOferta['empaque'];
+    oc: boolean | null;
+  },
+  producto?: PerfilDelProducto,
+): VariantesOferta {
+  return {
+    perfil_memoria: o.perfilMemoria ?? producto?.perfilMemoria ?? null,
+    empaque: o.empaque,
+    oc: o.oc,
+  };
 }
 
-function ofertaPublica(o: OfertaPublicaFila): OfertaPublica {
+function ofertaPublica(o: OfertaPublicaFila, producto: PerfilDelProducto): OfertaPublica {
   return {
     id: o.id,
     condicion: o.condicion,
-    detalle: detalleDe(o),
+    detalle: detalleDe(o, producto),
     stock: o.stock,
     galeria: o.tienda.galeria?.nombre ?? null,
     tipo_vendedor: o.tienda.tipo,
     descripcion: o.descripcion,
     fotos: o.fotos.map(aFoto),
+    // La primera miniatura de la ficha (doc 20 · 23): una de `fotos`, o nula si usa la de siempre.
+    portada: o.portadaRuta,
     actualizada_en: o.actualizadaEn.toISOString(),
   };
 }
 
 function ofertaConVendedor(
   o: OfertaConVendedorFila,
+  producto: PerfilDelProducto,
   mirada: Mirada,
   respondeEn: Map<string, number> = new Map(),
   socios: ReadonlySet<string> = new Set(),
@@ -242,7 +270,7 @@ function ofertaConVendedor(
   const tienda = tiendaPara(o, o.tienda, mirada);
   const precios = preciosPara(o, mirada, socios);
   return {
-    ...ofertaPublica(o),
+    ...ofertaPublica(o, producto),
     tienda,
     tienda_visible: o.tiendaVisible,
     // Con la tienda reservada tampoco: sería una pista de quién es.
@@ -471,7 +499,7 @@ export class CatalogoService {
       stock: o.stock,
       galeria: o.tienda.galeria?.nombre ?? null,
       actualizada_en: o.actualizadaEn.toISOString(),
-      variantes: variantesDe(o),
+      variantes: variantesDe(o, o.producto),
     }));
   }
 
@@ -559,7 +587,11 @@ export class CatalogoService {
         orderBy: [{ actualizadaEn: 'desc' }, { id: 'asc' }],
         select: SELECT_OFERTA_PUBLICA,
       });
-      return { audiencia: 'visitante', producto: detalle, ofertas: ofertas.map(ofertaPublica) };
+      return {
+        audiencia: 'visitante',
+        producto: detalle,
+        ofertas: ofertas.map((o) => ofertaPublica(o, producto)),
+      };
     }
 
     const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
@@ -578,7 +610,7 @@ export class CatalogoService {
       producto: detalle,
       ofertas: ofertas
         .sort(compararPorPrecio)
-        .map((o) => ofertaConVendedor(o, mirada, respondeEn, socios)),
+        .map((o) => ofertaConVendedor(o, producto, mirada, respondeEn, socios)),
     };
   }
 

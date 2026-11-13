@@ -109,13 +109,18 @@ export function VistaPrevia({
         ))}
       </div>
       <div className="flex flex-col gap-2.5 rounded-2xl border border-linea bg-white p-3.5">
-        <Miniatura
-          ruta={foto}
-          categoria={categoria}
-          className="aspect-[4/3] w-full rounded-xl"
-          glifo={160}
-          grosor={1.12}
-        />
+        {/* Como sale en el feed (doc 20 · puntos 3 y 18): la foto en blanco de borde a borde y
+            la línea gris de 1 px debajo. */}
+        <span className="-mx-3.5 -mt-3.5 block overflow-hidden rounded-t-[15px] border-b-[1px] border-[#DDE4E0]">
+          <Miniatura
+            ruta={foto}
+            categoria={categoria}
+            className="aspect-[4/3] w-full"
+            glifo={160}
+            grosor={1.12}
+            marco={false}
+          />
+        </span>
         <span className="font-bold">
           {titulo}
           <PastillasTitulo variantes={variantes} titulo={titulo} />

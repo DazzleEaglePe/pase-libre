@@ -54,7 +54,8 @@ export function TarjetaResultado({
         <Miniatura
           ruta={producto.foto}
           categoria={producto.categoria.slug}
-          className="h-[84px] w-[84px] rounded-xl sm:h-[168px] sm:w-full sm:rounded-none"
+          className="h-[84px] w-[84px] rounded-xl sm:h-[168px] sm:w-full sm:rounded-none sm:border-b-[1px] sm:border-[#DDE4E0] sm:shadow-none"
+          marco
           glifo={96}
           grosor={3}
         />

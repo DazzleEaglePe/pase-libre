@@ -142,7 +142,7 @@ export function FotosBusco({
               <img
                 src={urlFoto(foto.ruta)}
                 alt={foto.delCatalogo ? 'Foto del catálogo' : `Tu foto ${indice + 1}`}
-                className="h-[84%] w-[84%] object-contain mix-blend-multiply"
+                className="h-[84%] w-[84%] object-contain"
               />
               {foto.delCatalogo && (
                 <span className="absolute bottom-1.5 left-1.5 rounded-md bg-tinta/80 px-1.5 text-[10.5px] font-bold leading-[18px] text-white">

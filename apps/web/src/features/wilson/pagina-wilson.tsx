@@ -272,7 +272,8 @@ export function VistaGalerias({ datos }: { datos: RespuestaWilson }) {
                     <Miniatura
                       ruta={oferta.producto.foto}
                       categoria={oferta.producto.categoria.slug}
-                      className="h-16 w-16 rounded-xl sm:h-[120px] sm:w-full sm:rounded-none"
+                      className="h-16 w-16 rounded-xl sm:h-[120px] sm:w-full sm:rounded-none sm:border-b-[1px] sm:border-[#DDE4E0] sm:shadow-none"
+                      marco
                       glifo={56}
                       grosor={3}
                     />

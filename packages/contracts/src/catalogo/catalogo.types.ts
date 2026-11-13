@@ -167,6 +167,11 @@ export interface OfertaPublica {
   tipo_vendedor: TipoTienda;
   descripcion: string | null;
   fotos: Foto[];
+  /**
+   * La portada que eligió la tienda al publicar (docs/17 §5): la ruta de una de sus `fotos`, o
+   * nula si usa la de siempre. La ficha la pone primera entre las miniaturas (doc 20 · 23).
+   */
+  portada: string | null;
   actualizada_en: string;
 }
 

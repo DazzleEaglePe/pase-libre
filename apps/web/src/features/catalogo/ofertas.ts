@@ -16,6 +16,8 @@ export interface OfertaVista {
   galeria: string | null;
   descripcion: string | null;
   fotos: Foto[];
+  /** La portada que eligió la tienda (una de `fotos`), o nula: la primera miniatura (doc 20 · 23). */
+  portada: string | null;
   actualizadaEn: string;
   /** Solo con sesión. */
   /** `id` vacío y sin logo con la tienda reservada (no se puede abrir su perfil). */
@@ -49,6 +51,7 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
       galeria: oferta.galeria,
       descripcion: oferta.descripcion,
       fotos: oferta.fotos,
+      portada: oferta.portada,
       actualizadaEn: oferta.actualizada_en,
       tienda: null,
       precio: null,
@@ -73,6 +76,7 @@ export function ofertasVista(ficha: RespuestaFicha): OfertaVista[] {
     galeria: oferta.galeria,
     descripcion: oferta.descripcion,
     fotos: oferta.fotos,
+    portada: oferta.portada,
     actualizadaEn: oferta.actualizada_en,
     tienda: {
       id: oferta.tienda.id,

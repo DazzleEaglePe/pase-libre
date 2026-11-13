@@ -153,6 +153,8 @@ export class TiendasService {
               titulo: true,
               categoria: { select: { slug: true, nombre: true } },
               ...FOTO_DEL_PRODUCTO,
+              // El respaldo de Intel / EXPO para lo publicado antes de la 1.10.0 (doc 20 · A8).
+              perfilMemoria: true,
             },
           },
         },
@@ -218,7 +220,7 @@ export class TiendasService {
           precio_socio: precios.socio,
           // «Negociable» solo con un precio a la vista (igual que en el feed).
           negociable: precios.precio !== null && oferta.negociable,
-          variantes: variantesDe(oferta),
+          variantes: variantesDe(oferta, oferta.producto),
         };
       }),
     };
