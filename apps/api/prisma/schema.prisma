@@ -356,6 +356,8 @@ model Usuario {
   noMolestarHasta   Int?            @map("no_molestar_hasta") @db.SmallInt
   /// El «Visto» se puede desactivar (RF-57).
   mostrarVisto      Boolean         @default(true) @map("mostrar_visto")
+  /// Configuración › Avisos › «Sonido» (doc 19, punto 22): suenan los mensajes y los pedidos en vivo.
+  sonido            Boolean         @default(true)
   /// Solo cuentan para el asesor (N12): el dueño puede todo.
   permisos          PermisoAsesor[] @default([COMPRAR_VENDER, MARCAR_VENDIDO, EN_VIVO])
   /// «Pausado» por el dueño: no entra hasta que lo vuelva a activar.
@@ -932,6 +934,8 @@ model Aviso {
   enlace         String?   @db.VarChar(300)
   /// Lo que hace el botón del aviso (AV_Web): «Ver su oferta», «¡Lo tengo!»…
   accion         Json?
+  /// La foto del pedido en vivo (doc 19, punto 21); nula en los demás avisos.
+  foto           String?   @db.VarChar(300)
   conversacionId String?   @map("conversacion_id") @db.Uuid
   /// Con «No molestar», el aviso aparece al terminar el horario.
   visibleDesde   DateTime  @default(now()) @map("visible_desde") @db.Timestamptz(6)
@@ -988,6 +992,9 @@ model EnVivo {
   nota           String?      @db.VarChar(120)
   /// «Mostrarlo» (PUB_WebVivo): apagado, las tiendas ven «Presupuesto: consultar».
   mostrarPrecio  Boolean      @default(true) @map("mostrar_precio")
+  /// Las fotos del busco (doc 19, punto 21), hasta 3 (CHECK en la migración): la del catálogo o
+  /// las que subió la tienda. La primera es la que ven las tiendas.
+  fotos          String[]     @default([]) @db.VarChar(300)
   /// A cuántas tiendas les llegó el aviso al publicar el busco.
   avisadas       Int          @default(0) @db.SmallInt
   venceEn        DateTime     @map("vence_en") @db.Timestamptz(6)

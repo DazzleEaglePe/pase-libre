@@ -14,8 +14,9 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 're
 
 import { Miniatura } from '@/shared/ui/miniatura';
 
-import { useEnVivoCompartido } from './contexto';
+import { useEnVivoCompartido, usePedidosNuevos, type PedidosQueEntran } from './contexto';
 import { useAhora } from './datos';
+import { conLosNuevosPrimero } from './nuevos';
 import {
   EtiquetaTipo,
   FilaEnVivo,
@@ -24,7 +25,7 @@ import {
   botonResponderGrande,
 } from './piezas';
 import { BotonResponder } from './responder';
-import { cuantoQueda, lineaLugar, type ItemEnVivo } from './textos';
+import { conVendedor, cuantoQueda, lineaLugar, type ItemEnVivo } from './textos';
 
 type Estado = 'abierta' | 'mini' | 'oculta';
 
@@ -116,7 +117,11 @@ function BotonIcono({
  *   pestaña, empieza en la tarjeta mini: el estado se guarda en el navegador.
  * - La × de la tarjeta mini la oculta hasta que alguien publique algo nuevo.
  * - Se detiene con el mouse encima, con el foco o con pausa; con «reducir movimiento» no
- *   pasa sola. Nunca suena.
+ *   pasa sola.
+ * - Cuando llega un pedido de otra tienda (doc 19, punto 22), la tarjeta mini salta a él
+ *   («1 de N» en naranja), da un saltito y su borde late naranja dos veces; si estaba oculta con
+ *   la ×, vuelve a salir. Al mismo tiempo suena el pedido en vivo (`QueNoSePierda`), salvo que
+ *   el sonido esté apagado. Lo tuyo no la mueve.
  * - En el celular, sin sesión, empieza en la barra: no tapa lo que llega desde Google.
  */
 export function EnVivoFlotante({ conSesion }: { conSesion: boolean }) {
@@ -126,8 +131,15 @@ export function EnVivoFlotante({ conSesion }: { conSesion: boolean }) {
   const [estado, setEstado] = useState<Estado | null>(null);
   const decidido = useRef(false);
 
-  const items = compartido?.datos?.en_vivo ?? [];
-  const masNuevo = items.reduce((max, item) => (item.creado_en > max ? item.creado_en : max), '');
+  const nuevos = usePedidosNuevos();
+  // Los que acaban de entrar van primero: la tarjeta mini salta a ellos.
+  const items = conLosNuevosPrimero(compartido?.datos?.en_vivo ?? [], nuevos.entrados);
+  // Lo de tu tienda no la hace volver a salir: el que publica no ve su propio pedido así.
+  const masNuevo = items.reduce(
+    (max, item) =>
+      !(conVendedor(item) && item.propio) && item.creado_en > max ? item.creado_en : max,
+    '',
+  );
 
   // La primera vez que llegan datos se decide cómo empieza; después, si llega algo nuevo,
   // la tarjeta mini vuelve a salir (nunca la ventana completa).
@@ -195,7 +207,44 @@ export function EnVivoFlotante({ conSesion }: { conSesion: boolean }) {
   if (estado === 'abierta') {
     return <Ventana items={items} ahora={ahora} conSesion={conSesion} alCerrar={encoger} />;
   }
-  return <Mini items={items} ahora={ahora} alAbrir={abrir} alCerrar={ocultar} />;
+  return <Mini items={items} ahora={ahora} nuevos={nuevos} alAbrir={abrir} alCerrar={ocultar} />;
+}
+
+/** La sombra de siempre de la tarjeta mini. */
+const SOMBRA_MINI = '0 18px 48px rgba(15,20,18,0.18), 0 2px 6px rgba(15,20,18,0.08)';
+const BORDE_NARANJA = (alfa: number, halo: number) =>
+  `0 0 0 3px rgba(249,115,22,${alfa}), 0 0 ${halo}px rgba(249,115,22,${alfa * 0.65}), ${SOMBRA_MINI}`;
+
+/**
+ * El saltito (−10 px y vuelve) y el borde que late naranja dos veces (doc 19, punto 22, lienzo
+ * P28). Con «reducir movimiento», solo el borde naranja quieto 2 s.
+ */
+function brillarMini(tarjeta: HTMLElement | null): void {
+  if (!tarjeta || typeof tarjeta.animate !== 'function') return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    tarjeta.animate(
+      [
+        { boxShadow: BORDE_NARANJA(1, 0), offset: 0 },
+        { boxShadow: BORDE_NARANJA(1, 0), offset: 0.99 },
+        { boxShadow: SOMBRA_MINI, offset: 1 },
+      ],
+      { duration: 2_000 },
+    );
+    return;
+  }
+  tarjeta.animate(
+    [
+      { transform: 'none', boxShadow: SOMBRA_MINI, offset: 0 },
+      { transform: 'translateY(-10px)', offset: 0.08 },
+      { transform: 'none', boxShadow: BORDE_NARANJA(1, 26), offset: 0.15 },
+      { transform: 'translateY(-4px)', offset: 0.22 },
+      { transform: 'none', offset: 0.29 },
+      { boxShadow: BORDE_NARANJA(0.85, 10), offset: 0.45 },
+      { boxShadow: BORDE_NARANJA(1, 24), offset: 0.68 },
+      { transform: 'none', boxShadow: SOMBRA_MINI, offset: 1 },
+    ],
+    { duration: 2_200, easing: 'cubic-bezier(.2,.8,.2,1)' },
+  );
 }
 
 function PieVentana({ conSesion }: { conSesion: boolean }) {
@@ -279,11 +328,13 @@ function Ventana({
 function Mini({
   items,
   ahora,
+  nuevos,
   alAbrir,
   alCerrar,
 }: {
   items: ItemEnVivo[];
   ahora: number;
+  nuevos: PedidosQueEntran;
   alAbrir: () => void;
   alCerrar: () => void;
 }) {
@@ -296,6 +347,7 @@ function Mini({
   const indiceActual = useRef(0);
   const progresoActual = useRef(0);
   const salto = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const tarjeta = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setReducir(window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -314,6 +366,17 @@ function Mini({
     progresoActual.current = 0;
     irA(0, true);
   }, [n, irA]);
+
+  // Llegó un pedido de otra tienda: salta a él (va primero) y brilla. También al volver a salir
+  // si estaba oculta con la ×.
+  const primeroNuevo = items[0] ? nuevos.marcados.has(items[0].id) : false;
+  useEffect(() => {
+    if (nuevos.lote === 0 || !primeroNuevo) return;
+    clearTimeout(salto.current);
+    progresoActual.current = 0;
+    irA(0, true);
+    brillarMini(tarjeta.current);
+  }, [nuevos.lote, primeroNuevo, irA]);
 
   const mover = useCallback(
     (paso: 1 | -1) => {
@@ -345,6 +408,8 @@ function Mini({
   }, [quieta, mover]);
 
   const pista = n > 1 ? [...items, items[0] as ItemEnVivo] : items;
+  const enPantalla = pista[indice];
+  const recienLlegado = enPantalla ? nuevos.marcados.has(enPantalla.id) : false;
   const actual = indice % n;
   const deslizar = {
     transform: `translateX(-${indice * 100}%)`,
@@ -364,6 +429,7 @@ function Mini({
     <>
       {/* Computadora: la tarjeta mini abajo a la derecha (EV_SigueE). */}
       <aside
+        ref={tarjeta}
         aria-label="Pedidos en vivo: busco y remates"
         {...controles}
         className="fixed bottom-6 right-6 border border-linea z-30 hidden w-[422px] flex-col overflow-hidden rounded-2xl bg-white shadow-[0_18px_48px_rgba(15,20,18,0.18),0_2px_6px_rgba(15,20,18,0.08)] motion-safe:animate-[entrar-en-vivo_280ms_ease-out] md:flex"
@@ -381,7 +447,15 @@ function Mini({
                     chico
                   />
                 </span>
-                <span className="min-w-12 text-center text-nota text-detalle">
+                {/* «1 de N» en naranja mientras se ve el que acaba de entrar. */}
+                <span
+                  key={nuevos.lote}
+                  className={`min-w-12 text-center text-nota ${
+                    recienLlegado
+                      ? 'inline-block font-extrabold text-[#C2410C] motion-safe:animate-[sube-numero-en-vivo_450ms_cubic-bezier(.2,1.6,.4,1)]'
+                      : 'text-detalle'
+                  }`}
+                >
                   {actual + 1} de {n}
                 </span>
                 <BotonIcono
@@ -418,7 +492,7 @@ function Mini({
                 inert={i !== indice}
               >
                 <Miniatura
-                  ruta={item.producto?.foto ?? null}
+                  ruta={item.foto}
                   categoria={item.categoria.slug}
                   className="h-14 w-16 rounded-[10px]"
                   glifo={44}
@@ -466,7 +540,7 @@ function Mini({
                     className="relative shrink-0"
                   >
                     <Miniatura
-                      ruta={item.producto?.foto ?? null}
+                      ruta={item.foto}
                       categoria={item.categoria.slug}
                       className="h-11 w-12 rounded-[10px]"
                       glifo={32}

@@ -135,7 +135,6 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
           tipo: 'BUSCO',
           titulo: 'RTX 3070 8 GB',
           categoria: 'graficas',
-          presupuesto: '260',
           duracion: '3h',
           nota: 'Cliente esperando en el stand.',
         })
@@ -147,7 +146,8 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
         estado: 'VIVO',
         mio: true,
         propio: true,
-        precio: { moneda: 'USD', centimos: 26_000 },
+        // El busco va sin precio (doc 19, punto 21).
+        precio: null,
         avisadas: alcance.body.tiendas,
       });
 
@@ -157,7 +157,7 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
         titulo: 'Tienda B busca RTX 3070 8 GB',
         enlace: `/pedidos-en-vivo?id=${busco.id}`,
       });
-      expect(aviso?.extracto).toContain('Paga hasta US$ 260');
+      expect(aviso?.extracto).not.toContain('Paga hasta');
       expect(await avisosEnVivo('tiendab')).toHaveLength(0);
     });
 
@@ -467,8 +467,8 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
     });
   });
 
-  describe('«Mostrarlo» y «Avisar a quienes me siguen» (PUB_WebVivo)', () => {
-    it('sin «Mostrarlo» las demás ven «Presupuesto: consultar» y los seguidores reciben aviso', async () => {
+  describe('«Avisar a quienes me siguen» (PUB_WebVivo)', () => {
+    it('un presupuesto de la versión anterior se ignora y los seguidores reciben aviso', async () => {
       const tiendaC = await prisma.tienda.findFirstOrThrow({ where: { nombre: 'Tienda C' } });
       await como('tiendab').post(`/v1/tiendas/${tiendaC.id}/seguir`, {}).expect(200);
       const alcance = await como('tiendac')
@@ -486,8 +486,8 @@ describe('En vivo: busco y ofertas flash (D-53, RF-24 a RF-27, RF-72 a RF-77)', 
           duracion: '1h',
         })
         .expect(201);
-      // Quien lo publicó sí ve su presupuesto.
-      expect(publicado.body.precio).toMatchObject({ centimos: 3500 });
+      // El busco va sin precio (doc 19, punto 21): ni quien lo publicó lo ve.
+      expect(publicado.body.precio).toBeNull();
 
       const visto = (
         (await como('tiendab').get('/v1/en-vivo?tipo=busco').expect(200)).body

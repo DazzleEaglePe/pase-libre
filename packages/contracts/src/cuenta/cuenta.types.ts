@@ -70,6 +70,11 @@ export interface RespuestaAvisosCuenta {
     EQUIPO: boolean;
   };
   no_molestar: { desde: string; hasta: string } | null;
+  /**
+   * «Sonido» (doc 19, punto 22): suenan los mensajes y los pedidos en vivo de otras tiendas.
+   * Prendido de entrada; con «No molestar» tampoco suena.
+   */
+  sonido: boolean;
 }
 
 /** Una sesión abierta, para «Cerrar todas las demás» (Configuración · Seguridad). */

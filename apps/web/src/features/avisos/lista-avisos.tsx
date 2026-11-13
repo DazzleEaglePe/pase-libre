@@ -23,6 +23,7 @@ import type { ReactNode } from 'react';
 
 import { marcarAvisoLeido } from '@/shared/avisos-leidos';
 import { haceCuanto, haceRato, hora } from '@/shared/fechas';
+import { Miniatura } from '@/shared/ui/miniatura';
 
 export const FILTROS_AVISOS: Array<[CategoriaAviso | 'TODOS', string]> = [
   ['TODOS', 'Todos'],
@@ -115,7 +116,12 @@ export function ListaAvisos({
                   aviso.leido ? 'bg-white' : 'bg-[#FFFBF5]'
                 }`}
               >
-                <Icono tipo={aviso.tipo} />
+                {/* El pedido en vivo llega con su foto (doc 19, punto 21). */}
+                {aviso.foto ? (
+                  <Miniatura ruta={aviso.foto} categoria="" className="h-11 w-11 rounded-[10px]" />
+                ) : (
+                  <Icono tipo={aviso.tipo} />
+                )}
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <Link
                     href={aviso.enlace ?? '/avisos'}

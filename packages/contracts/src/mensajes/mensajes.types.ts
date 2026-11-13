@@ -256,6 +256,8 @@ export interface AvisoCampanita {
   extracto: string | null;
   enlace: string | null;
   accion: AccionAviso | null;
+  /** La foto del pedido en vivo (doc 19, punto 21); nula en los demás. */
+  foto: string | null;
   leido: boolean;
   actualizado_en: string;
 }
@@ -366,6 +368,11 @@ export interface EventoMensajeEquipo {
 export interface EventoMensajeNuevo {
   conversacion_id: string;
   mensaje: MensajeChat;
+  /**
+   * Quién lo escribió, como lo ve quien lo recibe («Tienda reservada» si corresponde), para la
+   * pestaña: «💬 {tienda} te escribió» (doc 19, punto 22). Solo en el evento de quien lo recibe.
+   */
+  remitente?: string;
 }
 
 export interface EventoMensajeVisto {

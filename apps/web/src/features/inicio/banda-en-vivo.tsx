@@ -2,10 +2,12 @@
 
 import { IconClock } from '@tabler/icons-react';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
-import { useEnVivoMontado } from '@/features/en-vivo/contexto';
+import { useEnVivoMontado, usePedidosNuevos } from '@/features/en-vivo/contexto';
 import { useAhora } from '@/features/en-vivo/datos';
-import { EtiquetaTipo } from '@/features/en-vivo/piezas';
+import { conLosNuevosPrimero } from '@/features/en-vivo/nuevos';
+import { EtiquetaNuevo, EtiquetaTipo } from '@/features/en-vivo/piezas';
 import { BotonResponder } from '@/features/en-vivo/responder';
 import {
   conVendedor,
@@ -15,6 +17,14 @@ import {
   type ItemEnVivo,
 } from '@/features/en-vivo/textos';
 import { PuntoQueLate } from '@/shared/ui/brasa';
+import { Miniatura } from '@/shared/ui/miniatura';
+
+/**
+ * El ancho de cada tarjeta: 280 px en el celular (se deslizan), dos en la tableta y tres en la
+ * computadora. Va en `cqw` (el ancho de la lista) para que el contenido no se reacomode mientras
+ * la tarjeta nueva crece desde 0.
+ */
+const ANCHO_TARJETA = 'w-[280px] sm:w-[calc((100cqw-12px)/2)] lg:w-[calc((100cqw-24px)/3)]';
 
 /** «Termina en 1 h 40 min», en rojo ladrillo como el lienzo. */
 function Termina({ item, ahora }: { item: ItemEnVivo; ahora: number }) {
@@ -27,50 +37,75 @@ function Termina({ item, ahora }: { item: ItemEnVivo; ahora: number }) {
   );
 }
 
-/** Una tarjeta blanca de la banda: tipo, cuánto falta, qué y quién. */
+/**
+ * Una tarjeta blanca de la banda: tipo, cuánto falta, la foto, qué y quién. La que acaba de
+ * entrar (doc 19, punto 22) crece desde la izquierda, su borde late naranja dos veces y lleva
+ * «NUEVO» 10 s; `espera` la hace entrar detrás de otra que llegó junto con ella.
+ */
 function Tarjeta({
   item,
   ahora,
   conBoton,
+  nueva,
 }: {
   item: ItemEnVivo;
   ahora: number;
   conBoton: boolean;
+  nueva: { espera: number } | null;
 }) {
   const visitante = !conVendedor(item);
   return (
-    <li className="flex w-[280px] shrink-0 flex-col gap-2 rounded-2xl bg-white p-4 text-tinta sm:w-auto sm:min-w-0">
-      <span className="flex items-center justify-between gap-2">
-        <EtiquetaTipo tipo={item.tipo} />
-        <Termina item={item} ahora={ahora} />
-      </span>
-      <Link
-        href={`/pedidos-en-vivo?id=${item.id}`}
-        className="text-[17px] font-bold leading-6 text-tinta no-underline hover:underline"
-      >
-        {item.titulo}
-      </Link>
-      {visitante ? (
-        <span className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-linea pt-3">
-          <b className="text-apoyo font-bold">{datoPrecio(item)}</b>
+    <li
+      className={`relative shrink-0 overflow-hidden rounded-2xl bg-white ${ANCHO_TARJETA} ${
+        nueva ? 'entra-en-vivo' : ''
+      }`}
+      style={nueva ? ({ '--espera': `${nueva.espera}ms` } as CSSProperties) : undefined}
+    >
+      <div className={`flex h-full flex-col gap-2 p-4 text-tinta ${ANCHO_TARJETA}`}>
+        <span className="flex items-center justify-between gap-2 whitespace-nowrap">
+          <span className="flex items-center gap-1.5">
+            <EtiquetaTipo tipo={item.tipo} />
+            {nueva && <EtiquetaNuevo espera={nueva.espera + 200} />}
+          </span>
+          <Termina item={item} ahora={ahora} />
+        </span>
+        <span className="flex items-center gap-2.5">
+          <Miniatura
+            ruta={item.foto}
+            categoria={item.categoria.slug}
+            className="h-[46px] w-[46px] rounded-[10px]"
+            glifo={30}
+            grosor={5}
+          />
           <Link
-            href="/ingresar"
-            className="flex h-10 items-center rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline"
+            href={`/pedidos-en-vivo?id=${item.id}`}
+            className="min-w-0 text-[17px] font-bold leading-6 text-tinta no-underline hover:underline"
           >
-            Inicia sesión para responder
+            {item.titulo}
           </Link>
         </span>
-      ) : (
-        <>
-          <span className="text-apoyo text-secundario">{lineaLugar(item)}</span>
-          {conBoton && (
-            <BotonResponder
-              item={item}
-              className="mt-1 inline-flex h-10 items-center self-start rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline"
-            />
-          )}
-        </>
-      )}
+        {visitante ? (
+          <span className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-linea pt-3">
+            <b className="text-apoyo font-bold">{datoPrecio(item)}</b>
+            <Link
+              href="/ingresar"
+              className="flex h-10 items-center rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline"
+            >
+              Inicia sesión para responder
+            </Link>
+          </span>
+        ) : (
+          <>
+            <span className="text-apoyo text-secundario">{lineaLugar(item)}</span>
+            {conBoton && (
+              <BotonResponder
+                item={item}
+                className="mt-1 inline-flex h-10 items-center self-start rounded-full bg-contador px-4 text-apoyo font-bold text-tinta no-underline"
+              />
+            )}
+          </>
+        )}
+      </div>
     </li>
   );
 }
@@ -82,10 +117,14 @@ function Tarjeta({
  */
 export function BandaEnVivo({ visitante = false }: { visitante?: boolean }) {
   const compartido = useEnVivoMontado();
+  const nuevos = usePedidosNuevos();
   const ahora = useAhora();
   if (compartido && !compartido.activo) return null;
-  const lista = compartido?.datos?.en_vivo ?? [];
+  // Los que entraron mientras miras van primero: entran por la izquierda y empujan a las demás.
+  const lista = conLosNuevosPrimero(compartido?.datos?.en_vivo ?? [], nuevos.entrados);
   const cargando = !compartido?.datos;
+  // Mientras brillan, las que empujaron siguen en la fila y salen por la derecha.
+  const visibles = 3 + nuevos.marcados.size;
 
   return (
     <section
@@ -99,7 +138,25 @@ export function BandaEnVivo({ visitante = false }: { visitante?: boolean }) {
             className="flex items-center gap-2 text-[22px] font-bold leading-7"
           >
             <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-vivo" />
-            Pedidos en vivo{lista.length > 0 ? ` · ${lista.length}` : ''}
+            <span>
+              Pedidos en vivo
+              {lista.length > 0 && (
+                <>
+                  {' · '}
+                  {/* El número sube con un saltito cuando entra uno (doc 19, punto 22). */}
+                  <span
+                    key={nuevos.lote}
+                    className={
+                      nuevos.lote > 0
+                        ? 'inline-block motion-safe:animate-[sube-numero-en-vivo_450ms_cubic-bezier(.2,1.6,.4,1)]'
+                        : undefined
+                    }
+                  >
+                    {lista.length}
+                  </span>
+                </>
+              )}
+            </span>
           </h2>
           {visitante && (
             <span className="text-apoyo text-white/80">
@@ -153,9 +210,16 @@ export function BandaEnVivo({ visitante = false }: { visitante?: boolean }) {
         </div>
       ) : (
         <>
-          <ul className="-mx-4 m-0 flex list-none gap-3 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
-            {lista.slice(0, 3).map((item) => (
-              <Tarjeta key={item.id} item={item} ahora={ahora} conBoton={lista.length === 1} />
+          {/* Arriba y abajo hay aire para el brillo naranja de la que entra. */}
+          <ul className="-mx-4 -my-3 m-0 flex list-none gap-3 overflow-x-auto px-4 py-3 [container-type:inline-size] [scrollbar-width:none] sm:mx-0 sm:px-0 lg:overflow-hidden">
+            {lista.slice(0, visibles).map((item) => (
+              <Tarjeta
+                key={item.id}
+                item={item}
+                ahora={ahora}
+                conBoton={lista.length === 1}
+                nueva={nuevos.marcados.get(item.id) ?? null}
+              />
             ))}
           </ul>
           {lista.length === 1 && !visitante && (

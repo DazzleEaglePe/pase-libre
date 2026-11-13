@@ -1,12 +1,14 @@
 'use client';
 
-import type {
-  CategoriaResumen,
-  Contadores,
-  PermisoAsesor,
-  RespuestaBarra,
-  RespuestaYo,
-  TiendaDeSesion,
+import {
+  EVENTOS,
+  type CategoriaResumen,
+  type Contadores,
+  type EventoMensajeNuevo,
+  type PermisoAsesor,
+  type RespuestaBarra,
+  type RespuestaYo,
+  type TiendaDeSesion,
 } from '@paselibre/contracts';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
@@ -16,6 +18,8 @@ import { BotonSalir } from '@/features/acceso/boton-salir';
 import { useEnVivoMontado } from '@/features/en-vivo/contexto';
 import { enPlural } from '@/shared/plural';
 import { puede } from '@/shared/permisos';
+import { chatALaVista } from '@/shared/que-no-se-pierda';
+import { useEvento } from '@/shared/tiempo-real';
 
 import { Buscador } from './buscador';
 import { Campanita, Insignia, useContadores } from './campanita';
@@ -361,6 +365,16 @@ function AccionesTienda({
   const lugar = [tienda.galeria, tienda.stand && `Stand ${tienda.stand}`]
     .filter(Boolean)
     .join(' · ');
+  // Que no se pierda un mensaje (doc 19, punto 22, animación A): con cada mensaje que llega y no
+  // estás mirando, el globito da un saltito y el número naranja aparece con un rebote. Una vez
+  // por mensaje; cada `saltos` nuevo vuelve a montar el ícono y el número, y la animación corre.
+  const [saltos, setSaltos] = useState(0);
+  useEvento<EventoMensajeNuevo>(EVENTOS.mensajeNuevo, (evento) => {
+    if (evento.mensaje.mio) return;
+    const visible = document.visibilityState === 'visible';
+    if (chatALaVista(window.location.pathname, visible, evento.conversacion_id)) return;
+    setSaltos((n) => n + 1);
+  });
 
   return (
     <div className="flex items-center gap-1.5">
@@ -392,20 +406,35 @@ function AccionesTienda({
           enMensajes ? 'bg-white/15' : 'hover:bg-white/15'
         }`}
       >
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+        <span
+          key={`globito-${saltos}`}
+          className={`flex ${saltos > 0 ? 'motion-safe:animate-[saltito-chat_450ms_ease-out]' : ''}`}
         >
-          <path d="M4 5h16v11H9l-5 4z" />
-        </svg>
-        <Insignia cantidad={contadores.mensajes} />
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M4 5h16v11H9l-5 4z" />
+          </svg>
+        </span>
+        {/* `contents`: la insignia se sigue ubicando sobre el enlace; solo se le suma el rebote. */}
+        <span
+          key={`numero-${saltos}`}
+          className={`contents ${
+            saltos > 0
+              ? 'motion-safe:[&>span]:animate-[rebote-insignia_450ms_cubic-bezier(.2,1.6,.4,1)]'
+              : ''
+          }`}
+        >
+          <Insignia cantidad={contadores.mensajes} />
+        </span>
       </Link>
       <Campanita sinLeer={contadores.avisos} sobreMarca />
       <div className="max-md:hidden">

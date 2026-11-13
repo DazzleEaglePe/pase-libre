@@ -315,6 +315,7 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
           EQUIPO: true,
         },
         no_molestar: null,
+        sonido: true,
       });
     });
 
@@ -335,6 +336,7 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
           EQUIPO: true,
         },
         no_molestar: { desde: '22:00', hasta: '08:00' },
+        sonido: true,
       });
       const usuario = await prisma.usuario.findUniqueOrThrow({ where: { usuario: 'tiendaa' } });
       expect([usuario.noMolestarDesde, usuario.noMolestarHasta]).toEqual([1320, 480]);

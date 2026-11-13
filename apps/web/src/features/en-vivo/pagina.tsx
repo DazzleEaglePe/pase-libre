@@ -72,7 +72,8 @@ function Tarjeta({
       {conVendedor(item) && item.nota && <p className="m-0 text-cuerpo text-tinta">{item.nota}</p>}
       <span className="text-apoyo text-secundario">{detalle}</span>
       <div className="mt-auto flex items-center justify-between gap-3 border-t border-linea pt-3">
-        <b className="text-cuerpo font-bold">{lineaPrecio(item)}</b>
+        {/* El busco va sin precio (doc 19, punto 21): el botón queda a la derecha igual. */}
+        <b className="text-cuerpo font-bold">{lineaPrecio(item) ?? ''}</b>
         {conVendedor(item) && item.propio ? (
           <span className="text-nota font-bold text-detalle">Es tuyo</span>
         ) : (

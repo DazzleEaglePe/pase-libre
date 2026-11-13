@@ -15,6 +15,13 @@ export interface EnVivoPublico {
   categoria: { slug: string; nombre: string };
   /** Nulo en un busco escrito como texto libre. */
   producto: { slug: string; foto: string | null } | null;
+  /**
+   * La foto con la que sale (doc 19, punto 21): la primera de `fotos` o, si no hay, la del
+   * producto (en el remate, la portada de la publicación). Nula sin ninguna: se dibuja la categoría.
+   */
+  foto: string | null;
+  /** Las fotos del busco, en su orden (hasta 3). Vacío en el remate. */
+  fotos: string[];
   cantidad: number;
   /** Nula en un busco que acepta nuevo o usado. */
   condicion: Condicion | null;
@@ -27,7 +34,10 @@ export interface EnVivoPublico {
 
 export interface EnVivoConVendedor extends EnVivoPublico {
   tienda: { nombre: string; stand: string | null };
-  /** El precio de pase de la oferta flash, o el presupuesto del busco (nulo si no lo puso). */
+  /**
+   * El precio de pase de la oferta flash. En el busco, nulo (doc 19, punto 21): solo los que se
+   * publicaron antes de la 1.10.0 traen presupuesto.
+   */
   precio: Precio | null;
   nota: string | null;
   /** Es de tu tienda: no se le responde. */

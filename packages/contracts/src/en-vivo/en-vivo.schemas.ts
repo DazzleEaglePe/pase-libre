@@ -11,6 +11,8 @@ export const MAX_HORAS_EN_VIVO = 12;
 /** «Hasta el cierre de hoy»: 8:00 p. m., hora de Lima (por confirmar con Fabrizio). */
 export const HORA_CIERRE_EN_VIVO = 20;
 export const DURACIONES_EN_VIVO = ['1h', '3h', 'cierre'] as const;
+/** Fotos de un busco (doc 19, punto 21): la del catálogo o las que sube la tienda. */
+export const MAX_FOTOS_EN_VIVO = 3;
 
 /** `GET /v1/en-vivo` (RF-75): la lista, con los filtros de la página «En vivo». */
 export const enVivoConsultaSchema = z.object({
@@ -34,10 +36,28 @@ const cantidadSchema = z.coerce
 const monedaSchema = z.enum(['USD', 'PEN'], 'Elige la moneda.').default('USD');
 
 /**
+ * Las fotos del busco, en su orden (la primera es la que ven las tiendas): rutas de /media. Cada
+ * una es una foto del producto elegido o una que subió alguien de la tienda con `POST
+ * /v1/archivos` y que nadie usó; eso lo revisa la API.
+ */
+const fotosEnVivoSchema = z
+  .array(
+    z
+      .string()
+      .trim()
+      .regex(/^(?!.*\.\.)[\w./-]{1,300}$/, 'Una de las fotos no es válida; súbela de nuevo.'),
+  )
+  .max(MAX_FOTOS_EN_VIVO, `Puedes poner hasta ${MAX_FOTOS_EN_VIVO} fotos.`)
+  .refine((rutas) => new Set(rutas).size === rutas.length, 'Hay una foto repetida.')
+  .default([]);
+
+/**
  * `POST /v1/en-vivo` (RF-24, RF-72, RF-73).
  *
  * - Busco: un producto del catálogo (`producto`) o un texto libre (`titulo` con su
- *   `categoria`), y un presupuesto opcional.
+ *   `categoria`), y hasta 3 fotos. Va sin precio (doc 19, punto 21): `presupuesto` y
+ *   `mostrar_precio` se aceptan por las pestañas que quedaron abiertas con la versión
+ *   anterior, pero la API los ignora.
  * - Oferta flash: una de tus publicaciones (`oferta`), el precio de pase y cuántas
  *   unidades entran.
  */
@@ -55,9 +75,11 @@ export const publicarEnVivoSchema = z.discriminatedUnion('tipo', [
       categoria: z.string().trim().min(1).max(80).optional(),
       cantidad: cantidadSchema.default(1),
       condicion: z.enum(['NUEVO', 'USADO']).nullable().default(null),
+      fotos: fotosEnVivoSchema,
       moneda: monedaSchema,
+      /** Ya no se usa (doc 19, punto 21): el busco va sin precio. */
       presupuesto: montoSchema.default(null),
-      /** «Mostrarlo» (PUB_WebVivo): apagado, las tiendas ven «Presupuesto: consultar». */
+      /** Ya no se usa (doc 19, punto 21). */
       mostrar_precio: z.boolean().default(true),
       /** «Avisar a quienes me siguen» (PUB_WebVivo). */
       avisar_seguidores: z.boolean().default(true),

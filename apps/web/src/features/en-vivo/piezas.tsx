@@ -30,6 +30,21 @@ export function EtiquetaTipo({ tipo }: { tipo: TipoEnVivo }) {
 }
 
 /**
+ * «NUEVO» al lado de «Busco» en el pedido que acaba de entrar (doc 19, punto 22): pastilla naranja
+ * con letra blanca que aparece con un rebote y se va sola a los 10 s (la quita quien la usa).
+ */
+export function EtiquetaNuevo({ espera = 0 }: { espera?: number }) {
+  return (
+    <span
+      style={{ animationDelay: `${espera}ms` }}
+      className="shrink-0 rounded-full bg-contador px-2 py-0.5 text-[10.5px] font-extrabold tracking-[.05em] text-white motion-safe:animate-[nuevo-en-vivo_450ms_cubic-bezier(.2,1.6,.4,1)_both]"
+    >
+      NUEVO
+    </span>
+  );
+}
+
+/**
  * El botón «¡Lo tengo!» / «¡Lo quiero!» sin alto: cada lugar pone el suyo. En naranja sólido con
  * texto negro (guía del lienzo final), para no confundirse con el Brasa de lo «en vivo».
  */
@@ -45,7 +60,7 @@ export function FilaEnVivo({ item, ahora }: { item: ItemEnVivo; ahora: number })
   return (
     <li className="flex items-center gap-3 border-t border-linea py-2.5">
       <Miniatura
-        ruta={item.producto?.foto ?? null}
+        ruta={item.foto}
         categoria={item.categoria.slug}
         className="h-12 w-14 rounded-[10px]"
         glifo={40}
