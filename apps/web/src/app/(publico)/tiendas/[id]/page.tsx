@@ -17,17 +17,25 @@ export default async function PaginaTienda({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ pestana?: string }>;
+  searchParams: Promise<{ pestana?: string; como?: string }>;
 }) {
-  const [{ id }, { pestana }, sesion] = await Promise.all([params, searchParams, obtenerSesion()]);
+  const [{ id }, { pestana, como }, sesion] = await Promise.all([
+    params,
+    searchParams,
+    obtenerSesion(),
+  ]);
   if (!sesion) redirect(`/ingresar?volver=${encodeURIComponent(`/tiendas/${id}`)}`);
-  const { estado, cuerpo } = await consultarApi<PerfilTienda>(`/tiendas/${encodeURIComponent(id)}`);
+  // «Cómo me ven» (doc 20, punto 5): tu perfil tal como lo ve otra tienda.
+  const comoMeVen = como === 'otra' ? '?como_me_ven=1' : '';
+  const { estado, cuerpo } = await consultarApi<PerfilTienda>(
+    `/tiendas/${encodeURIComponent(id)}${comoMeVen}`,
+  );
   if (estado === 404 || estado === 400 || !cuerpo) notFound();
 
   // Tu propia tienda se ve igual que la ven los demás, con tus botones y «Tu mes» (N04).
   return (
     <PerfilDeTienda
-      key={cuerpo.id}
+      key={`${cuerpo.id}-${cuerpo.como_me_ven ? 'otra' : 'yo'}`}
       perfil={cuerpo}
       pestanaInicial={
         pestana === 'opiniones' ? 'opiniones' : pestana === 'detalles' ? 'detalles' : 'productos'

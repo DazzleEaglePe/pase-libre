@@ -5,11 +5,13 @@ import type {
   RespuestaDirectorioTiendas,
   TiendaEnBuscador,
 } from '@paselibre/contracts';
-import { Prisma } from '@prisma/client';
+import { Prisma, type VisibilidadPerfil } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { comoLaEncuentra } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
+import { MiniaturasService } from '../archivos/miniaturas.service';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 import { INDEPENDIENTES } from './catalogo.service';
 import { galeriasEnOrden } from './galerias-en-orden';
@@ -36,7 +38,15 @@ interface FilaTienda {
   galeria_orden: number | null;
   /** Publicaciones con su nombre a la vista y con stock: para «Ordenar: Más productos». */
   con_stock: number;
+  /** Privada que quien mira no sigue, buscada con su nombre exacto (doc 20, punto 5). */
+  privada: boolean;
 }
+
+/** El logo chico de una privada, en píxeles: la web lo muestra borroso. */
+const ANCHO_LOGO_BORROSO = 24;
+/** Lo que se muestra de una privada que no sigues: solo el nombre (doc 20, punto 5). */
+const SIN_DATOS = { galeria: null, stand: null, piso: null } as const;
+const REPUTACION_OCULTA = { estrellas: null, opiniones: 0, nueva: true };
 
 interface CategoriaDeTienda {
   tienda_id: string;
@@ -74,14 +84,16 @@ function puestoDePiso(piso: string): [number, string] {
  * El directorio de tiendas (N13): la pestaña «Tiendas» de Wilson en vivo y la sección
  * «TIENDAS» del buscador de arriba. Todo con sesión: un visitante no ve tiendas.
  *
- * Qué tiendas salen lo decide `listables`, en el servidor y en un solo lugar: activas, sin
- * perfil privado, sin las que bloqueaste y nunca las reservadas.
+ * Qué tiendas salen lo decide `listables`, en el servidor y en un solo lugar: activas, sin las
+ * ocultas, las privadas solo con su nombre exacto (o si las sigues), sin las que bloqueaste y
+ * nunca las reservadas.
  */
 @Injectable()
 export class DirectorioService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
+    @Inject(MiniaturasService) private readonly miniaturas: MiniaturasService,
   ) {}
 
   async directorio(
@@ -95,7 +107,12 @@ export class DirectorioService {
         'Las tiendas de Wilson se ven al iniciar sesión.',
       );
     }
-    const filas = await this.listables(mirada, consulta.q);
+    const todas = await this.listables(mirada, consulta.q);
+    // Una privada buscada con su nombre exacto sale sola: sin galería, piso ni lo que vende, así
+    // que tampoco entra en esos filtros (la delatarían).
+    const conFiltro = Boolean(consulta.galeria || consulta.piso || consulta.vende);
+    const filas = todas.filter((fila) => !fila.privada);
+    const privadas = conFiltro ? [] : todas.filter((fila) => fila.privada);
     const enGaleria = filas.filter(
       (fila) =>
         !consulta.galeria ||
@@ -119,32 +136,54 @@ export class DirectorioService {
         (a, b) => b.publicaciones - a.publicaciones || a.nombre.localeCompare(b.nombre, 'es'),
       );
     }
-    const elegidas = enPiso
-      .filter(
-        (fila) =>
-          !consulta.vende ||
-          (vende.get(fila.id) ?? []).some((categoria) => categoria.slug === consulta.vende),
-      )
-      .sort(comparar(consulta.orden, reputaciones));
+    const elegidas = [
+      ...privadas,
+      ...enPiso
+        .filter(
+          (fila) =>
+            !consulta.vende ||
+            (vende.get(fila.id) ?? []).some((categoria) => categoria.slug === consulta.vende),
+        )
+        .sort(comparar(consulta.orden, reputaciones)),
+    ];
     const desde = (consulta.pagina - 1) * TIENDAS_POR_PAGINA;
     const pagina = elegidas.slice(desde, desde + TIENDAS_POR_PAGINA);
-    const enLinea = await this.enLinea(pagina.map((fila) => fila.id));
+    const enLinea = await this.enLinea(
+      pagina.filter((fila) => !fila.privada).map((fila) => fila.id),
+    );
 
     return {
-      tiendas: pagina.map((fila) => ({
-        id: fila.id,
-        nombre: fila.nombre,
-        logo: fila.logo,
-        galeria: fila.galeria,
-        stand: fila.stand,
-        piso: fila.piso,
-        vende: (vende.get(fila.id) ?? [])
-          .slice(0, CATEGORIAS_QUE_VENDE)
-          .map((categoria) => categoria.nombre),
-        reputacion: sinPuntaje(reputaciones.get(fila.id)),
-        en_linea: enLinea.has(fila.id),
-        propia: fila.id === mirada.tiendaId,
-      })),
+      tiendas: await Promise.all(
+        pagina.map(async (fila) =>
+          fila.privada
+            ? {
+                id: fila.id,
+                nombre: fila.nombre,
+                logo: null,
+                ...SIN_DATOS,
+                vende: [],
+                reputacion: REPUTACION_OCULTA,
+                en_linea: false,
+                propia: false,
+                privada: true,
+                logo_borroso: await this.miniaturas.chica(fila.logo, ANCHO_LOGO_BORROSO),
+              }
+            : {
+                id: fila.id,
+                nombre: fila.nombre,
+                logo: fila.logo,
+                galeria: fila.galeria,
+                stand: fila.stand,
+                piso: fila.piso,
+                vende: (vende.get(fila.id) ?? [])
+                  .slice(0, CATEGORIAS_QUE_VENDE)
+                  .map((categoria) => categoria.nombre),
+                reputacion: sinPuntaje(reputaciones.get(fila.id)),
+                en_linea: enLinea.has(fila.id),
+                propia: fila.id === mirada.tiendaId,
+              },
+        ),
+      ),
       total: elegidas.length,
       pagina: consulta.pagina,
       hay_mas: desde + TIENDAS_POR_PAGINA < elegidas.length,
@@ -190,41 +229,67 @@ export class DirectorioService {
       .sort((a, b) => a.cerca - b.cerca || comparar('reputacion', reputaciones)(a.fila, b.fila))
       .slice(0, TIENDAS_EN_EL_BUSCADOR)
       .map(({ fila }) => fila);
-    const enLinea = await this.enLinea(elegidas.map((fila) => fila.id));
-    return elegidas.map((fila) => ({
-      id: fila.id,
-      nombre: fila.nombre,
-      logo: fila.logo,
-      galeria: fila.galeria,
-      stand: fila.stand,
-      reputacion: sinPuntaje(reputaciones.get(fila.id)),
-      en_linea: enLinea.has(fila.id),
-    }));
+    const enLinea = await this.enLinea(
+      elegidas.filter((fila) => !fila.privada).map((fila) => fila.id),
+    );
+    return Promise.all(
+      elegidas.map(async (fila) =>
+        fila.privada
+          ? {
+              id: fila.id,
+              nombre: fila.nombre,
+              logo: null,
+              galeria: null,
+              stand: null,
+              reputacion: REPUTACION_OCULTA,
+              en_linea: false,
+              privada: true,
+              logo_borroso: await this.miniaturas.chica(fila.logo, ANCHO_LOGO_BORROSO),
+            }
+          : {
+              id: fila.id,
+              nombre: fila.nombre,
+              logo: fila.logo,
+              galeria: fila.galeria,
+              stand: fila.stand,
+              reputacion: sinPuntaje(reputaciones.get(fila.id)),
+              en_linea: enLinea.has(fila.id),
+            },
+      ),
+    );
   }
 
   /**
    * Las tiendas que se pueden mostrar a quien mira, con `q` como pedazo del nombre (sin
    * importar tildes ni mayúsculas). Fuera:
    *
-   * - las suspendidas y las de perfil privado;
+   * - las suspendidas y las ocultas; las privadas que no sigue, solo con su nombre exacto
+   *   (`comoLaEncuentra`, doc 20, punto 5), y entonces van marcadas como `privada`;
    * - las que bloqueó quien mira con su nombre a la vista. Las que bloqueó desde un chat de la
    *   tienda reservada siguen: si desaparecieran, delatarían cuál era;
    * - las reservadas: todo lo que tienen publicado está con «Tienda reservada» (como en
    *   «Tiendas que ya están» del inicio). Una tienda que aún no publica nada sí sale.
    */
-  private listables(mirada: Mirada, q?: string): Promise<FilaTienda[]> {
+  private async listables(mirada: Mirada, q?: string): Promise<FilaTienda[]> {
     const texto = q?.trim() ? sinComodines(q.trim()) : '';
     const porNombre = texto
       ? Prisma.sql`AND unaccent(lower(t.nombre)) LIKE '%' || unaccent(lower(${texto})) || '%'`
       : Prisma.empty;
-    return this.prisma.$queryRaw<FilaTienda[]>`
+    const filas = await this.prisma.$queryRaw<
+      Array<Omit<FilaTienda, 'privada'> & { visibilidad: VisibilidadPerfil; sigo: boolean }>
+    >`
       SELECT t.id, t.nombre, t.logo, t.stand, t.piso, t.creada_en,
              g.slug::text AS galeria_slug, g.nombre AS galeria, g.orden::int AS galeria_orden,
-             count(o.id) FILTER (WHERE o.tienda_visible AND o.stock > 0)::int AS con_stock
+             count(o.id) FILTER (WHERE o.tienda_visible AND o.stock > 0)::int AS con_stock,
+             t.visibilidad::text AS visibilidad,
+             EXISTS (
+               SELECT 1 FROM seguimiento s
+               WHERE s.tienda_id = CAST(${mirada.tiendaId} AS uuid) AND s.seguida_id = t.id
+             ) AS sigo
       FROM tienda t
       LEFT JOIN galeria g ON g.id = t.galeria_id
       LEFT JOIN oferta o ON o.tienda_id = t.id AND o.estado = 'ACTIVA'
-      WHERE t.estado = 'ACTIVA' AND NOT t.perfil_privado
+      WHERE t.estado = 'ACTIVA'
         AND NOT EXISTS (
           SELECT 1 FROM bloqueo b
           WHERE b.usuario_id = CAST(${mirada.usuarioId} AS uuid)
@@ -234,6 +299,10 @@ export class DirectorioService {
         ${porNombre}
       GROUP BY t.id, g.id
       HAVING count(o.id) = 0 OR count(o.id) FILTER (WHERE o.tienda_visible) > 0`;
+    return filas.flatMap(({ visibilidad, sigo, ...fila }) => {
+      const como = comoLaEncuentra({ ...fila, visibilidad }, mirada, sigo, q);
+      return como ? [{ ...fila, privada: como === 'privada' }] : [];
+    });
   }
 
   /** Qué vende cada tienda: solo con lo que publica con su nombre a la vista. */

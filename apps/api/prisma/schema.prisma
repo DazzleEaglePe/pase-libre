@@ -123,6 +123,8 @@ enum TipoAviso {
   ALERTA
   /// Novedades del equipo PaseLibre.
   EQUIPO
+  /// Otra tienda pide seguir tu perfil privado: «Aceptar» / «Rechazar» (doc 20, punto 5).
+  SOLICITUD_SEGUIR
 
   @@map("tipo_aviso")
 }
@@ -274,8 +276,8 @@ model Tienda {
   /// Cuándo su inicio llegó a 12 publicaciones de otras tiendas (N16): desde ahí es el inicio
   /// normal y ya no vuelve atrás, aunque después haya menos.
   inicioNormalEn       DateTime?     @map("inicio_normal_en") @db.Timestamptz(6)
-  /// Fase 2 (RF-41). Se crea ahora para no migrar después.
-  perfilPrivado        Boolean       @default(false) @map("perfil_privado")
+  /// Quién ve el perfil (doc 20, punto 5): público, privado (solo sus seguidoras) u oculto.
+  visibilidad          VisibilidadPerfil @default(PUBLICO)
   estado               EstadoTienda  @default(ACTIVA)
   /// Cuándo se suspendió, quién y por qué (doc 19 §9). «Eliminar definitivamente» se habilita 24 h
   /// después. Quién va sin llave foránea, como en `Solicitud`.
@@ -321,6 +323,10 @@ model Tienda {
 
   registrosEquipo RegistroEquipo[]
   modosSoporte    ModoSoporte[]
+
+  /// «Solicitar seguir» a un perfil privado (doc 20, punto 5): las que pidió y las que le piden.
+  solicitudesHechas    SolicitudSeguir[] @relation("SolicitudDe")
+  solicitudesRecibidas SolicitudSeguir[] @relation("SolicitudA")
 
   @@index([galeriaId])
   @@map("tienda")
@@ -418,6 +424,8 @@ model Usuario {
 
   soportesDados   ModoSoporte[] @relation("SoporteDelEquipo")
   soportesPedidos ModoSoporte[] @relation("SoportePedidoPor")
+
+  solicitudesSeguir SolicitudSeguir[]
 
   @@index([tiendaId])
   @@map("usuario")
@@ -919,6 +927,39 @@ model Seguimiento {
   @@unique([tiendaId, seguidaId])
   @@index([seguidaId])
   @@map("seguimiento")
+}
+
+/// Quién ve el perfil de una tienda (doc 20, punto 5).
+enum VisibilidadPerfil {
+  /// Todas la encuentran y ven sus publicaciones (como siempre).
+  PUBLICO
+  /// La encuentran solo con su nombre exacto; sus publicaciones, solo sus seguidoras.
+  PRIVADO
+  /// No aparece a nadie, ni con su nombre exacto. Sus publicaciones tampoco.
+  OCULTO
+
+  @@map("visibilidad_perfil")
+}
+
+/// «Solicitar seguir» a un perfil privado (doc 20, punto 5). Aceptar crea el `Seguimiento` y la
+/// borra; rechazar o cancelar solo la borra.
+model SolicitudSeguir {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// La tienda que pide.
+  tiendaId  String   @map("tienda_id") @db.Uuid
+  /// La privada.
+  seguidaId String   @map("seguida_id") @db.Uuid
+  /// Quién la tocó.
+  usuarioId String   @map("usuario_id") @db.Uuid
+  creadaEn  DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+
+  tienda  Tienda  @relation("SolicitudDe", fields: [tiendaId], references: [id], onDelete: Cascade)
+  seguida Tienda  @relation("SolicitudA", fields: [seguidaId], references: [id], onDelete: Cascade)
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([tiendaId, seguidaId])
+  @@index([seguidaId, creadaEn])
+  @@map("solicitud_seguir")
 }
 
 /// Quién escribe la opinión de una venta: la tienda que compró o la que vendió.

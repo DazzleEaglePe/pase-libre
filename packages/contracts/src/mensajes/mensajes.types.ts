@@ -231,7 +231,9 @@ export type TipoAviso =
   | 'REPORTE'
   | 'SEGUIDA'
   | 'ALERTA'
-  | 'EQUIPO';
+  | 'EQUIPO'
+  /** Otra tienda pide seguir tu perfil privado (doc 20, punto 5). */
+  | 'SOLICITUD_SEGUIR';
 
 /** Los filtros de la campanita y de «Avisos» (AV_Web). */
 export type CategoriaAviso = 'EN_VIVO' | 'VENTAS' | 'MENSAJES' | 'PUBLICACIONES' | 'CUENTA';
@@ -249,6 +251,7 @@ export const CATEGORIA_DE_AVISO: Record<TipoAviso, CategoriaAviso> = {
   SISTEMA: 'CUENTA',
   REPORTE: 'CUENTA',
   EQUIPO: 'CUENTA',
+  SOLICITUD_SEGUIR: 'CUENTA',
 };
 
 /**
@@ -256,7 +259,10 @@ export const CATEGORIA_DE_AVISO: Record<TipoAviso, CategoriaAviso> = {
  * responder un busco («¡Lo tengo!», en naranja).
  */
 export type AccionAviso =
-  { tipo: 'ABRIR'; texto: string; enlace: string } | { tipo: 'LO_TENGO'; enlace: string };
+  | { tipo: 'ABRIR'; texto: string; enlace: string }
+  | { tipo: 'LO_TENGO'; enlace: string }
+  /** «Aceptar» / «Rechazar» una solicitud para seguir tu perfil privado (doc 20, punto 5). */
+  | { tipo: 'SOLICITUD_SEGUIR'; solicitud_id: string; enlace: string };
 
 /** Un aviso de la campanita (RF-40). Uno por conversación con mensajes sin leer. */
 export interface AvisoCampanita {

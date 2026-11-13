@@ -4,8 +4,11 @@ import {
   textoHorario,
   urlFoto,
   type AvisosSeguimiento,
+  type OrdenPerfil,
   type PerfilTienda,
+  type ProductoDeTienda,
   type RespuestaOpiniones,
+  type RespuestaPublicacionesTienda,
   type RespuestaSeguir,
 } from '@paselibre/contracts';
 import {
@@ -26,13 +29,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { textoEstado } from '@/features/catalogo/textos';
 import { MenuOpciones } from '@/features/reportes/menu-opciones';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { conPlural } from '@/shared/plural';
 import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Hoja } from '@/shared/ui/hoja';
-import { TarjetaProducto } from '@/shared/ui/tarjeta-producto';
 
 import {
   AvisoDeshacer,
@@ -49,8 +50,21 @@ import {
 import { ListaOpiniones } from './opiniones';
 import { MenuPortada, Portada } from './portada';
 import { decimal, Estrellas, Reputacion } from './reputacion';
+import {
+  BurbujasCategorias,
+  FilaDeSeccion,
+  MenuOrdenar,
+  TarjetaDelPerfil,
+} from './secciones-perfil';
 import { TarjetaPropia, type Salida } from './tarjeta-propia';
 import { FranjaTuMes } from './tu-mes';
+import {
+  BotonComoMeVen,
+  FranjaComoMeVen,
+  PerfilRestringido,
+  SelectorVisibilidad,
+  TusSeguidores,
+} from './visibilidad';
 
 // Antes vivían aquí; otras pantallas las siguen pidiendo desde este archivo.
 export { decimal, Estrellas };
@@ -184,6 +198,18 @@ function SobreLaTienda({
  * «Cambiar portada») y aparece la franja «Tu mes», que solo ves tú.
  */
 export function PerfilDeTienda({
+  perfil,
+  pestanaInicial,
+}: {
+  perfil: PerfilTienda;
+  pestanaInicial: PestanaPerfil;
+}) {
+  // Un perfil privado que no sigues, o «Cómo me ven» de uno oculto (doc 20, punto 5).
+  if (perfil.privada || perfil.oculta) return <PerfilRestringido perfil={perfil} />;
+  return <PerfilCompleto perfil={perfil} pestanaInicial={pestanaInicial} />;
+}
+
+function PerfilCompleto({
   perfil: inicial,
   pestanaInicial,
 }: {
@@ -203,8 +229,56 @@ export function PerfilDeTienda({
   const [enviando, setEnviando] = useState(false);
   const [acomodando, setAcomodando] = useState(false);
 
+  // «Todo» con sus burbujas y «Ordenar ▾» (doc 20, punto 20): la primera página llega con el
+  // perfil; al filtrar u ordenar se pide a `/tiendas/:id/publicaciones`.
+  const [lista, setLista] = useState<ProductoDeTienda[]>(inicial.productos);
+  const [hayMas, setHayMas] = useState(inicial.hay_mas);
+  const [pagina, setPagina] = useState(1);
+  const [elegidas, setElegidas] = useState<string[]>([]);
+  const [orden, setOrden] = useState<OrdenPerfil>('recientes');
+  const [cargandoLista, setCargandoLista] = useState(false);
+  const filtrando = elegidas.length > 0 || orden !== 'recientes';
+
   // La portada y el resto cambian desde «Cambiar portada»: se toma lo nuevo del servidor.
   useEffect(() => setPerfil(inicial), [inicial]);
+  useEffect(() => {
+    if (filtrando) return;
+    setLista(inicial.productos);
+    setHayMas(inicial.hay_mas);
+    setPagina(1);
+    // Solo cuando llega un perfil nuevo del servidor (sin filtros puestos).
+  }, [inicial, filtrando]);
+
+  async function cargarTodo(categorias: string[], nuevoOrden: OrdenPerfil, nuevaPagina = 1) {
+    setCargandoLista(true);
+    setError(null);
+    const consulta = new URLSearchParams({ orden: nuevoOrden, pagina: String(nuevaPagina) });
+    if (categorias.length > 0) consulta.set('categoria', categorias.join(','));
+    try {
+      const respuesta = await llamarApi<RespuestaPublicacionesTienda>(
+        `/tiendas/${perfil.id}/publicaciones?${consulta.toString()}`,
+      );
+      setLista((actual) =>
+        nuevaPagina === 1 ? respuesta.productos : [...actual, ...respuesta.productos],
+      );
+      setHayMas(respuesta.hay_mas);
+      setPagina(nuevaPagina);
+    } catch (falla) {
+      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos cargar sus productos.');
+    } finally {
+      setCargandoLista(false);
+    }
+  }
+
+  function filtrar(categorias: string[]) {
+    setElegidas(categorias);
+    void cargarTodo(categorias, orden);
+  }
+
+  function ordenar(nuevo: OrdenPerfil) {
+    setOrden(nuevo);
+    void cargarTodo(elegidas, nuevo);
+  }
 
   // ── Borrar desde tu perfil (docs/19 §12) ──────────────────────────────────
   /** Las que ya no se ven: eliminadas (esperando «Deshacer» o ya mandadas) o pausadas. */
@@ -218,7 +292,9 @@ export function PerfilDeTienda({
   const [confirmando, setConfirmando] = useState(false);
   const [pausando, setPausando] = useState(false);
   const grilla = useRef<HTMLUListElement>(null);
-  const visibles = perfil.productos.filter((producto) => !ocultas.has(producto.oferta_id));
+  const visibles = lista.filter((producto) => !ocultas.has(producto.oferta_id));
+  const sinOcultas = (productos: ProductoDeTienda[]) =>
+    productos.filter((producto) => !ocultas.has(producto.oferta_id));
   const acomodar = useAcomodar(grilla, visibles.map((producto) => producto.oferta_id).join(','));
 
   /** Vuelven a la lista (con «Deshacer», o si la API no pudo borrarlas). */
@@ -360,8 +436,7 @@ export function PerfilDeTienda({
   const { reputacion } = perfil;
   // Sin las que ocultaste (al recargar, el servidor ya no las cuenta ni las trae).
   const totalProductos =
-    perfil.total_productos -
-    perfil.productos.filter((producto) => ocultas.has(producto.oferta_id)).length;
+    perfil.total_productos - lista.filter((producto) => ocultas.has(producto.oferta_id)).length;
   const totalOpiniones = opiniones?.reputacion.opiniones ?? reputacion.opiniones;
   const lugar = [perfil.galeria ?? 'Independiente', perfil.stand && `Stand ${perfil.stand}`]
     .filter(Boolean)
@@ -377,6 +452,7 @@ export function PerfilDeTienda({
   return (
     <div className="flex flex-col gap-4 sm:gap-[18px]">
       <CabeceraMovil titulo={perfil.propia ? 'Tu perfil' : perfil.nombre} />
+      {perfil.como_me_ven && <FranjaComoMeVen tiendaId={perfil.id} />}
 
       <section
         aria-label={perfil.nombre}
@@ -440,26 +516,34 @@ export function PerfilDeTienda({
             </div>
 
             {perfil.propia ? (
-              <div className="grid grid-cols-2 gap-2 sm:flex">
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:justify-end">
                 <Link
                   href="/cuenta/configuracion?seccion=datos"
-                  className={`${boton} bg-tinta text-white`}
+                  className={`${boton} whitespace-nowrap bg-tinta text-white`}
                 >
                   <IconPencil size={18} stroke={1.8} aria-hidden="true" />
                   Editar perfil
                 </Link>
                 <MenuPortada perfil={perfil} alAcomodar={() => setAcomodando(true)} />
+                {/* «Perfil: Público ▾» y «Cómo me ven» (doc 20, punto 5). */}
+                {perfil.visibilidad && (
+                  <SelectorVisibilidad inicial={perfil.visibilidad} alCambiar={setAviso} />
+                )}
+                <BotonComoMeVen tiendaId={perfil.id} />
               </div>
             ) : (
               perfil.puede_seguir && (
                 <div className="flex items-center gap-2">
-                  <Link
-                    href={`/mensajes?tienda=${perfil.id}`}
-                    className={`${boton} bg-tinta text-white hover:bg-black`}
-                  >
-                    <IconMessage size={18} stroke={1.8} aria-hidden="true" />
-                    Escribir
-                  </Link>
+                  {/* En un privado que no sigues no aparece; los chats que ya hay siguen. */}
+                  {perfil.puede_escribir && (
+                    <Link
+                      href={`/mensajes?tienda=${perfil.id}`}
+                      className={`${boton} bg-tinta text-white hover:bg-black`}
+                    >
+                      <IconMessage size={18} stroke={1.8} aria-hidden="true" />
+                      Escribir
+                    </Link>
+                  )}
                   {perfil.siguiendo ? (
                     <button
                       type="button"
@@ -582,59 +666,104 @@ export function PerfilDeTienda({
 
         <div role="tabpanel" className="flex min-w-0 flex-col gap-4 pb-6">
           {pestana === 'productos' &&
-            (visibles.length === 0 ? (
+            (perfil.total_productos === 0 || (visibles.length === 0 && !filtrando && !hayMas) ? (
               <p className="py-6 text-secundario">
                 {perfil.propia
                   ? 'Todavía no publicas nada con tu nombre a la vista.'
                   : 'Por ahora no tiene productos publicados.'}
               </p>
             ) : (
-              <ul
-                ref={grilla}
-                className="m-0 grid list-none grid-cols-2 items-start gap-3 p-0 md:grid-cols-3 md:gap-3.5"
-              >
-                {visibles.map((producto, indice) => (
-                  <li
-                    key={producto.oferta_id}
-                    data-acomodar={producto.oferta_id}
-                    className={`min-w-0 ${preguntando === producto.oferta_id ? 'relative z-20' : ''}`}
-                  >
-                    {perfil.propia ? (
-                      // Tu perfil: con el tachito y «Eliminar varias» (docs/19 §12).
-                      <TarjetaPropia
-                        producto={producto}
-                        galeria={perfil.galeria}
-                        indice={indice}
-                        varias={varias}
-                        marcada={marcadas.includes(producto.oferta_id)}
-                        preguntando={preguntando === producto.oferta_id}
-                        salida={salidas.get(producto.oferta_id) ?? null}
-                        volviendo={volviendo.has(producto.oferta_id)}
-                        alTocarTachito={() => setPreguntando(producto.oferta_id)}
-                        alConfirmar={() => sacar([producto.oferta_id], 'una')}
-                        alCancelar={() => setPreguntando(null)}
-                        alMarcar={() => marcar(producto.oferta_id)}
-                        alPresionLargo={() => entrarAVarias(producto.oferta_id)}
+              <>
+                {/* Doc 20, punto 20 (opción C): lo nuevo, sus mejores precios y todo. Con
+                    «Eliminar varias» abierto, solo «Todo». */}
+                {!varias && (
+                  <>
+                    <FilaDeSeccion
+                      titulo="Lo nuevo de esta semana"
+                      detalle={perfil.propia ? 'Lo último que publicaste' : 'Lo último que publicó'}
+                      productos={sinOcultas(perfil.nuevas)}
+                      galeria={perfil.galeria}
+                    />
+                    <FilaDeSeccion
+                      titulo={perfil.propia ? 'Tus mejores precios' : 'Sus mejores precios'}
+                      detalle={
+                        perfil.propia
+                          ? 'Donde tu tienda es la más barata de la galería'
+                          : 'Donde esta tienda es la más barata de la galería'
+                      }
+                      productos={sinOcultas(perfil.mejores_precios)}
+                      galeria={perfil.galeria}
+                    />
+                  </>
+                )}
+                <section aria-label="Todo" className="flex min-w-0 flex-col gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2.5">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
+                      <h2 className="text-[17px] font-bold leading-6">Todo</h2>
+                      <BurbujasCategorias
+                        categorias={perfil.categorias}
+                        total={totalProductos}
+                        elegidas={elegidas}
+                        alCambiar={filtrar}
                       />
-                    ) : (
-                      // La tarjeta de todo el sitio: borde de 2 px y precio con su burbujita (N04, N06).
-                      <TarjetaProducto
-                        href={`/p/${producto.producto.slug}?oferta=${producto.oferta_id}`}
-                        titulo={producto.producto.titulo}
-                        foto={producto.producto.foto}
-                        categoria={producto.producto.categoria.slug}
-                        precio={producto.precio}
-                        socio={producto.precio_socio}
-                        negociable={producto.negociable}
-                        variantes={producto.variantes}
-                        linea={[textoEstado(producto.condicion), perfil.galeria]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ul>
+                    </div>
+                    <MenuOrdenar orden={orden} alCambiar={ordenar} />
+                  </div>
+                  {visibles.length === 0 ? (
+                    <p className="py-6 text-secundario">
+                      {cargandoLista ? 'Cargando…' : 'No hay productos con ese filtro.'}
+                    </p>
+                  ) : (
+                    <ul
+                      ref={grilla}
+                      aria-busy={cargandoLista}
+                      className={`m-0 grid list-none grid-cols-2 items-start gap-3 p-0 md:grid-cols-3 md:gap-3.5 ${
+                        cargandoLista ? 'opacity-60' : ''
+                      }`}
+                    >
+                      {visibles.map((producto, indice) => (
+                        <li
+                          key={producto.oferta_id}
+                          data-acomodar={producto.oferta_id}
+                          className={`min-w-0 ${preguntando === producto.oferta_id ? 'relative z-20' : ''}`}
+                        >
+                          {perfil.propia ? (
+                            // Tu perfil: con el tachito y «Eliminar varias» (docs/19 §12).
+                            <TarjetaPropia
+                              producto={producto}
+                              galeria={perfil.galeria}
+                              indice={indice}
+                              varias={varias}
+                              marcada={marcadas.includes(producto.oferta_id)}
+                              preguntando={preguntando === producto.oferta_id}
+                              salida={salidas.get(producto.oferta_id) ?? null}
+                              volviendo={volviendo.has(producto.oferta_id)}
+                              alTocarTachito={() => setPreguntando(producto.oferta_id)}
+                              alConfirmar={() => sacar([producto.oferta_id], 'una')}
+                              alCancelar={() => setPreguntando(null)}
+                              alMarcar={() => marcar(producto.oferta_id)}
+                              alPresionLargo={() => entrarAVarias(producto.oferta_id)}
+                            />
+                          ) : (
+                            // La tarjeta de todo el sitio: borde de 2 px y precio con su burbujita (N04, N06).
+                            <TarjetaDelPerfil producto={producto} galeria={perfil.galeria} />
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {hayMas && (
+                    <button
+                      type="button"
+                      disabled={cargandoLista}
+                      onClick={() => void cargarTodo(elegidas, orden, pagina + 1)}
+                      className="h-11 self-center rounded-full border-[1.5px] border-borde bg-white px-6 text-apoyo font-bold text-tinta disabled:opacity-60"
+                    >
+                      {cargandoLista ? 'Cargando…' : 'Ver más'}
+                    </button>
+                  )}
+                </section>
+              </>
             ))}
 
           {pestana === 'opiniones' &&
@@ -651,6 +780,8 @@ export function PerfilDeTienda({
           {pestana === 'detalles' && (
             <>
               {perfil.propia && <div className="lg:hidden">{sobre}</div>}
+              {/* «Tus seguidores (N)» con «Quitar» (doc 20, punto 5). */}
+              {perfil.propia && <TusSeguidores esPrivado={perfil.visibilidad === 'PRIVADO'} />}
               <section className="rounded-[14px] border-[1.5px] border-borde bg-white p-[18px]">
                 <Reputacion
                   reputacion={reputacion}

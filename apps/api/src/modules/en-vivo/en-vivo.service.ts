@@ -24,7 +24,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
-import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { tiendasQueLaVen, tiendasQueNoVeo } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
@@ -166,8 +166,12 @@ export class EnVivoService {
 
   async lista(consulta: EnVivoConsulta, mirada: Mirada): Promise<RespuestaEnVivo> {
     const ahora = new Date();
-    const enVivo = { AND: [vigentes(ahora), filtros(consulta)] };
-    const cerrados = { AND: [cerradosHoy(ahora), filtros(consulta)] };
+    // Lo de las tiendas que quien mira no ve (bloqueadas, ocultas y privadas que no sigue; doc 20,
+    // punto 5) no aparece, tampoco para un visitante.
+    const noVeo = await tiendasQueNoVeo(this.prisma, mirada);
+    const sinLasQueNoVeo = noVeo.length > 0 ? [{ tiendaId: { notIn: noVeo } }] : [];
+    const enVivo = { AND: [vigentes(ahora), filtros(consulta), ...sinLasQueNoVeo] };
+    const cerrados = { AND: [cerradosHoy(ahora), filtros(consulta), ...sinLasQueNoVeo] };
     const orden = { venceEn: 'asc' } as const;
 
     if (!conSesion(mirada)) {
@@ -193,18 +197,15 @@ export class EnVivoService {
       };
     }
 
-    // Lo de las tiendas que quien mira bloqueó no aparece (REP_WebBloqueadas).
-    const bloqueadas = await tiendasBloqueadasPor(this.prisma, mirada.usuarioId);
-    const sinBloqueadas = bloqueadas.length > 0 ? [{ tiendaId: { notIn: bloqueadas } }] : [];
     const [vivas, terminadas] = await Promise.all([
       this.prisma.enVivo.findMany({
-        where: { AND: [enVivo, ...sinBloqueadas] },
+        where: enVivo,
         select: SELECT_CON_VENDEDOR,
         orderBy: orden,
         take: MAX_EN_LISTA,
       }),
       this.prisma.enVivo.findMany({
-        where: { AND: [cerrados, ...sinBloqueadas] },
+        where: cerrados,
         select: SELECT_CON_VENDEDOR,
         take: MAX_CERRADOS,
       }),
@@ -855,7 +856,16 @@ export class EnVivoService {
       WHERE o.estado = 'ACTIVA' AND o.stock > 0 AND t.estado = 'ACTIVA' AND u.estado = 'ACTIVO'
         AND o.tienda_id <> ${excluirTiendaId}::uuid AND ${coincide}
       LIMIT ${MAX_AVISADOS}`;
-    return filas.map((f) => ({ tiendaId: f.tienda_id, usuarioId: f.usuario_id }));
+    // El busco de una oculta no le llega a nadie; el de una privada, solo a sus seguidoras
+    // (doc 20, punto 5).
+    const laVen = await tiendasQueLaVen(
+      this.prisma,
+      excluirTiendaId,
+      filas.map((f) => f.tienda_id),
+    );
+    return filas
+      .filter((f) => laVen.has(f.tienda_id))
+      .map((f) => ({ tiendaId: f.tienda_id, usuarioId: f.usuario_id }));
   }
 
   /**
@@ -947,9 +957,16 @@ export class EnVivoService {
         usuario: { estado: 'ACTIVO' },
         usuarioId: { notIn: yaAvisados },
       },
-      select: { usuarioId: true },
+      select: { usuarioId: true, tiendaId: true },
     });
-    if (seguidores.length === 0) return;
+    // Una oculta no avisa a nadie, ni a quien la sigue (doc 20, punto 5).
+    const laVen = await tiendasQueLaVen(
+      this.prisma,
+      usuario.tiendaId ?? '',
+      seguidores.map((s) => s.tiendaId),
+    );
+    const avisables = seguidores.filter((s) => laVen.has(s.tiendaId));
+    if (avisables.length === 0) return;
     const enVivo = await this.prisma.enVivo.findUniqueOrThrow({
       where: { id },
       select: {
@@ -966,7 +983,7 @@ export class EnVivoService {
       enVivo.precioCentimos !== null && enVivo.mostrarPrecio
         ? formatearPrecio(precioDe(Number(enVivo.precioCentimos), enVivo.moneda))
         : null;
-    await this.avisos.crear([...new Set(seguidores.map((s) => s.usuarioId))], {
+    await this.avisos.crear([...new Set(avisables.map((s) => s.usuarioId))], {
       tipo: 'SEGUIDA',
       titulo: `${quien} ${enVivo.tipo === 'BUSCO' ? 'busca' : 'remata'} ${enVivo.titulo}`.slice(
         0,

@@ -13,7 +13,7 @@ import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
-import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { tiendasQueNoVeo } from '../../shared/bloqueadas';
 import { destacadasAhora, mezclarDestacadas } from '../../shared/destacados';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
@@ -98,7 +98,8 @@ export class InicioService {
 
   async inicio(mirada: Mirada): Promise<RespuestaInicio> {
     const { tiendaId, usuarioId } = this.deTienda(mirada);
-    const bloqueadas = await tiendasBloqueadasPor(this.prisma, usuarioId);
+    // Bloqueadas, ocultas y privadas que no sigue (doc 20, punto 5).
+    const bloqueadas = await tiendasQueNoVeo(this.prisma, mirada);
     const [tienda, usuario, publicaciones, deSeguidas, masPedido, tiendas, pasos] =
       await Promise.all([
         this.prisma.tienda.findUniqueOrThrow({
@@ -155,8 +156,8 @@ export class InicioService {
 
   /** «La flechita trae las siguientes 24, sin fin» (N15). */
   async recien(mirada: Mirada, desde: number): Promise<RespuestaRecienInicio> {
-    const { usuarioId } = this.deTienda(mirada);
-    const bloqueadas = await tiendasBloqueadasPor(this.prisma, usuarioId);
+    this.deTienda(mirada);
+    const bloqueadas = await tiendasQueNoVeo(this.prisma, mirada);
     return this.pagina(mirada, bloqueadas, desde, RECIEN_POR_PAGINA);
   }
 
@@ -265,7 +266,7 @@ export class InicioService {
         where: { id: usuarioId },
         select: { recienVistoEn: true },
       }),
-      tiendasBloqueadasPor(this.prisma, usuarioId),
+      tiendasQueNoVeo(this.prisma, mirada),
     ]);
     const hace24 = new Date(Date.now() - RECIEN_LLEGADOS_MS);
     const desde =

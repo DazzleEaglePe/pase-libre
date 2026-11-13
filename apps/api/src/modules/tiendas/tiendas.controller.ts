@@ -22,6 +22,7 @@ import {
   novedadesSchema,
   opinarSchema,
   pedirRevisionSchema,
+  publicacionesTiendaSchema,
   responderOpinionSchema,
   seguirTiendaSchema,
   type AgregarSocioDatos,
@@ -33,9 +34,11 @@ import {
   type OpinionPublica,
   type PedirRevisionDatos,
   type PerfilTienda,
+  type PublicacionesTiendaConsulta,
   type ResponderOpinionDatos,
   type RespuestaNovedades,
   type RespuestaOpiniones,
+  type RespuestaPublicacionesTienda,
   type RespuestaSeguir,
   type RespuestaSocios,
   type RespuestaTiendaCompartida,
@@ -55,6 +58,7 @@ import { TiendasService } from './tiendas.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
 const idTienda = id('Esta tienda no existe.');
+const comoMeVenSchema = z.object({ como_me_ven: z.enum(['0', '1']).optional() });
 
 /**
  * El nombre de una tienda para «Te compartieron…» en Iniciar sesión (COR3): sin sesión, porque
@@ -139,13 +143,26 @@ export class TiendasController {
     return this.tiendas.seguidas(sesion);
   }
 
+  /** Con `?como_me_ven=1`, tu perfil tal como lo ve otra tienda («Cómo me ven», doc 20 §5). */
   @Get('tiendas/:id')
   @Header('Cache-Control', 'no-store')
   perfil(
     @Param('id', idTienda) tiendaId: string,
+    @Query(new ZodValidationPipe(comoMeVenSchema)) consulta: z.infer<typeof comoMeVenSchema>,
     @SesionActual() sesion: SesionActiva,
   ): Promise<PerfilTienda> {
-    return this.tiendas.perfil(tiendaId, sesion);
+    return this.tiendas.perfil(tiendaId, sesion, consulta.como_me_ven === '1');
+  }
+
+  /** «Todo» del perfil con sus burbujas y «Ordenar ▾» (doc 20, punto 20). */
+  @Get('tiendas/:id/publicaciones')
+  @Header('Cache-Control', 'no-store')
+  publicaciones(
+    @Param('id', idTienda) tiendaId: string,
+    @Query(new ZodValidationPipe(publicacionesTiendaSchema)) consulta: PublicacionesTiendaConsulta,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<RespuestaPublicacionesTienda> {
+    return this.tiendas.publicacionesDe(tiendaId, consulta, sesion);
   }
 
   @Get('tiendas/:id/opiniones')

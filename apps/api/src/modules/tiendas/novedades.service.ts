@@ -9,7 +9,7 @@ import {
 import type { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
-import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
+import { tiendasQueNoVeo } from '../../shared/bloqueadas';
 import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
 import { detalleDe } from '../catalogo/catalogo.service';
@@ -93,7 +93,8 @@ export class NovedadesService {
           },
         },
       }),
-      tiendasBloqueadasPor(this.prisma, sesion.usuario.id),
+      // Bloqueadas, ocultas y privadas que no sigue (doc 20, punto 5).
+      tiendasQueNoVeo(this.prisma, mirada),
     ]);
     const seguidas = seguimientos
       .map((fila) => fila.seguida)

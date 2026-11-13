@@ -27,6 +27,7 @@ import {
 import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { tiendasQueLaVen } from '../../shared/bloqueadas';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { FOTO_DEL_PRODUCTO } from '../../shared/portada';
 import { ArchivosService } from '../archivos/archivos.service';
@@ -448,7 +449,13 @@ export class OfertasService {
       },
       select: { id: true, tiendaId: true },
     });
-    if (seguimientos.length === 0) return;
+    // Una oculta no avisa a nadie, ni a quien la sigue (doc 20, punto 5).
+    const laVen = await tiendasQueLaVen(
+      this.prisma,
+      tienda.id,
+      seguimientos.map((fila) => fila.tiendaId),
+    );
+    if (seguimientos.length === 0 || laVen.size === 0) return;
     await this.prisma.seguimiento.updateMany({
       where: { id: { in: seguimientos.map((fila) => fila.id) } },
       data: { avisadoEn: new Date() },
@@ -485,8 +492,10 @@ export class OfertasService {
         producto: { select: { slug: true, titulo: true, textoBusqueda: true } },
       },
     });
-    const filas = await this.prisma.$queryRaw<Array<{ id: string; usuario_id: string }>>`
-      SELECT a.id::text, a.usuario_id::text
+    const todas = await this.prisma.$queryRaw<
+      Array<{ id: string; usuario_id: string; tienda_id: string | null }>
+    >`
+      SELECT a.id::text, a.usuario_id::text, u.tienda_id::text
       FROM alerta_busqueda a
       JOIN usuario u ON u.id = a.usuario_id
       WHERE u.tienda_id IS DISTINCT FROM ${tiendaId}::uuid
@@ -494,6 +503,14 @@ export class OfertasService {
           SELECT 1 FROM unnest(string_to_array(a.palabras, ' ')) AS w(palabra)
           WHERE (' ' || ${oferta.producto.textoBusqueda}) NOT LIKE ('% ' || w.palabra || '%')
         )`;
+    // Lo de una oculta no le llega a nadie; lo de una privada, solo a sus seguidoras (doc 20,
+    // punto 5). El Equipo (sin tienda) ve todo.
+    const laVen = await tiendasQueLaVen(
+      this.prisma,
+      tiendaId,
+      todas.flatMap((fila) => (fila.tienda_id ? [fila.tienda_id] : [])),
+    );
+    const filas = todas.filter((fila) => !fila.tienda_id || laVen.has(fila.tienda_id));
     if (filas.length === 0) return;
     await this.prisma.alertaBusqueda.updateMany({
       where: { id: { in: filas.map((fila) => fila.id) } },

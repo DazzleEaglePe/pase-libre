@@ -6,12 +6,14 @@ import {
   type RespuestaDirectorioTiendas,
   type TiendaDelDirectorio,
 } from '@paselibre/contracts';
+import { IconLock } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 
 import { llamarApi, type ErrorApi } from '@/shared/api/cliente';
 import { lugarDeTienda, reputacionParaLeer, textoPiso, textoReputacion } from '@/shared/tiendas';
+import { AvatarBorroso } from '@/shared/ui/avatar-borroso';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import {
@@ -78,8 +80,39 @@ function Filtro({
   );
 }
 
+/**
+ * Un perfil privado buscado con su nombre exacto (doc 20, punto 5): el nombre, el logo borroso y
+ * «Tienda · Cuenta privada». Nada más.
+ */
+function TarjetaPrivada({ tienda }: { tienda: TiendaDelDirectorio }) {
+  return (
+    <li className="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-borde bg-white p-4">
+      <div className="flex items-center gap-2.5">
+        <AvatarBorroso nombre={tienda.nombre} logo={tienda.logo_borroso} tamano={48} />
+        <span className="flex min-w-0 flex-col">
+          <b className="truncate text-[16px] font-bold leading-[22px]">{tienda.nombre}</b>
+          <span className="flex items-center gap-1 text-nota text-detalle">
+            Tienda · Cuenta privada
+            <IconLock size={12} stroke={2} aria-hidden="true" />
+          </span>
+        </span>
+      </div>
+      <div className="mt-auto flex items-center">
+        <Link
+          href={`/tiendas/${tienda.id}`}
+          aria-label={`Ver la tienda ${tienda.nombre}`}
+          className="ml-auto inline-flex h-9 shrink-0 items-center rounded-full border-[1.5px] border-tinta bg-white px-5 text-nota font-bold text-tinta no-underline hover:bg-superficie"
+        >
+          Ver tienda
+        </Link>
+      </div>
+    </li>
+  );
+}
+
 function TarjetaTienda({ tienda }: { tienda: TiendaDelDirectorio }) {
   const reputacion = textoReputacion(tienda.reputacion);
+  if (tienda.privada) return <TarjetaPrivada tienda={tienda} />;
   return (
     <li className="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-borde bg-white p-4">
       <div className="flex items-center gap-2.5">
