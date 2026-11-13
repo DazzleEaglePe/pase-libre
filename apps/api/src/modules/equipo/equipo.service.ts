@@ -17,7 +17,7 @@ import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { RESPUESTAS_RAPIDAS_INICIALES } from '../cuenta/respuestas-rapidas';
-import { cifrarClave, generarClaveTemporal } from '../sesion/clave';
+import { cifrarClave, esClaveComprometida, generarClaveTemporal } from '../sesion/clave';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
 /** La tienda y lo que la cuenta tiene a su nombre (publicaciones y conversaciones). */
@@ -163,8 +163,20 @@ export class EquipoService {
       );
     }
 
-    const clave = generarClaveTemporal();
+    // Temporal (como antes) o definitiva, la que escribe el Equipo (doc 19, punto 6).
+    const definitiva = entrada.clave.tipo === 'DEFINITIVA';
+    const clave =
+      entrada.clave.tipo === 'DEFINITIVA' ? entrada.clave.clave : generarClaveTemporal();
+    if (definitiva && esClaveComprometida(clave)) {
+      throw new ApiHttpException(
+        HttpStatus.BAD_REQUEST,
+        'DATOS_INVALIDOS',
+        'Esa contraseña es muy fácil de adivinar. Elige otra.',
+      );
+    }
     const claveHash = await cifrarClave(clave);
+    // Sin persona a cargo, la cuenta lleva el nombre de la tienda (el asesor siempre trae el suyo).
+    const nombre = entrada.nombre ?? entrada.tienda?.nombre;
 
     const usuario = await this.prisma
       .$transaction(async (tx) => {
@@ -200,11 +212,12 @@ export class EquipoService {
               nombre: datos.nombre,
               galeriaId: galeria?.id ?? null,
               stand: datos.stand ?? null,
-              whatsapp: datos.whatsapp,
+              // Opcional (doc 19, punto 6): en Cuentas sale «Falta WhatsApp».
+              whatsapp: datos.whatsapp ?? null,
             },
           });
           tiendaId = tienda.id;
-          whatsapp ??= datos.whatsapp;
+          whatsapp ??= datos.whatsapp ?? null;
         }
 
         const creado = await tx.usuario.create({
@@ -213,10 +226,11 @@ export class EquipoService {
             rol: entrada.tipo === 'ASESOR' ? 'ASESOR' : 'DUENO',
             usuario: entrada.usuario,
             correo: entrada.correo ?? null,
-            nombre: entrada.nombre,
+            nombre: nombre ?? entrada.usuario,
             whatsapp,
             claveHash,
-            debeCambiarClave: true,
+            // Con la definitiva entra directo: ve la bienvenida y los acuerdos, sin «Crea tu contraseña».
+            debeCambiarClave: !definitiva,
             respuestasRapidas: {
               create: [...RESPUESTAS_RAPIDAS_INICIALES],
             },
@@ -229,7 +243,12 @@ export class EquipoService {
             accion: 'crear_cuenta',
             objeto: 'usuario',
             objetoId: creado.id,
-            datos: { usuario: creado.usuario, tipo: entrada.tipo, tienda_id: tiendaId },
+            datos: {
+              usuario: creado.usuario,
+              tipo: entrada.tipo,
+              tienda_id: tiendaId,
+              clave: definitiva ? 'definitiva' : 'temporal',
+            },
           },
         });
         return creado;
@@ -246,7 +265,7 @@ export class EquipoService {
         throw error;
       });
 
-    return this.acceso(usuario, clave, 'nueva');
+    return this.acceso(usuario, clave, definitiva ? 'definitiva' : 'nueva');
   }
 
   /** Clave temporal nueva: cierra sus sesiones y obliga a cambiarla al entrar. Es también «Reenviar acceso». */
@@ -472,23 +491,25 @@ export class EquipoService {
   private acceso(
     usuario: UsuarioConTienda,
     clave: string,
-    motivo: 'nueva' | 'cambio',
+    motivo: 'nueva' | 'definitiva' | 'cambio',
   ): RespuestaAcceso {
     const web = this.config.get('WEB_URL', { infer: true }).replace(/\/$/, '');
     const saludo =
-      motivo === 'nueva'
-        ? `Hola ${usuario.nombre}, ya tienes tu cuenta de PaseLibre.`
-        : `Hola ${usuario.nombre}, te dejamos una contraseña temporal nueva para PaseLibre.`;
+      motivo === 'cambio'
+        ? `Hola ${usuario.nombre}, te dejamos una contraseña temporal nueva para PaseLibre.`
+        : `Hola ${usuario.nombre}, ya tienes tu cuenta de PaseLibre.`;
     const mensaje = [
       saludo,
       `Entra en ${web}/ingresar`,
       `Usuario: ${usuario.usuario}`,
-      `Contraseña temporal: ${clave}`,
-      'Al entrar te pedirá crear tu propia contraseña.',
+      ...(motivo === 'definitiva'
+        ? [`Contraseña: ${clave}`, 'Puedes cambiarla cuando quieras en Configuración › Seguridad.']
+        : [`Contraseña temporal: ${clave}`, 'Al entrar te pedirá crear tu propia contraseña.']),
     ].join('\n');
     return {
       cuenta: aCuenta(usuario),
       clave_temporal: clave,
+      definitiva: motivo === 'definitiva',
       mensaje,
       enlace_whatsapp: usuario.whatsapp
         ? `https://wa.me/51${usuario.whatsapp}?text=${encodeURIComponent(mensaje)}`

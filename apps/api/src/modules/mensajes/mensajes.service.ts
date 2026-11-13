@@ -374,19 +374,28 @@ export class MensajesService implements OnModuleInit {
       );
     }
 
+    // El WhatsApp de la tienda es opcional desde la 1.10.0 (doc 19, punto 6): sin él, por chat.
+    const numero = oferta.responsable.whatsapp ?? oferta.tienda.whatsapp;
+    if (canal === 'WHATSAPP' && oferta.tiendaVisible && !numero) {
+      throw new ApiHttpException(
+        HttpStatus.CONFLICT,
+        'CONFLICTO',
+        'Esta tienda todavía no tiene WhatsApp. Escríbele por el chat.',
+      );
+    }
+
     // RF-23: se registra el clic, nunca el contenido de la conversación.
     await this.prisma.contacto.create({ data: { ofertaId, usuarioId: usuario.id, canal } });
 
     if (canal === 'WHATSAPP') {
       // El número delataría a la tienda reservada: con ella se escribe solo por chat.
-      if (!oferta.tiendaVisible) {
+      if (!oferta.tiendaVisible || !numero) {
         throw new ApiHttpException(
           HttpStatus.CONFLICT,
           'CONFLICTO',
           'Esta tienda atiende solo por el chat de PaseLibre.',
         );
       }
-      const numero = oferta.responsable.whatsapp ?? oferta.tienda.whatsapp;
       const texto = `Vi que tienes ${oferta.producto.titulo} publicado en PaseLibre, ¿a qué precio lo tienes?`;
       return { canal, enlace: `https://wa.me/51${numero}?text=${encodeURIComponent(texto)}` };
     }

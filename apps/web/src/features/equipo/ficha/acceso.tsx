@@ -6,12 +6,14 @@ import {
   type FichaTienda,
   type RespuestaClaveTienda,
 } from '@paselibre/contracts';
-import { IconBrandWhatsapp, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconBrandWhatsapp } from '@tabler/icons-react';
 import { useEffect, useId, useState } from 'react';
 
 import { IconoDispositivo, cuandoYDonde } from '@/features/acceso/dispositivo';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue } from '@/shared/fechas';
+
+import { CampoClave, OpcionClave, type TipoClave } from '../eleccion-clave';
 
 import { botonBorde, botonVerde, campoFicha, ruta, tarjetaFicha } from './comun';
 
@@ -27,9 +29,8 @@ export function PestanaAcceso({
   alCambiar: (ficha: FichaTienda) => void;
 }) {
   const id = useId();
-  const [tipo, setTipo] = useState<'TEMPORAL' | 'DEFINITIVA'>('TEMPORAL');
+  const [tipo, setTipo] = useState<TipoClave>('TEMPORAL');
   const [clave, setClave] = useState('');
-  const [ver, setVer] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [resultado, setResultado] = useState<RespuestaClaveTienda | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -90,24 +91,15 @@ export function PestanaAcceso({
     }
   }
 
-  const opcion = (valor: 'TEMPORAL' | 'DEFINITIVA', titulo: string, ayuda: string) => (
-    <label
-      className={`flex cursor-pointer items-start gap-3 rounded-2xl border-[1.5px] px-4 py-3 ${
-        tipo === valor ? 'border-pase bg-pase-suave' : 'border-linea'
-      }`}
-    >
-      <input
-        type="radio"
-        name={`${id}-tipo`}
-        checked={tipo === valor}
-        onChange={() => setTipo(valor)}
-        className="mt-1 h-5 w-5 accent-pase"
-      />
-      <span className="flex flex-col">
-        <b className="font-bold">{titulo}</b>
-        <span className="text-nota text-secundario">{ayuda}</span>
-      </span>
-    </label>
+  const opcion = (valor: TipoClave, titulo: string, ayuda: string) => (
+    <OpcionClave
+      nombre={`${id}-tipo`}
+      valor={valor}
+      elegido={tipo}
+      alElegir={setTipo}
+      titulo={titulo}
+      ayuda={ayuda}
+    />
   );
 
   return (
@@ -131,34 +123,13 @@ export function PestanaAcceso({
           'Escribe la que el dueño te dicte. No le pide cambiarla.',
         )}
         {tipo === 'DEFINITIVA' && (
-          <label htmlFor={`${id}-clave`} className="flex flex-col gap-1.5 text-apoyo font-bold">
-            Contraseña que dictó el dueño
-            <span className="relative">
-              <input
-                id={`${id}-clave`}
-                type={ver ? 'text' : 'password'}
-                autoComplete="off"
-                spellCheck={false}
-                required
-                minLength={8}
-                value={clave}
-                onChange={(evento) => setClave(evento.target.value)}
-                className={`${campoFicha} pr-12 font-normal`}
-              />
-              <button
-                type="button"
-                aria-label={ver ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
-                onClick={() => setVer(!ver)}
-                className="absolute right-1 top-1 flex h-10 w-10 items-center justify-center text-secundario"
-              >
-                {ver ? (
-                  <IconEye size={19} stroke={1.7} aria-hidden="true" />
-                ) : (
-                  <IconEyeOff size={19} stroke={1.7} aria-hidden="true" />
-                )}
-              </button>
-            </span>
-          </label>
+          <CampoClave
+            id={`${id}-clave`}
+            etiqueta="Contraseña que dictó el dueño"
+            valor={clave}
+            alCambiar={setClave}
+            clases={campoFicha}
+          />
         )}
         <p className="m-0 text-nota text-secundario">
           Al guardar: se cierran todas sus sesiones y le llega el aviso «El Equipo PaseLibre cambió

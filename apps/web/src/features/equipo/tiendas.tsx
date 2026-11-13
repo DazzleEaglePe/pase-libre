@@ -244,7 +244,7 @@ export function TiendasPanel() {
                       .filter(Boolean)
                       .join(' · ') || '—',
                   ],
-                  ['WhatsApp', detalle.whatsapp],
+                  ['WhatsApp', detalle.whatsapp ?? 'Falta WhatsApp'],
                   ['Horario', detalle.horario ?? '—'],
                   ['Cuentas', String(detalle.cuentas)],
                   [

@@ -188,7 +188,8 @@ export function SeccionDatos({
         cuerpo: {
           tienda: {
             nombre: nombreTienda,
-            whatsapp: whatsappTienda,
+            // Si el Equipo creó la tienda sin WhatsApp (doc 19, punto 6), se puede guardar sin él.
+            whatsapp: whatsappTienda.trim() || tienda?.whatsapp ? whatsappTienda : undefined,
             logo,
             indicaciones,
             descripcion,
@@ -303,7 +304,7 @@ export function SeccionDatos({
             WhatsApp de la tienda
             <input
               id={`${id}-wa-tienda`}
-              required
+              required={Boolean(tienda?.whatsapp)}
               type="tel"
               inputMode="tel"
               value={whatsappTienda}

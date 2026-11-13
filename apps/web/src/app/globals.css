@@ -168,3 +168,18 @@ body:has(.ficha-fondo) {
     transform: translateX(95%);
   }
 }
+
+/* doc 19 · punto 5: la fila iluminada en el panel oscuro. `.panel-oscuro .bg-superficie` no
+   alcanzaba a la variante `hover:`, así que al pasar el mouse salía el gris claro del modo claro.
+   Ahora es un verde suave, con las letras grises más claras y el verde del WhatsApp más vivo. El
+   modo claro no cambia. */
+.panel-oscuro .hover\:bg-superficie:hover {
+  background-color: #163a2b;
+}
+.panel-oscuro main .hover\:bg-superficie:hover .text-secundario,
+.panel-oscuro main .hover\:bg-superficie:hover .text-detalle {
+  color: #c9e9d8;
+}
+.panel-oscuro main .hover\:bg-superficie:hover .text-pase-texto {
+  color: #4ade80;
+}

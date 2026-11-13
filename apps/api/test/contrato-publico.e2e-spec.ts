@@ -57,7 +57,7 @@ describe('Contrato público: el visitante no recibe precio, tienda, stand ni Wha
     await sembrarDemo(prisma);
     const tiendas = await prisma.tienda.findMany();
     // Nombres de tienda y WhatsApp: no pueden aparecer en ninguna respuesta pública.
-    textosProhibidos = tiendas.flatMap((t) => [t.nombre, t.whatsapp]);
+    textosProhibidos = tiendas.flatMap((t) => (t.whatsapp ? [t.nombre, t.whatsapp] : [t.nombre]));
     app = await crearApp();
   });
 
