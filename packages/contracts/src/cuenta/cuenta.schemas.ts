@@ -63,22 +63,52 @@ export const actualizarCuentaSchema = z
   })
   .refine((cambios) => Object.keys(cambios).length > 0, 'No hay nada que cambiar.');
 
-/**
- * `PUT /v1/cuenta/lugar` (N09): galería, piso y stand nuevos. No cambian al toque: quedan
- * «Pendiente de aprobación» hasta que el Equipo los confirma.
- */
-export const cambioLugarSchema = z.strictObject({
-  galeria_id: z.uuid('Elige la galería.'),
+const pisoYStand = {
   piso: opcional(z.string().trim().max(20, 'El piso llega hasta 20 caracteres.')).optional(),
   stand: z
     .string()
     .trim()
     .min(1, 'Escribe tu stand.')
     .max(20, 'El stand llega hasta 20 caracteres.'),
-});
+};
+
+/**
+ * `PUT /v1/cuenta/lugar` (N09, doc 19 §10): galería, piso y stand nuevos. Con una galería de la
+ * lista quedan al toque en el perfil (el Equipo lo revisa después). Con «Otra galería»
+ * (`galeria_otra`, una que no está en la lista) quedan «Pendiente de aprobación» hasta que el
+ * Equipo la crea.
+ */
+export const cambioLugarSchema = z
+  .strictObject({
+    galeria_id: z.uuid('Elige la galería.').optional(),
+    galeria_otra: z
+      .string()
+      .trim()
+      .min(3, 'Escribe el nombre de la galería.')
+      .max(120, 'El nombre de la galería llega hasta 120 caracteres.')
+      .optional(),
+    ...pisoYStand,
+  })
+  .refine((datos) => Boolean(datos.galeria_id) !== Boolean(datos.galeria_otra), {
+    message: 'Elige la galería.',
+    path: ['galeria_id'],
+  });
 export type CambioLugarDatos = z.output<typeof cambioLugarSchema>;
 
-/** `POST /v1/equipo/cambios-de-lugar/:id/rechazar`: por qué no (le llega a la tienda). */
+/**
+ * `POST /v1/equipo/cambios-de-lugar/:id/corregir` (doc 19 §10): «Corregir» (por ejemplo, «2b105» →
+ * «2B 105»), o confirmar una «Otra galería» ya creada eligiéndola de la lista.
+ */
+export const corregirCambioLugarSchema = z.strictObject({
+  galeria_id: z.uuid('Elige la galería.'),
+  ...pisoYStand,
+});
+export type CorregirCambioLugarDatos = z.output<typeof corregirCambioLugarSchema>;
+
+/**
+ * `POST /v1/equipo/cambios-de-lugar/:id/rechazar` y `…/deshacer` (doc 19 §10): por qué no, o por
+ * qué se deshizo (le llega a la tienda). Opcional.
+ */
 export const rechazarCambioLugarSchema = z.strictObject({
   motivo: z
     .string()

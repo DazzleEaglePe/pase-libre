@@ -172,7 +172,11 @@ export class GaleriasService {
   async borrar(id: string, sesion: SesionActiva): Promise<void> {
     const galeria = await this.prisma.galeria.findUnique({
       where: { id },
-      include: { _count: { select: { tiendas: true, enVivo: true, cambiosLugar: true } } },
+      include: {
+        _count: {
+          select: { tiendas: true, enVivo: true, cambiosLugar: true, cambiosLugarDesde: true },
+        },
+      },
     });
     if (!galeria) throw noExiste();
     if (galeria._count.tiendas > 0) {
@@ -181,7 +185,12 @@ export class GaleriasService {
       );
     }
     const solicitudes = await this.prisma.solicitud.count({ where: { galeriaId: id } });
-    if (galeria._count.enVivo > 0 || galeria._count.cambiosLugar > 0 || solicitudes > 0) {
+    if (
+      galeria._count.enVivo > 0 ||
+      galeria._count.cambiosLugar > 0 ||
+      galeria._count.cambiosLugarDesde > 0 ||
+      solicitudes > 0
+    ) {
       throw conflicto(
         `${galeria.nombre} ya se usó en pedidos o solicitudes: no se puede borrar. Puedes ocultarla.`,
       );

@@ -89,7 +89,8 @@ export function respuestaCuenta(usuario: UsuarioConTienda): RespuestaCuenta {
           lugar_pendiente: pendiente
             ? {
                 galeria_id: pendiente.galeriaId,
-                galeria: pendiente.galeria.nombre,
+                // «Otra galería» (doc 19 §10): el nombre que escribió la tienda.
+                galeria: pendiente.galeria?.nombre ?? pendiente.galeriaOtra,
                 piso: pendiente.piso,
                 stand: pendiente.stand,
                 pedido_en: pendiente.creadoEn.toISOString(),

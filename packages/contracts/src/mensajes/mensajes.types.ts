@@ -94,6 +94,11 @@ export interface ConversacionEnLista {
   /** El hilo nació de un «¡Lo tengo!» o un «¡Lo quiero!» (Pedidos en vivo). */
   pase_del_dia: boolean;
   actualizada_en: string;
+  /**
+   * La otra tienda se eliminó para siempre (doc 19 §9): sale «Tienda eliminada», se leen tus
+   * mensajes y ya no se puede escribir.
+   */
+  otra_eliminada: boolean;
 }
 
 export type FiltroConversacion = 'todas' | 'no_leidas' | 'pases' | 'archivadas';

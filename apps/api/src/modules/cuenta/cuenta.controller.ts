@@ -148,8 +148,8 @@ export class CuentaController {
   }
 
   /**
-   * Galería, piso y stand nuevos (N09): quedan «Pendiente de aprobación» hasta que el Equipo los
-   * confirma. Pedir otro cambio reemplaza al pendiente.
+   * Galería, piso y stand nuevos (N09, doc 19 §10): con una galería de la lista quedan al instante;
+   * con «Otra galería», «Pendiente de aprobación» hasta que el Equipo la crea.
    */
   @Put('lugar')
   @Roles('DUENO', 'ASESOR')

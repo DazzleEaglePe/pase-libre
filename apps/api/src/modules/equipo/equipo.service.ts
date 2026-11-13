@@ -285,11 +285,15 @@ export class EquipoService {
     return this.acceso(actualizado, clave, usuario.primerIngresoEn ? 'cambio' : 'nueva');
   }
 
-  /** Suspender corta sus sesiones al instante (A-05); reactivar le devuelve el acceso. */
+  /**
+   * Suspender corta sus sesiones al instante (A-05), sin contraseña y con un motivo opcional que
+   * queda en la auditoría (doc 19 §9); reactivar le devuelve el acceso.
+   */
   async cambiarEstado(
     id: string,
     estado: 'ACTIVA' | 'SUSPENDIDA',
     actorId: string,
+    motivo?: string,
   ): Promise<CuentaEquipo> {
     await this.buscar(id);
     const ahora = new Date();
@@ -300,7 +304,7 @@ export class EquipoService {
           accion: estado === 'SUSPENDIDA' ? 'suspender' : 'reactivar',
           objeto: 'usuario',
           objetoId: id,
-          datos: {},
+          datos: estado === 'SUSPENDIDA' && motivo ? { motivo } : {},
         },
       }),
     ];
@@ -387,7 +391,12 @@ export class EquipoService {
       const yaTiene = new Set(
         (
           await tx.conversacion.findMany({
-            where: { compradorId: aId, ofertaId: { in: comoComprador.map((c) => c.ofertaId) } },
+            where: {
+              compradorId: aId,
+              ofertaId: {
+                in: comoComprador.flatMap((c) => (c.ofertaId === null ? [] : [c.ofertaId])),
+              },
+            },
             select: { ofertaId: true },
           })
         ).map((c) => c.ofertaId),

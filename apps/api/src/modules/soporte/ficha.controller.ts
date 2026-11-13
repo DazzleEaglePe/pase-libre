@@ -17,12 +17,14 @@ import { Throttle } from '@nestjs/throttler';
 import {
   claveTiendaEquipoSchema,
   datosTiendaEquipoSchema,
+  eliminarTiendaSchema,
   estadoPublicacionEquipoSchema,
   limiteDispositivosSchema,
   type ActividadDeTienda,
   type CambioDelEquipo,
   type ClaveTiendaEquipo,
   type DatosTiendaEquipo,
+  type EliminarTiendaDatos,
   type EstadoPublicacionEquipo,
   type EstadoSoporteTienda,
   type FichaTienda,
@@ -45,6 +47,7 @@ import { LIMITE_PERSONA } from '../../shared/limites';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { AyudaService } from './ayuda.service';
+import { EliminarTiendaService } from './eliminar-tienda.service';
 import { FichaService } from './ficha.service';
 
 const id = (mensaje: string) => new ZodValidationPipe(z.uuid(mensaje));
@@ -59,12 +62,31 @@ export class FichaController {
   constructor(
     @Inject(FichaService) private readonly fichas: FichaService,
     @Inject(AyudaService) private readonly ayuda: AyudaService,
+    @Inject(EliminarTiendaService) private readonly eliminacion: EliminarTiendaService,
   ) {}
 
   @Get(':id/ficha')
   @Header('Cache-Control', 'no-store')
-  ficha(@Param('id', idTienda) tiendaId: string): Promise<FichaTienda> {
-    return this.fichas.ficha(tiendaId);
+  ficha(
+    @Param('id', idTienda) tiendaId: string,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<FichaTienda> {
+    return this.fichas.ficha(tiendaId, sesion);
+  }
+
+  /**
+   * «Eliminar definitivamente» (doc 19 §9): con la tienda suspendida hace más de 24 h y **tu**
+   * contraseña. Solo administradores.
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ [LIMITE_PERSONA]: { limit: 10, ttl: 15 * 60_000 } })
+  eliminar(
+    @Param('id', idTienda) tiendaId: string,
+    @Body(new ZodValidationPipe(eliminarTiendaSchema)) datos: EliminarTiendaDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<void> {
+    return this.eliminacion.eliminar(tiendaId, datos.clave, sesion);
   }
 
   @Patch(':id/datos')
