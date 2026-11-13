@@ -182,6 +182,8 @@ body:has(.ficha-fondo) {
 }
 .panel-oscuro main .hover\:bg-superficie:hover .text-pase-texto {
   color: #4ade80;
+}
+
 /* doc 19 · punto 11: el aviso verde «Tu contraseña quedó guardada» en la primera pantalla de
    «Conoce PaseLibre». Baja un poco al aparecer y se apaga solo antes de irse (3 s en total);
    con «reducir movimiento», solo aparece y se va. */
@@ -208,6 +210,9 @@ body:has(.ficha-fondo) {
 @media (prefers-reduced-motion: reduce) {
   .aviso-clave-guardada {
     animation: none;
+  }
+}
+
 /*
  * doc 19 · punto 22: que no se pierda nada.
  * - El globito de Mensajes da un saltito (−7 px y −8°, con rebote) y su número naranja aparece
@@ -242,6 +247,106 @@ body:has(.ficha-fondo) {
     transform: scale(0);
   }
   50% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes entra-en-vivo {
+  from {
+    max-width: 0;
+    margin-right: -12px;
+    opacity: 0;
+  }
+  to {
+    max-width: 480px;
+    margin-right: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes brilla-en-vivo {
+  0% {
+    box-shadow:
+      inset 0 0 0 3px #f97316,
+      0 0 24px rgba(249, 115, 22, 0.75);
+  }
+  25% {
+    box-shadow:
+      inset 0 0 0 3px rgba(249, 115, 22, 0.85),
+      0 0 10px rgba(249, 115, 22, 0.3);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 3px #f97316,
+      0 0 24px rgba(249, 115, 22, 0.7);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 0 rgba(249, 115, 22, 0),
+      0 0 0 rgba(249, 115, 22, 0);
+  }
+}
+
+@keyframes borde-en-vivo {
+  0%,
+  99% {
+    box-shadow: inset 0 0 0 3px #f97316;
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+@keyframes nuevo-en-vivo {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sube-numero-en-vivo {
+  0% {
+    transform: translateY(6px);
+  }
+  45% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.entra-en-vivo {
+  animation:
+    entra-en-vivo 300ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--espera, 0ms) both,
+    brilla-en-vivo 2s ease-out calc(var(--espera, 0ms) + 300ms) both;
+}
+
+/* En el celular la banda de la tienda va en columna: ahí no crece de costado, solo brilla. */
+@media (max-width: 639px) {
+  .en-columna .entra-en-vivo {
+    animation: brilla-en-vivo 2s ease-out var(--espera, 0ms) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entra-en-vivo,
+  .en-columna .entra-en-vivo {
+    animation: borde-en-vivo 2s linear var(--espera, 0ms) both;
+  }
+}
+
 /* ── doc 19 · punto 17: «¿Lograste cerrar el trato?» entra subiendo 14 px (escala 0.97 → 1,
    250 ms); quieta con «reducir movimiento». ── */
 @keyframes trato-entra {
@@ -323,6 +428,82 @@ body:has(.ficha-fondo) {
 @keyframes chat-rebote {
   0% {
     transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes chat-numerito {
+  0% {
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.chat-puntitos {
+  transform-origin: left bottom;
+  animation: chat-puntitos 180ms ease-out both;
+}
+
+.chat-punto {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #59645e;
+  animation: chat-punto 1.2s ease-in-out infinite;
+}
+
+.chat-punto:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-punto:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.chat-llega {
+  animation: chat-llega 180ms ease-out both;
+}
+
+.chat-sale {
+  animation: chat-sale 220ms ease-out both;
+}
+
+.chat-avioncito {
+  animation: chat-avioncito 300ms ease-out;
+}
+
+.chat-check-rebote {
+  transform-origin: center;
+  animation: chat-rebote 260ms ease-out;
+}
+
+.chat-numerito {
+  animation: chat-numerito 300ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-puntitos,
+  .chat-llega,
+  .chat-sale,
+  .chat-avioncito,
+  .chat-check-rebote,
+  .chat-numerito {
+    animation: none;
+  }
+  .chat-punto {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 /* ── doc 19 · punto 12: borrar publicaciones desde el propio perfil ──────────────────────────
    El tachito B (rojo suave, entra deslizándose 7 px al pasar el mouse; en el celular se ve
    siempre), su tapa que se abre, la cajita «¿Eliminar esta publicación?», la tarjeta que se achica
@@ -405,62 +586,6 @@ body:has(.ficha-fondo) {
   }
 }
 
-@keyframes entra-en-vivo {
-  from {
-    max-width: 0;
-    margin-right: -12px;
-    opacity: 0;
-  }
-  to {
-    max-width: 480px;
-    margin-right: 0;
-    opacity: 1;
-  }
-}
-
-@keyframes brilla-en-vivo {
-  0% {
-    box-shadow:
-      inset 0 0 0 3px #f97316,
-      0 0 24px rgba(249, 115, 22, 0.75);
-  }
-  25% {
-    box-shadow:
-      inset 0 0 0 3px rgba(249, 115, 22, 0.85),
-      0 0 10px rgba(249, 115, 22, 0.3);
-  }
-  50% {
-    box-shadow:
-      inset 0 0 0 3px #f97316,
-      0 0 24px rgba(249, 115, 22, 0.7);
-  }
-  100% {
-    box-shadow:
-      inset 0 0 0 0 rgba(249, 115, 22, 0),
-      0 0 0 rgba(249, 115, 22, 0);
-  }
-}
-
-@keyframes borde-en-vivo {
-  0%,
-  99% {
-    box-shadow: inset 0 0 0 3px #f97316;
-  }
-  100% {
-    box-shadow: none;
-  }
-}
-
-@keyframes nuevo-en-vivo {
-  0% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  60% {
-    opacity: 1;
-    transform: scale(1.15);
-  }
-  100% {
 .pl-tachito[data-abierto] {
   animation: pl-hundir 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -497,11 +622,6 @@ body:has(.ficha-fondo) {
   }
 }
 
-@keyframes sube-numero-en-vivo {
-  0% {
-    transform: translateY(6px);
-  }
-  45% {
 .pl-cajita {
   transform-origin: 100% 100%;
   animation: pl-cajita 0.2s cubic-bezier(0.2, 1.3, 0.4, 1);
@@ -634,90 +754,6 @@ body:has(.ficha-fondo) {
   }
 }
 
-.entra-en-vivo {
-  animation:
-    entra-en-vivo 300ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--espera, 0ms) both,
-    brilla-en-vivo 2s ease-out calc(var(--espera, 0ms) + 300ms) both;
-}
-
-/* En el celular la banda de la tienda va en columna: ahí no crece de costado, solo brilla. */
-@media (max-width: 639px) {
-  .en-columna .entra-en-vivo {
-    animation: brilla-en-vivo 2s ease-out var(--espera, 0ms) both;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .entra-en-vivo,
-  .en-columna .entra-en-vivo {
-    animation: borde-en-vivo 2s linear var(--espera, 0ms) both;
-@keyframes chat-numerito {
-  0% {
-    transform: scale(0);
-  }
-  60% {
-    transform: scale(1.3);
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-.chat-puntitos {
-  transform-origin: left bottom;
-  animation: chat-puntitos 180ms ease-out both;
-}
-
-.chat-punto {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #59645e;
-  animation: chat-punto 1.2s ease-in-out infinite;
-}
-
-.chat-punto:nth-child(2) {
-  animation-delay: 0.15s;
-}
-
-.chat-punto:nth-child(3) {
-  animation-delay: 0.3s;
-}
-
-.chat-llega {
-  animation: chat-llega 180ms ease-out both;
-}
-
-.chat-sale {
-  animation: chat-sale 220ms ease-out both;
-}
-
-.chat-avioncito {
-  animation: chat-avioncito 300ms ease-out;
-}
-
-.chat-check-rebote {
-  transform-origin: center;
-  animation: chat-rebote 260ms ease-out;
-}
-
-.chat-numerito {
-  animation: chat-numerito 300ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-puntitos,
-  .chat-llega,
-  .chat-sale,
-  .chat-avioncito,
-  .chat-check-rebote,
-  .chat-numerito {
-    animation: none;
-  }
-  .chat-punto {
-    animation: none;
-    opacity: 0.6;
 .pl-brinco {
   animation: pl-brinco 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
 }

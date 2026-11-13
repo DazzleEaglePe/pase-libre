@@ -28,6 +28,41 @@ export interface Novedad {
 /** De la más nueva a la más antigua. */
 export const NOVEDADES: readonly Novedad[] = [
   {
+    version: '1.10.0',
+    fecha: '2026-11-13',
+    publico: [
+      'Borra tus publicaciones desde tu perfil.',
+      'Marca si tu RAM es para Intel o para Ryzen.',
+      'Ahora ves cuando te están escribiendo.',
+      'Ajusta tu logo y tu portada.',
+    ],
+    equipo: {
+      nuevo: [
+        'Mi cuenta del Equipo: datos, contraseña y sesiones.',
+        'Eliminar una tienda para siempre, 24 h después de suspenderla y con tu contraseña.',
+        'Borrar desde el propio perfil, de a una o varias, con Deshacer.',
+        'Al publicar: «¿Para qué procesador es?» (Intel XMP / EXPO Ryzen) y empaque; filtro Para Intel / Para Ryzen.',
+        '«Escribiendo…», ✓✓ en el chat con el Equipo y «¿Lograste cerrar el trato?».',
+        'Ajustar logo y zoom en la portada.',
+        'Sonidos de mensaje y de pedido en vivo (se apagan en Configuración › Avisos).',
+      ],
+      cambia: [
+        'Primer ingreso: contraseña → Conoce PaseLibre → acuerdos, sin «Listo, ya entraste».',
+        'Pedir en vivo · Busco: buscador del catálogo con foto, fotos propias y sin precio.',
+        'Cambios de galería o stand sin aprobación; el Equipo decide después (Está bien / Corregir / Deshacer).',
+        'Crear cuenta: WhatsApp opcional y contraseña temporal o definitiva.',
+        '«Marcar vendido» arriba en el chat; la versión del panel arriba, al lado del logo.',
+        'Campanita: el número se va al abrirla; avisos del chat con el Equipo agrupados.',
+        'Banda de invitar: en el inicio vuelve a los 2 días; en las secciones, una vez.',
+      ],
+      arregla: [
+        'Fila iluminada en modo oscuro (ya no sale casi blanca).',
+        'El número de Solicitudes cuenta también los cambios de galería o stand.',
+      ],
+      datos: [],
+    },
+  },
+  {
     version: '1.9.1',
     fecha: '2026-11-13',
     publico: ['Los mensajes y los pedidos en vivo llegan al instante, sin recargar.'],
@@ -76,7 +111,7 @@ export const NOVEDADES: readonly Novedad[] = [
 ];
 
 /** La versión que está corriendo: siempre la primera de `NOVEDADES` (lo revisa una prueba). */
-export const VERSION = '1.9.1';
+export const VERSION = '1.10.0';
 
 /** Lo que sale en el pie de las tiendas: solo los dos primeros números («1.9»). */
 export function versionCorta(version: string = VERSION): string {
