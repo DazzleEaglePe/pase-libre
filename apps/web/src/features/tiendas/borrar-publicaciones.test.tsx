@@ -144,7 +144,7 @@ describe('«Eliminar varias»: la barra negra y la confirmación', () => {
     expect(alEliminar).toHaveBeenCalled();
   });
 
-  it('«¿Eliminar 2 publicaciones?» sugiere Pausar', async () => {
+  it('«¿Eliminar 2 publicaciones?» sugiere «No disponible»', async () => {
     const alPausar = vi.fn();
     const alEliminar = vi.fn();
     render(
@@ -158,9 +158,9 @@ describe('«Eliminar varias»: la barra negra y la confirmación', () => {
     );
     expect(screen.getByRole('alertdialog')).toHaveTextContent('¿Eliminar 2 publicaciones?');
     expect(screen.getByRole('alertdialog')).toHaveTextContent(
-      'Si solo no tienes stock, mejor Pausar.',
+      'Si solo no tienes stock, mejor «No disponible».',
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Pausar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'No disponible' }));
     expect(alPausar).toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Sí, eliminar' }));
     expect(alEliminar).toHaveBeenCalled();

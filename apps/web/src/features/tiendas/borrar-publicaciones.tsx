@@ -269,8 +269,8 @@ export function BarraSeleccion({
 }
 
 /**
- * «¿Eliminar N publicaciones?»: el ícono, qué pasa y la sugerencia de Pausar si solo no hay
- * stock.
+ * «¿Eliminar N publicaciones?»: el ícono, qué pasa y, si solo no hay stock, la sugerencia de
+ * dejarlas «No disponible» (doc 20, punto 16).
  */
 export function ConfirmarVarias({
   cuantas,
@@ -309,16 +309,16 @@ export function ConfirmarVarias({
         </b>
         <span className="text-[#59645e]">
           Dejan de verse en el feed, tu perfil y las búsquedas. En los chats queda «Publicación
-          eliminada». Si solo no tienes stock, mejor{' '}
+          eliminada». Si solo no tienes stock, mejor «
           <button
             type="button"
             disabled={trabajando}
             onClick={alPausar}
             className="font-bold text-[#0F1412] underline"
           >
-            Pausar
+            No disponible
           </button>
-          .
+          ».
         </span>
         <div className="mt-1 flex gap-2.5">
           <button

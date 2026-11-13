@@ -76,7 +76,10 @@ export interface OfertaPropia {
   chats_semana: number;
   /** Tiendas que la vieron en la ficha en los últimos 7 días, una vez por día (MP_Web). */
   vistas_semana: number;
-  /** «¿Por qué la pausas?»: nulo si está activa o se pausó sin decir. */
+  /**
+   * «¿Por qué no está disponible?» (doc 20, punto 16): nulo si está activa o se pausó sin decir.
+   * La vieja «Se me acabó, espero mercadería» llega como «Se me acabó».
+   */
   razon_pausa: string | null;
   descripcion: string | null;
   fotos: Foto[];
@@ -105,10 +108,12 @@ export function portadaDeOferta(
 }
 
 /**
- * `activas`: con stock; `vigentes`: activas con o sin stock (la pestaña «Activas» de MP_Web,
- * que avisa en la fila cuando no hay stock).
+ * `activas`: con stock (la pestaña «Activas»); `vigentes`: activas con o sin stock;
+ * `no_disponibles`: las sin stock y las pausadas (la pestaña «No disponibles», doc 20, punto 16).
+ * `pausadas` es un alias de `no_disponibles`, por los enlaces guardados.
  */
-export type PestanaMisOfertas = 'activas' | 'vigentes' | 'sin_stock' | 'pausadas' | 'todas';
+export type PestanaMisOfertas =
+  'activas' | 'vigentes' | 'sin_stock' | 'no_disponibles' | 'pausadas' | 'todas';
 
 /** `GET /v1/mis-ofertas` (RF-08, RF-10): las ofertas de la tienda de la sesión. */
 export interface RespuestaMisOfertas {

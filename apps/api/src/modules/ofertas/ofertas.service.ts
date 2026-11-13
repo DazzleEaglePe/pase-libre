@@ -1,11 +1,13 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   condicionDeEstado,
+  esSeMeAcabo,
   formatearPrecio,
   normalizarTexto,
   PORTADA_AJENA,
   preguntasDeCategoria,
   precioDe,
+  razonDePausa,
   slugDe,
   tituloDeProducto,
   type ConfirmarOfertas,
@@ -151,12 +153,21 @@ type ProductoResumenFila = Prisma.ProductoGetPayload<{
 }>;
 type OfertaPropiaFila = Prisma.OfertaGetPayload<{ select: typeof SELECT_OFERTA_PROPIA }>;
 
+/**
+ * «No disponibles» (doc 20, punto 16): las sin stock y las pausadas. `pausadas` es su alias, por
+ * los enlaces guardados.
+ */
+const NO_DISPONIBLES: Prisma.OfertaWhereInput = {
+  OR: [{ estado: 'PAUSADA' }, { estado: 'ACTIVA', stock: 0 }],
+};
+
 /** Las pestañas de Mis publicaciones (F_MisPublicaciones). «Sin stock» sale de `stock = 0`. */
 const PESTANAS: Record<PestanaMisOfertas, Prisma.OfertaWhereInput> = {
   activas: { estado: 'ACTIVA', stock: { gt: 0 } },
   vigentes: { estado: 'ACTIVA' },
   sin_stock: { estado: 'ACTIVA', stock: 0 },
-  pausadas: { estado: 'PAUSADA' },
+  no_disponibles: NO_DISPONIBLES,
+  pausadas: NO_DISPONIBLES,
   todas: {},
 };
 
@@ -691,7 +702,8 @@ export class OfertasService {
         SELECT count(*) FILTER (WHERE estado = 'ACTIVA' AND stock > 0)::int AS activas,
                count(*) FILTER (WHERE estado = 'ACTIVA')::int AS vigentes,
                count(*) FILTER (WHERE estado = 'ACTIVA' AND stock = 0)::int AS sin_stock,
-               count(*) FILTER (WHERE estado = 'PAUSADA')::int AS pausadas,
+               count(*) FILTER (WHERE estado = 'PAUSADA' OR stock = 0)::int AS no_disponibles,
+               count(*) FILTER (WHERE estado = 'PAUSADA' OR stock = 0)::int AS pausadas,
                count(*)::int AS todas
         FROM oferta
         WHERE tienda_id = ${tienda.id}::uuid AND estado <> 'ELIMINADA'`,
@@ -705,7 +717,14 @@ export class OfertasService {
 
     return {
       tienda: tiendaDeSesion(tienda),
-      conteos: conteos ?? { activas: 0, vigentes: 0, sin_stock: 0, pausadas: 0, todas: 0 },
+      conteos: conteos ?? {
+        activas: 0,
+        vigentes: 0,
+        sin_stock: 0,
+        no_disponibles: 0,
+        pausadas: 0,
+        todas: 0,
+      },
       por_revisar: porRevisar,
       vistas_semana: vistasSemana,
       ofertas: await this.conImpulso(
@@ -729,6 +748,10 @@ export class OfertasService {
   /**
    * Editar, cambiar stock o visibilidad, pausar y reactivar (RF-06, RF-08, RF-09). Todo
    * cambio cuenta como actualización (fecha visible y «Revísala»), salvo pausar.
+   *
+   * «No disponible» (doc 20, punto 16): «Se me acabó» no pausa, pone el stock en 0 y la deja
+   * activa, para que vuelva sola al subir la cantidad. Las pausadas de antes con «Se me acabó,
+   * espero mercadería» se leen igual: si les suben la cantidad, vuelven a mostrarse.
    */
   async editar(id: string, cambios: EditarOfertaDatos, tiendaId: string): Promise<OfertaPropia> {
     try {
@@ -740,10 +763,22 @@ export class OfertasService {
             precioVisible: true,
             fotos: { select: { ruta: true, ancho: true, alto: true } },
             portadaRuta: true,
+            estado: true,
+            razonPausa: true,
             producto: { select: { categoria: { select: { slug: true } } } },
           },
         });
         if (!actual) throw noExiste();
+
+        // «Se me acabó» es falta de stock, no una pausa.
+        const agotada = cambios.estado === 'PAUSADA' && esSeMeAcabo(cambios.razon_pausa);
+        // Una pausada por «Se me acabó» (la de antes) vuelve sola cuando sube la cantidad.
+        const vuelveSola =
+          cambios.estado === undefined &&
+          actual.estado === 'PAUSADA' &&
+          esSeMeAcabo(actual.razonPausa) &&
+          (cambios.stock ?? 0) > 0;
+        const estado = agotada || vuelveSola ? 'ACTIVA' : cambios.estado;
 
         const precio = cambios.precio === undefined ? actual.precioCentimos : cambios.precio;
         let visible = cambios.precio_visible ?? actual.precioVisible;
@@ -761,14 +796,14 @@ export class OfertasService {
 
         const data: Prisma.OfertaUpdateInput = {
           condicion: cambios.condicion,
-          stock: cambios.stock,
+          stock: agotada ? 0 : cambios.stock,
           moneda: cambios.moneda,
           descripcion: cambios.descripcion,
-          estado: cambios.estado,
+          estado,
           // La razón vale mientras dure la pausa: al reactivar se borra.
-          ...(cambios.estado === 'ACTIVA'
+          ...(estado === 'ACTIVA'
             ? { razonPausa: null }
-            : cambios.estado === 'PAUSADA'
+            : estado === 'PAUSADA'
               ? { razonPausa: cambios.razon_pausa ?? null }
               : {}),
           precioVisible: visible,
@@ -792,7 +827,7 @@ export class OfertasService {
         // «¿Quién ve el precio? Todas» sin monto no se puede: queda por chat.
         if (data.precioVisible === true && precio === null) data.precioVisible = false;
         const soloPausa =
-          cambios.estado === 'PAUSADA' &&
+          estado === 'PAUSADA' &&
           Object.keys(cambios).every((clave) => clave === 'estado' || clave === 'razon_pausa');
         if (!soloPausa) data.actualizadaEn = new Date();
 
@@ -955,7 +990,7 @@ export class OfertasService {
       negociable: o.negociable,
       chats_semana: 0,
       vistas_semana: 0,
-      razon_pausa: o.estado === 'PAUSADA' ? o.razonPausa : null,
+      razon_pausa: o.estado === 'PAUSADA' ? razonDePausa(o.razonPausa) : null,
       descripcion: o.descripcion,
       fotos: o.fotos,
       portada: o.portadaRuta,
