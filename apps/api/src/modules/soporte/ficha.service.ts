@@ -4,6 +4,7 @@ import {
   formatearPrecio,
   interpretarBusqueda,
   precioDe,
+  TIENDA_ELIMINADA,
   type ActividadDeTienda,
   type CambioDelEquipo,
   type ClaveTiendaEquipo,
@@ -19,12 +20,14 @@ import { Prisma } from '@prisma/client';
 
 import type { Environment } from '../../config/env.schema';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { esAdministrador } from '../../shared/administrador';
 import { avisarSeguridad, duenosDe } from '../../shared/aviso-seguridad';
 import { dispositivoDe, LUGAR_DE_SESION } from '../../shared/dispositivo';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { cifrarClave, esClaveComprometida, generarClaveTemporal } from '../sesion/clave';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
+import { suspensionDe } from './eliminar-tienda.service';
 
 const MOTIVO = {
   ESTAFA: 'Estafa o intento de estafa',
@@ -87,13 +90,17 @@ export class FichaService {
 
   // ── Cabecera ─────────────────────────────────────────────────────────────
 
-  async ficha(id: string): Promise<FichaTienda> {
+  async ficha(id: string, sesion: SesionActiva): Promise<FichaTienda> {
     const tienda = await this.prisma.tienda.findUnique({
       where: { id },
       select: {
         id: true,
         nombre: true,
         estado: true,
+        suspendidaEn: true,
+        suspendidaPorId: true,
+        motivoSuspension: true,
+        actualizadaEn: true,
         piso: true,
         stand: true,
         whatsapp: true,
@@ -110,7 +117,7 @@ export class FichaService {
     });
     if (!tienda) throw noExiste();
     const ahora = new Date();
-    const [dueno, asesores, publicaciones, pedido, activo] = await Promise.all([
+    const [dueno, asesores, publicaciones, pedido, activo, suspension] = await Promise.all([
       this.dueno(id),
       this.prisma.usuario.count({ where: { tiendaId: id, rol: 'ASESOR', quitadoEn: null } }),
       this.prisma.oferta.count({ where: { tiendaId: id, estado: { not: 'ELIMINADA' } } }),
@@ -127,6 +134,7 @@ export class FichaService {
         where: { tiendaId: id, terminadoEn: null, venceEn: { gt: ahora } },
         select: { venceEn: true, equipo: { select: { nombre: true } } },
       }),
+      suspensionDe(this.prisma, tienda),
     ]);
     const sesiones = dueno
       ? await this.prisma.sesion.findMany({
@@ -139,6 +147,8 @@ export class FichaService {
       id: tienda.id,
       nombre: tienda.nombre,
       suspendida: tienda.estado === 'SUSPENDIDA',
+      suspension,
+      puede_eliminar: esAdministrador(sesion.usuario),
       advertencias: tienda._count.advertencias,
       galeria: tienda.galeria?.nombre ?? null,
       piso: tienda.piso,
@@ -236,7 +246,7 @@ export class FichaService {
     await this.cambio(sesion, id, `cambió ${lista} de ${tienda.nombre}`, {
       titulo: `El Equipo PaseLibre actualizó ${lista} de tu tienda`,
     });
-    return this.ficha(id);
+    return this.ficha(id, sesion);
   }
 
   /** Pestaña Imagen: quitar el logo o la portada. Para subir una nueva, «Ayudar como la tienda». */
@@ -261,7 +271,7 @@ export class FichaService {
     await this.cambio(sesion, id, `quitó ${que} de ${tienda.nombre}`, {
       titulo: `El Equipo PaseLibre quitó ${que} de tu tienda`,
     });
-    return this.ficha(id);
+    return this.ficha(id, sesion);
   }
 
   // ── Publicaciones ────────────────────────────────────────────────────────
@@ -364,10 +374,10 @@ export class FichaService {
         id: fila.id,
         // La tienda del panel es una de las dos: se muestra la otra (el equipo ve todo).
         con:
-          fila.tiendaCompradoraId === id
-            ? fila.tiendaVendedora.nombre
-            : fila.tiendaCompradora.nombre,
-        producto: fila.oferta.producto.titulo,
+          (fila.tiendaCompradoraId === id
+            ? fila.tiendaVendedora?.nombre
+            : fila.tiendaCompradora?.nombre) ?? TIENDA_ELIMINADA,
+        producto: fila.oferta?.producto.titulo ?? 'Publicación eliminada',
         ultimo: fila.mensajes[0]?.texto ?? null,
         fecha: (fila.mensajes[0]?.creadoEn ?? fila.ultimoMensajeEn).toISOString(),
       })),
@@ -420,10 +430,11 @@ export class FichaService {
         autor: { select: { nombre: true, tiendaId: true, tienda: { select: { nombre: true } } } },
       },
     });
+    // Si la otra tienda se eliminó (doc 19 §9), su lado quedó vacío.
     const con =
-      conversacion.tiendaCompradoraId === id
-        ? conversacion.tiendaVendedora.nombre
-        : conversacion.tiendaCompradora.nombre;
+      (conversacion.tiendaCompradoraId === id
+        ? conversacion.tiendaVendedora?.nombre
+        : conversacion.tiendaCompradora?.nombre) ?? TIENDA_ELIMINADA;
     const versiones = await this.versionesDe(mensajes.map((mensaje) => mensaje.id));
     await this.prisma.$transaction([
       this.prisma.registroEquipo.create({
@@ -442,7 +453,7 @@ export class FichaService {
     return {
       id: conversacion.id,
       con,
-      producto: conversacion.oferta.producto.titulo,
+      producto: conversacion.oferta?.producto.titulo ?? 'Publicación eliminada',
       mensajes: mensajes.map((mensaje) => {
         const deLaTienda = mensaje.autor?.tiendaId === id;
         const cambios = versiones.get(mensaje.id) ?? [];
@@ -714,7 +725,7 @@ export class FichaService {
     await this.cambio(sesion, id, `cerró la sesión de ${dueno.usuario} en ${dispositivo}`, {
       titulo: `El Equipo PaseLibre cerró tu sesión en ${dispositivo}`,
     });
-    return this.ficha(id);
+    return this.ficha(id, sesion);
   }
 
   /** «Cerrar todas». */
@@ -731,7 +742,7 @@ export class FichaService {
         titulo: 'El Equipo PaseLibre cerró todas tus sesiones',
       });
     }
-    return this.ficha(id);
+    return this.ficha(id, sesion);
   }
 
   /** «Límite de dispositivos ▾»: el equipo lo sube (o lo baja) a pedido de la tienda. */
@@ -752,7 +763,7 @@ export class FichaService {
         },
       );
     }
-    return this.ficha(id);
+    return this.ficha(id, sesion);
   }
 
   // ── Historial de cambios ─────────────────────────────────────────────────

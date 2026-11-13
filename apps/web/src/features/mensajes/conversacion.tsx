@@ -1029,37 +1029,42 @@ export function Conversacion({
                       Cómo llegar
                     </button>
                   )}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setMenu(false);
-                      setVentana('denunciar');
-                    }}
-                    className="flex min-h-11 flex-col justify-center rounded-[10px] px-3 py-1.5 text-left hover:bg-superficie"
-                  >
-                    Reportar a {detalle.otro.tienda.nombre}
-                    <span className="text-nota text-secundario">
-                      Estafa, no cumplió con lo descrito o mal trato
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      if (detalle.bloqueaste) {
-                        void bloquear(false);
-                        return;
-                      }
-                      setMenu(false);
-                      setVentana('bloquear');
-                    }}
-                    className="min-h-11 rounded-[10px] px-3 text-left font-semibold text-error hover:bg-superficie"
-                  >
-                    {detalle.bloqueaste
-                      ? 'Desbloquear'
-                      : `Bloquear a ${detalle.otro.tienda.nombre}`}
-                  </button>
+                  {/* Con la otra tienda eliminada (doc 19 §9) ya no hay a quién reportar ni bloquear. */}
+                  {!detalle.otra_eliminada && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setMenu(false);
+                        setVentana('denunciar');
+                      }}
+                      className="flex min-h-11 flex-col justify-center rounded-[10px] px-3 py-1.5 text-left hover:bg-superficie"
+                    >
+                      Reportar a {detalle.otro.tienda.nombre}
+                      <span className="text-nota text-secundario">
+                        Estafa, no cumplió con lo descrito o mal trato
+                      </span>
+                    </button>
+                  )}
+                  {!detalle.otra_eliminada && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        if (detalle.bloqueaste) {
+                          void bloquear(false);
+                          return;
+                        }
+                        setMenu(false);
+                        setVentana('bloquear');
+                      }}
+                      className="min-h-11 rounded-[10px] px-3 text-left font-semibold text-error hover:bg-superficie"
+                    >
+                      {detalle.bloqueaste
+                        ? 'Desbloquear'
+                        : `Bloquear a ${detalle.otro.tienda.nombre}`}
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -1135,6 +1140,11 @@ export function Conversacion({
               </span>
               <Link
                 href={`/p/${oferta.producto.slug}?oferta=${oferta.id}`}
+                // La publicación de una tienda eliminada (doc 19 §9) ya no existe: no lleva a nada.
+                aria-disabled={!oferta.id}
+                onClick={(evento) => {
+                  if (!oferta.id) evento.preventDefault();
+                }}
                 className="flex w-full max-w-[460px] items-center gap-3 rounded-2xl border border-linea bg-white p-3 text-tinta no-underline hover:border-borde"
               >
                 <Miniatura
@@ -1289,7 +1299,12 @@ export function Conversacion({
           </p>
         )}
 
-        {detalle.bloqueaste ? (
+        {detalle.otra_eliminada ? (
+          <p className="m-0 border-t border-linea bg-superficie px-4 py-4 text-apoyo text-secundario">
+            Esta tienda ya no está en PaseLibre. Tus mensajes quedan aquí, pero ya no se puede
+            escribir en este chat.
+          </p>
+        ) : detalle.bloqueaste ? (
           <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-linea bg-error-fondo px-4 py-4 text-apoyo text-error">
             <span>
               Bloqueaste a {otro.tienda.nombre}. No puede escribirte ni contactarte desde su tienda.

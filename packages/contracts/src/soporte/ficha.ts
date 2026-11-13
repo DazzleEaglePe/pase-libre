@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { whatsappSchema } from '../equipo/equipo.schemas.js';
 import { claveNuevaSchema } from '../sesion/sesion.schemas.js';
 import type { SesionParaCerrar } from '../sesion/sesion.types.js';
+import type { SuspensionTienda } from './panel.js';
 
 /** Con 3 advertencias el equipo revisa la cuenta (puede suspenderla). */
 export const MAX_ADVERTENCIAS = 3;
@@ -16,6 +17,10 @@ export interface FichaTienda {
   id: string;
   nombre: string;
   suspendida: boolean;
+  /** Cuándo, quién y por qué (doc 19 §9); nulo si está activa. */
+  suspension: SuspensionTienda | null;
+  /** Quien mira es administrador: puede «Eliminar definitivamente» (doc 19 §9). */
+  puede_eliminar: boolean;
   /** «1 advertencia de 3»: las que dio el equipo, no los reportes. */
   advertencias: number;
   galeria: string | null;

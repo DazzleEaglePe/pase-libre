@@ -28,6 +28,14 @@ const LETRA: Record<DiaDeAtencion, [string, string]> = {
 
 const PISOS = ['Sótano', '1', '2', '3', '4', '5'];
 
+/** «Otra galería» en la lista (doc 19 §10): una que no está; espera a que el Equipo la cree. */
+const OTRA_GALERIA = 'otra';
+
+/** «Cyberplaza · Stand 3A 110»: como lo dice el perfil. */
+function lugarEnPerfil(galeria: string | null, stand: string | null): string {
+  return [galeria ?? 'Independiente', stand && `Stand ${stand}`].filter(Boolean).join(' · ');
+}
+
 /** De 06:00 a 23:30, cada media hora. */
 const HORAS = Array.from({ length: 36 }, (_, i) => {
   const minutos = 6 * 60 + i * 30;
@@ -83,9 +91,9 @@ function Hora({
 /**
  * Configuración · Datos de la tienda (N09_ConfigWebTodo, A): «Lo esencial» (logo, nombre,
  * WhatsApp, galería, piso y stand) y «Para que te encuentren mejor» (horario por días, cómo
- * llegar y sobre la tienda), con cuánto le falta al perfil. Galería, piso y stand no cambian al
- * toque: quedan «Pendiente de aprobación» hasta que el Equipo los confirma. Lo de aquí es lo que
- * sale en el perfil.
+ * llegar y sobre la tienda), con cuánto le falta al perfil. Galería, piso y stand cambian al
+ * instante (doc 19 §10: el Equipo lo revisa después); solo «Otra galería» queda «Pendiente de
+ * aprobación» hasta que el Equipo la crea. Lo de aquí es lo que sale en el perfil.
  */
 export function SeccionDatos({
   cuenta,
@@ -100,8 +108,14 @@ export function SeccionDatos({
   const [logo, setLogo] = useState(tienda?.logo ?? null);
   const [nombreTienda, setNombreTienda] = useState(tienda?.nombre ?? '');
   const [whatsappTienda, setWhatsappTienda] = useState(tienda?.whatsapp ?? '');
-  // Si hay un cambio esperando al Equipo, se ve lo que se pidió.
-  const [galeriaId, setGaleriaId] = useState(pendiente?.galeria_id ?? tienda?.galeria_id ?? '');
+  // Si hay un cambio esperando al Equipo («Otra galería»), se ve lo que se pidió.
+  const [galeriaId, setGaleriaId] = useState(
+    pendiente ? (pendiente.galeria_id ?? OTRA_GALERIA) : (tienda?.galeria_id ?? ''),
+  );
+  const [galeriaOtra, setGaleriaOtra] = useState(
+    pendiente && !pendiente.galeria_id ? (pendiente.galeria ?? '') : '',
+  );
+  const [listo, setListo] = useState<string | null>(null);
   const [piso, setPiso] = useState((pendiente ? pendiente.piso : tienda?.piso) ?? '');
   const [stand, setStand] = useState((pendiente ? pendiente.stand : tienda?.stand) ?? '');
   const [tramos, setTramos] = useState<TramoHorario[]>(
@@ -125,13 +139,18 @@ export function SeccionDatos({
   if (!tienda) return null;
 
   const pedido = {
-    galeria_id: pendiente?.galeria_id ?? tienda.galeria_id ?? '',
+    galeria_id: pendiente ? (pendiente.galeria_id ?? OTRA_GALERIA) : (tienda.galeria_id ?? ''),
+    galeria_otra: pendiente && !pendiente.galeria_id ? (pendiente.galeria ?? '') : '',
     piso: (pendiente ? pendiente.piso : tienda.piso) ?? '',
     stand: (pendiente ? pendiente.stand : tienda.stand) ?? '',
   };
+  const esOtra = galeriaId === OTRA_GALERIA;
   const lugarCambio =
     conGaleria &&
-    (galeriaId !== pedido.galeria_id || piso !== pedido.piso || stand.trim() !== pedido.stand);
+    (galeriaId !== pedido.galeria_id ||
+      (esOtra && galeriaOtra.trim() !== pedido.galeria_otra) ||
+      piso !== pedido.piso ||
+      stand.trim() !== pedido.stand);
   const tramosConDias = tramos.filter((tramo) => tramo.dias.length > 0);
   const usados = new Set(tramos.flatMap((tramo) => tramo.dias));
   const vistaPrevia = tramosConDias.length > 0 ? textoHorario(tramosConDias, 'largo') : null;
@@ -204,14 +223,25 @@ export function SeccionDatos({
       if (lugarCambio) {
         nueva = await llamarApi<RespuestaCuenta>('/cuenta/lugar', {
           metodo: 'PUT',
-          cuerpo: { galeria_id: galeriaId, piso: piso || null, stand: stand.trim() },
+          cuerpo: {
+            ...(esOtra ? { galeria_otra: galeriaOtra.trim() } : { galeria_id: galeriaId }),
+            piso: piso || null,
+            stand: stand.trim(),
+          },
         });
       }
+      // Doc 19 §10: con una galería de la lista, el perfil ya lo dice.
+      const aplicado =
+        lugarCambio && !nueva.tienda?.lugar_pendiente
+          ? `Listo: tu perfil ya dice ${lugarEnPerfil(nueva.tienda?.galeria ?? null, nueva.tienda?.stand ?? null)}.`
+          : null;
+      setListo(aplicado);
       alGuardar(
         nueva,
-        lugarCambio && nueva.tienda?.lugar_pendiente
-          ? 'Guardado. Tu nuevo lugar queda pendiente de aprobación.'
-          : 'Cambios guardados.',
+        aplicado ??
+          (lugarCambio
+            ? 'Guardado. «Otra galería» queda pendiente: el Equipo tiene que crearla.'
+            : 'Cambios guardados.'),
       );
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No pudimos guardar los cambios.');
@@ -225,6 +255,7 @@ export function SeccionDatos({
     try {
       const nueva = await llamarApi<RespuestaCuenta>('/cuenta/lugar', { metodo: 'DELETE' });
       setGaleriaId(tienda?.galeria_id ?? '');
+      setGaleriaOtra('');
       setPiso(tienda?.piso ?? '');
       setStand(tienda?.stand ?? '');
       alGuardar(nueva, 'Listo: sigues con tu lugar de siempre.');
@@ -324,11 +355,14 @@ export function SeccionDatos({
                 <select
                   id={`${id}-galeria`}
                   value={galeriaId}
-                  onChange={(evento) => setGaleriaId(evento.target.value)}
+                  onChange={(evento) => {
+                    setGaleriaId(evento.target.value);
+                    setListo(null);
+                  }}
                   className={selector}
                   style={flechita}
                 >
-                  {!galerias.some((galeria) => galeria.id === galeriaId) && (
+                  {!esOtra && !galerias.some((galeria) => galeria.id === galeriaId) && (
                     <option value={galeriaId}>
                       {galeriaId === pendiente?.galeria_id ? pendiente.galeria : tienda.galeria}
                     </option>
@@ -338,6 +372,7 @@ export function SeccionDatos({
                       {galeria.nombre}
                     </option>
                   ))}
+                  <option value={OTRA_GALERIA}>Otra galería…</option>
                 </select>
               </label>
               <label htmlFor={`${id}-piso`} className={etiqueta}>
@@ -369,12 +404,38 @@ export function SeccionDatos({
                 />
               </label>
             </div>
-            <p
-              role="note"
-              className="m-0 flex items-start gap-2 rounded-xl bg-aviso-fondo px-3 py-2.5 text-nota text-aviso"
-            >
-              <IconClock size={16} stroke={1.8} aria-hidden="true" className="mt-px shrink-0" />
-              {pendiente ? (
+            {esOtra && (
+              <label htmlFor={`${id}-galeria-otra`} className={etiqueta}>
+                ¿Cuál galería?
+                <input
+                  id={`${id}-galeria-otra`}
+                  required
+                  minLength={3}
+                  maxLength={120}
+                  value={galeriaOtra}
+                  onChange={(evento) => setGaleriaOtra(evento.target.value)}
+                  placeholder="El nombre de la galería"
+                  className={campo}
+                />
+                <span className="text-nota font-normal text-secundario">
+                  No está en la lista: queda «Pendiente de aprobación» hasta que el Equipo la cree.
+                </span>
+              </label>
+            )}
+            {listo && !pendiente && (
+              <p
+                role="status"
+                className="m-0 rounded-xl bg-pase-suave px-3 py-2.5 text-nota font-semibold text-pase-texto"
+              >
+                ✓ {listo}
+              </p>
+            )}
+            {pendiente && (
+              <p
+                role="note"
+                className="m-0 flex items-start gap-2 rounded-xl bg-aviso-fondo px-3 py-2.5 text-nota text-aviso"
+              >
+                <IconClock size={16} stroke={1.8} aria-hidden="true" className="mt-px shrink-0" />
                 <span>
                   <b className="font-bold">«Pendiente de aprobación»:</b>{' '}
                   {[
@@ -397,13 +458,8 @@ export function SeccionDatos({
                     Dejar como estaba
                   </button>
                 </span>
-              ) : (
-                <span>
-                  Si lo cambias, queda <b className="font-bold">«Pendiente de aprobación»</b> hasta
-                  que el Equipo lo confirme.
-                </span>
-              )}
-            </p>
+              </p>
+            )}
           </fieldset>
         )}
       </section>

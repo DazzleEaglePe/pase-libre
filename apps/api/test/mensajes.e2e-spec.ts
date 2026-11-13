@@ -143,8 +143,8 @@ describe('Mensajes, campanita, bloqueo y «Vendido» (RF-39, RF-40, RF-47, RF-55
         where: { id: conversacion },
         include: { vendedor: true, comprador: true },
       });
-      expect(hilo.vendedor.usuario).toBe('tiendaa');
-      expect(hilo.comprador.usuario).toBe('tiendab');
+      expect(hilo.vendedor?.usuario).toBe('tiendaa');
+      expect(hilo.comprador?.usuario).toBe('tiendab');
       // Se registra cada clic, nunca el contenido (RF-23).
       expect(await prisma.contacto.count({ where: { ofertaId: ventusA.id } })).toBe(2);
     });

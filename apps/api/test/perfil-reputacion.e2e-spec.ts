@@ -300,23 +300,26 @@ describe('Perfil, reputación y configuración (correcciones 11/11)', () => {
       }
     });
 
-    it('cambiar galería, piso o stand queda pendiente hasta que el Equipo lo confirma', async () => {
+    // Doc 19 §10: con una galería de la lista se aplica al instante (lugar-sin-revisar.e2e-spec);
+    // solo «Otra galería» sigue pendiente hasta que el Equipo la crea.
+    it('«Otra galería» queda pendiente hasta que el Equipo la crea y la confirma', async () => {
       const cyber = await prisma.galeria.findUniqueOrThrow({ where: { slug: 'cyberplaza' } });
       const antes = await prisma.tienda.findUniqueOrThrow({ where: { id: tiendaA } });
 
       await http()
         .put('/v1/cuenta/lugar')
         .set(CABECERAS)
-        .send({ galeria_id: cyber.id, piso: '2', stand: '2B 105' })
+        .send({ galeria_otra: 'Galería Nueva', piso: '2', stand: '2B 105' })
         .expect(401);
       const { body } = await http()
         .put('/v1/cuenta/lugar')
         .set(CABECERAS)
         .set('Cookie', await como('tiendaa'))
-        .send({ galeria_id: cyber.id, piso: '2', stand: '2B 105' })
+        .send({ galeria_otra: 'Galería Nueva', piso: '2', stand: '2B 105' })
         .expect(200);
       expect(body.tienda.lugar_pendiente).toMatchObject({
-        galeria: 'Cyberplaza',
+        galeria_id: null,
+        galeria: 'Galería Nueva',
         piso: '2',
         stand: '2B 105',
       });
@@ -334,7 +337,7 @@ describe('Perfil, reputación y configuración (correcciones 11/11)', () => {
         .put('/v1/cuenta/lugar')
         .set(CABECERAS)
         .set('Cookie', await como('tiendaa.kevin'))
-        .send({ galeria_id: cyber.id, piso: '2', stand: '2B 106' })
+        .send({ galeria_otra: 'Galería Nueva', piso: '2', stand: '2B 106' })
         .expect(200);
       expect(delAsesor.body.tienda.lugar_pendiente.stand).toBe('2B 106');
       expect(
@@ -356,8 +359,10 @@ describe('Perfil, reputación y configuración (correcciones 11/11)', () => {
         (fila) => fila.tienda.id === tiendaA,
       );
       expect(cambio).toMatchObject({
+        estado: 'PENDIENTE',
         antes: { galeria: 'Maxiplaza', stand: antes.stand },
-        despues: { galeria: 'Cyberplaza', piso: '2', stand: '2B 106' },
+        despues: { galeria_id: null, galeria: 'Galería Nueva', piso: '2', stand: '2B 106' },
+        galeria_otra: 'Galería Nueva',
         pedido_por: 'Kevin S.',
       });
       await http()
@@ -365,15 +370,23 @@ describe('Perfil, reputación y configuración (correcciones 11/11)', () => {
         .set(CABECERAS)
         .set('Cookie', await como('tiendaa'))
         .expect(403);
+      // Sin la galería creada no hay qué confirmar: se elige con «Confirmar» (corregir).
       await http()
         .post(`/v1/equipo/cambios-de-lugar/${cambio?.id}/aprobar`)
         .set(CABECERAS)
         .set('Cookie', await como('equipo'))
+        .expect(409);
+      await http()
+        .post(`/v1/equipo/cambios-de-lugar/${cambio?.id}/corregir`)
+        .set(CABECERAS)
+        .set('Cookie', await como('equipo'))
+        .send({ galeria_id: cyber.id, piso: '2', stand: '2B 106' })
         .expect(204);
       await http()
-        .post(`/v1/equipo/cambios-de-lugar/${cambio?.id}/aprobar`)
+        .post(`/v1/equipo/cambios-de-lugar/${cambio?.id}/corregir`)
         .set(CABECERAS)
         .set('Cookie', await como('equipo'))
+        .send({ galeria_id: cyber.id, piso: '2', stand: '2B 106' })
         .expect(404);
 
       const despues = await prisma.tienda.findUniqueOrThrow({ where: { id: tiendaA } });
@@ -387,12 +400,11 @@ describe('Perfil, reputación y configuración (correcciones 11/11)', () => {
     });
 
     it('el Equipo puede no confirmar, y la tienda puede retirar lo que pidió', async () => {
-      const maxi = await prisma.galeria.findUniqueOrThrow({ where: { slug: 'maxiplaza' } });
       await http()
         .put('/v1/cuenta/lugar')
         .set(CABECERAS)
         .set('Cookie', await como('tiendab'))
-        .send({ galeria_id: maxi.id, piso: null, stand: '999' })
+        .send({ galeria_otra: 'Galería Inventada', piso: null, stand: '999' })
         .expect(200);
       const [cambio] = (
         await http()
@@ -420,7 +432,7 @@ describe('Perfil, reputación y configuración (correcciones 11/11)', () => {
         .put('/v1/cuenta/lugar')
         .set(CABECERAS)
         .set('Cookie', await como('tiendab'))
-        .send({ galeria_id: maxi.id, stand: '300' })
+        .send({ galeria_otra: 'Galería Inventada', stand: '300' })
         .expect(200);
       const retirado = await http()
         .delete('/v1/cuenta/lugar')

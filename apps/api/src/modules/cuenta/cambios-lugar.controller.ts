@@ -11,8 +11,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  corregirCambioLugarSchema,
   rechazarCambioLugarSchema,
   type CambioDeLugar,
+  type CorregirCambioLugarDatos,
   type RechazarCambioLugarDatos,
 } from '@paselibre/contracts';
 import { z } from 'zod';
@@ -25,8 +27,9 @@ import { LugarService } from './lugar.service';
 const idCambio = new ZodValidationPipe(z.uuid('Ese cambio no existe.'));
 
 /**
- * Los cambios de galería, piso o stand que piden las tiendas (N09): el Equipo los confirma o no
- * desde Solicitudes. Solo `rol = EQUIPO`.
+ * Los cambios de galería, piso o stand de las tiendas (N09, doc 19 §10), en Solicitudes: los ya
+ * aplicados («Está bien», «Corregir», «Deshacer») y las «Otra galería» que esperan. Solo
+ * `rol = EQUIPO`.
  */
 @Controller('equipo/cambios-de-lugar')
 @UseGuards(SesionGuard)
@@ -40,12 +43,25 @@ export class CambiosDeLugarController {
     return this.lugares.pendientes();
   }
 
+  /** «Está bien» (aplicado) o «Confirmar» (pendiente con una galería de la lista). */
   @Post(':id/aprobar')
   @HttpCode(HttpStatus.NO_CONTENT)
   aprobar(@Param('id', idCambio) id: string, @SesionActual() sesion: SesionActiva): Promise<void> {
     return this.lugares.aprobar(id, sesion);
   }
 
+  /** «Corregir», o confirmar una «Otra galería» eligiendo la que se creó. */
+  @Post(':id/corregir')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  corregir(
+    @Param('id', idCambio) id: string,
+    @Body(new ZodValidationPipe(corregirCambioLugarSchema)) datos: CorregirCambioLugarDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<void> {
+    return this.lugares.corregir(id, datos, sesion);
+  }
+
+  /** «No confirmar» una «Otra galería». */
   @Post(':id/rechazar')
   @HttpCode(HttpStatus.NO_CONTENT)
   rechazar(
@@ -54,5 +70,16 @@ export class CambiosDeLugarController {
     @SesionActual() sesion: SesionActiva,
   ): Promise<void> {
     return this.lugares.rechazar(id, datos.motivo, sesion);
+  }
+
+  /** «Deshacer» uno aplicado: vuelve a como estaba y la tienda recibe aviso. */
+  @Post(':id/deshacer')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deshacer(
+    @Param('id', idCambio) id: string,
+    @Body(new ZodValidationPipe(rechazarCambioLugarSchema)) datos: RechazarCambioLugarDatos,
+    @SesionActual() sesion: SesionActiva,
+  ): Promise<void> {
+    return this.lugares.deshacer(id, datos.motivo, sesion);
   }
 }

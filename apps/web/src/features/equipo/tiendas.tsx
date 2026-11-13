@@ -15,6 +15,7 @@ import { conPlural } from '@/shared/plural';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import { DestacadasAhora, Destacar } from './destacar';
+import { MotivoSuspension } from './ficha/suspension';
 
 const FILTROS: Record<(typeof FILTROS_TIENDAS_PANEL)[number], string> = {
   todas: 'Todas',
@@ -350,7 +351,7 @@ export function TiendasPanel() {
                       ? 'Le llega al chat oficial. Sus publicaciones siguen activas. Con 3, revisamos la cuenta.'
                       : detalle.suspendida
                         ? 'Vuelve a entrar y sus publicaciones se ven otra vez.'
-                        : 'No puede publicar y sus publicaciones dejan de verse. Solo con estafa comprobada, suplantación o 3 advertencias.'}
+                        : 'En cuanto confirmes se cierran todas sus sesiones, sus publicaciones dejan de verse y no puede volver a entrar hasta que la reactives.'}
                   </span>
                   {modo === 'advertir' && (
                     <div className="flex flex-wrap gap-2">
@@ -371,15 +372,18 @@ export function TiendasPanel() {
                       ))}
                     </div>
                   )}
-                  <input
-                    value={motivo}
-                    onChange={(evento) => setMotivo(evento.target.value)}
-                    maxLength={200}
-                    placeholder={
-                      modo === 'advertir' ? 'O escribe el motivo' : 'Motivo (queda anotado)'
-                    }
-                    className="h-11 rounded-xl border border-borde bg-white px-3.5 text-cuerpo"
-                  />
+                  {modo === 'advertir' ? (
+                    <input
+                      value={motivo}
+                      onChange={(evento) => setMotivo(evento.target.value)}
+                      maxLength={200}
+                      placeholder="O escribe el motivo"
+                      className="h-11 rounded-xl border border-borde bg-white px-3.5 text-cuerpo"
+                    />
+                  ) : (
+                    // Suspender (doc 19 §9): sin contraseña, con un motivo opcional de la lista.
+                    !detalle.suspendida && <MotivoSuspension valor={motivo} alCambiar={setMotivo} />
+                  )}
                   <span className="flex gap-2">
                     <button
                       type="button"
@@ -393,7 +397,7 @@ export function TiendasPanel() {
                         ? 'Enviar advertencia'
                         : detalle.suspendida
                           ? 'Reactivar'
-                          : 'Confirmar suspensión'}
+                          : 'Suspender ahora'}
                     </button>
                     <button
                       type="button"

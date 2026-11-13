@@ -26,6 +26,41 @@ export const suspensionSchema = z.strictObject({
 });
 export type SuspensionDatos = z.output<typeof suspensionSchema>;
 
+/** «Motivo (opcional)» al suspender (doc 19 §9). «Otro…» deja escribirlo. */
+export const MOTIVOS_SUSPENSION = [
+  'Spam o publicaciones falsas',
+  'Estafa comprobada',
+  'Suplantación',
+  '3 advertencias',
+] as const;
+
+/** «Eliminar definitivamente» se habilita recién 24 h después de suspender (doc 19 §9). */
+export const HORAS_PARA_ELIMINAR = 24;
+/** Con 3 errores en tu contraseña, «Eliminar para siempre» espera 15 minutos. */
+export const MAX_INTENTOS_ELIMINAR = 3;
+export const MINUTOS_BLOQUEO_ELIMINAR = 15;
+
+/**
+ * `DELETE /v1/equipo/panel/tiendas/:id` (doc 19 §9): **tu** contraseña de PaseLibre, la de la
+ * persona del Equipo, no la de la tienda.
+ */
+export const eliminarTiendaSchema = z.strictObject({
+  clave: z.string().min(1, 'Escribe tu contraseña.').max(200, 'Escribe tu contraseña.'),
+});
+export type EliminarTiendaDatos = z.output<typeof eliminarTiendaSchema>;
+
+/** Una tienda suspendida, en su ficha: «Suspendida hace 3 h · Por Fabrizio · Spam…». */
+export interface SuspensionTienda {
+  en: string;
+  /** El nombre de quien la suspendió; nulo si ya no se sabe. */
+  por: string | null;
+  motivo: string | null;
+  /** Desde cuándo se puede eliminar para siempre: 24 h después de suspenderla. */
+  eliminable_desde: string;
+  /** Para «¿Eliminar a … para siempre?»: «(0 activas, 3 antiguas)». */
+  publicaciones: { activas: number; antiguas: number };
+}
+
 /** `POST /v1/equipo/comunicados` (ADM_WebComunicados): sin `galeria`, a todas las tiendas. */
 export const comunicadoSchema = z.strictObject({
   galeria: z.string().trim().max(80).optional(),

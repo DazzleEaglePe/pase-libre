@@ -143,12 +143,22 @@ export interface GaleriaParaElegir {
   nombre: string;
 }
 
-/** `GET /v1/equipo/cambios-de-lugar`: lo que el Equipo tiene que confirmar. */
+/**
+ * `GET /v1/equipo/cambios-de-lugar` (doc 19 §10): «Cambios de galería o stand · N» en Solicitudes.
+ */
 export interface CambioDeLugar {
   id: string;
-  tienda: { id: string; nombre: string };
+  /**
+   * `APLICADO_SIN_REVISAR`: ya se ve así en su perfil («Está bien», «Corregir», «Deshacer»).
+   * `PENDIENTE`: eligió «Otra galería» y espera a que el Equipo la cree.
+   */
+  estado: 'PENDIENTE' | 'APLICADO_SIN_REVISAR';
+  tienda: { id: string; nombre: string; logo: string | null };
   antes: LugarTienda;
+  /** Con «Otra galería», `galeria_id` es nulo y `galeria` es el nombre que escribió. */
   despues: LugarTienda;
+  /** El nombre que escribió con «Otra galería»; nulo si la eligió de la lista. */
+  galeria_otra: string | null;
   /** Quién lo pidió: «Luis P.». */
   pedido_por: string;
   pedido_en: string;

@@ -11,6 +11,7 @@ import { AyudaService } from './ayuda.service';
 import { CatalogoEquipoController } from './catalogo-equipo.controller';
 import { CatalogoEquipoService } from './catalogo-equipo.service';
 import { DestacadosService } from './destacados.service';
+import { EliminarTiendaService } from './eliminar-tienda.service';
 import {
   FichaController,
   PedirAyudaController,
@@ -36,6 +37,7 @@ import { FichaService } from './ficha.service';
     CatalogoEquipoService,
     FichaService,
     AyudaService,
+    EliminarTiendaService,
   ],
 })
 export class SoporteModule {}

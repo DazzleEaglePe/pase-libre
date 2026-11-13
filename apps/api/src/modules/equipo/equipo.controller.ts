@@ -93,9 +93,9 @@ export class EquipoController {
   @Header('Cache-Control', 'no-store')
   cambiarEstado(
     @Param('id', idDeCuenta) id: string,
-    @Body(new ZodValidationPipe(cambiarEstadoCuentaSchema)) { estado }: CambiarEstadoCuenta,
+    @Body(new ZodValidationPipe(cambiarEstadoCuentaSchema)) { estado, motivo }: CambiarEstadoCuenta,
     @SesionActual() sesion: SesionActiva,
   ): Promise<CuentaEquipo> {
-    return this.equipo.cambiarEstado(id, estado, sesion.usuario.id);
+    return this.equipo.cambiarEstado(id, estado, sesion.usuario.id, motivo);
   }
 }

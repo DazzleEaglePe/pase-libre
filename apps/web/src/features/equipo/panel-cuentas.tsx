@@ -23,6 +23,7 @@ import {
 import { Ventana } from '@/shared/ui/ventana';
 
 import { AccesoEnviado } from './acceso-enviado';
+import { MotivoSuspension } from './ficha/suspension';
 import { FormularioCuenta } from './formulario-cuenta';
 import { mensajeDeTraspaso, resumenACargo, Traspasar } from './traspasar';
 
@@ -60,6 +61,7 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [traspasando, setTraspasando] = useState<CuentaEquipo | null>(null);
   const [hecho, setHecho] = useState<string | null>(null);
+  const [motivo, setMotivo] = useState('');
 
   // Espera a que se termine de escribir antes de buscar.
   useEffect(() => {
@@ -103,10 +105,14 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
     }
   }
 
-  async function cambiarEstado(cuenta: CuentaEquipo, estado: 'ACTIVA' | 'SUSPENDIDA') {
+  async function cambiarEstado(cuenta: CuentaEquipo, estado: 'ACTIVA' | 'SUSPENDIDA', motivo = '') {
     setTrabajando(cuenta.id);
     try {
-      await llamarApi(`/equipo/cuentas/${cuenta.id}`, { metodo: 'PATCH', cuerpo: { estado } });
+      // Suspender (doc 19 §9): sin contraseña, con un motivo opcional que queda anotado.
+      await llamarApi(`/equipo/cuentas/${cuenta.id}`, {
+        metodo: 'PATCH',
+        cuerpo: { estado, ...(motivo.trim() ? { motivo: motivo.trim() } : {}) },
+      });
       await cargar();
     } catch (e) {
       setError(e instanceof ErrorApi ? e.message : 'No pudimos cambiar el estado.');
@@ -329,7 +335,10 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
                     <button
                       type="button"
                       disabled={ocupado}
-                      onClick={() => setConfirmar({ cuenta, accion: 'suspender' })}
+                      onClick={() => {
+                        setMotivo('');
+                        setConfirmar({ cuenta, accion: 'suspender' });
+                      }}
                       className={enlaceBoton}
                     >
                       Suspender
@@ -424,6 +433,9 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
                   }`
                 : `La contraseña actual de ${confirmar.cuenta.nombre} deja de servir y se cierran sus sesiones. Le enviarás una temporal por WhatsApp.`}
             </p>
+            {confirmar.accion === 'suspender' && (
+              <MotivoSuspension valor={motivo} alCambiar={setMotivo} />
+            )}
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setConfirmar(null)} className={botonSecundario}>
                 Cancelar
@@ -435,11 +447,11 @@ export function PanelCuentas({ crearAlAbrir = false }: { crearAlAbrir?: boolean 
                   const { cuenta, accion } = confirmar;
                   setConfirmar(null);
                   void (accion === 'suspender'
-                    ? cambiarEstado(cuenta, 'SUSPENDIDA')
+                    ? cambiarEstado(cuenta, 'SUSPENDIDA', motivo)
                     : claveTemporal(cuenta));
                 }}
               >
-                {confirmar.accion === 'suspender' ? 'Suspender' : 'Generar contraseña'}
+                {confirmar.accion === 'suspender' ? 'Suspender ahora' : 'Generar contraseña'}
               </button>
             </div>
           </div>

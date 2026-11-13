@@ -143,6 +143,8 @@ export const filtroCuentasSchema = z.object({
 
 export const cambiarEstadoCuentaSchema = z.strictObject({
   estado: z.enum(['ACTIVA', 'SUSPENDIDA']),
+  /** «Motivo (opcional)» al suspender (doc 19 §9): queda en la auditoría. */
+  motivo: z.string().trim().max(200, 'Escribe hasta 200 letras.').optional(),
 });
 
 /**

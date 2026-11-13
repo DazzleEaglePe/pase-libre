@@ -274,7 +274,7 @@ describe('Asesores y sus permisos (N12)', () => {
         where: { id: conversacion.id },
         include: { comprador: true },
       });
-      expect(movida.comprador.usuario).toBe('tiendaa');
+      expect(movida.comprador?.usuario).toBe('tiendaa');
       const lista = await como(cookies.tiendaa ?? '')
         .get('/v1/cuenta/asesores')
         .expect(200);

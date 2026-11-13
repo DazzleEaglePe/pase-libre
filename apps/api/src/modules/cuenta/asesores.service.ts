@@ -266,7 +266,9 @@ export class AsesoresService {
           await tx.conversacion.findMany({
             where: {
               compradorId: dueno,
-              ofertaId: { in: comoComprador.map((c) => c.ofertaId) },
+              ofertaId: {
+                in: comoComprador.flatMap((c) => (c.ofertaId === null ? [] : [c.ofertaId])),
+              },
             },
             select: { ofertaId: true },
           })

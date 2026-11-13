@@ -15,6 +15,8 @@ export type Audiencia = 'visitante' | 'vendedor' | 'equipo';
  * (`tienda_visible` apagado): ni nombre, ni stand, ni WhatsApp. La galería sí se ve.
  */
 export const TIENDA_RESERVADA = 'Tienda reservada';
+/** Lo que ve en el chat la otra tienda cuando una tienda se eliminó para siempre (doc 19 §9). */
+export const TIENDA_ELIMINADA = 'Tienda eliminada';
 export type Condicion = 'NUEVO' | 'USADO';
 
 export interface CategoriaResumen {

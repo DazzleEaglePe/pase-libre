@@ -34,6 +34,13 @@ import {
   type Pestana,
 } from './comun';
 import { PestanaActividad, PestanaConversaciones } from './conversaciones';
+import {
+  EliminarTienda,
+  EstadoSuspension,
+  quienSuspendio,
+  SuspenderTienda,
+  suspendidaHace,
+} from './suspension';
 
 const MOTIVOS_ADVERTENCIA = [
   'Un producto no era como se describió',
@@ -61,7 +68,9 @@ export function FichaDeTienda({
   const [ficha, setFicha] = useState<FichaTienda | null>(null);
   const [pestana, setPestana] = useState<Pestana>(pestanaInicial);
   const [error, setError] = useState<string | null>(null);
-  const [confirmar, setConfirmar] = useState<'soporte' | 'suspender' | null>(null);
+  const [confirmar, setConfirmar] = useState<'soporte' | 'suspender' | 'eliminar' | 'clave' | null>(
+    null,
+  );
   const pestanas = useRef<HTMLDivElement>(null);
 
   const cargar = useCallback(async () => {
@@ -135,7 +144,11 @@ export function FichaDeTienda({
                 ficha.suspendida ? 'bg-error-fondo text-error' : 'bg-pase-suave text-pase-texto'
               }`}
             >
-              {ficha.suspendida ? 'Suspendida' : 'Activa'}
+              {ficha.suspension
+                ? suspendidaHace(ficha.suspension.en)
+                : ficha.suspendida
+                  ? 'Suspendida'
+                  : 'Activa'}
             </span>
             {ficha.advertencias > 0 && (
               <span className="rounded-full bg-aviso-fondo px-2.5 text-nota font-bold leading-6 text-aviso">
@@ -161,6 +174,9 @@ export function FichaDeTienda({
             )}
             {` · ${ficha.whatsapp ? `WhatsApp ${whatsappLegible(ficha.whatsapp)}` : 'Falta WhatsApp'} · ${conPlural(ficha.asesores, 'asesor', 'asesores')}`}
           </span>
+          {quienSuspendio(ficha) && (
+            <span className="text-nota text-secundario">{quienSuspendio(ficha)}</span>
+          )}
           {ficha.soporte.activo && (
             <span className="text-nota font-bold text-aviso">
               {ficha.soporte.activo.equipo} está ayudando como la tienda hasta las{' '}
@@ -178,16 +194,24 @@ export function FichaDeTienda({
             <IconUser size={18} stroke={1.8} aria-hidden="true" />
             Ayudar como la tienda
           </button>
-          <button
-            type="button"
-            onClick={() => setConfirmar('suspender')}
-            className={`inline-flex h-11 items-center justify-center rounded-full border-[1.5px] px-5 text-apoyo font-bold ${
-              ficha.suspendida ? 'border-pase text-pase-texto' : 'border-error text-error'
-            }`}
-          >
-            {ficha.suspendida ? 'Reactivar' : 'Suspender'}
-          </button>
+          {!ficha.suspendida && (
+            <button
+              type="button"
+              onClick={() => setConfirmar('suspender')}
+              className="inline-flex h-11 items-center justify-center rounded-full border-[1.5px] border-error px-5 text-apoyo font-bold text-error"
+            >
+              Suspender
+            </button>
+          )}
         </span>
+        {/* Suspendida (doc 19 §9): «Reactivar» y, 24 h después, «Eliminar definitivamente». */}
+        {ficha.suspendida && (
+          <EstadoSuspension
+            ficha={ficha}
+            alReactivar={() => setConfirmar('suspender')}
+            alEliminar={() => setConfirmar('eliminar')}
+          />
+        )}
       </section>
 
       <div
@@ -229,9 +253,13 @@ export function FichaDeTienda({
         titulo={
           confirmar === 'soporte'
             ? `¿Ayudar como ${ficha.nombre}?`
-            : ficha.suspendida
-              ? `¿Reactivar a ${ficha.nombre}?`
-              : `¿Suspender a ${ficha.nombre}?`
+            : confirmar === 'eliminar'
+              ? `¿Eliminar a ${ficha.nombre} para siempre?`
+              : confirmar === 'clave'
+                ? 'Último paso'
+                : ficha.suspendida
+                  ? `¿Reactivar a ${ficha.nombre}?`
+                  : `¿Suspender a ${ficha.nombre}?`
         }
         abierta={confirmar !== null}
         alCerrar={() => setConfirmar(null)}
@@ -240,13 +268,22 @@ export function FichaDeTienda({
           <EntrarComoLaTienda ficha={ficha} alCancelar={() => setConfirmar(null)} />
         )}
         {confirmar === 'suspender' && (
-          <Suspender
-            ficha={ficha}
+          <SuspenderTienda
+            tiendaId={ficha.id}
+            suspendida={ficha.suspendida}
             alCancelar={() => setConfirmar(null)}
             alTerminar={async () => {
               setConfirmar(null);
               await cargar();
             }}
+          />
+        )}
+        {(confirmar === 'eliminar' || confirmar === 'clave') && (
+          <EliminarTienda
+            ficha={ficha}
+            paso={confirmar === 'eliminar' ? 'aviso' : 'clave'}
+            alSeguir={() => setConfirmar('clave')}
+            alCancelar={() => setConfirmar(null)}
           />
         )}
       </Ventana>
@@ -301,68 +338,6 @@ function EntrarComoLaTienda({ ficha, alCancelar }: { ficha: FichaTienda; alCance
           className={botonVerde}
         >
           {entrando ? 'Entrando…' : 'Entrar como la tienda'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Suspender({
-  ficha,
-  alCancelar,
-  alTerminar,
-}: {
-  ficha: FichaTienda;
-  alCancelar: () => void;
-  alTerminar: () => Promise<void>;
-}) {
-  const [motivo, setMotivo] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  async function confirmar() {
-    try {
-      await llamarApi(`/equipo/panel/tiendas/${ficha.id}/suspension`, {
-        metodo: 'POST',
-        cuerpo: { suspender: !ficha.suspendida, ...(motivo.trim() ? { motivo } : {}) },
-      });
-      await alTerminar();
-    } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No pudimos guardarlo.');
-    }
-  }
-  return (
-    <div className="flex flex-col gap-3.5">
-      <p className="m-0 text-secundario">
-        {ficha.suspendida
-          ? 'Vuelve a entrar y sus publicaciones se ven otra vez.'
-          : 'No puede entrar y sus publicaciones dejan de verse. Solo con estafa comprobada, suplantación o 3 advertencias.'}
-      </p>
-      <input
-        value={motivo}
-        maxLength={200}
-        aria-label="Motivo"
-        placeholder="Motivo (queda anotado)"
-        onChange={(evento) => setMotivo(evento.target.value)}
-        className={campoFicha}
-      />
-      {error && (
-        <p role="alert" className="m-0 text-apoyo text-error">
-          {error}
-        </p>
-      )}
-      <div className="flex justify-end gap-2.5">
-        <button type="button" onClick={alCancelar} className={botonBorde}>
-          Cancelar
-        </button>
-        <button
-          type="button"
-          onClick={() => void confirmar()}
-          className={
-            ficha.suspendida
-              ? botonVerde
-              : 'inline-flex h-11 items-center rounded-full bg-error px-5 text-apoyo font-bold text-white'
-          }
-        >
-          {ficha.suspendida ? 'Reactivar' : 'Confirmar suspensión'}
         </button>
       </div>
     </div>

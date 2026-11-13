@@ -30,6 +30,7 @@ import {
   type RespuestaPedidoWhatsapp,
   type RespuestaVendido,
   precioDe,
+  TIENDA_ELIMINADA,
   TIENDA_RESERVADA,
 } from '@paselibre/contracts';
 import { Prisma } from '@prisma/client';
@@ -131,12 +132,65 @@ const SELECT_PARTICIPACION = {
 type PersonaFila = Prisma.UsuarioGetPayload<{ select: typeof SELECT_PERSONA }>;
 type MensajeFila = Prisma.MensajeGetPayload<{ select: typeof SELECT_MENSAJE }>;
 type ParticipacionFila = Prisma.ParticipacionGetPayload<{ select: typeof SELECT_PARTICIPACION }>;
+type ConversacionFila = ParticipacionFila['conversacion'];
+/** Un hilo con las dos tiendas todavía en PaseLibre: se puede escribir en él. */
+type ConversacionCompleta = ConversacionFila & {
+  compradorId: string;
+  vendedorId: string;
+  comprador: PersonaFila;
+  vendedor: PersonaFila;
+  oferta: NonNullable<ConversacionFila['oferta']>;
+};
+
+const tiendaEliminada = () =>
+  new ApiHttpException(
+    HttpStatus.CONFLICT,
+    'CONFLICTO',
+    'Esta tienda ya no está en PaseLibre: no se puede escribir en este chat.',
+  );
+
+/**
+ * Si una de las dos tiendas se eliminó (doc 19 §9), su lado del hilo quedó nulo: la otra lee
+ * sus mensajes, pero no escribe ni cambia nada.
+ */
+function completa(conversacion: ConversacionFila): ConversacionCompleta {
+  const { compradorId, vendedorId, comprador, vendedor, oferta } = conversacion;
+  if (!compradorId || !vendedorId || !comprador || !vendedor || !oferta) throw tiendaEliminada();
+  return { ...conversacion, compradorId, vendedorId, comprador, vendedor, oferta };
+}
+
+/** La publicación de un hilo cuya tienda vendedora se eliminó: ya no hay producto que mostrar. */
+const OFERTA_ELIMINADA: ConversacionEnLista['oferta'] = {
+  id: '',
+  condicion: 'NUEVO',
+  producto: {
+    slug: '',
+    titulo: 'Publicación eliminada',
+    foto: null,
+    categoria: { slug: '', nombre: '' },
+  },
+};
+
+/** El otro lado de un hilo cuya tienda se eliminó: «Tienda eliminada», sin nada más. */
+const PERSONA_ELIMINADA: PersonaChat = {
+  id: '',
+  nombre: TIENDA_ELIMINADA,
+  tienda: {
+    id: '',
+    nombre: TIENDA_ELIMINADA,
+    tipo: 'TIENDA',
+    galeria: null,
+    stand: null,
+    logo: null,
+  },
+};
 
 /**
  * El otro del chat. `reservada`: es quien vende una oferta con la tienda reservada y mira
  * quien compra; no ve su nombre, ni el de su tienda, ni el stand. La galería sí.
  */
-function persona(u: PersonaFila, reservada = false): PersonaChat {
+function persona(u: PersonaFila | null, reservada = false): PersonaChat {
+  if (!u) return PERSONA_ELIMINADA;
   if (reservada) {
     return {
       // Ni el id: cruzándolo con los chats de sus ofertas visibles delataría a la tienda.
@@ -281,10 +335,12 @@ export class MensajesService implements OnModuleInit {
       }),
       enLinea ? null : this.ultimaConexion(tiendaId),
     ]);
-    const destinos = new Set([
-      ...comoVendedora.map((c) => c.tiendaCompradoraId),
-      ...comoCompradora.map((c) => c.tiendaVendedoraId),
-    ]);
+    const destinos = new Set(
+      [
+        ...comoVendedora.map((c) => c.tiendaCompradoraId),
+        ...comoCompradora.map((c) => c.tiendaVendedoraId),
+      ].filter((id): id is string => id !== null),
+    );
     destinos.delete(tiendaId);
     const evento: EventoPresencia = {
       tienda_id: tiendaId,
@@ -311,7 +367,7 @@ export class MensajesService implements OnModuleInit {
    */
   private async marcarRecibidos(usuarioId: string): Promise<void> {
     const filas = await this.prisma.$queryRaw<
-      Array<{ conversacion_id: string; otro_id: string; recibido_hasta: Date }>
+      Array<{ conversacion_id: string; otro_id: string | null; recibido_hasta: Date }>
     >`
       UPDATE participacion p SET recibido_hasta = now()
       FROM conversacion c
@@ -323,6 +379,8 @@ export class MensajesService implements OnModuleInit {
           AS otro_id,
         p.recibido_hasta`;
     for (const fila of filas) {
+      // Del otro lado puede no haber nadie: su tienda se eliminó (doc 19 §9).
+      if (!fila.otro_id) continue;
       const evento: EventoMensajeRecibido = {
         conversacion_id: fila.conversacion_id,
         recibido_hasta: fila.recibido_hasta.toISOString(),
@@ -506,7 +564,7 @@ export class MensajesService implements OnModuleInit {
     const otro = base.rol === 'vendedor' ? conversacion.comprador : conversacion.vendedor;
     const { oferta } = conversacion;
 
-    const bloqueo = otro.tienda
+    const bloqueo = otro?.tienda
       ? await this.prisma.bloqueo.findUnique({
           where: {
             usuarioId_tiendaBloqueadaId: {
@@ -518,20 +576,27 @@ export class MensajesService implements OnModuleInit {
       : null;
 
     // «En línea» y «Activo hace 2 h» también servirían para adivinar quién es.
-    const reservada = base.rol === 'comprador' && !oferta.tiendaVisible;
-    const otraTiendaId = reservada ? null : (otro.tienda?.id ?? null);
+    const reservada = base.rol === 'comprador' && Boolean(oferta && !oferta.tiendaVisible);
+    const otraTiendaId = reservada ? null : (otro?.tienda?.id ?? null);
     const puedeVender =
-      base.rol === 'vendedor' && oferta.estado !== 'ELIMINADA' && oferta.stock > 0;
+      base.rol === 'vendedor' &&
+      !base.otra_eliminada &&
+      oferta !== null &&
+      oferta.estado !== 'ELIMINADA' &&
+      oferta.stock > 0;
     const [hablanDe, venta, sobreTienda, ultimaConexion, whatsapp] = await Promise.all([
       this.hablanDe(id, usuario, otraTiendaId),
       this.ventaDelHilo(id, usuario),
       otraTiendaId ? this.sobreTienda(otraTiendaId) : null,
       // N01: la tienda está activa si alguna de sus personas lo está.
       otraTiendaId ? this.ultimaConexion(otraTiendaId) : null,
-      this.whatsappDelHilo(id, usuario.id, otro.id, {
-        reservadaElOtro: reservada,
-        reservadaYo: base.rol === 'vendedor' && !oferta.tiendaVisible,
-      }),
+      // Si la otra tienda se eliminó (doc 19 §9), no hay WhatsApp que pedir ni a quién darlo.
+      otro
+        ? this.whatsappDelHilo(id, usuario.id, otro.id, {
+            reservadaElOtro: reservada,
+            reservadaYo: base.rol === 'vendedor' && Boolean(oferta && !oferta.tiendaVisible),
+          })
+        : { suyo: null, pedido_pendiente: false, puedes_pedir: false, puedes_compartir: false },
     ]);
     return {
       ...base,
@@ -540,17 +605,19 @@ export class MensajesService implements OnModuleInit {
         en_linea: otraTiendaId ? this.tiempoReal.tiendaEnLinea(otraTiendaId) : false,
         ultima_conexion: ultimaConexion?.toISOString() ?? null,
       },
-      oferta: {
-        ...base.oferta,
-        stock: oferta.stock,
-        estado: oferta.estado,
-        precio: precioPara(oferta, {
-          audiencia: 'vendedor',
-          tiendaId: usuario.tiendaId,
-          usuarioId: usuario.id,
-        }),
-        precio_visible: oferta.precioVisible,
-      },
+      oferta: oferta
+        ? {
+            ...base.oferta,
+            stock: oferta.stock,
+            estado: oferta.estado,
+            precio: precioPara(oferta, {
+              audiencia: 'vendedor',
+              tiendaId: usuario.tiendaId,
+              usuarioId: usuario.id,
+            }),
+            precio_visible: oferta.precioVisible,
+          }
+        : { ...base.oferta, stock: 0, estado: 'ELIMINADA', precio: null, precio_visible: false },
       bloqueaste: Boolean(bloqueo),
       puede_vender: puedeVender,
       en_vivo: conversacion.enVivoId
@@ -714,13 +781,13 @@ export class MensajesService implements OnModuleInit {
       tiendaId: usuario.tiendaId,
       usuarioId: usuario.id,
     };
-    const lista = filas.map((fila) => ({
-      conversacion_id: fila.id,
-      titulo: fila.oferta.producto.titulo,
-      foto: portadaDe(fila.oferta),
-      categoria: fila.oferta.producto.categoria.slug,
-      precio: precioPara(fila.oferta, mirada),
-      actualizada_en: fila.ultimoMensajeEn.toISOString(),
+    const lista = filas.map(({ id: conversacionId, oferta, ultimoMensajeEn }) => ({
+      conversacion_id: conversacionId,
+      titulo: oferta?.producto.titulo ?? OFERTA_ELIMINADA.producto.titulo,
+      foto: oferta ? portadaDe(oferta) : null,
+      categoria: oferta?.producto.categoria.slug ?? '',
+      precio: oferta ? precioPara(oferta, mirada) : null,
+      actualizada_en: ultimoMensajeEn.toISOString(),
     }));
     return [
       ...lista.filter((hilo) => hilo.conversacion_id === id),
@@ -869,7 +936,7 @@ export class MensajesService implements OnModuleInit {
   ): ConversacionEnLista {
     const c = p.conversacion;
     const rol = c.vendedorId === usuarioId ? 'vendedor' : 'comprador';
-    const reservada = rol === 'comprador' && !c.oferta.tiendaVisible;
+    const reservada = rol === 'comprador' && Boolean(c.oferta && !c.oferta.tiendaVisible);
     const otro = rol === 'vendedor' ? c.comprador : c.vendedor;
     return {
       id: c.id,
@@ -878,18 +945,20 @@ export class MensajesService implements OnModuleInit {
         ...persona(otro, reservada),
         // El puntito verde también serviría para adivinar quién es la reservada.
         en_linea:
-          !reservada && Boolean(otro.tienda && this.tiempoReal.tiendaEnLinea(otro.tienda.id)),
+          !reservada && Boolean(otro?.tienda && this.tiempoReal.tiendaEnLinea(otro.tienda.id)),
       },
-      oferta: {
-        id: c.oferta.id,
-        condicion: c.oferta.condicion,
-        producto: {
-          slug: c.oferta.producto.slug,
-          titulo: c.oferta.producto.titulo,
-          foto: portadaDe(c.oferta),
-          categoria: c.oferta.producto.categoria,
-        },
-      },
+      oferta: c.oferta
+        ? {
+            id: c.oferta.id,
+            condicion: c.oferta.condicion,
+            producto: {
+              slug: c.oferta.producto.slug,
+              titulo: c.oferta.producto.titulo,
+              foto: portadaDe(c.oferta),
+              categoria: c.oferta.producto.categoria,
+            },
+          }
+        : OFERTA_ELIMINADA,
       ultimo_mensaje: ultimo ? mensajeChat(ultimo, usuarioId) : null,
       no_leidos: noLeidos,
       no_leida: p.noLeidaManual,
@@ -897,6 +966,7 @@ export class MensajesService implements OnModuleInit {
       archivada: p.archivada,
       pase_del_dia: c.enVivoId !== null,
       actualizada_en: c.ultimoMensajeEn.toISOString(),
+      otra_eliminada: otro === null,
     };
   }
 
@@ -907,19 +977,20 @@ export class MensajesService implements OnModuleInit {
    * (la última venta) y si los de la otra tienda dicen quién los escribió.
    */
   private async contexto(
-    conversacion: ParticipacionFila['conversacion'],
+    conversacion: ConversacionFila,
     usuarioId: string,
   ): Promise<ContextoMensajes> {
     const soyComprador = conversacion.compradorId === usuarioId;
     const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
-    const sinNombres = soyComprador && !conversacion.oferta.tiendaVisible;
+    const sinNombres =
+      soyComprador && Boolean(conversacion.oferta && !conversacion.oferta.tiendaVisible);
     const [venta, conAsesores] = await Promise.all([
       this.prisma.venta.findFirst({
         where: { conversacionId: conversacion.id },
         orderBy: { creadaEn: 'desc' },
         select: { creadaEn: true },
       }),
-      sinNombres || !otro.tienda ? new Set<string>() : this.tiendasConAsesores([otro.tienda.id]),
+      sinNombres || !otro?.tienda ? new Set<string>() : this.tiendasConAsesores([otro.tienda.id]),
     ]);
     return { cerradaEn: venta?.creadaEn ?? null, conAsesores, sinNombres };
   }
@@ -959,14 +1030,17 @@ export class MensajesService implements OnModuleInit {
         where: { id: usuarioId },
         select: { mostrarVisto: true },
       }),
-      this.prisma.participacion.findUnique({
-        where: { conversacionId_usuarioId: { conversacionId: id, usuarioId: otroId } },
-        select: {
-          leidoHasta: true,
-          recibidoHasta: true,
-          usuario: { select: { mostrarVisto: true } },
-        },
-      }),
+      // Si su tienda se eliminó (doc 19 §9), del otro lado no hay nadie que lea.
+      otroId
+        ? this.prisma.participacion.findUnique({
+            where: { conversacionId_usuarioId: { conversacionId: id, usuarioId: otroId } },
+            select: {
+              leidoHasta: true,
+              recibidoHasta: true,
+              usuario: { select: { mostrarVisto: true } },
+            },
+          })
+        : null,
       this.contexto(conversacion, usuarioId),
     ]);
     const hayMas = filas.length > consulta.limite;
@@ -988,7 +1062,7 @@ export class MensajesService implements OnModuleInit {
 
   /** Bloqueos de los dos lados (docs/05 §8): el bloqueado recibe el error; al otro no se le avisa nada. */
   private async revisarBloqueos(
-    conversacion: ParticipacionFila['conversacion'],
+    conversacion: ConversacionCompleta,
     usuario: UsuarioConTienda,
   ): Promise<void> {
     const otro =
@@ -1019,10 +1093,7 @@ export class MensajesService implements OnModuleInit {
   }
 
   /** Si escribe quien vende una oferta con la tienda reservada, el aviso no dice quién es. */
-  private remitente(
-    conversacion: ParticipacionFila['conversacion'],
-    usuario: UsuarioConTienda,
-  ): string {
+  private remitente(conversacion: ConversacionCompleta, usuario: UsuarioConTienda): string {
     return conversacion.vendedorId === usuario.id && !conversacion.oferta.tiendaVisible
       ? TIENDA_RESERVADA
       : (usuario.tienda?.nombre ?? usuario.nombre);
@@ -1033,7 +1104,7 @@ export class MensajesService implements OnModuleInit {
     datos: EnviarMensajeDatos,
     usuario: UsuarioConTienda,
   ): Promise<MensajeChat> {
-    const { conversacion } = await this.participacion(id, usuario.id);
+    const conversacion = completa((await this.participacion(id, usuario.id)).conversacion);
     const soyComprador = conversacion.compradorId === usuario.id;
     const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
     const miTiendaId = usuario.tiendaId ?? '';
@@ -1133,7 +1204,7 @@ export class MensajesService implements OnModuleInit {
    * de quien lo escribió si su tienda tiene asesores). Si ya le llegó, dos checks grises.
    */
   private async difundir(
-    conversacion: ParticipacionFila['conversacion'],
+    conversacion: ConversacionCompleta,
     mensaje: MensajeFila,
     usuario: UsuarioConTienda,
     otroId: string,
@@ -1179,7 +1250,7 @@ export class MensajesService implements OnModuleInit {
 
   /** `mensaje:cambio` a las dos personas (o solo a una, con «Eliminar para mí»). */
   private emitirCambio(
-    conversacion: ParticipacionFila['conversacion'],
+    conversacion: ConversacionCompleta,
     mensaje: MensajeFila,
     personas: string[],
   ): void {
@@ -1219,7 +1290,7 @@ export class MensajesService implements OnModuleInit {
    * que ya es de una venta cerrada.
    */
   private async revisarQueSeCambia(
-    conversacion: ParticipacionFila['conversacion'],
+    conversacion: { id: string },
     mensaje: MensajeFila,
     usuarioId: string,
   ): Promise<void> {
@@ -1260,7 +1331,7 @@ export class MensajesService implements OnModuleInit {
     texto: string,
     usuario: UsuarioConTienda,
   ): Promise<MensajeChat> {
-    const { conversacion } = await this.participacion(id, usuario.id);
+    const conversacion = completa((await this.participacion(id, usuario.id)).conversacion);
     const anterior = await this.mensajeDelHilo(id, mensajeId, usuario.id);
     await this.revisarQueSeCambia(conversacion, anterior, usuario.id);
     if (anterior.tipo !== 'TEXTO') {
@@ -1331,8 +1402,8 @@ export class MensajesService implements OnModuleInit {
     }
 
     await this.revisarQueSeCambia(conversacion, anterior, usuario.id);
-    const otroId =
-      conversacion.compradorId === usuario.id ? conversacion.vendedorId : conversacion.compradorId;
+    const hilo = completa(conversacion);
+    const otroId = hilo.compradorId === usuario.id ? hilo.vendedorId : hilo.compradorId;
     const mensaje = await this.prisma.$transaction(async (tx) => {
       await tx.mensajeVersion.create({
         data: { mensajeId, cambio: 'ELIMINADO', texto: anterior.texto, foto: anterior.foto },
@@ -1349,7 +1420,7 @@ export class MensajesService implements OnModuleInit {
         select: SELECT_MENSAJE,
       });
     });
-    this.emitirCambio(conversacion, mensaje, [usuario.id, otroId]);
+    this.emitirCambio(hilo, mensaje, [usuario.id, otroId]);
     return mensajeChat(mensaje, usuario.id);
   }
 
@@ -1360,7 +1431,7 @@ export class MensajesService implements OnModuleInit {
    * número que no se aceptó. A una tienda reservada no se le pide: el número la delataría.
    */
   async pedirWhatsapp(id: string, usuario: UsuarioConTienda): Promise<MensajeChat> {
-    const { conversacion } = await this.participacion(id, usuario.id);
+    const conversacion = completa((await this.participacion(id, usuario.id)).conversacion);
     const soyComprador = conversacion.compradorId === usuario.id;
     const otro = soyComprador ? conversacion.vendedor : conversacion.comprador;
     if (soyComprador && !conversacion.oferta.tiendaVisible) {
@@ -1429,7 +1500,7 @@ export class MensajesService implements OnModuleInit {
     aceptar: boolean,
     usuario: UsuarioConTienda,
   ): Promise<RespuestaPedidoWhatsapp> {
-    const { conversacion } = await this.participacion(id, usuario.id);
+    const conversacion = completa((await this.participacion(id, usuario.id)).conversacion);
     const pedido = await this.mensajeDelHilo(id, mensajeId, usuario.id);
     if (pedido.tipo !== 'PEDIDO_WHATSAPP' || !pedido.autorId || pedido.autorId === usuario.id) {
       throw new ApiHttpException(
@@ -1464,7 +1535,7 @@ export class MensajesService implements OnModuleInit {
    * reservada no lo comparte: se sabría quién es.
    */
   async compartirWhatsapp(id: string, usuario: UsuarioConTienda): Promise<MensajeChat> {
-    const { conversacion } = await this.participacion(id, usuario.id);
+    const conversacion = completa((await this.participacion(id, usuario.id)).conversacion);
     const soyVendedor = conversacion.vendedorId === usuario.id;
     const otro = soyVendedor ? conversacion.comprador : conversacion.vendedor;
     if (soyVendedor && !conversacion.oferta.tiendaVisible) {
@@ -1570,8 +1641,8 @@ export class MensajesService implements OnModuleInit {
         conversacion_id: id,
         recibido_hasta: ahora.toISOString(),
       };
-      this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.mensajeRecibido, recibido);
-      if (usuario.mostrarVisto && otro.mostrarVisto) {
+      if (otro) this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.mensajeRecibido, recibido);
+      if (otro && usuario.mostrarVisto && otro.mostrarVisto) {
         this.tiempoReal.emitirAUsuario(otro.id, EVENTOS.mensajeVisto, {
           conversacion_id: id,
           visto_hasta: ahora.toISOString(),
@@ -1584,7 +1655,7 @@ export class MensajesService implements OnModuleInit {
 
   /** Bloquear a la tienda entera del otro (docs/05 §8): no podrá volver a escribir desde otra cuenta. */
   async bloquear(id: string, bloquear: boolean, usuario: UsuarioConTienda): Promise<void> {
-    const { conversacion } = await this.participacion(id, usuario.id);
+    const conversacion = completa((await this.participacion(id, usuario.id)).conversacion);
     const otro =
       conversacion.compradorId === usuario.id ? conversacion.vendedor : conversacion.comprador;
     if (!otro.tienda) throw noExiste();
@@ -1622,8 +1693,10 @@ export class MensajesService implements OnModuleInit {
       const { conversacion } = await this.participacion(datos.objeto_id, usuario.id);
       const otro =
         conversacion.compradorId === usuario.id ? conversacion.vendedor : conversacion.comprador;
-      tiendaId = otro.tienda?.id ?? null;
-      reservada = conversacion.compradorId === usuario.id && !conversacion.oferta.tiendaVisible;
+      tiendaId = otro?.tienda?.id ?? null;
+      reservada =
+        conversacion.compradorId === usuario.id &&
+        Boolean(conversacion.oferta && !conversacion.oferta.tiendaVisible);
     } else if (datos.objeto === 'OFERTA') {
       const oferta = await this.prisma.oferta.findFirst({
         where: { id: datos.objeto_id, estado: { not: 'ELIMINADA' } },
@@ -1701,7 +1774,13 @@ export class MensajesService implements OnModuleInit {
       );
     }
     const conversaciones = await this.prisma.conversacion.findMany({
-      where: { ofertaId, vendedorId: usuario.id, mensajes: { some: {} } },
+      // Sin las tiendas que se eliminaron (doc 19 §9): a ellas ya no se les vende.
+      where: {
+        ofertaId,
+        vendedorId: usuario.id,
+        compradorId: { not: null },
+        mensajes: { some: {} },
+      },
       orderBy: { ultimoMensajeEn: 'desc' },
       select: { id: true, ultimoMensajeEn: true, comprador: { select: SELECT_PERSONA } },
     });
@@ -1744,7 +1823,7 @@ export class MensajesService implements OnModuleInit {
         );
       }
       const conversacion = await tx.conversacion.findFirst({
-        where: { id: conversacionId, ofertaId, vendedorId: usuario.id },
+        where: { id: conversacionId, ofertaId, vendedorId: usuario.id, compradorId: { not: null } },
         select: {
           compradorId: true,
           tiendaCompradoraId: true,
@@ -1752,13 +1831,14 @@ export class MensajesService implements OnModuleInit {
           enVivoId: true,
         },
       });
-      if (!conversacion) {
+      if (!conversacion?.compradorId || !conversacion.tiendaCompradora) {
         throw new ApiHttpException(
           HttpStatus.BAD_REQUEST,
           'DATOS_INVALIDOS',
           'Elige a alguien que te escribió por esta publicación.',
         );
       }
+      const { compradorId, tiendaCompradora } = conversacion;
       if (fila.stock <= 0) {
         throw new ApiHttpException(
           HttpStatus.CONFLICT,
@@ -1819,7 +1899,7 @@ export class MensajesService implements OnModuleInit {
           autorId: null,
           tipo: 'SISTEMA',
           texto:
-            `1 unidad vendida a ${conversacion.tiendaCompradora.nombre} · stock ${antes} → ${despues}` +
+            `1 unidad vendida a ${tiendaCompradora.nombre} · stock ${antes} → ${despues}` +
             (despues === 0 ? ' · ahora figura «Sin stock»' : ''),
         },
         select: SELECT_MENSAJE,
@@ -1837,7 +1917,7 @@ export class MensajesService implements OnModuleInit {
         antes,
         despues,
         mensaje,
-        compradorId: conversacion.compradorId,
+        compradorId,
         flashId: flash?.id ?? null,
       };
     });

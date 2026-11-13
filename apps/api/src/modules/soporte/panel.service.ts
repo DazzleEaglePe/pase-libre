@@ -24,8 +24,10 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { avisosDeGalerias } from '../../shared/galerias-nuevas';
 import { inicioDelDiaEnLima } from '../en-vivo/horario';
+import { CAMBIOS_POR_REVISAR } from '../cuenta/lugar.service';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 import { DestacadosService } from './destacados.service';
 import { SoporteService } from './soporte.service';
 
@@ -93,6 +95,7 @@ export class PanelService {
     @Inject(AvisosService) private readonly avisos: AvisosService,
     @Inject(SoporteService) private readonly soporte: SoporteService,
     @Inject(DestacadosService) private readonly destacados: DestacadosService,
+    @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
   ) {}
 
   /** El modo claro u oscuro del panel se guarda en tu cuenta (COR18). */
@@ -138,7 +141,12 @@ export class PanelService {
         orderBy: { creadaEn: 'asc' },
         select: SELECT_COLA,
       }),
-      this.prisma.solicitud.count({ where: { estado: 'PENDIENTE' } }).catch(() => 0),
+      // «Solicitudes N»: las cuentas por aprobar y los cambios de galería o stand sin revisar
+      // (doc 19 §10).
+      Promise.all([
+        this.prisma.solicitud.count({ where: { estado: 'PENDIENTE' } }).catch(() => 0),
+        this.prisma.cambioLugar.count({ where: CAMBIOS_POR_REVISAR }),
+      ]).then(([cuentas, lugares]) => cuentas + lugares),
       this.prisma.$queryRaw<Array<{ cuantos: number }>>`
         SELECT count(*)::int AS cuantos FROM hilo_equipo h
         WHERE (SELECT m.de_equipo FROM mensaje_equipo m WHERE m.hilo_id = h.id
@@ -632,19 +640,54 @@ export class PanelService {
     );
   }
 
-  /** «Suspender»: no entra y sus publicaciones dejan de verse. «Reactivar» lo deshace. */
+  /**
+   * «Suspender» (doc 19 §9): al instante y sin contraseña. Se cierran todas sus sesiones, no entra
+   * y sus publicaciones dejan de verse. Queda cuándo, quién y por qué: «Eliminar definitivamente»
+   * se habilita 24 h después. «Reactivar» lo deshace sin perder nada (y el plazo vuelve a cero).
+   */
   async suspender(tiendaId: string, datos: SuspensionDatos, sesion: SesionActiva): Promise<void> {
     const tienda = await this.prisma.tienda.findUnique({
       where: { id: tiendaId },
-      select: { nombre: true },
+      select: { nombre: true, estado: true },
     });
     if (!tienda) {
       throw new ApiHttpException(HttpStatus.NOT_FOUND, 'NO_ENCONTRADO', 'Esta tienda no existe.');
     }
-    await this.prisma.tienda.update({
-      where: { id: tiendaId },
-      data: { estado: datos.suspender ? 'SUSPENDIDA' : 'ACTIVA' },
+    const ahora = new Date();
+    // Suspender otra vez a una suspendida no le reinicia el plazo de las 24 h.
+    const yaSuspendida = datos.suspender && tienda.estado === 'SUSPENDIDA';
+    const personas = await this.prisma.usuario.findMany({
+      where: { tiendaId },
+      select: { id: true },
     });
+    await this.prisma.$transaction([
+      this.prisma.tienda.update({
+        where: { id: tiendaId },
+        data: datos.suspender
+          ? {
+              estado: 'SUSPENDIDA',
+              ...(yaSuspendida
+                ? {}
+                : {
+                    suspendidaEn: ahora,
+                    suspendidaPorId: sesion.usuario.id,
+                    motivoSuspension: datos.motivo || null,
+                  }),
+            }
+          : { estado: 'ACTIVA', suspendidaEn: null, suspendidaPorId: null, motivoSuspension: null },
+      }),
+      ...(datos.suspender
+        ? [
+            this.prisma.sesion.updateMany({
+              where: { usuarioId: { in: personas.map((p) => p.id) }, revocadaEn: null },
+              data: { revocadaEn: ahora },
+            }),
+          ]
+        : []),
+    ]);
+    if (datos.suspender) {
+      for (const persona of personas) await this.tiempoReal.desconectarUsuario(persona.id);
+    }
     await this.anotar(
       sesion,
       datos.suspender
