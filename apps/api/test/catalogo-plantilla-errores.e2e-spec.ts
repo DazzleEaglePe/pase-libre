@@ -148,8 +148,14 @@ describe('Catálogo: plantilla en Excel y filas que dicen qué pasa (docs/18)', 
         'Velocidad',
         'Latencia',
         'Formato',
+        // docs/19 §13: para qué procesador es, con su lista desplegable.
+        'Perfil de memoria',
         'Foto *',
       ]);
+      expect(libro.getWorksheet('Memoria RAM')!.getCell('K2').dataValidation).toMatchObject({
+        type: 'list',
+        formulae: ['"Intel XMP,EXPO Ryzen,Los dos"'],
+      });
       // «Las demás»: solo las columnas de todas.
       expect(titulos(libro.getWorksheet('Accesorios')!)).toHaveLength(6);
       expect(libro.getWorksheet('Placas madre')!.getCell('H2').dataValidation).toMatchObject({

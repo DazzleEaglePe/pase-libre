@@ -249,12 +249,21 @@ model Tienda {
   indicaciones         String?       @db.VarChar(240)
   descripcion          String?       @db.VarChar(500)
   logo                 String?       @db.VarChar(300)
+  /// «Ajustar logo» (docs/19 §20): `logo` es el cuadrado de 512 × 512 que arma la API con `sharp`;
+  /// aquí van la foto original y cómo se acomodó (`{ x, y, zoom, rotacion, fondo }`), para volver a
+  /// abrirla sin perder calidad. Nulos con un logo de antes o subido sin ajustar.
+  logoOriginal         String?       @map("logo_original") @db.VarChar(300)
+  logoAjuste           Json?         @map("logo_ajuste")
   /// La portada del perfil (COR1): una foto subida con `POST /v1/archivos`. Sin ella, la
   /// automática. `portada_posicion` es qué parte se ve de arriba (0) a abajo (100): «Acomodar».
   portadaRuta          String?       @map("portada_ruta") @db.VarChar(300)
   portadaAncho         Int?          @map("portada_ancho")
   portadaAlto          Int?          @map("portada_alto")
   portadaPosicion      Int           @default(50) @map("portada_posicion") @db.SmallInt
+  /// El zoom de la portada (docs/19 §20), de 1 a 4, y qué parte se ve a lo ancho, de la izquierda
+  /// (0) a la derecha (100).
+  portadaZoom          Float         @default(1) @map("portada_zoom") @db.Real
+  portadaX             Int           @default(50) @map("portada_x") @db.SmallInt
   /// Valores por defecto al publicar (D-37): precio oculto y en dólares.
   precioVisibleDefecto Boolean       @default(false) @map("precio_visible_defecto")
   /// Soles por defecto (guía del lienzo final); la tienda lo cambia en Configuración.
@@ -483,6 +492,10 @@ model Producto {
 
   preciosDiarios PrecioDiario[]
 
+  /// Para qué procesador es una memoria RAM (docs/19 §13): con él, «¿Para qué procesador es?»
+  /// viene marcado al publicar. Sale de la columna «Perfil de memoria» de la plantilla.
+  perfilMemoria PerfilMemoria? @map("perfil_memoria")
+
   @@index([categoriaId])
   @@index([marcaId])
   @@index([textoBusqueda(ops: raw("gin_trgm_ops"))], type: Gin, map: "producto_texto_busqueda_trgm_idx")
@@ -573,6 +586,13 @@ model Oferta {
   aceptaOfertas           Boolean        @default(true) @map("acepta_ofertas")
   /// «Precio fijo ▾ / Negociable» del campo de precio (N06): la burbujita «Negociable».
   negociable              Boolean        @default(false)
+  /// «¿Para qué procesador es?» (docs/19 §13): solo memorias RAM. Nulo si no se marcó.
+  perfilMemoria           PerfilMemoria? @map("perfil_memoria")
+  /// «Con caja» u «OEM · sin caja» (RAM, tarjetas de video, almacenamiento; Box o Tray en los
+  /// procesadores). Nulo si no se marcó.
+  empaque                 Empaque?
+  /// Tarjetas de video: OC (verdadero) o normal (falso). Nulo si no se marcó.
+  oc                      Boolean?
   estado                  EstadoOferta   @default(ACTIVA)
   /// El precio de pase antes de la última baja y cuándo bajó: «Bajó de precio · Antes US$ 465»
   /// (SEG_Web). Una subida lo borra.
@@ -1244,6 +1264,23 @@ enum Garantia {
   OTRA
 
   @@map("garantia")
+}
+
+/// Para qué procesador es una memoria (docs/19 §13): Intel XMP, AMD EXPO o los dos.
+enum PerfilMemoria {
+  XMP
+  EXPO
+  AMBOS
+
+  @@map("perfil_memoria")
+}
+
+/// El empaque de una publicación (docs/19 §13): con caja (Box) u OEM sin caja (Tray).
+enum Empaque {
+  CAJA
+  OEM
+
+  @@map("empaque")
 }
 
 /// «¿Cómo lo vendes?» (PS_Precio).

@@ -27,6 +27,7 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { audienciaDe, type Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { tiendasQueMeTienenDeSocia } from '../../shared/socios';
+import { variantesDe } from '../catalogo/catalogo.service';
 import { preciosPara } from '../catalogo/visibilidad';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
@@ -141,6 +142,9 @@ export class TiendasService {
           moneda: true,
           precioVisible: true,
           negociable: true,
+          perfilMemoria: true,
+          empaque: true,
+          oc: true,
           tiendaId: true,
           ...PORTADA_DE_OFERTA,
           producto: {
@@ -191,6 +195,8 @@ export class TiendasService {
             ancho: tienda.portadaAncho,
             alto: tienda.portadaAlto,
             posicion: tienda.portadaPosicion,
+            zoom: tienda.portadaZoom,
+            x: tienda.portadaX,
           }
         : null,
       categorias_principales: categoriasPrincipales(
@@ -212,6 +218,7 @@ export class TiendasService {
           precio_socio: precios.socio,
           // «Negociable» solo con un precio a la vista (igual que en el feed).
           negociable: precios.precio !== null && oferta.negociable,
+          variantes: variantesDe(oferta),
         };
       }),
     };

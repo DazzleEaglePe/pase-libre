@@ -18,6 +18,8 @@ export interface Filtros {
   pagina: number;
   /** «Buscar … tal cual» (BUS_Web): sin entender ni corregir lo escrito. */
   talCual: boolean;
+  /** «Para Intel» o «Para Ryzen» en Memoria RAM (docs/19 §13). */
+  perfil: 'intel' | 'ryzen' | null;
 }
 
 type Parametros = Record<string, string | string[] | undefined>;
@@ -32,6 +34,7 @@ const lista = (valor: string | string[] | undefined): string[] =>
 
 export function leerFiltros(parametros: Parametros): Filtros {
   const orden = uno(parametros.orden);
+  const perfil = uno(parametros.perfil).toLowerCase();
   return {
     q: uno(parametros.q).slice(0, 100),
     categoria: uno(parametros.categoria).toLowerCase() || null,
@@ -46,6 +49,7 @@ export function leerFiltros(parametros: Parametros): Filtros {
       orden === 'precio_asc' || orden === 'precio_desc' || orden === 'recientes' ? orden : null,
     pagina: Math.max(1, Math.min(500, Number.parseInt(uno(parametros.pagina), 10) || 1)),
     talCual: ['1', 'true'].includes(uno(parametros.tal_cual).toLowerCase()),
+    perfil: perfil === 'intel' || perfil === 'ryzen' ? perfil : null,
   };
 }
 
@@ -70,6 +74,7 @@ export function textoConsulta(filtros: Filtros, paraApi = false): string {
   if (filtros.orden) consulta.set('orden', filtros.orden);
   if (filtros.pagina > 1) consulta.set('pagina', String(filtros.pagina));
   if (filtros.talCual) consulta.set('tal_cual', paraApi ? 'true' : '1');
+  if (filtros.perfil) consulta.set('perfil', filtros.perfil);
   return consulta.toString();
 }
 
@@ -97,6 +102,7 @@ export const hayFiltros = (filtros: Filtros): boolean =>
   filtros.galeria.length > 0 ||
   filtros.marca.length > 0 ||
   filtros.condicion.length > 0 ||
+  filtros.perfil !== null ||
   Boolean(filtros.precioMin || filtros.precioMax);
 
 /** Cuántos filtros hay puestos, para el número del botón «Filtros». */
@@ -104,6 +110,7 @@ export const cuantosFiltros = (filtros: Filtros): number =>
   filtros.galeria.length +
   filtros.marca.length +
   filtros.condicion.length +
+  (filtros.perfil ? 1 : 0) +
   (filtros.precioMin || filtros.precioMax ? 1 : 0);
 
 /** Quita todo menos lo que se buscó; «Solo con stock» vuelve a prenderse. */
@@ -112,6 +119,7 @@ export const sinFiltros = (filtros: Filtros): Filtros =>
     galeria: [],
     marca: [],
     condicion: [],
+    perfil: null,
     stock: true,
     precioMin: '',
     precioMax: '',

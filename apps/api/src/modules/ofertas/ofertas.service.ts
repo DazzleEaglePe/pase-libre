@@ -4,11 +4,13 @@ import {
   formatearPrecio,
   normalizarTexto,
   PORTADA_AJENA,
+  preguntasDeCategoria,
   precioDe,
   slugDe,
   tituloDeProducto,
   type ConfirmarOfertas,
   type EditarOfertaDatos,
+  type EliminarOfertasDatos,
   type MisOfertasConsulta,
   type OfertaPropia,
   type PestanaMisOfertas,
@@ -16,6 +18,7 @@ import {
   type ProductoResumen,
   type PublicarDatos,
   type RespuestaConfirmar,
+  type RespuestaEliminarOfertas,
   type RespuestaMisOfertas,
   type RespuestaPublicar,
   type RespuestaSugerencias,
@@ -65,7 +68,29 @@ function columnasDeDetalle(datos: Partial<EditarOfertaDatos>): Prisma.OfertaUpda
   }
   if (datos.acepta_ofertas !== undefined) columnas.aceptaOfertas = datos.acepta_ofertas;
   if (datos.negociable !== undefined) columnas.negociable = datos.negociable;
+  if (datos.perfil_memoria !== undefined) columnas.perfilMemoria = datos.perfil_memoria;
+  if (datos.empaque !== undefined) columnas.empaque = datos.empaque;
+  if (datos.oc !== undefined) columnas.oc = datos.oc;
   return columnas;
+}
+
+/**
+ * Lo que la categoría no pregunta al publicar (docs/19 §13) se guarda nulo: así una memoria no
+ * queda «OC» ni una tarjeta de video «para Intel», aunque la web lo mande.
+ */
+function sinLoQueNoPregunta(
+  categoria: string,
+  columnas: Prisma.OfertaUpdateInput,
+): Prisma.OfertaUpdateInput {
+  const preguntas = preguntasDeCategoria(categoria);
+  return {
+    ...columnas,
+    ...(preguntas.procesador || columnas.perfilMemoria === undefined
+      ? {}
+      : { perfilMemoria: null }),
+    ...(preguntas.empaque || columnas.empaque === undefined ? {} : { empaque: null }),
+    ...(preguntas.oc || columnas.oc === undefined ? {} : { oc: null }),
+  };
 }
 
 /** RF-10: una oferta activa sin cambios hace más de 7 días pide «Revísala». */
@@ -80,6 +105,7 @@ const SELECT_PRODUCTO_RESUMEN = {
   categoria: { select: { slug: true, nombre: true } },
   marca: { select: { nombre: true } },
   etiquetas: { select: { etiqueta: { select: { nombre: true } } }, take: 4 },
+  perfilMemoria: true,
   ...FOTO_DEL_PRODUCTO,
 } satisfies Prisma.ProductoSelect;
 
@@ -100,6 +126,9 @@ const SELECT_OFERTA_PROPIA = {
   soloSocios: true,
   aceptaOfertas: true,
   negociable: true,
+  perfilMemoria: true,
+  empaque: true,
+  oc: true,
   razonPausa: true,
   stock: true,
   precioCentimos: true,
@@ -155,6 +184,7 @@ function productoResumen(p: ProductoResumenFila): ProductoResumen {
     etiquetas: p.etiquetas.map((e) => e.etiqueta.nombre),
     foto: p.fotos[0]?.ruta ?? null,
     fotos: p._count.fotos,
+    perfil_memoria: p.perfilMemoria,
   };
 }
 
@@ -312,6 +342,10 @@ export class OfertasService {
         const productoId = datos.producto_nuevo
           ? await this.crearProducto(tx, datos.producto_nuevo, tienda.id)
           : await this.productoExistente(tx, datos.producto_id ?? '');
+        const { categoria } = await tx.producto.findUniqueOrThrow({
+          where: { id: productoId },
+          select: { categoria: { select: { slug: true } } },
+        });
 
         const condicion = datos.condicion ?? condicionDeEstado(datos.estado_detalle ?? 'SELLADO');
         const repetida = await tx.oferta.findFirst({
@@ -324,7 +358,10 @@ export class OfertasService {
         const fotos = await this.archivos.reclamar(tx, datos.fotos, tienda.id);
         const oferta = await tx.oferta.create({
           data: {
-            ...(columnasDeDetalle({ ...datos, estado_detalle: undefined }) as Omit<
+            ...(sinLoQueNoPregunta(
+              categoria.slug,
+              columnasDeDetalle({ ...datos, estado_detalle: undefined }),
+            ) as Omit<
               Prisma.OfertaUncheckedCreateInput,
               'productoId' | 'tiendaId' | 'responsableId'
             >),
@@ -703,6 +740,7 @@ export class OfertasService {
             precioVisible: true,
             fotos: { select: { ruta: true, ancho: true, alto: true } },
             portadaRuta: true,
+            producto: { select: { categoria: { select: { slug: true } } } },
           },
         });
         if (!actual) throw noExiste();
@@ -738,7 +776,7 @@ export class OfertasService {
           ...(cambios.precio === undefined
             ? {}
             : { precioCentimos: cambios.precio === null ? null : BigInt(cambios.precio) }),
-          ...columnasDeDetalle(cambios),
+          ...sinLoQueNoPregunta(actual.producto.categoria.slug, columnasDeDetalle(cambios)),
         };
         // «Bajó de precio · Antes US$ 465» (SEG_Web): se guarda el de antes; si sube, se borra.
         if (cambios.precio !== undefined && actual.precioCentimos !== null) {
@@ -812,6 +850,26 @@ export class OfertasService {
       data: { estado: 'ELIMINADA', vigente: null },
     });
     if (count === 0) throw noExiste();
+  }
+
+  /**
+   * «Eliminar varias» desde el perfil (docs/19 §12), lógico como `eliminar`. Todas tienen que ser
+   * de la tienda: con una ajena (o que no existe) no se borra ninguna. Las que ya estaban
+   * eliminadas no cuentan, para que un «Deshacer» que llega dos veces no falle.
+   */
+  async eliminarVarias(
+    { ids }: EliminarOfertasDatos,
+    tiendaId: string,
+  ): Promise<RespuestaEliminarOfertas> {
+    return this.prisma.$transaction(async (tx) => {
+      const propias = await tx.oferta.count({ where: { id: { in: ids }, tiendaId } });
+      if (propias !== ids.length) throw noExiste();
+      const { count } = await tx.oferta.updateMany({
+        where: { id: { in: ids }, tiendaId, estado: { not: 'ELIMINADA' } },
+        data: { estado: 'ELIMINADA', vigente: null },
+      });
+      return { eliminadas: count };
+    });
   }
 
   /** «Siguen igual» (RF-10). */

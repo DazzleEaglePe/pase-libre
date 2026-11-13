@@ -175,7 +175,7 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
     it('sube, acomoda y quita la portada; las demás tiendas la ven', async () => {
       const ruta = await subir('tiendaa', 1600, 400);
       const puesta = await como('tiendaa').send('put', '/v1/cuenta/portada', { ruta }).expect(200);
-      expect(puesta.body).toEqual({ ruta, ancho: 1600, alto: 400, posicion: 50 });
+      expect(puesta.body).toEqual({ ruta, ancho: 1600, alto: 400, posicion: 50, zoom: 1, x: 50 });
       const acomodada = await como('tiendaa')
         .send('put', '/v1/cuenta/portada', { posicion: 20 })
         .expect(200);
@@ -185,6 +185,8 @@ describe('Configuración (RF-48, RF-56, RF-58 a RF-60)', () => {
         ancho: 1600,
         alto: 400,
         posicion: 20,
+        zoom: 1,
+        x: 50,
       });
       await como('tiendaa').send('delete', '/v1/cuenta/portada').expect(204);
       expect((await perfilDe('tiendab', 'tiendaa')).portada).toBeNull();

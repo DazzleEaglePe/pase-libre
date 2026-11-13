@@ -92,4 +92,15 @@ describe('Filtros de /buscar', () => {
     expect(textoConsulta(limpio)).toBe('q=rtx&categoria=graficas');
     expect(con(limpio, { q: '' }).q).toBe('');
   });
+
+  it('«Para Intel» y «Para Ryzen» en Memoria RAM (docs/19 §13)', () => {
+    const intel = leerFiltros({ categoria: 'ram', perfil: 'Intel' });
+    expect(intel.perfil).toBe('intel');
+    expect(hayFiltros(intel)).toBe(true);
+    expect(cuantosFiltros(intel)).toBe(1);
+    expect(hrefBuscar(intel)).toBe('/buscar?categoria=ram&perfil=intel');
+    expect(textoConsulta(intel, true)).toBe('categoria=ram&stock=true&perfil=intel');
+    expect(leerFiltros({ perfil: 'amd' }).perfil).toBeNull();
+    expect(sinFiltros(intel).perfil).toBeNull();
+  });
 });

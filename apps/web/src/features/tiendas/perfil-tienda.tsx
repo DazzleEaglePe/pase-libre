@@ -24,7 +24,7 @@ import {
 } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { textoEstado } from '@/features/catalogo/textos';
 import { MenuOpciones } from '@/features/reportes/menu-opciones';
@@ -34,9 +34,22 @@ import { CabeceraMovil } from '@/shared/ui/cabecera-movil';
 import { Hoja } from '@/shared/ui/hoja';
 import { TarjetaProducto } from '@/shared/ui/tarjeta-producto';
 
+import {
+  AvisoDeshacer,
+  BarraSeleccion,
+  ConfirmarVarias,
+  DURACION_SALIDA,
+  ESCALON,
+  IconoTachito,
+  sinMovimiento,
+  useAcomodar,
+  useBorradoConDeshacer,
+  vibrar,
+} from './borrar-publicaciones';
 import { ListaOpiniones } from './opiniones';
 import { MenuPortada, Portada } from './portada';
 import { decimal, Estrellas, Reputacion } from './reputacion';
+import { TarjetaPropia, type Salida } from './tarjeta-propia';
 import { FranjaTuMes } from './tu-mes';
 
 // Antes vivían aquí; otras pantallas las siguen pidiendo desde este archivo.
@@ -193,6 +206,110 @@ export function PerfilDeTienda({
   // La portada y el resto cambian desde «Cambiar portada»: se toma lo nuevo del servidor.
   useEffect(() => setPerfil(inicial), [inicial]);
 
+  // ── Borrar desde tu perfil (docs/19 §12) ──────────────────────────────────
+  /** Las que ya no se ven: eliminadas (esperando «Deshacer» o ya mandadas) o pausadas. */
+  const [ocultas, setOcultas] = useState<ReadonlySet<string>>(new Set());
+  /** La que tiene abierta «¿Eliminar esta publicación?». */
+  const [preguntando, setPreguntando] = useState<string | null>(null);
+  const [salidas, setSalidas] = useState<ReadonlyMap<string, Salida>>(new Map());
+  const [volviendo, setVolviendo] = useState<ReadonlySet<string>>(new Set());
+  const [varias, setVarias] = useState(false);
+  const [marcadas, setMarcadas] = useState<string[]>([]);
+  const [confirmando, setConfirmando] = useState(false);
+  const [pausando, setPausando] = useState(false);
+  const grilla = useRef<HTMLUListElement>(null);
+  const visibles = perfil.productos.filter((producto) => !ocultas.has(producto.oferta_id));
+  const acomodar = useAcomodar(grilla, visibles.map((producto) => producto.oferta_id).join(','));
+
+  /** Vuelven a la lista (con «Deshacer», o si la API no pudo borrarlas). */
+  const devolver = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      acomodar();
+      setOcultas((actuales) => new Set([...actuales].filter((id) => !ids.includes(id))));
+      setVolviendo(new Set(ids));
+      window.setTimeout(() => setVolviendo(new Set()), DURACION_SALIDA + 50);
+    },
+    [acomodar],
+  );
+  const borrado = useBorradoConDeshacer((ids, mensaje) => {
+    devolver(ids);
+    setError(mensaje);
+  });
+
+  /** Salen con su animación y después se cierra el hueco; se mandan recién a los 8 s. */
+  function sacar(ids: string[], modo: Salida['modo']) {
+    if (ids.length === 0) return;
+    vibrar();
+    setPreguntando(null);
+    setSalidas(new Map(ids.map((id, orden) => [id, { modo, orden }])));
+    const espera = sinMovimiento()
+      ? 0
+      : DURACION_SALIDA + (modo === 'varias' ? (ids.length - 1) * ESCALON : 0);
+    window.setTimeout(() => {
+      acomodar();
+      setOcultas((actuales) => new Set([...actuales, ...ids]));
+      setSalidas(new Map());
+      borrado.programar(ids);
+    }, espera);
+  }
+
+  function salirDeVarias() {
+    setVarias(false);
+    setMarcadas([]);
+    setConfirmando(false);
+  }
+
+  function marcar(id: string) {
+    vibrar();
+    setMarcadas((actuales) =>
+      actuales.includes(id) ? actuales.filter((otra) => otra !== id) : [...actuales, id],
+    );
+  }
+
+  function entrarAVarias(conId?: string) {
+    setPestana('productos');
+    setPreguntando(null);
+    setVarias(true);
+    if (conId) marcar(conId);
+  }
+
+  /** «Si solo no tienes stock, mejor Pausar»: se pausan y salen del perfil. */
+  async function pausarMarcadas() {
+    const ids = [...marcadas];
+    setPausando(true);
+    setError(null);
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          llamarApi(`/ofertas/${id}`, { metodo: 'PATCH', cuerpo: { estado: 'PAUSADA' } }),
+        ),
+      );
+      salirDeVarias();
+      acomodar();
+      setOcultas((actuales) => new Set([...actuales, ...ids]));
+      setAviso(
+        `Pausaste ${conPlural(ids.length, 'publicación', 'publicaciones')}. Las reactivas desde Mis publicaciones.`,
+      );
+    } catch (falla) {
+      setError(falla instanceof ErrorApi ? falla.message : 'No pudimos pausarlas.');
+    } finally {
+      setPausando(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!varias) return;
+    const conEscape = (evento: KeyboardEvent) => {
+      if (evento.key === 'Escape' && !confirmando) {
+        setVarias(false);
+        setMarcadas([]);
+      }
+    };
+    document.addEventListener('keydown', conEscape);
+    return () => document.removeEventListener('keydown', conEscape);
+  }, [varias, confirmando]);
+
   const cargarOpiniones = useCallback(
     (filtro = 'todas') =>
       llamarApi<RespuestaOpiniones>(`/tiendas/${perfil.id}/opiniones?filtro=${filtro}`).then(
@@ -241,6 +358,10 @@ export function PerfilDeTienda({
   }
 
   const { reputacion } = perfil;
+  // Sin las que ocultaste (al recargar, el servidor ya no las cuenta ni las trae).
+  const totalProductos =
+    perfil.total_productos -
+    perfil.productos.filter((producto) => ocultas.has(producto.oferta_id)).length;
   const totalOpiniones = opiniones?.reputacion.opiniones ?? reputacion.opiniones;
   const lugar = [perfil.galeria ?? 'Independiente', perfil.stand && `Stand ${perfil.stand}`]
     .filter(Boolean)
@@ -409,32 +530,51 @@ export function PerfilDeTienda({
 
       <div
         id="pestanas-perfil"
-        role="tablist"
-        aria-label="Perfil"
-        className="flex scroll-mt-20 gap-6 overflow-x-auto border-b-[1.5px] border-borde [scrollbar-width:none]"
+        className="flex scroll-mt-20 items-center gap-3 border-b-[1.5px] border-borde"
       >
-        {(
-          [
-            ['productos', `Productos · ${perfil.total_productos}`],
-            ['opiniones', `Opiniones · ${totalOpiniones}`],
-            ['detalles', 'Detalles'],
-          ] as const
-        ).map(([clave, texto]) => (
+        <div
+          role="tablist"
+          aria-label="Perfil"
+          className="-mb-[1.5px] flex min-w-0 flex-1 gap-6 overflow-x-auto [scrollbar-width:none]"
+        >
+          {(
+            [
+              ['productos', `Productos · ${totalProductos}`],
+              ['opiniones', `Opiniones · ${totalOpiniones}`],
+              ['detalles', 'Detalles'],
+            ] as const
+          ).map(([clave, texto]) => (
+            <button
+              key={clave}
+              type="button"
+              role="tab"
+              aria-selected={pestana === clave}
+              onClick={() => setPestana(clave)}
+              className={`-mb-[1.5px] flex h-11 shrink-0 items-center border-b-[3px] px-1 text-cuerpo ${
+                pestana === clave
+                  ? 'border-pase font-extrabold text-marca'
+                  : 'border-transparent text-secundario hover:text-tinta'
+              }`}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
+        {/* «Eliminar varias» (docs/19 §12): solo en tu perfil y si hay algo que borrar. */}
+        {perfil.propia && visibles.length > 0 && (
           <button
-            key={clave}
+            key={varias ? 'varias' : 'una'}
             type="button"
-            role="tab"
-            aria-selected={pestana === clave}
-            onClick={() => setPestana(clave)}
-            className={`-mb-[1.5px] flex h-11 shrink-0 items-center border-b-[3px] px-1 text-cuerpo ${
-              pestana === clave
-                ? 'border-pase font-extrabold text-marca'
-                : 'border-transparent text-secundario hover:text-tinta'
+            aria-pressed={varias}
+            onClick={() => (varias ? salirDeVarias() : entrarAVarias())}
+            className={`pl-hundir mb-1.5 flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-[#F2B8B1] px-3 py-[5px] text-[12.5px] font-extrabold text-[#B42318] ${
+              varias ? 'bg-[#FDECEA]' : 'bg-white'
             }`}
           >
-            {texto}
+            <IconoTachito tamano={14} grosor={2.2} />
+            {varias ? 'Eliminando varias' : 'Eliminar varias'}
           </button>
-        ))}
+        )}
       </div>
 
       <div className="grid items-start gap-5 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -442,29 +582,56 @@ export function PerfilDeTienda({
 
         <div role="tabpanel" className="flex min-w-0 flex-col gap-4 pb-6">
           {pestana === 'productos' &&
-            (perfil.productos.length === 0 ? (
+            (visibles.length === 0 ? (
               <p className="py-6 text-secundario">
                 {perfil.propia
                   ? 'Todavía no publicas nada con tu nombre a la vista.'
                   : 'Por ahora no tiene productos publicados.'}
               </p>
             ) : (
-              <ul className="m-0 grid list-none grid-cols-2 items-start gap-3 p-0 md:grid-cols-3 md:gap-3.5">
-                {perfil.productos.map((producto) => (
-                  <li key={producto.oferta_id} className="min-w-0">
-                    {/* La tarjeta de todo el sitio: borde de 2 px y precio con su burbujita (N04, N06). */}
-                    <TarjetaProducto
-                      href={`/p/${producto.producto.slug}?oferta=${producto.oferta_id}`}
-                      titulo={producto.producto.titulo}
-                      foto={producto.producto.foto}
-                      categoria={producto.producto.categoria.slug}
-                      precio={producto.precio}
-                      socio={producto.precio_socio}
-                      negociable={producto.negociable}
-                      linea={[textoEstado(producto.condicion), perfil.galeria]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    />
+              <ul
+                ref={grilla}
+                className="m-0 grid list-none grid-cols-2 items-start gap-3 p-0 md:grid-cols-3 md:gap-3.5"
+              >
+                {visibles.map((producto, indice) => (
+                  <li
+                    key={producto.oferta_id}
+                    data-acomodar={producto.oferta_id}
+                    className={`min-w-0 ${preguntando === producto.oferta_id ? 'relative z-20' : ''}`}
+                  >
+                    {perfil.propia ? (
+                      // Tu perfil: con el tachito y «Eliminar varias» (docs/19 §12).
+                      <TarjetaPropia
+                        producto={producto}
+                        galeria={perfil.galeria}
+                        indice={indice}
+                        varias={varias}
+                        marcada={marcadas.includes(producto.oferta_id)}
+                        preguntando={preguntando === producto.oferta_id}
+                        salida={salidas.get(producto.oferta_id) ?? null}
+                        volviendo={volviendo.has(producto.oferta_id)}
+                        alTocarTachito={() => setPreguntando(producto.oferta_id)}
+                        alConfirmar={() => sacar([producto.oferta_id], 'una')}
+                        alCancelar={() => setPreguntando(null)}
+                        alMarcar={() => marcar(producto.oferta_id)}
+                        alPresionLargo={() => entrarAVarias(producto.oferta_id)}
+                      />
+                    ) : (
+                      // La tarjeta de todo el sitio: borde de 2 px y precio con su burbujita (N04, N06).
+                      <TarjetaProducto
+                        href={`/p/${producto.producto.slug}?oferta=${producto.oferta_id}`}
+                        titulo={producto.producto.titulo}
+                        foto={producto.producto.foto}
+                        categoria={producto.producto.categoria.slug}
+                        precio={producto.precio}
+                        socio={producto.precio_socio}
+                        negociable={producto.negociable}
+                        variantes={producto.variantes}
+                        linea={[textoEstado(producto.condicion), perfil.galeria]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -626,6 +793,39 @@ export function PerfilDeTienda({
           </fieldset>
         )}
       </Hoja>
+
+      {varias && (
+        <BarraSeleccion
+          cuantas={marcadas.length}
+          alCancelar={salirDeVarias}
+          alEliminar={() => setConfirmando(true)}
+        />
+      )}
+      {confirmando && (
+        <ConfirmarVarias
+          cuantas={marcadas.length}
+          trabajando={pausando}
+          alCancelar={() => setConfirmando(false)}
+          alPausar={() => void pausarMarcadas()}
+          alEliminar={() => {
+            // En el orden de la lista: salen volando una detrás de otra.
+            const ids = visibles
+              .map((producto) => producto.oferta_id)
+              .filter((id) => marcadas.includes(id));
+            salirDeVarias();
+            sacar(ids, 'varias');
+          }}
+        />
+      )}
+      {/* Sigue a la vista con «Eliminar varias» abierto: arriba de la barra negra. */}
+      {borrado.pendiente && (
+        <AvisoDeshacer
+          cuantas={borrado.pendiente.ids.length}
+          desde={borrado.pendiente.desde}
+          sobreLaBarra={varias}
+          alDeshacer={() => devolver(borrado.deshacer())}
+        />
+      )}
 
       {aviso && (
         <div

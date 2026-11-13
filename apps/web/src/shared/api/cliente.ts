@@ -127,9 +127,15 @@ export function subirConAvance<T>(
   return { promesa, cancelar: () => xhr.abort() };
 }
 
-/** Sube una foto (`POST /v1/archivos`). La API la revisa, le quita el EXIF y la pasa a WebP. */
-export function subirFoto(archivo: File): Promise<ArchivoSubido> {
+/**
+ * Sube una foto (`POST /v1/archivos`). La API la revisa, le quita el EXIF y la pasa a WebP. Con
+ * `para: 'portada'` se guarda de hasta 2400 px (docs/19 §20); las demás, de 1600.
+ */
+export function subirFoto(archivo: File, para?: 'portada'): Promise<ArchivoSubido> {
   const formulario = new FormData();
   formulario.append('foto', archivo);
-  return llamarApi<ArchivoSubido>('/archivos', { metodo: 'POST', formulario });
+  return llamarApi<ArchivoSubido>(para ? `/archivos?para=${para}` : '/archivos', {
+    metodo: 'POST',
+    formulario,
+  });
 }

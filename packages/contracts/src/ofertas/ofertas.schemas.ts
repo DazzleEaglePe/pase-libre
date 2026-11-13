@@ -81,6 +81,10 @@ const textoOtroSchema = z
   .nullable()
   .transform((texto) => texto || null)
   .optional();
+/** «¿Para qué procesador es?» (docs/19 §13): Intel XMP, EXPO Ryzen o los dos. */
+export const PERFILES_MEMORIA = ['XMP', 'EXPO', 'AMBOS'] as const;
+/** El empaque (docs/19 §13): con caja (Box) u OEM sin caja (Tray). */
+export const EMPAQUES = ['CAJA', 'OEM'] as const;
 /** «¿Cómo lo vendes?»: pase (sin comprobante), facturado (con IGV) o los dos (PS_Precio). */
 export const MODOS_VENTA = ['PASE', 'FACTURADO', 'AMBOS'] as const;
 /** «¿Quién ve el precio?»: todas las tiendas con sesión, solo tus socios o nadie (por chat). */
@@ -109,6 +113,15 @@ const detalleOferta = {
   acepta_ofertas: z.boolean().optional(),
   /** «Precio fijo ▾ / Negociable» del campo de precio (N06). */
   negociable: z.boolean().optional(),
+  /** «¿Para qué procesador es?» (docs/19 §13), solo de memorias RAM; nulo, sin marcar. */
+  perfil_memoria: z
+    .enum(PERFILES_MEMORIA, 'Elige Intel XMP, EXPO Ryzen o los dos.')
+    .nullable()
+    .optional(),
+  /** «Con caja» u «OEM · sin caja» (docs/19 §13); nulo, sin marcar. */
+  empaque: z.enum(EMPAQUES, 'Elige con caja u OEM.').nullable().optional(),
+  /** Tarjetas de video: OC (verdadero) o normal (falso); nulo, sin marcar. */
+  oc: z.boolean().nullable().optional(),
 };
 const monedaSchema = z.enum(['USD', 'PEN'], 'Elige la moneda.');
 
@@ -263,6 +276,21 @@ export const misOfertasSchema = z.object({
   pagina: z.coerce.number().int().min(1).max(200).default(1),
 });
 
+/** «Eliminar varias» desde el perfil (docs/19 §12): de a cuántas como mucho. */
+export const MAX_ELIMINAR = 50;
+
+/**
+ * `POST /v1/ofertas/eliminar` (docs/19 §12): borra varias publicaciones de tu tienda de una vez.
+ * Como `DELETE /v1/ofertas/:id`, el borrado es lógico.
+ */
+export const eliminarOfertasSchema = z.strictObject({
+  ids: z
+    .array(z.uuid('Una de las publicaciones no existe.'))
+    .min(1, 'Elige al menos una publicación.')
+    .max(MAX_ELIMINAR, `Puedes eliminar hasta ${MAX_ELIMINAR} publicaciones a la vez.`)
+    .transform((ids) => [...new Set(ids)]),
+});
+
 /** «Siguen igual» (RF-10): sin `ids`, confirma todas las que piden revisión. */
 export const confirmarOfertasSchema = z.strictObject({
   ids: z.array(z.uuid()).max(500).optional(),
@@ -286,4 +314,5 @@ export type EditarOfertaEntrada = z.input<typeof editarOfertaSchema>;
 export type EditarOfertaDatos = z.output<typeof editarOfertaSchema>;
 export type MisOfertasConsulta = z.output<typeof misOfertasSchema>;
 export type ConfirmarOfertas = z.output<typeof confirmarOfertasSchema>;
+export type EliminarOfertasDatos = z.output<typeof eliminarOfertasSchema>;
 export type SugerenciasConsulta = z.output<typeof sugerenciasSchema>;

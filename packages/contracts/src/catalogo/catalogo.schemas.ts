@@ -38,6 +38,11 @@ export const buscarSchema = z.object({
   pagina: z.coerce.number().int().min(1).max(500).default(1),
   /** «Buscar … tal cual»: sin entender números ni categorías ni corregir letras (BUS_Web). */
   tal_cual: z.stringbool().default(false),
+  /**
+   * «Para Intel» o «Para Ryzen» en Memoria RAM (docs/19 §13): las memorias marcadas así o «Sirve
+   * para los dos» al publicar.
+   */
+  perfil: z.enum(['intel', 'ryzen']).optional(),
 });
 
 export const portadaSchema = z.object({

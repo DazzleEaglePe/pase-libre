@@ -1,5 +1,10 @@
 import type { Precio } from '../comun/dinero.js';
-import type { DetalleOferta, ModoVenta } from '../ofertas/ofertas.types.js';
+import type {
+  DetalleOferta,
+  ModoVenta,
+  PerfilMemoria,
+  VariantesOferta,
+} from '../ofertas/ofertas.types.js';
 import type { TipoTienda } from '../sesion/sesion.types.js';
 
 /**
@@ -203,6 +208,8 @@ export interface ProductoDetalle {
   etiquetas: string[];
   caracteristicas: Record<string, string>;
   fotos: Foto[];
+  /** Lo que dice el catálogo de una memoria RAM (docs/19 §13); nulo si no se sabe. */
+  perfil_memoria: PerfilMemoria | null;
 }
 
 /**
@@ -275,6 +282,8 @@ export interface TarjetaOferta {
   stock: number;
   galeria: string | null;
   actualizada_en: string;
+  /** Las pastillas del título (docs/19 §13): Intel XMP, EXPO Ryzen, OEM, OC. */
+  variantes?: VariantesOferta;
 }
 
 export interface TarjetaOfertaConVendedor extends TarjetaOferta {

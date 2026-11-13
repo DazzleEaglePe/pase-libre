@@ -1,4 +1,10 @@
-import { formatearPrecio, type Precio } from '@paselibre/contracts';
+import {
+  formatearPrecio,
+  pastillasDeVariantes,
+  type Precio,
+  type TonoPastilla,
+  type VariantesOferta,
+} from '@paselibre/contracts';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -61,6 +67,55 @@ export function BurbujaSocio() {
       </svg>
       Socio
     </span>
+  );
+}
+
+const COLOR_PASTILLA: Record<Exclude<TonoPastilla, 'negrita'>, string> = {
+  intel: 'bg-[#1d5fd1]',
+  ryzen: 'bg-[#e8590c]',
+  oem: 'bg-[#6b7872]',
+};
+
+/**
+ * Las pastillas pegadas al final del título (docs/19 §13): Intel XMP en azul, EXPO Ryzen en
+ * naranja (el color de AMD), OEM sin caja en gris, con letra blanca y en 800. OC va solo en
+ * negrita, sin color. `grande` es la de la ficha.
+ */
+export function PastillasTitulo({
+  variantes,
+  titulo = '',
+  grande = false,
+}: {
+  variantes: Partial<VariantesOferta> | null | undefined;
+  /** Para no repetir «OC» si el título ya lo dice. */
+  titulo?: string;
+  grande?: boolean;
+}) {
+  const pastillas = pastillasDeVariantes(variantes, titulo);
+  if (pastillas.length === 0) return null;
+  return (
+    <>
+      {pastillas.map((pastilla) =>
+        pastilla.tono === 'negrita' ? (
+          <b key={pastilla.texto} className="ml-1 font-extrabold text-tinta">
+            {pastilla.texto}
+          </b>
+        ) : (
+          <span
+            key={pastilla.texto}
+            className={`ml-1 inline-block whitespace-nowrap font-extrabold text-white ${
+              COLOR_PASTILLA[pastilla.tono]
+            } ${
+              grande
+                ? 'rounded-md px-2 py-0.5 align-middle text-[14px] leading-5'
+                : 'rounded-[5px] px-[5px] py-px align-[1px] text-[11px] leading-4'
+            }`}
+          >
+            {pastilla.texto}
+          </span>
+        ),
+      )}
+    </>
   );
 }
 
@@ -136,7 +191,13 @@ export function TarjetaProducto({
   linea,
   etiqueta,
   pie,
+  variantes,
   prioridad = false,
+  className = '',
+  accion,
+  enVezDelPrecio,
+  sobreFoto,
+  alTocar,
 }: {
   href: string;
   titulo: string;
@@ -156,13 +217,26 @@ export function TarjetaProducto({
   etiqueta?: string;
   /** Algo más al final (las vistas y los chats en tu propio perfil, por ejemplo). */
   pie?: ReactNode;
+  /** Las pastillas del título (docs/19 §13): Intel XMP, EXPO Ryzen, OEM, OC. */
+  variantes?: Partial<VariantesOferta> | null;
   prioridad?: boolean;
+  /** Clases de más (el perfil propio la levanta al pasar el mouse). */
+  className?: string;
+  /**
+   * Un botón a la derecha del precio, en su misma línea (el tachito del perfil propio, docs/19
+   * §12). Con él la tarjeta deja de ser un enlace entero: el enlace va en el título y se estira
+   * por encima de todo, y el botón queda arriba de él.
+   */
+  accion?: ReactNode;
+  /** Lo que va en vez del precio («Se elimina» al marcarla para eliminar). */
+  enVezDelPrecio?: ReactNode;
+  /** Lo que va encima de la foto (el tinte rojo de «Se elimina»). */
+  sobreFoto?: ReactNode;
+  /** Al tocarla no se abre: hace esto (marcar al eliminar varias). */
+  alTocar?: () => void;
 }) {
-  return (
-    <Link
-      href={href}
-      className="group flex h-full min-w-0 flex-col gap-1.5 rounded-[18px] border-2 border-borde bg-white p-2.5 text-tinta no-underline hover:border-borde-control"
-    >
+  const contenido = (
+    <>
       <span className="relative block">
         <Miniatura
           ruta={foto}
@@ -172,11 +246,39 @@ export function TarjetaProducto({
           grosor={2}
           prioridad={prioridad}
         />
+        {sobreFoto}
       </span>
       <b className="line-clamp-2 min-h-9 text-[13px] font-bold leading-[18px] group-hover:underline">
-        {titulo}
+        {accion ? (
+          <Link
+            href={href}
+            onClick={
+              alTocar
+                ? (evento) => {
+                    evento.preventDefault();
+                    alTocar();
+                  }
+                : undefined
+            }
+            className="text-tinta no-underline after:absolute after:inset-0 after:rounded-[18px] after:content-['']"
+          >
+            {titulo}
+          </Link>
+        ) : (
+          titulo
+        )}
+        <PastillasTitulo variantes={variantes} titulo={titulo} />
       </b>
-      <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />
+      {accion ? (
+        <span className="flex min-h-[26px] items-center justify-between gap-2">
+          {enVezDelPrecio ?? (
+            <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />
+          )}
+          <span className="relative z-10 flex shrink-0">{accion}</span>
+        </span>
+      ) : (
+        (enVezDelPrecio ?? <PrecioBurbuja precio={precio} socio={socio} negociable={negociable} />)
+      )}
       {linea && <span className="truncate text-[12px] leading-4 text-detalle">{linea}</span>}
       {etiqueta && (
         // «Hace 5 min» puede cambiar entre el servidor y el navegador.
@@ -188,6 +290,24 @@ export function TarjetaProducto({
         </span>
       )}
       {pie}
+    </>
+  );
+  const clases = `group flex h-full min-w-0 flex-col gap-1.5 rounded-[18px] border-2 border-borde bg-white p-2.5 text-tinta no-underline hover:border-borde-control ${className}`;
+  if (accion) return <div className={`relative ${clases}`}>{contenido}</div>;
+  return (
+    <Link
+      href={href}
+      onClick={
+        alTocar
+          ? (evento) => {
+              evento.preventDefault();
+              alTocar();
+            }
+          : undefined
+      }
+      className={clases}
+    >
+      {contenido}
     </Link>
   );
 }

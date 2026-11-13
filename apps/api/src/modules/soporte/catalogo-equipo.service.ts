@@ -2,6 +2,7 @@ import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
   normalizarTexto,
   slugDe,
+  textoPerfilMemoria,
   tituloDeProducto,
   type AgregarCatalogoDatos,
   type ArchivoSubido,
@@ -14,6 +15,7 @@ import {
   type MotivoFila,
   type MotivosImportacion,
   type ParecidoImportacion,
+  type PerfilMemoria,
   type ProductoDelCatalogo,
   type ProductoQueYaEsta,
   type RespuestaCatalogoEquipo,
@@ -58,6 +60,11 @@ interface FilaLeida {
   codigo_parte: string;
   sinonimos: string[];
   caracteristicas: Record<string, string>;
+  /**
+   * «Perfil de memoria» de la pestaña Memoria RAM (docs/19 §13), como lo escribieron: «Intel
+   * XMP», «EXPO Ryzen» o «Los dos». Vacío si no lo pusieron.
+   */
+  perfil_memoria?: string;
   foto: string;
   /** Los textos de `errores`: con alguno, la fila no se crea. */
   falta: string[];
@@ -103,6 +110,7 @@ const SELECT_YA_ESTA = {
   version: true,
   codigoParte: true,
   caracteristicas: true,
+  perfilMemoria: true,
   fusionadoEnId: true,
   categoria: { select: { slug: true, nombre: true } },
   marca: { select: { nombre: true } },
@@ -119,6 +127,21 @@ function textoCaracteristicas(valor: unknown): string {
     .map(([k, v]) => `${k}: ${String(v)}`)
     .sort()
     .join(' · ');
+}
+
+/**
+ * «Intel XMP», «EXPO Ryzen», «Los dos» (y como lo escriban: «xmp», «AMD», «ambos»…) de la columna
+ * «Perfil de memoria» (docs/19 §13). Nulo si está vacío o no se entiende.
+ */
+export function perfilDeTexto(texto: string | null | undefined): PerfilMemoria | null {
+  const limpio = normalizarTexto(texto ?? '');
+  if (!limpio) return null;
+  const intel = /\b(xmp|intel)\b/.test(limpio);
+  const amd = /\b(expo|amd|ryzen)\b/.test(limpio);
+  if ((intel && amd) || /\b(los dos|ambos|ambas|dos)\b/.test(limpio)) return 'AMBOS';
+  if (intel) return 'XMP';
+  if (amd) return 'EXPO';
+  return null;
 }
 
 /** Lo que cambiaría en un producto que ya está con «Reemplazar fotos y datos». */
@@ -168,6 +191,14 @@ function cambiosDe(
       });
     }
   }
+  const perfil = perfilDeTexto(fila.perfil_memoria);
+  if (perfil && perfil !== producto.perfilMemoria) {
+    cambios.push({
+      campo: 'Perfil de memoria',
+      antes: producto.perfilMemoria ? textoPerfilMemoria(producto.perfilMemoria) : 'sin perfil',
+      despues: textoPerfilMemoria(perfil),
+    });
+  }
   if (Object.keys(fila.caracteristicas).length > 0) {
     const antes = textoCaracteristicas(producto.caracteristicas);
     const despues = textoCaracteristicas(fila.caracteristicas);
@@ -188,7 +219,14 @@ function clave(texto: string): string {
 
 const COLUMNAS: Record<
   string,
-  'categoria' | 'marca' | 'modelo' | 'version' | 'codigo_parte' | 'sinonimos' | 'foto'
+  | 'categoria'
+  | 'marca'
+  | 'modelo'
+  | 'version'
+  | 'codigo_parte'
+  | 'sinonimos'
+  | 'perfil_memoria'
+  | 'foto'
 > = {
   categoria: 'categoria',
   marca: 'marca',
@@ -202,6 +240,8 @@ const COLUMNAS: Record<
   codigo: 'codigo_parte',
   part_number: 'codigo_parte',
   sinonimos: 'sinonimos',
+  perfil_de_memoria: 'perfil_memoria',
+  perfil_memoria: 'perfil_memoria',
   foto: 'foto',
 };
 
@@ -670,6 +710,8 @@ export class CatalogoEquipoService {
       codigo_parte: string;
       sinonimos: string[];
       caracteristicas: Record<string, string>;
+      /** Memoria RAM (docs/19 §13): para qué procesador es, si se sabe. */
+      perfil_memoria?: PerfilMemoria | null;
       fotos: Array<{ ruta: string; ancho: number | null; alto: number | null }>;
     },
   ): Promise<string | null> {
@@ -699,6 +741,7 @@ export class CatalogoEquipoService {
         slug,
         textoBusqueda,
         caracteristicas: datos.caracteristicas,
+        perfilMemoria: datos.perfil_memoria ?? null,
         revisado: true,
         fotos: {
           create: datos.fotos.map((foto, orden) => ({
@@ -1345,6 +1388,7 @@ export class CatalogoEquipoService {
             codigo_parte: fila.codigo_parte,
             sinonimos: fila.sinonimos,
             caracteristicas: fila.caracteristicas,
+            perfil_memoria: perfilDeTexto(fila.perfil_memoria),
             fotos: foto ? [foto] : [],
           });
           if (nuevo) {
@@ -1446,6 +1490,9 @@ export class CatalogoEquipoService {
           ...(categoria ? { categoriaId: categoria.id } : {}),
           ...(Object.keys(fila.caracteristicas).length
             ? { caracteristicas: fila.caracteristicas }
+            : {}),
+          ...(perfilDeTexto(fila.perfil_memoria)
+            ? { perfilMemoria: perfilDeTexto(fila.perfil_memoria) }
             : {}),
           textoBusqueda: normalizarTexto(
             [titulo, marca.nombre, fila.modelo, codigo ?? '', ...sinonimos].join(' '),

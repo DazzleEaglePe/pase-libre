@@ -62,6 +62,7 @@ function claveDeVisitante(consulta: BuscarConsulta): string {
     consulta.stock,
     consulta.pagina,
     consulta.tal_cual,
+    consulta.perfil ?? '',
   ]);
 }
 
@@ -528,6 +529,7 @@ export class BusquedaService {
       consulta.galeria.length === 0 &&
       consulta.condicion.length === 0 &&
       !consulta.stock &&
+      !consulta.perfil &&
       !porPrecio
     );
   }
@@ -550,6 +552,11 @@ export class BusquedaService {
       condiciones.push(Prisma.sql`o.condicion::text IN (${Prisma.join(valores)})`);
     }
     if (consulta.stock) condiciones.push(Prisma.sql`o.stock > 0`);
+    // «Para Intel» / «Para Ryzen» (docs/19 §13): lo marcado así o «Sirve para los dos».
+    if (consulta.perfil) {
+      const perfil = consulta.perfil === 'intel' ? 'XMP' : 'EXPO';
+      condiciones.push(Prisma.sql`o.perfil_memoria::text IN (${perfil}, 'AMBOS')`);
+    }
     if (conPrecio && (consulta.precio_min !== undefined || consulta.precio_max !== undefined)) {
       // Las ofertas al interno siempre se muestran; las visibles en otra moneda no se comparan.
       const minimo = Math.round((consulta.precio_min ?? 0) * 100);

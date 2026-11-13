@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 import { haceCuanto } from '@/shared/fechas';
 import { Miniatura } from '@/shared/ui/miniatura';
-import { PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
+import { PastillasTitulo, PrecioBurbuja } from '@/shared/ui/tarjeta-producto';
 
 import { PrecioConSesion } from './precio-con-sesion';
 import { textoEstado, textoStock } from './textos';
@@ -45,6 +45,7 @@ export function TarjetaOfertaPortada({
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="line-clamp-2 text-apoyo font-semibold text-tinta">
           {tarjeta.producto.titulo}
+          <PastillasTitulo variantes={tarjeta.variantes} titulo={tarjeta.producto.titulo} />
         </span>
         <span className="text-nota text-detalle">
           {[textoEstado(tarjeta.condicion), ...lugar, haceCuanto(tarjeta.actualizada_en)]

@@ -1,5 +1,6 @@
 import type { Condicion } from '../catalogo/catalogo.types.js';
 import type { Precio } from '../comun/dinero.js';
+import type { VariantesOferta } from '../ofertas/ofertas.types.js';
 import type { TramoHorario } from './horario.js';
 import type { NivelReputacion } from './reputacion.js';
 import type { AVISOS_SEGUIMIENTO } from './tiendas.schemas.js';
@@ -46,6 +47,8 @@ export interface ProductoDeTienda {
   precio_socio: boolean;
   /** Pase que se puede conversar: burbujita «Negociable». */
   negociable: boolean;
+  /** Las pastillas del título (docs/19 §13). */
+  variantes?: VariantesOferta;
 }
 
 /**
@@ -59,6 +62,10 @@ export interface PortadaTienda {
   alto: number | null;
   /** Qué parte se ve, de arriba (0) a abajo (100): «Acomodar». */
   posicion: number;
+  /** El zoom (docs/19 §20), de 1 a 4. */
+  zoom: number;
+  /** Qué parte se ve a lo ancho, de la izquierda (0) a la derecha (100). */
+  x: number;
 }
 
 export interface PerfilTienda {

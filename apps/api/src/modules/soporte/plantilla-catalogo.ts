@@ -28,6 +28,8 @@ interface Columna {
 
 const TIPOS_GDDR = ['GDDR5', 'GDDR6', 'GDDR6X', 'GDDR7'];
 const DDR = ['DDR4', 'DDR5'];
+/** «Perfil de memoria» (docs/19 §13): con él, «¿Para qué procesador es?» viene marcado al publicar. */
+export const PERFILES_DE_MEMORIA = ['Intel XMP', 'EXPO Ryzen', 'Los dos'];
 const PANELES = ['IPS', 'VA', 'TN', 'OLED', 'Mini LED'];
 const CONEXIONES = ['Cableada', 'Inalámbrica', 'Bluetooth', 'Inalámbrica + Bluetooth'];
 const CERTIFICACIONES = [
@@ -67,6 +69,7 @@ const PROPIAS: Record<string, Columna[]> = {
     { titulo: 'Velocidad' },
     { titulo: 'Latencia' },
     { titulo: 'Formato' },
+    { titulo: 'Perfil de memoria', opciones: PERFILES_DE_MEMORIA, ancho: 18 },
   ],
   almacenamiento: [
     { titulo: 'Tipo', obligatoria: true },
