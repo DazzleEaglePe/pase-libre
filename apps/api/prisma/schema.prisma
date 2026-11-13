@@ -647,17 +647,21 @@ model Termino {
 // ── Mensajes y avisos (bandeja por persona, A-11) ──────────────────────────
 
 model Conversacion {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ofertaId           String   @map("oferta_id") @db.Uuid
-  compradorId        String   @map("comprador_id") @db.Uuid
-  vendedorId         String   @map("vendedor_id") @db.Uuid
-  tiendaCompradoraId String   @map("tienda_compradora_id") @db.Uuid
-  tiendaVendedoraId  String   @map("tienda_vendedora_id") @db.Uuid
-  ultimoMensajeEn    DateTime @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
-  creadaEn           DateTime @default(now()) @map("creada_en") @db.Timestamptz(6)
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ofertaId           String    @map("oferta_id") @db.Uuid
+  compradorId        String    @map("comprador_id") @db.Uuid
+  vendedorId         String    @map("vendedor_id") @db.Uuid
+  tiendaCompradoraId String    @map("tienda_compradora_id") @db.Uuid
+  tiendaVendedoraId  String    @map("tienda_vendedora_id") @db.Uuid
+  ultimoMensajeEn    DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
+  creadaEn           DateTime  @default(now()) @map("creada_en") @db.Timestamptz(6)
   /// La tarjeta en vivo que el chat muestra arriba (D-53): el hilo nació de un «¡Lo tengo!»
   /// o un «¡Lo quiero!».
-  enVivoId           String?  @map("en_vivo_id") @db.Uuid
+  enVivoId           String?   @map("en_vivo_id") @db.Uuid
+  /// «¿Lograste cerrar el trato?» (doc 19, punto 17): «Todavía no» la esconde 24 h; la X, para
+  /// siempre en este chat.
+  tratoPospuestoEn   DateTime? @map("trato_pospuesto_en") @db.Timestamptz(6)
+  tratoDescartadoEn  DateTime? @map("trato_descartado_en") @db.Timestamptz(6)
 
   oferta           Oferta            @relation(fields: [ofertaId], references: [id])
   comprador        Usuario           @relation("Comprador", fields: [compradorId], references: [id])
@@ -937,6 +941,8 @@ model Aviso {
   /// La foto del pedido en vivo (doc 19, punto 21); nula en los demás avisos.
   foto           String?   @db.VarChar(300)
   conversacionId String?   @map("conversacion_id") @db.Uuid
+  /// El chat con el Equipo: un aviso por hilo que se actualiza (doc 19, punto 16).
+  hiloEquipoId   String?   @map("hilo_equipo_id") @db.Uuid
   /// Con «No molestar», el aviso aparece al terminar el horario.
   visibleDesde   DateTime  @default(now()) @map("visible_desde") @db.Timestamptz(6)
   leidoEn        DateTime? @map("leido_en") @db.Timestamptz(6)
@@ -945,8 +951,10 @@ model Aviso {
 
   usuario      Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   conversacion Conversacion? @relation(fields: [conversacionId], references: [id], onDelete: Cascade)
+  hiloEquipo   HiloEquipo?   @relation(fields: [hiloEquipoId], references: [id], onDelete: Cascade)
 
   @@unique([usuarioId, conversacionId])
+  @@unique([usuarioId, hiloEquipoId])
   @@index([usuarioId, leidoEn, visibleDesde])
   @@index([usuarioId, actualizadoEn])
   @@map("aviso")
@@ -1323,16 +1331,21 @@ model PrecioDiario {
 /// El chat oficial con el equipo (REP_WebChatEquipo): uno por tienda, fijado arriba en Mensajes.
 /// El equipo puede escribir primero (por un reporte, por ejemplo) y la tienda contesta.
 model HiloEquipo {
-  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tiendaId         String    @unique @map("tienda_id") @db.Uuid
-  ultimoMensajeEn  DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tiendaId             String    @unique @map("tienda_id") @db.Uuid
+  ultimoMensajeEn      DateTime  @default(now()) @map("ultimo_mensaje_en") @db.Timestamptz(6)
   /// Hasta dónde leyó la tienda y hasta dónde el equipo.
-  leidoTiendaHasta DateTime? @map("leido_tienda_hasta") @db.Timestamptz(6)
-  leidoEquipoHasta DateTime? @map("leido_equipo_hasta") @db.Timestamptz(6)
-  creadoEn         DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
+  leidoTiendaHasta     DateTime? @map("leido_tienda_hasta") @db.Timestamptz(6)
+  leidoEquipoHasta     DateTime? @map("leido_equipo_hasta") @db.Timestamptz(6)
+  /// Hasta cuándo le llegaron los mensajes a la tienda y al Equipo (✓✓ gris, doc 19 punto 18).
+  entregadoTiendaHasta DateTime? @map("entregado_tienda_hasta") @db.Timestamptz(6)
+  entregadoEquipoHasta DateTime? @map("entregado_equipo_hasta") @db.Timestamptz(6)
+  creadoEn             DateTime  @default(now()) @map("creado_en") @db.Timestamptz(6)
 
   tienda   Tienda          @relation(fields: [tiendaId], references: [id], onDelete: Cascade)
   mensajes MensajeEquipo[]
+  /// Un aviso por persona y por hilo (doc 19, punto 16).
+  avisos   Aviso[]
 
   @@index([ultimoMensajeEn])
   @@map("hilo_equipo")

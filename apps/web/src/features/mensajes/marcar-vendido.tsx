@@ -1,16 +1,30 @@
 'use client';
 
 import type { DetalleConversacion, RespuestaVendido } from '@paselibre/contracts';
-import { IconCheck } from '@tabler/icons-react';
+import { IconTag } from '@tabler/icons-react';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 
+/** «Baja 1 unidad de tu stock»: la venta a la tienda de este chat (RF-47). */
+export function registrarVenta(detalle: DetalleConversacion): Promise<RespuestaVendido> {
+  return llamarApi<RespuestaVendido>(`/ofertas/${detalle.oferta.id}/vendido`, {
+    metodo: 'POST',
+    cuerpo: { conversacion_id: detalle.id },
+  });
+}
+
+/** «Deshacer» la venta (N02): vuelve la unidad al stock. */
+export function deshacerVenta(ventaId: string): Promise<RespuestaVendido> {
+  return llamarApi<RespuestaVendido>(`/ventas/${ventaId}/deshacer`, { metodo: 'POST' });
+}
+
 /**
- * «Marcar vendido» en la franja «Hablan de» (N02, elegido A): blanco, verde suave al pasar el
- * cursor, la confirmación «¿Se la vendiste a…?» y, ya vendido, verde sólido con «Deshacer».
- * Solo lo ve quien vende. Sin stock y sin venta, «Reponer stock».
+ * «Marcar vendido» en la cabecera del chat, al lado de «Pedir WhatsApp» (doc 19, punto 17,
+ * botón A sin X): negro con el ícono de etiqueta; en el celular, solo el ícono y «Vendido».
+ * Ya vendido, una pastilla verde suave «Vendido · quedan N» y «Deshacer» subrayado. Solo lo ve
+ * quien vende. Sin stock y sin venta, «Reponer stock».
  */
 export function MarcarVendido({
   detalle,
@@ -43,10 +57,7 @@ export function MarcarVendido({
   async function vender() {
     setEnviando(true);
     try {
-      const respuesta = await llamarApi<RespuestaVendido>(`/ofertas/${oferta.id}/vendido`, {
-        metodo: 'POST',
-        cuerpo: { conversacion_id: detalle.id },
-      });
+      const respuesta = await registrarVenta(detalle);
       setConfirmando(false);
       alVender(respuesta);
     } catch (e) {
@@ -60,9 +71,7 @@ export function MarcarVendido({
     if (!venta) return;
     setEnviando(true);
     try {
-      alDeshacer(
-        await llamarApi<RespuestaVendido>(`/ventas/${venta.id}/deshacer`, { metodo: 'POST' }),
-      );
+      alDeshacer(await deshacerVenta(venta.id));
     } catch (e) {
       alError(e instanceof ErrorApi ? e.message : 'No pudimos deshacer la venta.');
     } finally {
@@ -71,21 +80,23 @@ export function MarcarVendido({
   }
 
   if (venta && venta.mi_lado === 'vendedor') {
+    // En el celular no entra todo en la cabecera: «Deshacer» va en el menú ⋯ del chat.
     return (
-      <span className="flex shrink-0 items-center gap-2.5">
+      <span className="flex shrink-0 items-center gap-2">
         <span
           role="status"
-          className="flex h-9 items-center gap-1.5 rounded-full bg-pase px-3.5 text-nota font-bold text-white"
+          className="flex h-[38px] items-center gap-[7px] whitespace-nowrap rounded-full bg-[#e9f7ef] pl-3 pr-3.5 text-[13.5px] font-extrabold text-[#006b47] max-sm:gap-1.5 max-sm:px-2.5"
         >
-          <IconCheck size={16} stroke={2.4} aria-hidden="true" />
+          <IconTag size={17} stroke={2} aria-hidden="true" />
           Vendido
+          <span className="max-sm:sr-only xl:max-2xl:sr-only">· quedan {oferta.stock}</span>
         </span>
         {venta.puede_deshacer && (
           <button
             type="button"
             disabled={enviando}
             onClick={() => void deshacer()}
-            className="text-nota font-medium text-tinta underline disabled:text-detalle"
+            className="text-[12.5px] text-secundario underline disabled:text-detalle max-sm:hidden"
           >
             Deshacer
           </button>
@@ -108,14 +119,11 @@ export function MarcarVendido({
         type="button"
         aria-expanded={confirmando}
         onClick={() => setConfirmando(!confirmando)}
-        className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border-[1.5px] px-3.5 text-nota font-bold transition-colors ${
-          confirmando
-            ? 'border-pase bg-pase-suave text-pase-texto'
-            : 'border-borde bg-white text-tinta hover:border-pase hover:bg-pase-suave hover:text-pase-texto'
-        }`}
+        className="flex h-[38px] shrink-0 items-center gap-[7px] rounded-full bg-[#0f1412] pl-[13px] pr-4 text-[13.5px] font-bold text-white max-sm:px-3"
       >
-        <IconCheck size={16} stroke={2.2} aria-hidden="true" />
-        Marcar vendido
+        <IconTag size={17} stroke={2} aria-hidden="true" />
+        <span className="max-sm:hidden xl:max-2xl:hidden">Marcar vendido</span>
+        <span className="sm:hidden xl:max-2xl:inline">Vendido</span>
       </button>
       {confirmando && (
         <>

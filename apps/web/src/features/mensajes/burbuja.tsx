@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { hora } from '@/shared/fechas';
 
+import { claseDe, type EntradaMensaje } from './entradas';
 import {
   enlaceWhatsapp,
   minutosQueQuedan,
@@ -23,10 +24,34 @@ import {
 /** Lo que se puede hacer con un mensaje desde su menú (N01). */
 export type AccionMensaje = 'responder' | 'copiar' | 'editar' | 'eliminar-todos' | 'eliminar-mi';
 
-/** Un check, dos grises o dos verdes (N01). Sobre la burbuja negra, los verdes son los claros. */
-function Checks({ estado }: { estado: EstadoCheck }) {
-  const color = estado === 'leido' ? '#3BDB8A' : '#AAB6B0';
+/**
+ * Un check, dos grises o dos verdes (N01). Sobre la burbuja negra, los verdes son los claros;
+ * sobre una clara (`fondo="claro"`), el verde y el gris del lienzo. Al pasar a «lo leyó» da un
+ * rebote chico (doc 19, punto 19), salvo con «reducir movimiento».
+ */
+export function Checks({
+  estado,
+  fondo = 'oscuro',
+}: {
+  estado: EstadoCheck;
+  fondo?: 'oscuro' | 'claro';
+}) {
+  const color =
+    fondo === 'oscuro'
+      ? estado === 'leido'
+        ? '#3BDB8A'
+        : '#AAB6B0'
+      : estado === 'leido'
+        ? '#00875A'
+        : '#8A958F';
   const nombre = estado === 'leido' ? 'Lo leyó' : estado === 'recibido' ? 'Le llegó' : 'Enviado';
+  // Solo rebota al cambiar mientras se mira, no al abrir el chat con todo ya leído.
+  const antes = useRef(estado);
+  const [rebote, setRebote] = useState(false);
+  useEffect(() => {
+    if (antes.current !== estado && estado === 'leido') setRebote(true);
+    antes.current = estado;
+  }, [estado]);
   return (
     <svg
       role="img"
@@ -34,7 +59,8 @@ function Checks({ estado }: { estado: EstadoCheck }) {
       width={estado === 'enviado' ? 16 : 20}
       height="12"
       viewBox={estado === 'enviado' ? '0 0 16 12' : '0 0 20 12'}
-      className="shrink-0"
+      data-check={`${fondo}-${estado}`}
+      className={`shrink-0 ${rebote ? 'chat-check-rebote' : ''}`}
     >
       <title>{nombre}</title>
       <path
@@ -145,11 +171,13 @@ function ConMenu({
   m,
   ahora,
   alElegir,
+  entrada,
   children,
 }: {
   m: MensajeChat;
   ahora: Date;
   alElegir: (accion: AccionMensaje) => void;
+  entrada?: EntradaMensaje | null;
   children: ReactNode;
 }) {
   const [posicion, setPosicion] = useState<{ top: number; left: number } | null>(null);
@@ -182,7 +210,7 @@ function ConMenu({
     <div
       className={`group relative flex max-w-[85%] items-center gap-1.5 [-webkit-touch-callout:none] max-lg:select-none sm:max-w-[72%] ${
         m.mio ? 'flex-row-reverse self-end' : 'self-start'
-      }`}
+      } ${claseDe(entrada)}`}
       // En el celular, mantener presionado abre el menú (y no el del navegador).
       onPointerDown={(evento) => {
         tactil.current = evento.pointerType === 'touch';
@@ -406,6 +434,7 @@ export function Burbuja({
   alElegir,
   alResponderPedido,
   alCompartir,
+  entrada = null,
 }: {
   m: MensajeChat;
   /** El nombre de la otra tienda. */
@@ -417,6 +446,8 @@ export function Burbuja({
   alElegir: (m: MensajeChat, accion: AccionMensaje) => void;
   alResponderPedido: (m: MensajeChat, aceptar: boolean) => Promise<void>;
   alCompartir: () => void;
+  /** Llegó o lo enviaste recién, con el chat abierto (doc 19, punto 19). */
+  entrada?: EntradaMensaje | null;
 }) {
   if (m.tipo === 'SISTEMA') {
     return (
@@ -442,7 +473,7 @@ export function Burbuja({
   const elegir = (accion: AccionMensaje) => alElegir(m, accion);
   if (m.eliminado) {
     return (
-      <ConMenu m={m} ahora={ahora} alElegir={elegir}>
+      <ConMenu m={m} ahora={ahora} alElegir={elegir} entrada={entrada}>
         <span className="block rounded-2xl border-[1.5px] border-dashed border-borde px-3.5 py-2 text-apoyo italic text-detalle">
           🚫 {m.mio ? 'Eliminaste este mensaje' : 'Se eliminó este mensaje'}
         </span>
@@ -451,13 +482,13 @@ export function Burbuja({
   }
   if (m.tipo === 'WHATSAPP') {
     return (
-      <ConMenu m={m} ahora={ahora} alElegir={elegir}>
+      <ConMenu m={m} ahora={ahora} alElegir={elegir} entrada={entrada}>
         <TarjetaWhatsapp m={m} otro={otro} />
       </ConMenu>
     );
   }
   return (
-    <ConMenu m={m} ahora={ahora} alElegir={elegir}>
+    <ConMenu m={m} ahora={ahora} alElegir={elegir} entrada={entrada}>
       <div
         className={`flex flex-col gap-0.5 px-3.5 py-2.5 ${
           m.mio

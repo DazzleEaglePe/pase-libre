@@ -23,6 +23,7 @@ import {
   IconArrowBackUp,
   IconBrandWhatsapp,
   IconCheck,
+  IconClock,
   IconMapPin,
   IconPencil,
   IconStarFilled,
@@ -42,12 +43,14 @@ import {
 import { EnVivoEnElChat } from '@/features/en-vivo/en-chat';
 import { VentanaBloquear, VentanaReporte } from '@/features/reportes/ventanas';
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
-import { cuandoFue, diaDelChat, haceRato } from '@/shared/fechas';
+import { useAvisarEscribiendo, useEscribiendo } from '@/shared/escribiendo';
+import { cuandoFue, diaDelChat, haceRato, hora } from '@/shared/fechas';
 import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { Miniatura } from '@/shared/ui/miniatura';
 
 import { Burbuja, type AccionMensaje } from './burbuja';
+import type { EntradaMensaje } from './entradas';
 import { CalificarEnChat } from './calificar-en-chat';
 import {
   enlaceWhatsapp,
@@ -56,7 +59,9 @@ import {
   numeroConPrefijo,
   textoActivo,
 } from './estado-chat';
-import { MarcarVendido } from './marcar-vendido';
+import { deshacerVenta, MarcarVendido } from './marcar-vendido';
+import { Puntitos } from './puntitos';
+import { mostrarTarjetaTrato, TarjetaTrato } from './tarjeta-trato';
 
 const TIPOS_FOTO = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -344,6 +349,17 @@ export function Conversacion({
   const entrada = useRef<HTMLInputElement>(null);
   // Lo que estaba escrito antes de editar un mensaje: vuelve al terminar.
   const borradorGuardado = useRef('');
+  // Doc 19, punto 19: los mensajes que llegan o salen con el chat abierto entran con animación;
+  // tu texto sale al instante con el reloj y el avioncito da un saltito.
+  const entradas = useRef(new Map<string, EntradaMensaje>());
+  const [saliendo, setSaliendo] = useState<string | null>(null);
+  const [vuelo, setVuelo] = useState(0);
+  const escribiendo = useEscribiendo();
+  const otroEscribe = escribiendo.enConversacion(id);
+  useAvisarEscribiendo(
+    detalle && !detalle.bloqueaste && !editando ? { conversacion_id: id } : null,
+    borrador,
+  );
 
   const leer = useCallback(() => {
     void llamarApi<DetalleConversacion>(`/conversaciones/${id}`, {
@@ -397,11 +413,12 @@ export function Conversacion({
     return () => clearTimeout(reloj);
   }, [aviso]);
 
-  // Baja al último mensaje al abrir y cuando llega uno nuevo, salvo que estén leyendo arriba.
+  // Baja al último mensaje al abrir y cuando llega uno nuevo (o los puntitos), salvo que estén
+  // leyendo arriba.
   useLayoutEffect(() => {
     const caja = historial.current;
     if (caja && alFondo.current) caja.scrollTop = caja.scrollHeight;
-  }, [mensajes]);
+  }, [mensajes, otroEscribe, saliendo]);
 
   // Una foto cambia de alto al cargar: si estaban al fondo, se vuelve a bajar.
   const bajarSiHaceFalta = () => {
@@ -438,6 +455,9 @@ export function Conversacion({
   useEvento<EventoMensajeNuevo>(EVENTOS.mensajeNuevo, (evento) => {
     if (evento.conversacion_id !== id) return;
     const { mensaje } = evento;
+    if (!mensaje.mio) entradas.current.set(mensaje.id, 'llega');
+    // El tuyo puede llegar por aquí antes que la respuesta del envío: reemplaza al del reloj.
+    else setSaliendo((texto) => (texto !== null && texto === mensaje.texto ? null : texto));
     agregar(mensaje);
     if (!mensaje.mio && document.visibilityState === 'visible') leer();
     // Una venta marcada o deshecha, o un WhatsApp que llegó: cambian la cabecera y lo que se
@@ -507,7 +527,11 @@ export function Conversacion({
     });
   }
 
-  async function enviar(cuerpo: { texto?: string; foto?: string; responde_a?: string }) {
+  async function enviar(
+    cuerpo: { texto?: string; foto?: string; responde_a?: string },
+    /** Ya salió con el reloj (`saliendo`): el de verdad lo reemplaza sin volver a animarse. */
+    yaSalio = false,
+  ) {
     setEnviando(true);
     setError(null);
     try {
@@ -516,6 +540,7 @@ export function Conversacion({
         cuerpo,
       });
       alFondo.current = true;
+      if (!yaSalio) entradas.current.set(mensaje.id, 'sale');
       agregar(mensaje);
       setRespondiendo(null);
       return true;
@@ -564,9 +589,17 @@ export function Conversacion({
       setBorrador('');
       return;
     }
-    if (await enviar({ texto, ...(respondiendo ? { responde_a: respondiendo.id } : {}) })) {
-      setBorrador('');
-    }
+    // Sale al instante con el reloj; si falla, el texto vuelve a la caja.
+    setBorrador('');
+    setSaliendo(texto);
+    setVuelo((n) => n + 1);
+    alFondo.current = true;
+    const salio = await enviar(
+      { texto, ...(respondiendo ? { responde_a: respondiendo.id } : {}) },
+      true,
+    );
+    setSaliendo(null);
+    if (!salio) setBorrador((ahora) => ahora || texto);
   }
 
   // Sin conexión: el aviso arriba y los mensajes en espera; al volver, se envían en orden.
@@ -729,6 +762,28 @@ export function Conversacion({
     }
   }
 
+  /** Desde «Marcar vendido» o desde «¿Lograste cerrar el trato?» (doc 19, punto 17). */
+  function alVender(venta: RespuestaVendido) {
+    alFondo.current = true;
+    void cargar();
+    setAviso(`Listo: stock ${venta.stock_antes} → ${venta.stock_despues}.`);
+  }
+
+  function alDeshacer(venta: RespuestaVendido) {
+    alFondo.current = true;
+    void cargar();
+    setAviso(`Deshiciste la venta: stock ${venta.stock_antes} → ${venta.stock_despues}.`);
+  }
+
+  async function deshacerDesdeMenu(ventaId: string) {
+    setMenu(false);
+    try {
+      alDeshacer(await deshacerVenta(ventaId));
+    } catch (e) {
+      setError(e instanceof ErrorApi ? e.message : 'No pudimos deshacer la venta.');
+    }
+  }
+
   async function cambiar(cambios: CambiarConversacion, mensaje: string) {
     setMenu(false);
     try {
@@ -799,7 +854,7 @@ export function Conversacion({
         aria-label={`Conversación con ${otro.tienda.nombre}`}
         className="relative flex h-[calc(100dvh-160px)] min-h-[480px] min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border-[1.5px] border-linea lg:h-auto lg:min-h-0 lg:rounded-none lg:border-0"
       >
-        <div className="flex items-center gap-3 border-b border-linea px-3 py-3 sm:px-4">
+        <div className="relative flex items-center gap-3 border-b border-linea px-3 py-3 max-sm:gap-2 sm:px-4">
           <Link
             href="/mensajes"
             aria-label="Volver a Mensajes"
@@ -831,8 +886,15 @@ export function Conversacion({
           <span className="flex min-w-0 flex-1 flex-col">
             <b className="truncate text-tarjeta">{otro.tienda.nombre}</b>
             <span className="truncate text-nota text-secundario">
-              {otro.en_linea ? <b className="font-bold text-pase-texto">● {activo}</b> : activo}
-              {activo && !reservada ? ' · ' : ''}
+              {otroEscribe ? (
+                // Doc 19, punto 19: «Activo ahora» pasa a «escribiendo…» en verde e itálica.
+                <i className="font-bold text-pase-texto">escribiendo…</i>
+              ) : otro.en_linea ? (
+                <b className="font-bold text-pase-texto">● {activo}</b>
+              ) : (
+                activo
+              )}
+              {(activo || otroEscribe) && !reservada ? ' · ' : ''}
               {!reservada && lugar}
             </span>
           </span>
@@ -841,6 +903,15 @@ export function Conversacion({
             pidiendo={pidiendo}
             alPedir={() => void pedirWhatsapp()}
           />
+          {/* Doc 19, punto 17: «Marcar vendido» va aquí, junto a «Pedir WhatsApp». */}
+          {puedeMarcarVendido && (
+            <MarcarVendido
+              detalle={detalle}
+              alError={setError}
+              alVender={alVender}
+              alDeshacer={alDeshacer}
+            />
+          )}
           <div className="relative">
             <button
               type="button"
@@ -885,6 +956,19 @@ export function Conversacion({
                       Compartir mi WhatsApp
                     </button>
                   )}
+                  {/* En el celular, «Deshacer» de la venta no entra en la cabecera (doc 19, 17). */}
+                  {puedeMarcarVendido &&
+                    detalle.venta?.mi_lado === 'vendedor' &&
+                    detalle.venta.puede_deshacer && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => void deshacerDesdeMenu(detalle.venta?.id ?? '')}
+                        className="min-h-11 rounded-[10px] px-3 text-left hover:bg-superficie sm:hidden"
+                      >
+                        Deshacer la venta
+                      </button>
+                    )}
                   <button
                     type="button"
                     role="menuitem"
@@ -1019,24 +1103,6 @@ export function Conversacion({
               );
             })}
           </div>
-          {puedeMarcarVendido && (
-            <MarcarVendido
-              detalle={detalle}
-              alError={setError}
-              alVender={(venta) => {
-                alFondo.current = true;
-                void cargar();
-                setAviso(`Listo: stock ${venta.stock_antes} → ${venta.stock_despues}.`);
-              }}
-              alDeshacer={(venta: RespuestaVendido) => {
-                alFondo.current = true;
-                void cargar();
-                setAviso(
-                  `Deshiciste la venta: stock ${venta.stock_antes} → ${venta.stock_despues}.`,
-                );
-              }}
-            />
-          )}
         </div>
         {detalle.en_vivo && (
           <EnVivoEnElChat enVivo={detalle.en_vivo} alCambiar={() => void cargar()} />
@@ -1123,10 +1189,23 @@ export function Conversacion({
                   alElegir={(mensaje, accion) => void alElegir(mensaje, accion)}
                   alResponderPedido={responderPedido}
                   alCompartir={() => void compartirWhatsapp()}
+                  entrada={entradas.current.get(m.id) ?? null}
                 />
               </Fragment>
             );
           })}
+          {saliendo !== null && (
+            <div className="chat-sale flex max-w-[85%] shrink-0 flex-col self-end sm:max-w-[72%]">
+              <span className="flex flex-col gap-0.5 rounded-[18px_18px_6px_18px] bg-tinta px-3.5 py-2.5 text-white">
+                <span className="whitespace-pre-wrap break-words">{saliendo}</span>
+                <span className="flex items-center justify-end gap-1.5 text-[11px] text-[#AAB6B0]">
+                  <span>{hora(new Date().toISOString())}</span>
+                  <IconClock size={12} stroke={2} role="img" aria-label="Enviando" />
+                </span>
+              </span>
+            </div>
+          )}
+          {otroEscribe && <Puntitos quien={otro.tienda.nombre} />}
           {pendientes.map((texto, indice) => (
             <div
               key={`${indice}-${texto}`}
@@ -1138,6 +1217,16 @@ export function Conversacion({
               <span className="text-[12px] text-detalle">Se envía cuando vuelva la señal</span>
             </div>
           ))}
+          {puedeMarcarVendido && mostrarTarjetaTrato(detalle, mensajes, ahora) && (
+            <TarjetaTrato
+              detalle={detalle}
+              alError={setError}
+              alVender={alVender}
+              alResponder={(estado) =>
+                setDetalle((d) => d && { ...d, trato: { ...estado, preguntar: false } })
+              }
+            />
+          )}
           {detalle.venta && (
             <VentaCerrada detalle={detalle} alReclamar={() => setVentana('denunciar')} />
           )}
@@ -1363,7 +1452,10 @@ export function Conversacion({
                 {editando ? (
                   <IconCheck size={20} stroke={2} aria-hidden="true" />
                 ) : (
+                  // El avioncito da un saltito al enviar (doc 19, punto 19).
                   <svg
+                    key={vuelo}
+                    className={vuelo > 0 ? 'chat-avioncito' : undefined}
                     width="20"
                     height="20"
                     viewBox="0 0 24 24"

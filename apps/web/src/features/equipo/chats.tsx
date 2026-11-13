@@ -3,6 +3,7 @@
 import {
   EVENTOS,
   type EventoMensajeEquipo,
+  type EventoVistoEquipo,
   type HiloEquipoEnLista,
   type MensajeChatEquipo,
   type RespuestaAutomatica,
@@ -12,10 +13,20 @@ import { IconSend } from '@tabler/icons-react';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react';
 
+import { Checks } from '@/features/mensajes/burbuja';
+import { checkDeEquipo, claseDe, useEntradas } from '@/features/mensajes/entradas';
+import { Puntitos } from '@/features/mensajes/puntitos';
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
-import { cuandoFue, horaCorta } from '@/shared/fechas';
+import { useAvisarEscribiendo, useEscribiendo } from '@/shared/escribiendo';
+import { cuandoFue, hora, horaCorta } from '@/shared/fechas';
 import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
+
+/** ✓ / ✓✓ gris / ✓✓ verde en lo que escribiste (doc 19, punto 18), sobre la burbuja oscura. */
+function ChecksDelEquipo({ mensaje }: { mensaje: MensajeChatEquipo }) {
+  const estado = checkDeEquipo(mensaje);
+  return estado ? <Checks estado={estado} /> : null;
+}
 
 /**
  * Los chats oficiales con las tiendas, del lado del equipo: la lista (las que esperan respuesta
@@ -30,6 +41,12 @@ export function ChatsEquipo() {
   const [borrador, setBorrador] = useState('');
   const [error, setError] = useState<string | null>(null);
   const caja = useRef<HTMLDivElement>(null);
+  // Doc 19, punto 19: lo nuevo entra con animación y se ve quién está escribiendo.
+  const { entradaDe, marcarNuevos, marcar, reiniciar } = useEntradas();
+  const [vuelo, setVuelo] = useState(0);
+  const escribiendo = useEscribiendo();
+  useAvisarEscribiendo(tienda ? { equipo: true, tienda_id: tienda } : null, borrador);
+  const tiendaEscribe = escribiendo.enEquipo(tienda);
 
   const cargarHilos = useCallback(async () => {
     setHilos(await llamarApi<HiloEquipoEnLista[]>('/equipo/chats'));
@@ -42,23 +59,29 @@ export function ChatsEquipo() {
     (tiendaId: string) =>
       llamarApi<RespuestaChatEquipo>(`/equipo/chats/${tiendaId}`).then(
         (respuesta) => {
+          marcarNuevos(respuesta.mensajes);
           setChat(respuesta);
           void cargarHilos();
         },
         () => setError('No pudimos abrir el chat.'),
       ),
-    [cargarHilos],
+    [cargarHilos, marcarNuevos],
   );
   useEffect(() => {
     if (!tienda) return;
     setChat(null);
+    reiniciar();
     void cargarChat(tienda);
-  }, [tienda, cargarChat]);
+  }, [tienda, cargarChat, reiniciar]);
   // Lo que escriben las tiendas llega sin recargar (doc 19, A3): la lista y, si es la abierta,
   // el chat.
   useEvento<EventoMensajeEquipo>(EVENTOS.mensajeEquipo, (evento) => {
     if (evento.tienda_id === tienda) void cargarChat(tienda);
     else void cargarHilos().catch(() => undefined);
+  });
+  // La tienda recibió o leyó lo tuyo: ✓✓ gris o verde (doc 19, punto 18).
+  useEvento<EventoVistoEquipo>(EVENTOS.vistoEquipo, (evento) => {
+    if (evento.tienda_id === tienda) void cargarChat(tienda);
   });
   useRespaldo(() => {
     if (tienda) void cargarChat(tienda);
@@ -66,17 +89,19 @@ export function ChatsEquipo() {
   });
   useLayoutEffect(() => {
     if (caja.current) caja.current.scrollTop = caja.current.scrollHeight;
-  }, [chat]);
+  }, [chat, tiendaEscribe]);
 
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (!tienda || !borrador.trim()) return;
     setError(null);
     try {
+      setVuelo((n) => n + 1);
       const mensaje = await llamarApi<MensajeChatEquipo>(`/equipo/chats/${tienda}/mensajes`, {
         metodo: 'POST',
         cuerpo: { texto: borrador.trim() },
       });
+      marcar(mensaje, 'sale');
       setChat((antes) => ({
         ...antes,
         mensajes: [...(antes?.mensajes ?? []), mensaje],
@@ -90,6 +115,11 @@ export function ChatsEquipo() {
   }
 
   const actual = hilos?.find((hilo) => hilo.tienda.id === tienda);
+  // «Visto por {tienda} a las 00:51», debajo del último (doc 19, punto 18).
+  const vistoPor =
+    chat?.visto_hasta && chat.mensajes.some((m) => m.mio && m.estado === 'visto')
+      ? `Visto por ${actual?.tienda.nombre ?? 'la tienda'} a las ${hora(chat.visto_hasta)}`
+      : null;
   return (
     <div className="grid items-stretch gap-5 lg:h-[calc(100dvh-160px)] lg:grid-cols-[380px_minmax(0,1fr)]">
       <section className="flex min-h-0 flex-col overflow-hidden rounded-[24px] border border-linea bg-white">
@@ -127,13 +157,17 @@ export function ChatsEquipo() {
                       {horaCorta(hilo.actualizado_en)}
                     </span>
                   </span>
-                  <span
-                    className={`truncate text-nota ${hilo.sin_leer ? 'font-bold text-tinta' : 'text-secundario'}`}
-                  >
-                    {hilo.ultimo
-                      ? `${hilo.ultimo.de_equipo ? `${hilo.ultimo.autor}: ` : ''}${hilo.ultimo.texto}`
-                      : ''}
-                  </span>
+                  {escribiendo.enEquipo(hilo.tienda.id) ? (
+                    <i className="truncate text-nota font-bold text-pase-texto">escribiendo…</i>
+                  ) : (
+                    <span
+                      className={`truncate text-nota ${hilo.sin_leer ? 'font-bold text-tinta' : 'text-secundario'}`}
+                    >
+                      {hilo.ultimo
+                        ? `${hilo.ultimo.de_equipo ? `${hilo.ultimo.autor}: ` : ''}${hilo.ultimo.texto}`
+                        : ''}
+                    </span>
+                  )}
                 </span>
                 {hilo.sin_leer > 0 && (
                   <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-contador px-1.5 text-[11px] font-bold text-tinta">
@@ -153,12 +187,16 @@ export function ChatsEquipo() {
           <>
             <div className="border-b border-linea px-5 py-3.5">
               <b className="text-cuerpo font-bold">{actual?.tienda.nombre ?? 'Nuevo chat'}</b>
-              {actual && (
-                <span className="block text-nota text-secundario">
-                  {[actual.tienda.galeria, actual.tienda.stand && `Stand ${actual.tienda.stand}`]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
+              {tiendaEscribe ? (
+                <i className="block text-nota font-bold text-pase-texto">escribiendo…</i>
+              ) : (
+                actual && (
+                  <span className="block text-nota text-secundario">
+                    {[actual.tienda.galeria, actual.tienda.stand && `Stand ${actual.tienda.stand}`]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                )
               )}
             </div>
             <div
@@ -176,7 +214,7 @@ export function ChatsEquipo() {
                   key={mensaje.id}
                   className={`flex max-w-[78%] flex-col gap-0.5 rounded-2xl px-4 py-2.5 text-cuerpo ${
                     mensaje.de_equipo ? 'self-end bg-tinta text-white' : 'self-start bg-superficie'
-                  }`}
+                  } ${claseDe(entradaDe(mensaje.id))}`}
                 >
                   {mensaje.caso && (
                     <span className="text-nota font-bold opacity-80">
@@ -184,16 +222,21 @@ export function ChatsEquipo() {
                     </span>
                   )}
                   <span className="whitespace-pre-wrap break-words">{mensaje.texto}</span>
-                  <span className="text-right text-[11px] opacity-70">
-                    {mensaje.automatica
-                      ? 'Respuesta automática · '
-                      : mensaje.de_equipo
-                        ? `${mensaje.autor} · `
-                        : ''}
-                    {cuandoFue(mensaje.creado_en)}
+                  <span className="flex items-center justify-end gap-1.5 text-[11px]">
+                    <span className="opacity-70">
+                      {mensaje.automatica
+                        ? 'Respuesta automática · '
+                        : mensaje.de_equipo
+                          ? `${mensaje.autor} · `
+                          : ''}
+                      {cuandoFue(mensaje.creado_en)}
+                    </span>
+                    <ChecksDelEquipo mensaje={mensaje} />
                   </span>
                 </div>
               ))}
+              {vistoPor && <span className="self-end text-[12px] text-secundario">{vistoPor}</span>}
+              {tiendaEscribe && <Puntitos quien={actual?.tienda.nombre ?? 'La tienda'} />}
             </div>
             {error && (
               <p role="alert" className="m-0 bg-error-fondo px-4 py-2.5 text-apoyo text-error">
@@ -218,7 +261,13 @@ export function ChatsEquipo() {
                 disabled={!borrador.trim()}
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-tinta text-white disabled:bg-superficie disabled:text-borde-control"
               >
-                <IconSend size={20} stroke={1.8} aria-hidden="true" />
+                <IconSend
+                  key={vuelo}
+                  size={20}
+                  stroke={1.8}
+                  aria-hidden="true"
+                  className={vuelo > 0 ? 'chat-avioncito' : undefined}
+                />
               </button>
             </form>
           </>

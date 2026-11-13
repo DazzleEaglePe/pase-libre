@@ -187,6 +187,63 @@ export class AvisosService {
     }
   }
 
+  /**
+   * El chat con el Equipo (doc 19, punto 16): un aviso por persona y por hilo, como los de los
+   * chats entre tiendas. Un mensaje nuevo lo actualiza y lo sube arriba, sin leer; no apila otro.
+   * Respeta el apagado de ese tipo y «No molestar», igual que `crear`.
+   */
+  async porHiloEquipo(
+    usuarioIds: string[],
+    hiloEquipoId: string,
+    nuevo: AvisoNuevo,
+  ): Promise<void> {
+    const ids = [...new Set(usuarioIds)];
+    if (ids.length === 0) return;
+    const [apagados, personas] = await Promise.all([
+      this.prisma.preferenciaAviso.findMany({
+        where: { usuarioId: { in: ids }, tipo: nuevo.tipo, campanita: false },
+        select: { usuarioId: true },
+      }),
+      this.prisma.usuario.findMany({
+        where: { id: { in: ids }, estado: 'ACTIVO' },
+        select: { id: true, noMolestarDesde: true, noMolestarHasta: true },
+      }),
+    ]);
+    const sinAviso = new Set(apagados.map((fila) => fila.usuarioId));
+    const ahora = new Date();
+    for (const persona of personas) {
+      if (sinAviso.has(persona.id)) continue;
+      const contenido = {
+        tipo: nuevo.tipo,
+        titulo: nuevo.titulo.slice(0, 160),
+        extracto: nuevo.extracto?.slice(0, 240) ?? null,
+        enlace: nuevo.enlace ?? null,
+        accion: nuevo.accion ?? Prisma.DbNull,
+        leidoEn: null,
+        visibleDesde: visibleDesde(persona.noMolestarDesde, persona.noMolestarHasta, ahora),
+        // Sube arriba aunque el contenido no cambie.
+        actualizadoEn: ahora,
+      };
+      const aviso = await this.prisma.aviso.upsert({
+        where: { usuarioId_hiloEquipoId: { usuarioId: persona.id, hiloEquipoId } },
+        update: contenido,
+        create: { ...contenido, usuarioId: persona.id, hiloEquipoId },
+      });
+      if (aviso.visibleDesde > ahora) continue;
+      this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.avisoNuevo, avisoCampanita(aviso));
+      this.tiempoReal.emitirAUsuario(aviso.usuarioId, EVENTOS.contadores);
+    }
+  }
+
+  /** Al abrir el chat con el Equipo, su aviso queda leído (como al abrir una conversación). */
+  async leerDeHiloEquipo(usuarioId: string, hiloEquipoId: string): Promise<void> {
+    const { count } = await this.prisma.aviso.updateMany({
+      where: { usuarioId, hiloEquipoId, leidoEn: null },
+      data: { leidoEn: new Date() },
+    });
+    if (count > 0) this.tiempoReal.emitirAUsuario(usuarioId, EVENTOS.contadores);
+  }
+
   async lista(usuarioId: string, consulta: Partial<AvisosConsulta> = {}): Promise<RespuestaAvisos> {
     const visibles = { usuarioId, visibleDesde: { lte: new Date() } };
     const filtro = consulta.categoria ? { tipo: { in: TIPOS_DE[consulta.categoria] } } : {};

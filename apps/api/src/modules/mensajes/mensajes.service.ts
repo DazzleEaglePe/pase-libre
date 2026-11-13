@@ -1,8 +1,12 @@
 import { HttpStatus, Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import {
+  debePreguntarTrato,
   EVENTOS,
   MINUTOS_PARA_CAMBIAR_MENSAJE,
   normalizarTexto,
+  type EstadoTrato,
+  type ResponderTrato,
+  type TratoDelHilo,
   type AvisoCampanita,
   type CambiarConversacion,
   type ConsultaHistorial,
@@ -87,6 +91,8 @@ const SELECT_CONVERSACION = {
   vendedorId: true,
   ultimoMensajeEn: true,
   enVivoId: true,
+  tratoPospuestoEn: true,
+  tratoDescartadoEn: true,
   comprador: { select: SELECT_PERSONA },
   vendedor: { select: SELECT_PERSONA },
   oferta: {
@@ -514,6 +520,8 @@ export class MensajesService implements OnModuleInit {
     // «En línea» y «Activo hace 2 h» también servirían para adivinar quién es.
     const reservada = base.rol === 'comprador' && !oferta.tiendaVisible;
     const otraTiendaId = reservada ? null : (otro.tienda?.id ?? null);
+    const puedeVender =
+      base.rol === 'vendedor' && oferta.estado !== 'ELIMINADA' && oferta.stock > 0;
     const [hablanDe, venta, sobreTienda, ultimaConexion, whatsapp] = await Promise.all([
       this.hablanDe(id, usuario, otraTiendaId),
       this.ventaDelHilo(id, usuario),
@@ -544,14 +552,80 @@ export class MensajesService implements OnModuleInit {
         precio_visible: oferta.precioVisible,
       },
       bloqueaste: Boolean(bloqueo),
-      puede_vender: base.rol === 'vendedor' && oferta.estado !== 'ELIMINADA' && oferta.stock > 0,
+      puede_vender: puedeVender,
       en_vivo: conversacion.enVivoId
         ? await this.enVivoDelHilo(conversacion.enVivoId, usuario.id)
         : null,
       hablan_de: hablanDe,
       venta,
+      trato:
+        base.rol === 'vendedor'
+          ? await this.tratoDelHilo(conversacion, { vendido: venta !== null, puedeVender })
+          : null,
       sobre_tienda: sobreTienda,
       whatsapp,
+    };
+  }
+
+  /**
+   * «¿Lograste cerrar el trato?» (doc 19, punto 17), solo para quien vende: lo que ya respondió
+   * y si, con todo lo que se habló (no solo lo que la pantalla tiene cargado), ya corresponde.
+   */
+  private async tratoDelHilo(
+    conversacion: ParticipacionFila['conversacion'],
+    estado: { vendido: boolean; puedeVender: boolean },
+  ): Promise<TratoDelHilo> {
+    const respondio: EstadoTrato = {
+      pospuesta_en: conversacion.tratoPospuestoEn?.toISOString() ?? null,
+      descartada: conversacion.tratoDescartadoEn !== null,
+    };
+    if (estado.vendido || !estado.puedeVender || respondio.descartada) {
+      return { ...respondio, preguntar: false };
+    }
+    const filas = await this.prisma.mensaje.findMany({
+      where: { conversacionId: conversacion.id, tipo: { not: 'SISTEMA' } },
+      orderBy: { creadoEn: 'desc' },
+      take: 300,
+      select: { tipo: true, texto: true, creadoEn: true, eliminadoEn: true },
+    });
+    const preguntar = debePreguntarTrato({
+      ...respondio,
+      mensajes: filas.map((m) => ({
+        tipo: m.tipo,
+        texto: m.eliminadoEn ? null : m.texto,
+        creado_en: m.creadoEn.toISOString(),
+      })),
+      vendido: estado.vendido,
+      hay_stock: estado.puedeVender,
+    });
+    return { ...respondio, preguntar };
+  }
+
+  /** «Todavía no» (vuelve a preguntar en 24 h si siguen hablando) o la X (nunca más aquí). */
+  async responderTrato(
+    id: string,
+    respuesta: ResponderTrato['respuesta'],
+    usuario: UsuarioConTienda,
+  ): Promise<EstadoTrato> {
+    const { conversacion } = await this.participacion(id, usuario.id);
+    if (conversacion.vendedorId !== usuario.id) {
+      throw new ApiHttpException(
+        HttpStatus.FORBIDDEN,
+        'PROHIBIDO',
+        'Solo quien vende responde esta pregunta.',
+      );
+    }
+    const fila = await this.prisma.conversacion.update({
+      where: { id },
+      data:
+        respuesta === 'TODAVIA_NO'
+          ? { tratoPospuestoEn: new Date() }
+          : { tratoDescartadoEn: new Date() },
+      select: { tratoPospuestoEn: true, tratoDescartadoEn: true },
+    });
+    return {
+      pospuesta_en: fila.tratoPospuestoEn?.toISOString() ?? null,
+      descartada: fila.tratoDescartadoEn !== null,
     };
   }
 
