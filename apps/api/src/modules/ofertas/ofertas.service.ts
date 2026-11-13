@@ -33,8 +33,14 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { FOTO_DEL_PRODUCTO } from '../../shared/portada';
 import { ArchivosService } from '../archivos/archivos.service';
 import { AvisosService } from '../mensajes/avisos.service';
-import { BusquedaService } from '../catalogo/busqueda.service';
 import { detalleDe } from '../catalogo/catalogo.service';
+import {
+  buscarConMotor,
+  condicionesDeIntento,
+  ordenDeParecido,
+  palabrasDe,
+  type Intento,
+} from '../catalogo/motor-busqueda';
 import { tiendaDeSesion } from '../sesion/sesion.service';
 import type { UsuarioConTienda } from '../sesion/sesion.types';
 
@@ -237,7 +243,6 @@ function portadaEntre(portada: string | null | undefined, fotos: readonly string
 export class OfertasService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
-    @Inject(BusquedaService) private readonly busqueda: BusquedaService,
     @Inject(ArchivosService) private readonly archivos: ArchivosService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
   ) {}
@@ -267,37 +272,43 @@ export class OfertasService {
       }
       return {
         correccion: null,
+        lo_mas_parecido: false,
         productos: await this.resumenes([producto.fusionadoEnId ?? producto.id], tiendaId),
       };
     }
 
-    const palabras = this.busqueda.palabras(consulta.q);
-    if (palabras.length === 0) return { correccion: null, productos: [] };
-    let ids = await this.idsQueCoinciden(palabras);
-    let correccion: RespuestaSugerencias['correccion'] = null;
-    if (ids.length === 0) {
-      const corregidas = await this.busqueda.corregir(palabras);
-      if (corregidas.join(' ') !== palabras.join(' ')) {
-        ids = await this.idsQueCoinciden(corregidas);
-        if (ids.length > 0) correccion = { buscaste: consulta.q, mostramos: corregidas.join(' ') };
-      }
+    // El mismo buscador que la barra de arriba (doc 20 §11): «ram», «m.2 1tb», «case deepcool».
+    if (palabrasDe(consulta.q).length === 0) {
+      return { correccion: null, lo_mas_parecido: false, productos: [] };
     }
-    return { correccion, productos: await this.resumenes(ids, tiendaId) };
+    const { resultado: ids, intento } = await buscarConMotor(
+      this.prisma,
+      consulta.q,
+      {},
+      (i) => this.idsQueCoinciden(i),
+      (encontrados) => encontrados.length > 0,
+    );
+    return {
+      correccion: intento.correccion,
+      lo_mas_parecido: intento.lo_mas_parecido,
+      productos: await this.resumenes(ids, tiendaId),
+    };
   }
 
-  private async idsQueCoinciden(palabras: string[]): Promise<string[]> {
-    const condiciones = palabras.map(
-      (palabra) => Prisma.sql`(' ' || p.texto_busqueda) LIKE ${`% ${palabra}%`}`,
-    );
+  private async idsQueCoinciden(intento: Intento): Promise<string[]> {
+    const condiciones = [
+      Prisma.sql`p.fusionado_en_id IS NULL`,
+      ...condicionesDeIntento(intento, { sobre: 'producto' }),
+    ];
     const filas = await this.prisma.$queryRaw<Array<{ id: string }>>`
       SELECT p.id::text AS id
       FROM producto p
-      WHERE p.fusionado_en_id IS NULL AND ${Prisma.join(condiciones, ' AND ')}
-      ORDER BY (
+      WHERE ${Prisma.join(condiciones, ' AND ')}
+      ORDER BY ${ordenDeParecido(intento)}(
           SELECT count(*) FROM oferta o JOIN tienda t ON t.id = o.tienda_id
           WHERE o.producto_id = p.id AND o.estado = 'ACTIVA' AND t.estado = 'ACTIVA'
         ) DESC,
-        similarity(p.texto_busqueda, ${palabras.join(' ')}) DESC,
+        similarity(p.texto_busqueda, ${intento.filtro.terminos.join(' ')}) DESC,
         p.titulo
       LIMIT ${MAX_SUGERENCIAS}`;
     return filas.map((f) => f.id);
@@ -677,26 +688,38 @@ export class OfertasService {
     if (!tienda)
       throw new ApiHttpException(HttpStatus.FORBIDDEN, 'PROHIBIDO', 'Tu cuenta no tiene tienda.');
 
-    const palabras = normalizarTexto(consulta.q).split(' ').filter(Boolean);
+    // El mismo buscador que la barra de arriba (doc 20 §11), con el corrector de letras
+    // cambiadas, sobre las publicaciones de la tienda (sin mirar la pestaña).
+    const busqueda =
+      palabrasDe(consulta.q).length > 0
+        ? await buscarConMotor(
+            this.prisma,
+            consulta.q,
+            {},
+            (i) => this.propiasQueCoinciden(tienda.id, i),
+            (ids) => ids.length > 0,
+          )
+        : null;
     const where: Prisma.OfertaWhereInput = {
       AND: [
         { tiendaId: tienda.id, estado: { not: 'ELIMINADA' } },
         PESTANAS[consulta.estado],
-        palabras.length > 0
-          ? { producto: { AND: palabras.map((p) => ({ textoBusqueda: { contains: p } })) } }
-          : {},
+        busqueda ? { id: { in: busqueda.resultado } } : {},
       ],
     };
+    const desde = (consulta.pagina - 1) * POR_PAGINA;
 
     const [ofertas, total, [conteos], porRevisar, vistasSemana] = await Promise.all([
-      this.prisma.oferta.findMany({
-        where,
-        // Por fecha de publicación: así una fila no salta al cambiarle el stock.
-        orderBy: [{ creadaEn: 'desc' }, { id: 'asc' }],
-        skip: (consulta.pagina - 1) * POR_PAGINA,
-        take: POR_PAGINA,
-        select: SELECT_OFERTA_PROPIA,
-      }),
+      busqueda?.intento.lo_mas_parecido
+        ? this.paginaDeLoMasParecido(where, busqueda.resultado, desde)
+        : this.prisma.oferta.findMany({
+            where,
+            // Por fecha de publicación: así una fila no salta al cambiarle el stock.
+            orderBy: [{ creadaEn: 'desc' }, { id: 'asc' }],
+            skip: desde,
+            take: POR_PAGINA,
+            select: SELECT_OFERTA_PROPIA,
+          }),
       this.prisma.oferta.count({ where }),
       this.prisma.$queryRaw<Array<Record<PestanaMisOfertas, number>>>`
         SELECT count(*) FILTER (WHERE estado = 'ACTIVA' AND stock > 0)::int AS activas,
@@ -733,7 +756,46 @@ export class OfertasService {
       ),
       pagina: consulta.pagina,
       paginas: Math.max(1, Math.ceil(total / POR_PAGINA)),
+      correccion: busqueda?.intento.correccion ?? null,
+      lo_mas_parecido: busqueda?.intento.lo_mas_parecido ?? false,
     };
+  }
+
+  /**
+   * Las publicaciones de la tienda (`o`, sin las eliminadas) que coinciden con un intento del
+   * buscador. Con «Lo más parecido», de las que tienen más términos a las que tienen menos.
+   */
+  private async propiasQueCoinciden(tiendaId: string, intento: Intento): Promise<string[]> {
+    const condiciones = [
+      Prisma.sql`o.tienda_id = ${tiendaId}::uuid`,
+      Prisma.sql`o.estado <> 'ELIMINADA'`,
+      ...condicionesDeIntento(intento, { sobre: 'oferta' }),
+    ];
+    const filas = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT o.id::text AS id
+      FROM oferta o
+      JOIN producto p ON p.id = o.producto_id
+      WHERE ${Prisma.join(condiciones, ' AND ')}
+      ORDER BY ${ordenDeParecido(intento)}o.creada_en DESC, o.id`;
+    return filas.map((f) => f.id);
+  }
+
+  /** Una página de «Lo más parecido»: en el orden de `ordenados`, solo las de la pestaña. */
+  private async paginaDeLoMasParecido(
+    where: Prisma.OfertaWhereInput,
+    ordenados: string[],
+    desde: number,
+  ) {
+    const enLaPestana = new Set(
+      (await this.prisma.oferta.findMany({ where, select: { id: true } })).map((o) => o.id),
+    );
+    const ids = ordenados.filter((id) => enLaPestana.has(id)).slice(desde, desde + POR_PAGINA);
+    const filas = await this.prisma.oferta.findMany({
+      where: { id: { in: ids } },
+      select: SELECT_OFERTA_PROPIA,
+    });
+    const porId = new Map(filas.map((fila) => [fila.id, fila]));
+    return ids.flatMap((id) => porId.get(id) ?? []);
   }
 
   async una(id: string, tiendaId: string): Promise<OfertaPropia> {

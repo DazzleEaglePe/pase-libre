@@ -431,6 +431,20 @@ function Productos({ alEditar, recargar }: { alEditar: (p: Editable) => void; re
           ))}
         </select>
       </div>
+      {/* Doc 20 §11: el mismo buscador de arriba, con lo que entendió o corrigió. */}
+      {datos && datos.productos.length > 0 && datos.lo_mas_parecido && (
+        <p className="m-0 font-semibold">No hay uno igual. Lo más parecido:</p>
+      )}
+      {datos && datos.productos.length > 0 && !datos.lo_mas_parecido && datos.correccion && (
+        <p className="m-0 text-apoyo text-secundario">
+          Mostramos resultados para «{datos.correccion.mostramos}»
+          {datos.correccion.categoria &&
+          datos.correccion.categoria.nombre !== datos.correccion.mostramos
+            ? ` en ${datos.correccion.categoria.nombre}`
+            : ''}
+          .
+        </p>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-left text-apoyo">
           <thead>

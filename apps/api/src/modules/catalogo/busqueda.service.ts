@@ -2,7 +2,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   buscarSchema,
-  interpretarBusqueda,
   normalizarTexto,
   precioDe,
   type BuscarConsulta,
@@ -28,6 +27,14 @@ import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { MemoriaPorClave } from '../../shared/memoria';
 import { tiendasBloqueadasPor } from '../../shared/bloqueadas';
 import { INDEPENDIENTES } from './catalogo.service';
+import {
+  buscarConMotor,
+  coincidencias,
+  condicionesTexto,
+  filtroDePalabras,
+  type FiltroTexto,
+  type Intento,
+} from './motor-busqueda';
 import { conSesion, tiendaPara } from './visibilidad';
 
 export const POR_PAGINA = 24;
@@ -109,13 +116,24 @@ interface Resultado {
   totalOfertas: number;
 }
 
+/** La categoría y el perfil de memoria que se entendieron, sobre lo que eligió quien busca. */
+function conIntento<C extends BuscarConsulta>(consulta: C, intento: Intento): C {
+  const perfil = intento.filtro.perfil === 'XMP' ? 'intel' : 'ryzen';
+  return {
+    ...consulta,
+    categoria: intento.categoria ?? consulta.categoria,
+    ...(intento.filtro.perfil && !consulta.perfil ? { perfil } : {}),
+  };
+}
+
 /**
- * Búsqueda tolerante a errores (docs/05 §7, RF-12 a RF-18).
+ * Búsqueda tolerante a errores (docs/05 §7, RF-12 a RF-18), con el motor de todos los
+ * buscadores (doc 20 §11, `motor-busqueda.ts`).
  *
  * 1. Normaliza lo escrito igual que el catálogo («RTX3070» → «rtx 3070»).
- * 2. Busca productos donde cada palabra es el comienzo de alguna palabra del producto.
- * 3. Si no hay nada, corrige palabra por palabra contra `termino` y vuelve a buscar.
- * 4. Agrupa por producto: cuántas ofertas, en qué galerías, stock y, con sesión, el
+ * 2. Busca productos donde cada término es el comienzo de alguna palabra del producto: primero
+ *    lo entendido, después lo escrito, lo corregido y, al final, «Lo más parecido».
+ * 3. Agrupa por producto: cuántas ofertas, en qué galerías, stock y, con sesión, el
  *    menor precio visible y la oferta más barata para escribirle. Al visitante no se le
  *    piden ni se le calculan precios ni tiendas.
  */
@@ -175,34 +193,16 @@ export class BusquedaService {
       : { ...consulta, precio_min: undefined, precio_max: undefined, orden: 'recientes' };
 
     const palabras = this.palabras(consulta.q);
-    const entendida = await this.entender(consulta, efectiva, (p, c) =>
-      this.ejecutar(p, c, conPrecio, POR_PAGINA, mirada.tiendaId),
+    const { resultado, intento } = await buscarConMotor(
+      this.prisma,
+      consulta.q,
+      { categoria: efectiva.categoria ?? null, tal_cual: consulta.tal_cual },
+      (i) =>
+        this.ejecutar(i.filtro, conIntento(efectiva, i), conPrecio, POR_PAGINA, mirada.tiendaId),
+      (r) => r.totalProductos > 0,
     );
-    const usada = entendida.consulta;
-    let { resultado, correccion } = entendida;
-    let usadas = entendida.palabras;
-
-    if (resultado.totalProductos === 0 && palabras.length > 0 && !consulta.tal_cual) {
-      const corregidas = await this.corregir(usadas);
-      if (corregidas.join(' ') !== usadas.join(' ')) {
-        const intento = await this.ejecutar(
-          corregidas,
-          usada,
-          conPrecio,
-          POR_PAGINA,
-          mirada.tiendaId,
-        );
-        if (intento.totalProductos > 0) {
-          resultado = intento;
-          usadas = corregidas;
-          correccion = {
-            buscaste: consulta.q,
-            mostramos: corregidas.join(' '),
-            ...(correccion?.categoria ? { categoria: correccion.categoria } : {}),
-          };
-        }
-      }
-    }
+    const usada = conIntento(efectiva, intento);
+    const usado = intento.filtro;
 
     // «Parecidas que sí hay»: con una palabra menos cada vez («rtx 5090» → «rtx»).
     let parecidas: Resultado['filas'] = [];
@@ -210,7 +210,7 @@ export class BusquedaService {
       for (let cuantas = palabras.length - 1; cuantas >= 1 && parecidas.length === 0; cuantas--) {
         parecidas = (
           await this.ejecutar(
-            palabras.slice(0, cuantas),
+            filtroDePalabras(palabras.slice(0, cuantas)),
             { ...efectiva, pagina: 1 },
             conPrecio,
             PARECIDAS,
@@ -221,14 +221,15 @@ export class BusquedaService {
     }
 
     const facetas = conPrecio
-      ? await this.facetas(usadas, usada)
+      ? await this.facetas(usado, usada)
       : await this.facetasDeVisitantes.recordar(
-          JSON.stringify([usadas, usada.categoria ?? '']),
-          () => this.facetas(usadas, usada),
+          JSON.stringify([usado, usada.categoria ?? '']),
+          () => this.facetas(usado, usada),
         );
 
     const base = {
-      correccion,
+      correccion: intento.correccion,
+      lo_mas_parecido: intento.lo_mas_parecido,
       total_productos: resultado.totalProductos,
       total_ofertas: resultado.totalOfertas,
       pagina: efectiva.pagina,
@@ -273,95 +274,29 @@ export class BusquedaService {
     mirada: Mirada,
   ): Promise<RespuestaSugerenciasBusqueda> {
     const palabras = this.palabras(consulta.q);
-    if (palabras.length === 0) return { correccion: null, total_productos: 0, productos: [] };
+    if (palabras.length === 0) {
+      return { correccion: null, lo_mas_parecido: false, total_productos: 0, productos: [] };
+    }
     const conPrecio = conSesion(mirada);
     const base: ConsultaInterna = {
       ...buscarSchema.parse({ q: consulta.q, categoria: consulta.categoria }),
       excluirTiendas: conPrecio ? await tiendasBloqueadasPor(this.prisma, mirada.usuarioId) : [],
     };
 
-    const entendida = await this.entender(base, base, (p, c) =>
-      this.ejecutar(p, c, conPrecio, SUGERENCIAS, mirada.tiendaId),
+    const { resultado, intento } = await buscarConMotor(
+      this.prisma,
+      consulta.q,
+      { categoria: base.categoria ?? null },
+      (i) => this.ejecutar(i.filtro, conIntento(base, i), conPrecio, SUGERENCIAS, mirada.tiendaId),
+      (r) => r.totalProductos > 0,
     );
-    let { resultado, correccion } = entendida;
-    if (resultado.totalProductos === 0) {
-      const corregidas = await this.corregir(entendida.palabras);
-      if (corregidas.join(' ') !== entendida.palabras.join(' ')) {
-        const intento = await this.ejecutar(
-          corregidas,
-          entendida.consulta,
-          conPrecio,
-          SUGERENCIAS,
-          mirada.tiendaId,
-        );
-        if (intento.totalProductos > 0) {
-          resultado = intento;
-          correccion = {
-            buscaste: consulta.q,
-            mostramos: corregidas.join(' '),
-            ...(correccion?.categoria ? { categoria: correccion.categoria } : {}),
-          };
-        }
-      }
-    }
     return {
-      correccion,
+      correccion: intento.correccion,
+      lo_mas_parecido: intento.lo_mas_parecido,
       total_productos: resultado.totalProductos,
       productos: resultado.filas.map((f) =>
         conPrecio ? this.productoConPrecio(f, mirada) : this.productoEnLista(f),
       ),
-    };
-  }
-
-  /**
-   * «Escribe como te salga» (BUS_Web): primero lo entendido (números en palabras, modelos
-   * partidos, la categoría nombrada); si eso no encuentra nada, lo escrito tal cual. Con
-   * `tal_cual`, solo lo escrito.
-   */
-  private async entender<C extends BuscarConsulta>(
-    consulta: C,
-    efectiva: C,
-    buscarCon: (palabras: string[], consulta: C) => Promise<Resultado>,
-  ): Promise<{
-    resultado: Resultado;
-    palabras: string[];
-    consulta: C;
-    correccion: Correccion | null;
-  }> {
-    const palabras = this.palabras(consulta.q);
-    const entendida = consulta.tal_cual ? null : interpretarBusqueda(consulta.q);
-    if (entendida?.cambio) {
-      const categoria =
-        entendida.categoria && !efectiva.categoria
-          ? await this.prisma.categoria.findUnique({
-              where: { slug: entendida.categoria },
-              select: { slug: true, nombre: true },
-            })
-          : null;
-      const conCategoria = categoria ? { ...efectiva, categoria: categoria.slug } : efectiva;
-      const nuevas = this.palabras(entendida.texto);
-      // Solo una categoría nombrada sin nada más: si no se pudo elegir, no hay qué buscar.
-      if (nuevas.length > 0 || categoria) {
-        const intento = await buscarCon(nuevas, conCategoria);
-        if (intento.totalProductos > 0) {
-          return {
-            resultado: intento,
-            palabras: nuevas,
-            consulta: conCategoria,
-            correccion: {
-              buscaste: consulta.q,
-              mostramos: entendida.texto || (categoria?.nombre ?? ''),
-              ...(categoria ? { categoria } : {}),
-            },
-          };
-        }
-      }
-    }
-    return {
-      resultado: await buscarCon(palabras, efectiva),
-      palabras,
-      consulta: efectiva,
-      correccion: null,
     };
   }
 
@@ -444,7 +379,7 @@ export class BusquedaService {
   /** Si lo escrito encuentra hoy al menos una oferta vigente (con la categoría de `consulta`). */
   private async hayResultados(palabras: string[], consulta: BuscarConsulta): Promise<boolean> {
     if (palabras.length === 0) return false;
-    const condiciones = this.condicionesBase(palabras, consulta);
+    const condiciones = this.condicionesBase(filtroDePalabras(palabras), consulta);
     const [fila] = await this.prisma.$queryRaw<Array<{ hay: boolean }>>`
       SELECT EXISTS (
         SELECT 1 FROM oferta o
@@ -456,14 +391,14 @@ export class BusquedaService {
     return fila?.hay === true;
   }
 
-  /** Palabras normalizadas y sin repetir de lo que se escribió (también para «Ya está en PaseLibre»). */
+  /** Palabras normalizadas y sin repetir de lo que se escribió (para «Parecidas que sí hay»). */
   palabras(q: string): string[] {
     const normalizado = normalizarTexto(q);
     return normalizado ? [...new Set(normalizado.split(' '))].slice(0, 12) : [];
   }
 
   /** Condiciones de producto y de vigencia, sin los filtros de faceta. */
-  private condicionesBase(palabras: string[], consulta: BuscarConsulta): Prisma.Sql[] {
+  private condicionesBase(filtro: FiltroTexto, consulta: BuscarConsulta): Prisma.Sql[] {
     const condiciones: Prisma.Sql[] = [
       Prisma.sql`o.estado = 'ACTIVA'`,
       Prisma.sql`t.estado = 'ACTIVA'`,
@@ -476,33 +411,21 @@ export class BusquedaService {
         Prisma.sql`t.id NOT IN (${Prisma.join(excluir.map((id) => Prisma.sql`${id}::uuid`))})`,
       );
     }
-    condiciones.push(...this.condicionesTexto(palabras));
+    // Cada término es el comienzo de alguna palabra del producto (`motor-busqueda.ts`).
+    condiciones.push(...condicionesTexto(filtro));
     if (consulta.categoria) condiciones.push(Prisma.sql`c.slug = ${consulta.categoria}`);
     return condiciones;
   }
 
   /**
-   * Cada palabra es el comienzo de alguna palabra del producto (`p`). Con tres letras o más se
-   * repite como «la contiene»: no cambia el resultado, pero esa forma sí puede usar el índice de
-   * trigramas de `texto_busqueda`. Las palabras normalizadas solo tienen letras y números: no hay
-   * comodines que escapar.
-   */
-  private condicionesTexto(palabras: string[]): Prisma.Sql[] {
-    return palabras.flatMap((palabra) => [
-      Prisma.sql`(' ' || p.texto_busqueda) LIKE ${`% ${palabra}%`}`,
-      ...(palabra.length >= 3 ? [Prisma.sql`p.texto_busqueda LIKE ${`%${palabra}%`}`] : []),
-    ]);
-  }
-
-  /**
-   * Lo mismo sobre `producto_resumen r` (con `producto p` si hay palabras): el resumen ya solo
+   * Lo mismo sobre `producto_resumen r` (con `producto p` si hay términos): el resumen ya solo
    * tiene productos sin unir con ofertas vigentes. La marca es del producto, así que también va.
    */
   private condicionesResumen(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: Pick<BuscarConsulta, 'categoria' | 'marca'>,
   ): Prisma.Sql[] {
-    const condiciones = this.condicionesTexto(palabras);
+    const condiciones = condicionesTexto(filtro);
     if (consulta.categoria) {
       condiciones.push(
         Prisma.sql`r.categoria_id = (SELECT id FROM categoria WHERE slug = ${consulta.categoria})`,
@@ -552,10 +475,13 @@ export class BusquedaService {
       condiciones.push(Prisma.sql`o.condicion::text IN (${Prisma.join(valores)})`);
     }
     if (consulta.stock) condiciones.push(Prisma.sql`o.stock > 0`);
-    // «Para Intel» / «Para Ryzen» (docs/19 §13): lo marcado así o «Sirve para los dos».
+    // «Para Intel» / «Para Ryzen» (docs/19 §13): lo marcado así o «Sirve para los dos». También
+    // «expo» o «xmp» escrito (doc 20 §11). Sin perfil en la oferta, el del producto (A8).
     if (consulta.perfil) {
       const perfil = consulta.perfil === 'intel' ? 'XMP' : 'EXPO';
-      condiciones.push(Prisma.sql`o.perfil_memoria::text IN (${perfil}, 'AMBOS')`);
+      condiciones.push(
+        Prisma.sql`coalesce(o.perfil_memoria, p.perfil_memoria)::text IN (${perfil}, 'AMBOS')`,
+      );
     }
     if (conPrecio && (consulta.precio_min !== undefined || consulta.precio_max !== undefined)) {
       // Las ofertas al interno siempre se muestran; las visibles en otra moneda no se comparan.
@@ -571,13 +497,13 @@ export class BusquedaService {
 
   /** Las ofertas que coinciden, una fila por oferta. `extra` agrega una condición (una ficha). */
   private filtradas(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
     conPrecio: boolean,
     extra: Prisma.Sql | null = null,
   ): Prisma.Sql {
     const condiciones = [
-      ...this.condicionesBase(palabras, consulta),
+      ...this.condicionesBase(filtro, consulta),
       ...this.condicionesFaceta(consulta, conPrecio),
       ...(extra ? [extra] : []),
     ];
@@ -591,10 +517,15 @@ export class BusquedaService {
                        / CASE WHEN o.moneda::text = 'PEN' THEN CAST(${this.tipoCambio} AS numeric) ELSE 1 END
              END AS precio_eq`
       : Prisma.empty;
+    // «Lo más parecido»: cuántos términos tiene, para ordenar de más a menos.
+    const columnaParecido =
+      filtro.minimo !== null
+        ? Prisma.sql`, ${coincidencias(filtro)} AS coincidencias`
+        : Prisma.empty;
     return Prisma.sql`
       SELECT o.producto_id, o.condicion, o.stock, o.actualizada_en,
              coalesce(ga.nombre, ${INDEPENDIENTES.nombre}) AS galeria_nombre
-             ${columnasPrecio}
+             ${columnasPrecio} ${columnaParecido}
       FROM oferta o
       JOIN tienda t ON t.id = o.tienda_id
       LEFT JOIN galeria ga ON ga.id = t.galeria_id
@@ -627,7 +558,7 @@ export class BusquedaService {
    * cuando se puede (`usaResumen`) y, si no, de agrupar las ofertas que coinciden.
    */
   private async ejecutar(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
     conPrecio: boolean,
     limite = POR_PAGINA,
@@ -642,18 +573,20 @@ export class BusquedaService {
     const primero = impulsados.length
       ? Prisma.sql`(g.producto_id = ANY(${impulsados}::uuid[])) DESC, `
       : Prisma.empty;
+    // «Lo más parecido» va de los que tienen más términos a los que tienen menos.
+    const parecido = filtro.minimo !== null ? Prisma.sql`g.coincidencias DESC, ` : Prisma.empty;
     // Con sesión se compara en dólares (`desde_eq`): un precio en soles y uno en dólares
     // quedan en la misma vara, y los productos sin precio visible van al final.
     const orden =
       consulta.orden === 'precio_asc'
-        ? Prisma.sql`g.desde_eq ASC NULLS LAST, g.actualizada_en DESC, g.titulo`
+        ? Prisma.sql`${parecido}g.desde_eq ASC NULLS LAST, g.actualizada_en DESC, g.titulo`
         : consulta.orden === 'precio_desc'
-          ? Prisma.sql`g.desde_eq DESC NULLS LAST, g.actualizada_en DESC, g.titulo`
-          : Prisma.sql`${primero}g.actualizada_en DESC, g.titulo`;
+          ? Prisma.sql`${parecido}g.desde_eq DESC NULLS LAST, g.actualizada_en DESC, g.titulo`
+          : Prisma.sql`${parecido}${primero}g.actualizada_en DESC, g.titulo`;
     const pagina = { limite, desde: (consulta.pagina - 1) * limite };
     return this.usaResumen(consulta, conPrecio)
-      ? this.ejecutarConResumen(palabras, consulta, conPrecio, miTiendaId, orden, pagina)
-      : this.ejecutarConOfertas(palabras, consulta, conPrecio, miTiendaId, orden, pagina);
+      ? this.ejecutarConResumen(filtro, consulta, conPrecio, miTiendaId, orden, pagina)
+      : this.ejecutarConOfertas(filtro, consulta, conPrecio, miTiendaId, orden, pagina);
   }
 
   /** `precio_eq` de un precio visible en céntimos: en dólares, para comparar (nunca se muestra). */
@@ -668,13 +601,13 @@ export class BusquedaService {
    * entre las destacadas con stock de todos los resultados.
    */
   private destacada(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
     miTiendaId: string | null,
     barata: Prisma.Sql,
   ): Prisma.Sql {
     const delProducto = this.filtradas(
-      palabras,
+      filtro,
       consulta,
       true,
       Prisma.sql`o.producto_id = g.producto_id`,
@@ -732,15 +665,15 @@ export class BusquedaService {
    * puede no ser la más barata (la propia va al final).
    */
   private async ejecutarConResumen(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
     conPrecio: boolean,
     miTiendaId: string | null,
     orden: Prisma.Sql,
     pagina: { limite: number; desde: number },
   ): Promise<Resultado> {
-    const condiciones = this.condicionesResumen(palabras, consulta);
-    const unirProducto = palabras.length
+    const condiciones = this.condicionesResumen(filtro, consulta);
+    const unirProducto = filtro.terminos.length
       ? Prisma.sql`JOIN producto p ON p.id = r.producto_id`
       : Prisma.empty;
     // Al visitante ni siquiera se le piden las columnas de precio.
@@ -749,6 +682,11 @@ export class BusquedaService {
           ${this.enDolares(Prisma.sql`r.desde_usd`, Prisma.sql`r.desde_pen`)} AS desde_eq,
           ${this.enDolares(Prisma.sql`r.barata_usd`, Prisma.sql`r.barata_pen`)} AS barata_eq`
       : Prisma.empty;
+    // «Lo más parecido»: cuántos términos tiene cada producto, para ordenar.
+    const columnaParecido =
+      filtro.minimo !== null
+        ? Prisma.sql`, ${coincidencias(filtro)} AS coincidencias`
+        : Prisma.empty;
     const conPropias = conPrecio && miTiendaId !== null;
     const propias = conPropias
       ? Prisma.sql`
@@ -798,7 +736,7 @@ export class BusquedaService {
     >`
       WITH coinciden AS NOT MATERIALIZED (
         SELECT r.producto_id, r.titulo, r.ofertas, r.stock, r.nuevas, r.usadas, r.galerias,
-               r.actualizada_en ${columnasPrecio}
+               r.actualizada_en ${columnasPrecio} ${columnaParecido}
         FROM producto_resumen r
         ${unirProducto}
         WHERE ${condiciones.length ? Prisma.join(condiciones, ' AND ') : Prisma.sql`true`}
@@ -833,7 +771,7 @@ export class BusquedaService {
       LEFT JOIN producto p ON p.id = g.producto_id
       LEFT JOIN categoria c ON c.id = p.categoria_id
       LEFT JOIN marca m ON m.id = p.marca_id
-      ${conPrecio ? Prisma.sql`LEFT ${this.destacada(palabras, consulta, miTiendaId, barata)}` : Prisma.empty}
+      ${conPrecio ? Prisma.sql`LEFT ${this.destacada(filtro, consulta, miTiendaId, barata)}` : Prisma.empty}
       ORDER BY ${orden}`;
     return {
       filas: filas.filter((fila) => fila.producto_id !== null),
@@ -848,14 +786,16 @@ export class BusquedaService {
    * la oferta destacada) se busca solo para los productos de la página.
    */
   private async ejecutarConOfertas(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
     conPrecio: boolean,
     miTiendaId: string | null,
     orden: Prisma.Sql,
     pagina: { limite: number; desde: number },
   ): Promise<Resultado> {
-    const filtradas = this.filtradas(palabras, consulta, conPrecio);
+    const filtradas = this.filtradas(filtro, consulta, conPrecio);
+    const agregadoParecido =
+      filtro.minimo !== null ? Prisma.sql`, max(f.coincidencias) AS coincidencias` : Prisma.empty;
     const agregadosPrecio = conPrecio
       ? Prisma.sql`,
         min(f.precio_centimos) FILTER (WHERE f.precio_visible AND f.moneda = 'USD') AS desde_usd,
@@ -877,7 +817,7 @@ export class BusquedaService {
                array_agg(DISTINCT f.condicion::text) AS condiciones,
                sum(f.stock)::int AS stock_total,
                max(f.actualizada_en) AS actualizada_en
-               ${agregadosPrecio}
+               ${agregadosPrecio} ${agregadoParecido}
         FROM f
         GROUP BY f.producto_id
       ),
@@ -899,7 +839,7 @@ export class BusquedaService {
       JOIN producto p ON p.id = g.producto_id
       JOIN categoria c ON c.id = p.categoria_id
       LEFT JOIN marca m ON m.id = p.marca_id
-      ${conPrecio ? this.destacada(palabras, consulta, miTiendaId, Prisma.sql`g.barata`) : Prisma.empty}
+      ${conPrecio ? this.destacada(filtro, consulta, miTiendaId, Prisma.sql`g.barata`) : Prisma.empty}
       ORDER BY ${orden}`;
     const [primera] = filas;
     if (primera) {
@@ -922,55 +862,18 @@ export class BusquedaService {
   }
 
   /**
-   * Corrige cada palabra que no está en el catálogo (docs/05 §7). Con números se exige
-   * distancia de Levenshtein 1 («3370» → «3070»): la similitud por trigramas falla con
-   * números cortos. Con letras se acepta distancia 1 o 2 según el largo, o similitud ≥ 0,4.
-   */
-  async corregir(palabras: string[]): Promise<string[]> {
-    const conocidas = await this.prisma.termino.findMany({
-      where: { palabra: { in: palabras } },
-      select: { palabra: true },
-    });
-    const conocidasSet = new Set(conocidas.map((t) => t.palabra));
-
-    return Promise.all(
-      palabras.map(async (palabra) => {
-        if (conocidasSet.has(palabra)) return palabra;
-        if (/^\d+$/.test(palabra)) {
-          const [candidata] = await this.prisma.$queryRaw<Array<{ palabra: string }>>`
-            SELECT palabra FROM termino
-            WHERE palabra ~ '^[0-9]+$' AND abs(length(palabra) - ${palabra.length}) <= 1
-              AND levenshtein(palabra, ${palabra}) <= 1
-            ORDER BY levenshtein(palabra, ${palabra}), veces DESC, palabra
-            LIMIT 1`;
-          return candidata?.palabra ?? palabra;
-        }
-        if (palabra.length < 3) return palabra;
-        const distancia = palabra.length >= 5 ? 2 : 1;
-        const [candidata] = await this.prisma.$queryRaw<Array<{ palabra: string }>>`
-          SELECT palabra FROM termino
-          WHERE palabra ~ '[a-z]'
-            AND (levenshtein(palabra, ${palabra}) <= ${distancia} OR similarity(palabra, ${palabra}) >= 0.4)
-          ORDER BY levenshtein(palabra, ${palabra}), similarity(palabra, ${palabra}) DESC, veces DESC, palabra
-          LIMIT 1`;
-        return candidata?.palabra ?? palabra;
-      }),
-    );
-  }
-
-  /**
    * Conteos para el lateral, sobre lo que coincide con el texto y la categoría. Las
    * categorías se cuentan sin su propio filtro: así las tarjetas de arriba de los resultados
    * siguen mostrando las otras categorías después de elegir una.
    */
   private async facetas(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
   ): Promise<RespuestaBuscar['facetas']> {
     const [filas, porCategoria] = await (((consulta as ConsultaInterna).excluirTiendas ?? [])
       .length === 0
-      ? this.facetasConResumen(palabras, consulta)
-      : this.facetasConOfertas(palabras, consulta));
+      ? this.facetasConResumen(filtro, consulta)
+      : this.facetasConOfertas(filtro, consulta));
 
     const de = (dimension: string): Faceta[] =>
       filas
@@ -991,19 +894,19 @@ export class BusquedaService {
    * ofertas por galería, marca, condición y con stock, sin recorrer las ofertas.
    */
   private facetasConResumen(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
   ): Promise<[Array<Faceta & { dimension: string }>, Faceta[]]> {
-    const unirProducto = palabras.length
+    const unirProducto = filtro.terminos.length
       ? Prisma.sql`JOIN producto p ON p.id = r.producto_id`
       : Prisma.empty;
     const donde = (condiciones: Prisma.Sql[]) =>
       condiciones.length ? Prisma.join(condiciones, ' AND ') : Prisma.sql`true`;
-    const conCategoria = this.condicionesResumen(palabras, {
+    const conCategoria = this.condicionesResumen(filtro, {
       categoria: consulta.categoria,
       marca: [],
     });
-    const sinCategoria = this.condicionesResumen(palabras, { categoria: undefined, marca: [] });
+    const sinCategoria = this.condicionesResumen(filtro, { categoria: undefined, marca: [] });
     // Se agrupa por id y después se buscan los nombres: agrupar por el slug (citext) es más lento.
     const categorias = this.prisma.$queryRaw<Faceta[]>`
       SELECT c.slug::text AS slug, c.nombre, x.cantidad
@@ -1057,11 +960,11 @@ export class BusquedaService {
 
   /** Las facetas agrupando las ofertas (quien mira bloqueó tiendas). */
   private facetasConOfertas(
-    palabras: string[],
+    filtro: FiltroTexto,
     consulta: BuscarConsulta,
   ): Promise<[Array<Faceta & { dimension: string }>, Faceta[]]> {
-    const condiciones = this.condicionesBase(palabras, consulta);
-    const sinCategoria = this.condicionesBase(palabras, { ...consulta, categoria: undefined });
+    const condiciones = this.condicionesBase(filtro, consulta);
+    const sinCategoria = this.condicionesBase(filtro, { ...consulta, categoria: undefined });
     const categorias = this.prisma.$queryRaw<Faceta[]>`
       SELECT c.slug::text AS slug, c.nombre, count(DISTINCT p.id)::int AS cantidad
       FROM oferta o

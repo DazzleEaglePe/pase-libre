@@ -331,6 +331,11 @@ function Formulario({
   // Las opciones en el orden en que se ven, para moverse con las flechas.
   const productos = escribiendo ? (sugerencias?.productos ?? []) : [];
   const correccion = escribiendo ? (sugerencias?.correccion ?? null) : null;
+  // Doc 20 §11: sin uno con todas las palabras, el grupo dice que son los más parecidos.
+  const tituloProductos =
+    escribiendo && sugerencias?.lo_mas_parecido
+      ? 'No hay uno igual. Lo más parecido:'
+      : 'Productos';
   // «TIENDAS» (N13): solo llegan con sesión; las reservadas las quita la API.
   const tiendas = escribiendo ? (sugerencias?.tiendas ?? []) : [];
   const opciones: Opcion[] = [];
@@ -559,7 +564,7 @@ function Formulario({
                       </OpcionLista>
                     ))}
                     {separador}
-                    <span className={tituloGrupo}>Productos</span>
+                    <span className={tituloGrupo}>{tituloProductos}</span>
                   </>
                 )}
                 {correccion && (
@@ -573,7 +578,7 @@ function Formulario({
                   </OpcionLista>
                 )}
                 {productos.length > 0 && tiendas.length === 0 && (
-                  <span className={tituloGrupo}>Productos</span>
+                  <span className={tituloGrupo}>{tituloProductos}</span>
                 )}
                 {productos.map((producto, n) => (
                   <OpcionLista

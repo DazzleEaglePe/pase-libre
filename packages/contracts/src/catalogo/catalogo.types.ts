@@ -118,6 +118,11 @@ interface BaseBusqueda {
    * en Tarjetas de video · Buscar «gigabte treinta sesenta» tal cual» (BUS_Web).
    */
   correccion: Correccion | null;
+  /**
+   * No hubo nada con todas las palabras y salen los que tienen al menos el 60 %, de más a menos
+   * (doc 20 §11): «No hay uno igual. Lo más parecido:».
+   */
+  lo_mas_parecido: boolean;
   total_productos: number;
   total_ofertas: number;
   pagina: number;
@@ -239,6 +244,8 @@ export interface RespuestaRedireccion {
  */
 export interface RespuestaSugerenciasBusqueda {
   correccion: Correccion | null;
+  /** «No hay uno igual. Lo más parecido:» (doc 20 §11). */
+  lo_mas_parecido: boolean;
   total_productos: number;
   /** Con sesión, con «desde US$ 285 · 6 tiendas» (BUS_WebSug). */
   productos: Array<ProductoEnLista | ProductoEnListaConPrecio>;

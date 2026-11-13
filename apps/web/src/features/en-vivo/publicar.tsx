@@ -161,6 +161,8 @@ export function FormularioEnVivo({
   const [texto, setTexto] = useState(inicial.texto.slice(0, 120));
   const [producto, setProducto] = useState<SugerenciaProducto | null>(null);
   const [sugerencias, setSugerencias] = useState<SugerenciaProducto[] | null>(null);
+  // Doc 20 §11: sin uno con todas las palabras, «No hay uno igual. Lo más parecido:».
+  const [loMasParecido, setLoMasParecido] = useState(false);
   // «N tiendas lo tienen» de cada sugerencia.
   const [tienenlo, setTienenlo] = useState<Record<string, number>>({});
   const [categoria, setCategoria] = useState(() =>
@@ -198,6 +200,7 @@ export function FormularioEnVivo({
         if (!vigente) return;
         const productos = r.productos.slice(0, 5);
         setSugerencias(productos);
+        setLoMasParecido(r.lo_mas_parecido);
         for (const p of productos) {
           llamarApi<RespuestaAlcanceEnVivo>(`/en-vivo/alcance?producto=${p.id}`).then(
             (a) => vigente && setTienenlo((antes) => ({ ...antes, [p.id]: a.tiendas })),
@@ -515,7 +518,9 @@ export function FormularioEnVivo({
                           {sugerencias.length > 0 ? (
                             <>
                               <span className="px-2.5 pb-1.5 pt-1 text-[11.5px] font-extrabold uppercase tracking-[.06em] text-detalle">
-                                Del catálogo
+                                {loMasParecido
+                                  ? 'No hay uno igual. Lo más parecido:'
+                                  : 'Del catálogo'}
                               </span>
                               <ul className="m-0 flex list-none flex-col p-0">
                                 {sugerencias.map((s) => (

@@ -33,6 +33,13 @@ import JSZip from 'jszip';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { ArchivosService } from '../archivos/archivos.service';
+import {
+  buscarConMotor,
+  condicionesDeIntento,
+  ordenDeParecido,
+  palabrasDe,
+  type Intento,
+} from '../catalogo/motor-busqueda';
 import type { SesionActiva } from '../sesion/sesion.types';
 import { armarListaDeErrores, armarPlantilla, esHojaDeAyuda } from './plantilla-catalogo';
 
@@ -417,41 +424,81 @@ export class CatalogoEquipoService {
 
   // ── Productos ────────────────────────────────────────────────────────────
 
+  /**
+   * Los productos del catálogo, con el mismo buscador que la barra de arriba (doc 20 §11). Si
+   * ni «Lo más parecido» encuentra algo, quedan los que se parecen letra a letra («gigabte
+   * 4060»), como siempre en el panel.
+   */
   async lista(consulta: CatalogoEquipoConsulta): Promise<RespuestaCatalogoEquipo> {
-    const q = normalizarTexto(consulta.q);
-    const palabras = q.split(' ').filter(Boolean);
-    const categoria = consulta.categoria;
+    const categoria = consulta.categoria || null;
     const desde = (consulta.pagina - 1) * POR_PAGINA;
-    // Con texto: las que tienen todas las palabras, o se parecen («gigabte 4060»).
-    const filtroTexto = q
-      ? Prisma.sql`AND (${Prisma.join(
-          palabras.map((p) => Prisma.sql`p.texto_busqueda LIKE ${`%${p}%`}`),
-          ' AND ',
-        )} OR word_similarity(${q}, p.texto_busqueda) > 0.45)`
-      : Prisma.empty;
-    const filtroCategoria = categoria ? Prisma.sql`AND c.slug = ${categoria}` : Prisma.empty;
-    const orden = q
-      ? Prisma.sql`ORDER BY word_similarity(${q}, p.texto_busqueda) DESC, p.titulo ASC`
-      : Prisma.sql`ORDER BY p.creado_en DESC`;
-    const [ids, [conteo], porRevisar] = await Promise.all([
-      this.prisma.$queryRaw<Array<{ id: string }>>`
-        SELECT p.id FROM producto p JOIN categoria c ON c.id = p.categoria_id
-        WHERE p.fusionado_en_id IS NULL ${filtroCategoria} ${filtroTexto}
-        ${orden} LIMIT ${POR_PAGINA} OFFSET ${desde}`,
-      this.prisma.$queryRaw<Array<{ total: number }>>`
-        SELECT count(*)::int AS total FROM producto p JOIN categoria c ON c.id = p.categoria_id
-        WHERE p.fusionado_en_id IS NULL ${filtroCategoria} ${filtroTexto}`,
+    let pagina: { ids: string[]; total: number };
+    let intento: Intento | null = null;
+    if (palabrasDe(consulta.q).length === 0) {
+      pagina = await this.paginaDelCatalogo(
+        categoria ? [Prisma.sql`c.slug = ${categoria}`] : [],
+        Prisma.sql`p.creado_en DESC`,
+        desde,
+      );
+    } else {
+      const q = normalizarTexto(consulta.q);
+      const busqueda = await buscarConMotor(
+        this.prisma,
+        consulta.q,
+        { categoria },
+        (i) =>
+          this.paginaDelCatalogo(
+            condicionesDeIntento(i, { categoria, sobre: 'producto' }),
+            Prisma.sql`${ordenDeParecido(i)}word_similarity(${q}, p.texto_busqueda) DESC, p.titulo ASC`,
+            desde,
+          ),
+        (encontrados) => encontrados.total > 0,
+      );
+      pagina = busqueda.resultado;
+      intento = busqueda.intento;
+      if (pagina.total === 0) {
+        pagina = await this.paginaDelCatalogo(
+          [
+            Prisma.sql`word_similarity(${q}, p.texto_busqueda) > 0.45`,
+            ...(categoria ? [Prisma.sql`c.slug = ${categoria}`] : []),
+          ],
+          Prisma.sql`word_similarity(${q}, p.texto_busqueda) DESC, p.titulo ASC`,
+          desde,
+        );
+      }
+    }
+    const [productos, porRevisar] = await Promise.all([
+      this.productosPorId(pagina.ids),
       this.prisma.producto.count({ where: { revisado: false, fusionadoEnId: null } }),
     ]);
-    const productos = await this.productosPorId(ids.map((fila) => fila.id));
-    const total = conteo?.total ?? 0;
     return {
-      total,
+      total: pagina.total,
       pagina: consulta.pagina,
-      paginas: Math.max(1, Math.ceil(total / POR_PAGINA)),
+      paginas: Math.max(1, Math.ceil(pagina.total / POR_PAGINA)),
       por_revisar: porRevisar,
+      correccion: intento?.correccion ?? null,
+      lo_mas_parecido: intento?.lo_mas_parecido ?? false,
       productos,
     };
+  }
+
+  /** Una página de productos del catálogo (`p`, con `categoria c`) y cuántos son en total. */
+  private async paginaDelCatalogo(
+    condiciones: Prisma.Sql[],
+    orden: Prisma.Sql,
+    desde: number,
+  ): Promise<{ ids: string[]; total: number }> {
+    const donde = Prisma.join([Prisma.sql`p.fusionado_en_id IS NULL`, ...condiciones], ' AND ');
+    const [ids, [conteo]] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT p.id FROM producto p JOIN categoria c ON c.id = p.categoria_id
+        WHERE ${donde}
+        ORDER BY ${orden} LIMIT ${POR_PAGINA} OFFSET ${desde}`,
+      this.prisma.$queryRaw<Array<{ total: number }>>`
+        SELECT count(*)::int AS total FROM producto p JOIN categoria c ON c.id = p.categoria_id
+        WHERE ${donde}`,
+    ]);
+    return { ids: ids.map((fila) => fila.id), total: conteo?.total ?? 0 };
   }
 
   private async productosPorId(ids: string[]): Promise<ProductoDelCatalogo[]> {

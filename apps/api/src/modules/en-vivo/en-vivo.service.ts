@@ -3,7 +3,7 @@ import {
   EVENTOS,
   MAX_EN_VIVO_POR_CUENTA,
   formatearPrecio,
-  normalizarTexto,
+  interpretarBusqueda,
   precioDe,
   type AlcanceEnVivoConsulta,
   type AvisoCampanita,
@@ -29,6 +29,14 @@ import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import type { Mirada } from '../../shared/guards/sesion-opcional.guard';
 import { FOTO_DEL_PRODUCTO, PORTADA_DE_OFERTA, portadaDe } from '../../shared/portada';
 import { ArchivosService } from '../archivos/archivos.service';
+import {
+  buscarConMotor,
+  condicionesDeIntento,
+  empiezaCon,
+  ordenDeParecido,
+  palabrasDe,
+  type Intento,
+} from '../catalogo/motor-busqueda';
 import { conSesion, precioPara } from '../catalogo/visibilidad';
 import { avisoCampanita, AvisosService } from '../mensajes/avisos.service';
 import { MensajesService } from '../mensajes/mensajes.service';
@@ -42,8 +50,8 @@ const MAX_CERRADOS = 20;
 const MAX_OPCIONES = 20;
 /** Tope de avisos por busco: con más tiendas que esto, el aviso deja de ser útil. */
 const MAX_AVISADOS = 200;
-/** Palabras que no sirven para encontrar un producto. */
-const VACIAS = new Set(['con', 'del', 'las', 'los', 'para', 'por', 'que', 'una', 'uno']);
+/** Tope de productos que reconoce el texto de un busco. */
+const MAX_PRODUCTOS_DEL_BUSCO = 500;
 
 const SELECT_PUBLICO = {
   id: true,
@@ -515,7 +523,7 @@ export class EnVivoService {
     });
     if (!busco) throw noExiste();
     if (busco.tiendaId === tiendaId) return { ofertas: [] };
-    const coincide = this.coincidencia(busco);
+    const coincide = await this.coincidencia(busco);
     if (!coincide) return { ofertas: [] };
 
     const primeroElMismo = busco.productoId
@@ -811,32 +819,72 @@ export class EnVivoService {
   }
 
   /**
-   * Cómo se reconoce el producto de un busco: el mismo producto, o los de su categoría que
-   * tienen su número de modelo («4060» en «RTX 4060 o 5060»). Sin números, todas sus
-   * palabras. Nulo si no queda nada con qué buscar.
+   * Cómo se reconoce el producto de un busco: el mismo producto; los que encuentra con su
+   * título el buscador de todo el sitio (doc 20 §11: «ram», «m.2 1tb», el relleno y «Lo más
+   * parecido»), en su categoría; y, como siempre, los de su categoría que tienen su número de
+   * modelo («4060» en «RTX 4060 o 5060»). Nulo si no queda nada con qué buscar.
    */
-  private coincidencia(busco: {
+  private async coincidencia(busco: {
     productoId: string | null;
     titulo: string;
     categoriaId: string | null;
-  }): Prisma.Sql | null {
-    const palabras = normalizarTexto(busco.titulo).split(' ').filter(Boolean);
-    const modelos = palabras.filter((p) => /\d/.test(p) && p.length >= 3);
-    const claves = palabras.filter((p) => p.length >= 3 && !VACIAS.has(p));
-    // Las palabras normalizadas solo tienen letras y números: no hay comodines que escapar.
-    const empieza = (p: string) => Prisma.sql`(' ' || p.texto_busqueda) LIKE ${`% ${p}%`}`;
-    const partes: Prisma.Sql[] = [];
-    if (modelos.length > 0) partes.push(Prisma.join(modelos.map(empieza), ' OR '));
-    else if (claves.length > 0) partes.push(Prisma.join(claves.map(empieza), ' AND '));
-
+  }): Promise<Prisma.Sql | null> {
     const enCategoria = busco.categoriaId
-      ? Prisma.sql` AND p.categoria_id = ${busco.categoriaId}::uuid`
-      : Prisma.empty;
-    const porTexto = partes[0] ? Prisma.sql`((${partes[0]})${enCategoria})` : null;
-    const porProducto = busco.productoId ? Prisma.sql`p.id = ${busco.productoId}::uuid` : null;
-    const alguna = [porProducto, porTexto].filter((c): c is Prisma.Sql => c !== null);
+      ? Prisma.sql`p.categoria_id = ${busco.categoriaId}::uuid`
+      : null;
+    const alguna: Prisma.Sql[] = [];
+    if (busco.productoId) alguna.push(Prisma.sql`p.id = ${busco.productoId}::uuid`);
+
+    if (palabrasDe(busco.titulo).length > 0) {
+      const categoria = busco.categoriaId
+        ? await this.prisma.categoria.findUnique({
+            where: { id: busco.categoriaId },
+            select: { slug: true },
+          })
+        : null;
+      const { resultado: ids } = await buscarConMotor(
+        this.prisma,
+        busco.titulo,
+        { categoria: categoria?.slug ?? null },
+        (i) => this.productosDelBusco(i, enCategoria),
+        (encontrados) => encontrados.length > 0,
+      );
+      if (ids.length > 0) alguna.push(Prisma.sql`p.id = ANY(${ids}::uuid[])`);
+
+      // El número de modelo basta (sin las palabras de categoría ni el relleno).
+      const modelos = interpretarBusqueda(busco.titulo).terminos.filter(
+        (t) => /^[a-z0-9]+$/.test(t) && /\d/.test(t) && t.length >= 3,
+      );
+      if (modelos.length > 0) {
+        const porModelo = Prisma.join(modelos.map(empiezaCon), ' OR ');
+        alguna.push(
+          enCategoria
+            ? Prisma.sql`((${porModelo}) AND ${enCategoria})`
+            : Prisma.sql`(${porModelo})`,
+        );
+      }
+    }
     if (alguna.length === 0) return null;
     return Prisma.sql`p.fusionado_en_id IS NULL AND (${Prisma.join(alguna, ' OR ')})`;
+  }
+
+  /** Los productos que encuentra un intento del buscador con el título de un busco. */
+  private async productosDelBusco(
+    intento: Intento,
+    enCategoria: Prisma.Sql | null,
+  ): Promise<string[]> {
+    const condiciones = [
+      Prisma.sql`p.fusionado_en_id IS NULL`,
+      ...condicionesDeIntento(intento, { sobre: 'producto' }),
+      ...(enCategoria ? [enCategoria] : []),
+    ];
+    const filas = await this.prisma.$queryRaw<Array<{ id: string }>>`
+      SELECT p.id::text AS id
+      FROM producto p
+      WHERE ${Prisma.join(condiciones, ' AND ')}
+      ORDER BY ${ordenDeParecido(intento)}p.titulo
+      LIMIT ${MAX_PRODUCTOS_DEL_BUSCO}`;
+    return filas.map((f) => f.id);
   }
 
   /** Quienes atienden una publicación activa y con stock de ese producto, en otras tiendas. */
@@ -844,7 +892,7 @@ export class EnVivoService {
     busco: { productoId: string | null; titulo: string; categoriaId: string | null },
     excluirTiendaId: string,
   ): Promise<Array<{ tiendaId: string; usuarioId: string }>> {
-    const coincide = this.coincidencia(busco);
+    const coincide = await this.coincidencia(busco);
     if (!coincide) return [];
     const filas = await this.prisma.$queryRaw<Array<{ tienda_id: string; usuario_id: string }>>`
       SELECT DISTINCT o.tienda_id::text AS tienda_id, o.responsable_id::text AS usuario_id
