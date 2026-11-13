@@ -275,3 +275,13 @@ Hecha en `main` el 12/11/2026, con los 9 puntos; las pruebas pasan (API 507, web
 - [x] 9 · `packages/contracts/src/version.ts` (`VERSION`, `NOVEDADES`): «PaseLibre 1.9 · Novedades» en el pie de las tiendas y «Versión 1.9.0 · Ver cambios» → `/equipo/versiones`.
 
 En cada tanda nueva: subir `VERSION` y agregar su entrada arriba en `NOVEDADES` (primer número si cambia cómo se usa, segundo si hay algo nuevo, tercero si solo son arreglos).
+
+## 15. Versión 1.9.1: arreglos urgentes del tiempo real ([docs/19](19-version-1-9-1-y-1-10-0.md), parte A)
+
+Hecha en `main` el 13/11/2026; las pruebas pasan (API 513, web 106, contratos 68).
+
+- [x] A1 · El socket y CORS aceptan `WEB_URL`, su par con o sin `www.` y `ORIGENES_EXTRA` (vacío por defecto); un rechazo por origen queda en el registro con el origen y la IP. La regla de Cloudflare «www → raíz» (301) ya estaba.
+- [x] A2 · `tryAllTransports`; `useConectado()` y `useRespaldo()` (cada 25 s sin conexión y al volver a la pestaña) en la conversación, la bandeja, el chat con el Equipo (los dos lados), la campanita y En vivo; franja «Reconectando… los mensajes pueden tardar» a los 5 s; si el servidor corta, otro socket con espera de 5 s a 60 s.
+- [x] A3 · Evento `equipo:mensaje` a la tienda y a la sala `equipo` (todo usuario EQUIPO), aparte de los avisos: el chat se mueve aunque la tienda tenga «No molestar». El panel del Equipo monta el tiempo real.
+- [x] A4 · «Ir al inicio» del primer ingreso hace `router.refresh()`.
+- [x] `VERSION = '1.9.1'`.

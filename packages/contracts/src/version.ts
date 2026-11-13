@@ -28,6 +28,22 @@ export interface Novedad {
 /** De la más nueva a la más antigua. */
 export const NOVEDADES: readonly Novedad[] = [
   {
+    version: '1.9.1',
+    fecha: '2026-11-13',
+    publico: ['Los mensajes y los pedidos en vivo llegan al instante, sin recargar.'],
+    equipo: {
+      nuevo: [],
+      cambia: [],
+      arregla: [
+        'El tiempo real acepta www.paselibre.shop (antes se rechazaba en silencio).',
+        'Si se corta el tiempo real, la página revisa sola cada 25 s y avisa «Reconectando…».',
+        'El chat con el Equipo se actualiza en vivo en los dos lados, aunque la tienda tenga «No molestar».',
+        'Primer ingreso: la cabecera ya no dice «Iniciar sesión» y el tiempo real funciona sin F5.',
+      ],
+      datos: [],
+    },
+  },
+  {
     version: '1.9.0',
     fecha: '2026-11-12',
     publico: [
@@ -60,7 +76,7 @@ export const NOVEDADES: readonly Novedad[] = [
 ];
 
 /** La versión que está corriendo: siempre la primera de `NOVEDADES` (lo revisa una prueba). */
-export const VERSION = '1.9.0';
+export const VERSION = '1.9.1';
 
 /** Lo que sale en el pie de las tiendas: solo los dos primeros números («1.9»). */
 export function versionCorta(version: string = VERSION): string {

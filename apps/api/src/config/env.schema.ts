@@ -16,6 +16,11 @@ export const envSchema = z
       .string()
       .default('postgresql://paselibre:paselibre_dev@localhost:5435/paselibre'),
     WEB_URL: z.url().default('http://localhost:3000'),
+    /**
+     * Otros orígenes de la web, separados por comas, además de `WEB_URL` y su par con o sin
+     * `www.` (que se aceptan siempre). Vacío por defecto.
+     */
+    ORIGENES_EXTRA: z.preprocess(commaSeparatedList, z.array(z.string()).default([])),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('debug'),
     /** En producción la cookie de sesión solo viaja por HTTPS. */
     SESION_COOKIE_SEGURA: z.stringbool().optional(),

@@ -1,6 +1,8 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
 import {
+  EVENTOS,
   MAX_ADVERTENCIAS,
+  type EventoMensajeEquipo,
   type EscribirEquipoDatos,
   type HiloEquipoEnLista,
   type MensajeChatEquipo,
@@ -13,6 +15,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { ApiHttpException } from '../../shared/errors/api-http.exception';
 import { AvisosService } from '../mensajes/avisos.service';
 import type { SesionActiva } from '../sesion/sesion.types';
+import { TiempoRealService } from '../tiempo-real/tiempo-real.service';
 
 const MOTIVO = { ESTAFA: 'Estafa', DESCRITO: 'No cumplió con lo descrito', TRATO: 'Mal trato' };
 const ESTADO = {
@@ -74,7 +77,18 @@ export class SoporteService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AvisosService) private readonly avisos: AvisosService,
+    @Inject(TiempoRealService) private readonly tiempoReal: TiempoRealService,
   ) {}
+
+  /**
+   * El chat se mueve en vivo en los dos lados, aparte de los avisos: «No molestar» y el
+   * apagado de «Novedades del equipo» callan la campanita, nunca el chat abierto (doc 19, A3).
+   */
+  private avisarChat(tiendaId: string): void {
+    const datos: EventoMensajeEquipo = { tienda_id: tiendaId };
+    this.tiempoReal.emitirATienda(tiendaId, EVENTOS.mensajeEquipo, datos);
+    this.tiempoReal.emitirAlEquipo(EVENTOS.mensajeEquipo, datos);
+  }
 
   private tiendaDe(sesion: SesionActiva): string {
     const tiendaId = sesion.usuario.tiendaId;
@@ -160,6 +174,7 @@ export class SoporteService {
     if (!anterior || Date.now() - anterior.creadoEn.getTime() >= PAUSA_RESPUESTA_AUTOMATICA_MS) {
       await this.responderSolo(tiendaId, sesion.usuario.tienda?.nombre ?? 'tienda');
     }
+    this.avisarChat(tiendaId);
     const equipo = await this.prisma.usuario.findMany({
       where: { rol: 'EQUIPO', estado: 'ACTIVO' },
       select: { id: true },
@@ -334,6 +349,7 @@ export class SoporteService {
       datos.texto,
       datos.denuncia ?? null,
     );
+    this.avisarChat(tiendaId);
     await this.avisos.crear(
       tienda.usuarios.map((persona) => persona.id),
       {

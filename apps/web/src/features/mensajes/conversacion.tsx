@@ -43,7 +43,7 @@ import { EnVivoEnElChat } from '@/features/en-vivo/en-chat';
 import { VentanaBloquear, VentanaReporte } from '@/features/reportes/ventanas';
 import { ErrorApi, llamarApi, subirFoto } from '@/shared/api/cliente';
 import { cuandoFue, diaDelChat, haceRato } from '@/shared/fechas';
-import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
+import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 import { Miniatura } from '@/shared/ui/miniatura';
 
@@ -380,6 +380,7 @@ export function Conversacion({
   useEffect(() => {
     void cargar();
   }, [cargar, conexion]);
+  useRespaldo(cargar);
 
   useEffect(() => {
     llamarApi<RespuestaRapida[]>('/cuenta/respuestas-rapidas').then(setRapidas, () => undefined);

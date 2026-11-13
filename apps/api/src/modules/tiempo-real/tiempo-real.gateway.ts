@@ -12,6 +12,7 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { SesionService } from '../sesion/sesion.service';
 import { COOKIE_SESION } from '../sesion/sesion.types';
 import {
+  SALA_EQUIPO,
   salaDeSesion,
   salaDeTienda,
   salaDeUsuario,
@@ -36,7 +37,8 @@ export function tokenDeCookie(cabecera: string | undefined): string | null {
 /**
  * Socket del tiempo real (docs/05 §6.3), en `/tiempo-real`. Entra solo quien tiene una
  * sesión vigente y su propia contraseña; queda en la sala de su usuario, la de su tienda y
- * la de su sesión. El navegador no le manda nada: solo escucha.
+ * la de su sesión; la gente del Equipo, también en la del Equipo. El navegador no le manda
+ * nada: solo escucha.
  */
 @WebSocketGateway({ path: RUTA_TIEMPO_REAL, serveClient: false })
 export class TiempoRealGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
@@ -68,6 +70,7 @@ export class TiempoRealGateway implements OnGatewayInit, OnGatewayConnection, On
       salaDeUsuario(usuario.id),
       salaDeSesion(sesion.sesionId),
       ...(usuario.tiendaId ? [salaDeTienda(usuario.tiendaId)] : []),
+      ...(usuario.rol === 'EQUIPO' ? [SALA_EQUIPO] : []),
     ]);
     this.tiempoReal.conecto(usuario.id, usuario.tiendaId);
     socket.emit(EVENTOS.listo);

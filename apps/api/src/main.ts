@@ -15,6 +15,7 @@ async function bootstrap(): Promise<void> {
   app.useLogger(app.get(Logger));
   configureApplication(app, {
     webUrl: config.get('WEB_URL', { infer: true }),
+    origenesExtra: config.get('ORIGENES_EXTRA', { infer: true }),
     proxiesDeConfianza: config.get('PROXIES_DE_CONFIANZA', { infer: true }),
     carpetaMedia: config.get('MEDIA_DIR', { infer: true }),
   });

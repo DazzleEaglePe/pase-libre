@@ -14,7 +14,7 @@ import { FiltrosAvisos, ListaAvisos } from '@/features/avisos/lista-avisos';
 import { llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
 import { conAvisoLeido, useAvisoLeido } from '@/shared/avisos-leidos';
-import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
+import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 
 /**
  * Los contadores de Mensajes y la campanita. Se piden al entrar, al reconectar el socket y
@@ -29,11 +29,13 @@ export function useContadores(): Contadores {
   }, []);
 
   useEffect(pedir, [pedir, conexion]);
+  useRespaldo(pedir);
   // Un mensaje dispara hasta tres eventos seguidos: una sola consulta.
   const agrupado = useAgrupado(pedir);
   useEvento(EVENTOS.mensajeNuevo, agrupado);
   useEvento(EVENTOS.avisoNuevo, agrupado);
   useEvento(EVENTOS.contadores, agrupado);
+  useEvento(EVENTOS.mensajeEquipo, agrupado);
   useAvisoLeido(
     useCallback(
       () =>

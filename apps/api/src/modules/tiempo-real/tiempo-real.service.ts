@@ -4,6 +4,8 @@ import type { Server } from 'socket.io';
 export const salaDeUsuario = (id: string) => `usuario:${id}`;
 export const salaDeTienda = (id: string) => `tienda:${id}`;
 export const salaDeSesion = (id: string) => `sesion:${id}`;
+/** Toda la gente del Equipo (rol EQUIPO): el chat con las tiendas en vivo. */
+export const SALA_EQUIPO = 'equipo';
 
 /**
  * Si alguien recarga la página, su socket se corta y vuelve en un par de segundos: se espera
@@ -52,6 +54,10 @@ export class TiempoRealService implements OnModuleDestroy {
 
   emitirATienda(tiendaId: string, evento: string, datos?: unknown): void {
     this.servidor?.to(salaDeTienda(tiendaId)).emit(evento, datos ?? {});
+  }
+
+  emitirAlEquipo(evento: string, datos?: unknown): void {
+    this.servidor?.to(SALA_EQUIPO).emit(evento, datos ?? {});
   }
 
   /** A todos los sockets: todos tienen sesión, porque el visitante no abre uno. */

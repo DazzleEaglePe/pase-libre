@@ -129,7 +129,16 @@ export function FormularioAcceso({
           titulo="Listo, ya entraste"
           bajada="Tu contraseña quedó guardada. Puedes cambiarla cuando quieras en Configuración › Seguridad."
         />
-        <button type="button" className={botonPrincipal} onClick={() => router.replace(destino)}>
+        <button
+          type="button"
+          className={botonPrincipal}
+          onClick={() => {
+            // Sin el refresh, Next reusa la cabecera de antes (sin sesión) y no monta el tiempo
+            // real hasta F5 (doc 19, A4).
+            router.replace(destino);
+            router.refresh();
+          }}
+        >
           {volver ? 'Seguir' : 'Ir al inicio'}
         </button>
       </div>

@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { horaCorta } from '@/shared/fechas';
 import { useAgrupado } from '@/shared/agrupar';
-import { useConexionTiempoReal, useEvento } from '@/shared/tiempo-real';
+import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 import { extractoDeMensaje } from './estado-chat';
@@ -287,6 +287,8 @@ export function Bandeja({ children }: { children: ReactNode }) {
   useEvento(EVENTOS.mensajeNuevo, recargar);
   useEvento(EVENTOS.mensajeCambio, recargar);
   useEvento(EVENTOS.contadores, recargar);
+  useEvento(EVENTOS.mensajeEquipo, recargar);
+  useRespaldo(cargar);
   // El puntito verde se prende y se apaga solo, sin recargar la lista.
   useEvento<EventoPresencia>(EVENTOS.presencia, (evento) =>
     setPresencia((antes) => ({ ...antes, [evento.tienda_id]: evento.en_linea })),

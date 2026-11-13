@@ -2,7 +2,7 @@
 
 import {
   EVENTOS,
-  type AvisoCampanita,
+  type EventoMensajeEquipo,
   type MensajeChatEquipo,
   type RespuestaChatEquipo,
 } from '@paselibre/contracts';
@@ -20,7 +20,7 @@ import {
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { diaDelChat, hora } from '@/shared/fechas';
-import { useEvento } from '@/shared/tiempo-real';
+import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 
 const RAPIDAS = ['Ya lo corregí', '¿Cómo lo edito?', 'Gracias'];
 
@@ -96,6 +96,7 @@ export function ChatEquipo() {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const caja = useRef<HTMLDivElement>(null);
+  const conexion = useConexionTiempoReal();
 
   const cargar = useCallback(async () => {
     try {
@@ -106,11 +107,10 @@ export function ChatEquipo() {
   }, []);
   useEffect(() => {
     void cargar();
-  }, [cargar]);
-  // Cuando el equipo escribe llega un aviso a la campanita: el chat se pone al día.
-  useEvento<AvisoCampanita>(EVENTOS.avisoNuevo, (aviso) => {
-    if (aviso.enlace === '/mensajes/equipo') void cargar();
-  });
+  }, [cargar, conexion]);
+  // Su propio evento, aparte de la campanita: llega aunque esté en «No molestar» (doc 19, A3).
+  useEvento<EventoMensajeEquipo>(EVENTOS.mensajeEquipo, () => void cargar());
+  useRespaldo(cargar);
   useLayoutEffect(() => {
     if (caja.current) caja.current.scrollTop = caja.current.scrollHeight;
   }, [datos]);

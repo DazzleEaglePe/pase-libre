@@ -347,7 +347,16 @@ export const EVENTOS = {
   mensajeRecibido: 'mensaje:recibido',
   /** Una tienda con la que hablas se conectó o se desconectó (el puntito verde, N01). */
   presencia: 'presencia:cambio',
+  /**
+   * Hay un mensaje nuevo en el chat de una tienda con el Equipo. Va a la tienda y a todo el
+   * Equipo, siempre: «No molestar» calla el aviso, nunca el chat abierto (doc 19, A3).
+   */
+  mensajeEquipo: 'equipo:mensaje',
 } as const;
+
+export interface EventoMensajeEquipo {
+  tienda_id: string;
+}
 
 export interface EventoMensajeNuevo {
   conversacion_id: string;

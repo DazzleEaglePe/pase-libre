@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { useAgrupado } from '@/shared/agrupar';
-import { useEvento } from '@/shared/tiempo-real';
+import { useEvento, useRespaldo } from '@/shared/tiempo-real';
 
 /** Sin socket (el visitante no abre uno), la lista se vuelve a pedir cada minuto. */
 const CADA = 60_000;
@@ -43,6 +43,9 @@ export function useEnVivo(consulta = '') {
     if (activo) void cargar();
   }, espera);
   useEvento(EVENTOS.enVivoCambio, recargar);
+  useRespaldo(() => {
+    if (activo) void cargar();
+  });
 
   return { datos, activo, recargar: cargar };
 }

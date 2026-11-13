@@ -1,10 +1,12 @@
 'use client';
 
-import type {
-  HiloEquipoEnLista,
-  MensajeChatEquipo,
-  RespuestaAutomatica,
-  RespuestaChatEquipo,
+import {
+  EVENTOS,
+  type EventoMensajeEquipo,
+  type HiloEquipoEnLista,
+  type MensajeChatEquipo,
+  type RespuestaAutomatica,
+  type RespuestaChatEquipo,
 } from '@paselibre/contracts';
 import { IconSend } from '@tabler/icons-react';
 import { useSearchParams } from 'next/navigation';
@@ -12,6 +14,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEve
 
 import { ErrorApi, llamarApi } from '@/shared/api/cliente';
 import { cuandoFue, horaCorta } from '@/shared/fechas';
+import { useConexionTiempoReal, useEvento, useRespaldo } from '@/shared/tiempo-real';
 import { AvatarTienda } from '@/shared/ui/avatar-tienda';
 
 /**
@@ -31,20 +34,36 @@ export function ChatsEquipo() {
   const cargarHilos = useCallback(async () => {
     setHilos(await llamarApi<HiloEquipoEnLista[]>('/equipo/chats'));
   }, []);
+  const conexion = useConexionTiempoReal();
   useEffect(() => {
     void cargarHilos().catch(() => setError('No pudimos cargar los chats.'));
-  }, [cargarHilos]);
+  }, [cargarHilos, conexion]);
+  const cargarChat = useCallback(
+    (tiendaId: string) =>
+      llamarApi<RespuestaChatEquipo>(`/equipo/chats/${tiendaId}`).then(
+        (respuesta) => {
+          setChat(respuesta);
+          void cargarHilos();
+        },
+        () => setError('No pudimos abrir el chat.'),
+      ),
+    [cargarHilos],
+  );
   useEffect(() => {
     if (!tienda) return;
     setChat(null);
-    llamarApi<RespuestaChatEquipo>(`/equipo/chats/${tienda}`).then(
-      (respuesta) => {
-        setChat(respuesta);
-        void cargarHilos();
-      },
-      () => setError('No pudimos abrir el chat.'),
-    );
-  }, [tienda, cargarHilos]);
+    void cargarChat(tienda);
+  }, [tienda, cargarChat]);
+  // Lo que escriben las tiendas llega sin recargar (doc 19, A3): la lista y, si es la abierta,
+  // el chat.
+  useEvento<EventoMensajeEquipo>(EVENTOS.mensajeEquipo, (evento) => {
+    if (evento.tienda_id === tienda) void cargarChat(tienda);
+    else void cargarHilos().catch(() => undefined);
+  });
+  useRespaldo(() => {
+    if (tienda) void cargarChat(tienda);
+    else void cargarHilos().catch(() => undefined);
+  });
   useLayoutEffect(() => {
     if (caja.current) caja.current.scrollTop = caja.current.scrollHeight;
   }, [chat]);
